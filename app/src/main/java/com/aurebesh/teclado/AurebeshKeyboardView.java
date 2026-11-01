@@ -658,7 +658,7 @@ public final class AurebeshKeyboardView extends View {
     }
 
     private void drawStrip(Canvas c) {
-        float h = 15 * dp;
+        float h = 13.5f * dp;
         float top = (stripHeight() - h) / 2f;
         List<Glyphs.Token> tokens = stripTokens;
         float total = 0;
