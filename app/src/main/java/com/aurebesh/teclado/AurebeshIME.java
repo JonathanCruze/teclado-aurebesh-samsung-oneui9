@@ -65,8 +65,11 @@ public class AurebeshIME extends InputMethodService
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final Handler main = new Handler(Looper.getMainLooper());
 
-    // Portapapeles
+    // Portapapeles y chip "Pegar" de lo recien copiado
+    private static final long PASTE_FRESH_MS = 2 * 60 * 1000L;
     private long lastClipStamp = -1;
+    private ClipHistory.Entry fresh;             // lo ultimo copiado, candidato al chip "Pegar"
+    private long freshAt = 0;                    // cuando se copio (reloj de pared)
     private final ClipboardManager.OnPrimaryClipChangedListener clipListener =
             new ClipboardManager.OnPrimaryClipChangedListener() {
                 @Override public void onPrimaryClipChanged() { captureClip(); }
@@ -182,6 +185,7 @@ public class AurebeshIME extends InputMethodService
         clearSuggestions();
         applyLanguage();
         captureClip();
+        showPasteChip();
         refresh();
     }
 
@@ -432,6 +436,7 @@ public class AurebeshIME extends InputMethodService
         } else {
             lastSpaceAt = 0;
         }
+        if (!separator && fresh != null) clearPasteChip();
         if (separator && applyCorrection(ic, text)) return;
         if (!separator) lastCorrection = null;
         ic.commitText(text, 1);
@@ -624,20 +629,59 @@ public class AurebeshIME extends InputMethodService
             lastClipStamp = stamp;
             ClipData.Item item = clip.getItemAt(0);
             Uri uri = item.getUri();
+            ClipHistory.Entry added = null;
             if (uri != null && item.getText() == null) {
                 String type = null;
                 try { type = getContentResolver().getType(uri); } catch (RuntimeException ignored) {}
                 if (type == null && d != null && d.getMimeTypeCount() > 0) type = d.getMimeType(0);
-                if (type != null && type.startsWith("image/")) {
-                    ClipHistory.addImage(this, uri, type);
-                    return;
+                if (type != null && type.startsWith("image/")) added = ClipHistory.addImage(this, uri, type);
+            }
+            if (added == null) {
+                CharSequence t = item.coerceToText(this);
+                if (!TextUtils.isEmpty(t)) {
+                    ClipHistory.addText(this, t);
+                    added = new ClipHistory.Entry(ClipHistory.Entry.TEXT, t.toString(), null, null);
                 }
             }
-            CharSequence t = item.coerceToText(this);
-            if (!TextUtils.isEmpty(t)) ClipHistory.addText(this, t);
+            if (added != null) {
+                fresh = added;
+                freshAt = stamp > 0 ? stamp : System.currentTimeMillis();
+                showPasteChip();
+            }
         } catch (RuntimeException ignored) {
             // sin acceso al portapapeles en este momento
         }
+    }
+
+    /** Chip "Pegar" mientras lo copiado sea reciente y no se haya empezado a escribir una palabra. */
+    private void showPasteChip() {
+        if (view == null) return;
+        if (fresh == null || privateField || System.currentTimeMillis() - freshAt > PASTE_FRESH_MS) {
+            fresh = null;
+            view.setPasteSuggestion(null, null, null);
+            return;
+        }
+        if (fresh.isImage()) view.setPasteSuggestion(ClipHistory.thumbnail(fresh, 160), null, getString(R.string.paste));
+        else view.setPasteSuggestion(null, fresh.text, getString(R.string.paste));
+    }
+
+    private void clearPasteChip() {
+        fresh = null;
+        if (view != null) view.setPasteSuggestion(null, null, null);
+    }
+
+    @Override
+    public void onPasteSuggestion() {
+        ClipHistory.Entry e = fresh;
+        clearPasteChip();
+        if (e == null) return;
+        if (e.isImage()) { commitImage(e); return; }
+        InputConnection ic = getCurrentInputConnection();
+        if (ic == null || e.text == null) return;
+        applyCorrection(ic, "");
+        ic.commitText(e.text, 1);
+        lastCorrection = null;
+        lastSpaceAt = 0;
     }
 
     private void openClipboard() {

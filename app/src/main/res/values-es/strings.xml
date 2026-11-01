@@ -97,6 +97,8 @@
     <string name="learn_cleared">Palabras aprendidas olvidadas</string>
     <string name="opt_double_space">Punto con doble espacio</string>
     <string name="opt_double_space_sub">Toca dos veces el espacio para terminar la frase</string>
+    <string name="paste">Pegar</string>
+    <string name="tool_hand">Modo a una mano</string>
     <string name="tool_settings">Ajustes</string>
     <string name="gesture_gear">⚙ en ?123</string>
     <string name="gesture_gear_result">Abre esta pantalla de ajustes desde el teclado</string>

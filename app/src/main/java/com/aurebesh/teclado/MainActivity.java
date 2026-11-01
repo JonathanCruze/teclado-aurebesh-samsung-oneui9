@@ -211,6 +211,7 @@ public final class MainActivity extends Activity {
             @Override public void onSwitchKeyboard() {}
             @Override public void onSwitchLanguage() {}
             @Override public void onHandSide(int mode) { Prefs.setHand(MainActivity.this, mode == 1 ? "left" : "right"); applyPreviewPrefs(); }
+            @Override public void onPasteSuggestion() {}
             @Override public void onSuggestion(String word) { replaceSelection(word + " "); }
             @Override public void onToolbar(int tool) {
                 // En la copia del teclado: un emoji de muestra o pegar el portapapeles

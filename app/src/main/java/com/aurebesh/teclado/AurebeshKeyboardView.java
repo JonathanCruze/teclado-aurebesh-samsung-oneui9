@@ -2,11 +2,13 @@ package com.aurebesh.teclado;
 
 import android.content.Context;
 import android.content.res.Configuration;
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RectF;
 import android.graphics.Typeface;
+import android.text.TextUtils;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.SparseArray;
@@ -29,6 +31,7 @@ public final class AurebeshKeyboardView extends View {
         void onSuggestion(String word); // toque en una sugerencia de la barra
         void onToolbar(int tool);       // icono de la barra de herramientas (TOOL_*)
         void onHandSide(int mode);      // flecha del modo a una mano: 1 izquierda, 2 derecha
+        void onPasteSuggestion();       // chip "Pegar" de lo recien copiado
     }
 
     static final int CODE_TEXT = 0;
@@ -118,6 +121,12 @@ public final class AurebeshKeyboardView extends View {
     private boolean toolbar = true;         // iconos sobre las teclas cuando no hay sugerencias
     private final RectF[] toolRects = new RectF[4];
     private final RectF sideRect = new RectF();     // flecha para cambiar de lado en modo a una mano
+    private final RectF moreRect = new RectF();     // "..." que muestra los iconos sobre las sugerencias
+    private boolean toolsOverChips = false;
+    private final RectF pasteRect = new RectF();    // chip "Pegar" de lo recien copiado
+    private Bitmap pasteThumb;
+    private String pasteLabel;
+    private String pasteAction = "Pegar";
     private int toolPressed = -1;
     private int toolPointer = -1;
     private boolean previewEnabled = true;
@@ -264,9 +273,20 @@ public final class AurebeshKeyboardView extends View {
     void setSuggestions(List<String> words, String highlight) {
         suggestions.clear();
         if (words != null) suggestions.addAll(words);
+        if (suggestions.isEmpty()) toolsOverChips = false;
         highlighted = highlight;
         invalidate();
     }
+
+    /** Chip "Pegar" con lo recien copiado (miniatura o fragmento de texto); null lo quita. */
+    void setPasteSuggestion(Bitmap thumb, String label, String action) {
+        pasteThumb = thumb;
+        pasteLabel = label;
+        if (action != null) pasteAction = action;
+        invalidate();
+    }
+
+    boolean hasPasteSuggestion() { return pasteThumb != null || pasteLabel != null; }
 
     /** Barra de herramientas (emojis y portapapeles) a la derecha de las sugerencias. */
     void setToolbar(boolean on) {
@@ -792,10 +812,76 @@ public final class AurebeshKeyboardView extends View {
         suggestionRects.clear();
         for (int i = 0; i < toolRects.length; i++) toolRects[i] = null;
         float right = getWidth() - 12 * dp;
-        if (toolbar) right = drawToolbar(c);
-        if (!suggestions.isEmpty()) drawSuggestions(c, h, top, right);
-        else if (showStrip) drawTranslation(c, h, top, 12 * dp, right);
+        boolean chips = !suggestions.isEmpty();
+        moreRect.setEmpty();
+        pasteRect.setEmpty();
+        if (toolbar && (!chips || toolsOverChips)) right = drawToolbar(c);
+        else if (toolbar) right = drawMore(c);
+        if (chips) {
+            drawSuggestions(c, h, top, right);
+        } else {
+            float left = 12 * dp;
+            if (hasPasteSuggestion()) left = drawPasteChip(c, right);
+            if (showStrip) drawTranslation(c, h, top, left, right);
+        }
         if (theme.keyStroke != 0) c.drawRect(0, stripHeight() - dp, getWidth(), stripHeight(), strokePaint);
+    }
+
+    /** Boton "..." a la derecha mientras hay sugerencias: muestra los iconos de la barra. */
+    private float drawMore(Canvas c) {
+        float cy = stripHeight() / 2f, cx = getWidth() - 6 * dp - 22 * dp;
+        moreRect.set(getWidth() - 50 * dp, 0, getWidth(), stripHeight());
+        fill.setColor(theme.specialBg);
+        c.drawCircle(cx, cy, 16 * dp, fill);
+        if (theme.keyStroke != 0) c.drawCircle(cx, cy, 16 * dp, strokePaint);
+        fill.setColor(theme.icon);
+        for (int i = -1; i <= 1; i++) c.drawCircle(cx + i * 5 * dp, cy, 1.8f * dp, fill);
+        return moreRect.left - 4 * dp;
+    }
+
+    /** Chip con lo recien copiado (miniatura o texto) y la palabra "Pegar". Devuelve su borde derecho. */
+    private float drawPasteChip(Canvas c, float right) {
+        float h = stripHeight() - 10 * dp, top = 5 * dp, x = 8 * dp;
+        textPaint.setTextSize(13 * sp);
+        textPaint.setTextAlign(Paint.Align.LEFT);
+        textPaint.setTypeface(Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD));
+        float actionW = textPaint.measureText(pasteAction);
+        textPaint.setTypeface(Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL));
+        float thumbW = pasteThumb != null ? h - 6 * dp : 0;
+        float maxText = Math.max(0, right - x - actionW - thumbW - 40 * dp);
+        String label = pasteLabel == null ? "" : TextUtils.ellipsize(pasteLabel.replace('\n', ' '), new android.text.TextPaint(textPaint), Math.min(maxText, 160 * dp), TextUtils.TruncateAt.END).toString();
+        float labelW = label.isEmpty() ? 0 : textPaint.measureText(label) + 6 * dp;
+        float w = 12 * dp + (thumbW > 0 ? thumbW + 8 * dp : 0) + labelW + actionW + 12 * dp;
+        pasteRect.set(x, top, Math.min(right, x + w), top + h);
+        fill.setColor(theme.keyBg);
+        c.drawRoundRect(pasteRect, h / 2f, h / 2f, fill);
+        if (theme.keyStroke != 0) c.drawRoundRect(pasteRect, h / 2f, h / 2f, strokePaint);
+        c.save();
+        c.clipRect(pasteRect);
+        float cx = pasteRect.left + 12 * dp, cy = pasteRect.centerY();
+        if (pasteThumb != null) {
+            tmp.set(cx, top + 3 * dp, cx + thumbW, top + 3 * dp + thumbW);
+            c.save();
+            iconPath.reset();
+            iconPath.addRoundRect(tmp, 4 * dp, 4 * dp, Path.Direction.CW);
+            c.clipPath(iconPath);
+            c.drawBitmap(pasteThumb, null, tmp, fill);
+            c.restore();
+            cx += thumbW + 8 * dp;
+        }
+        if (!label.isEmpty()) {
+            textPaint.setColor(theme.hint);
+            c.drawText(label, cx, cy + 4.5f * dp, textPaint);
+            cx += labelW;
+        }
+        textPaint.setTypeface(Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD));
+        textPaint.setColor(theme.accent == theme.glyph ? theme.glyph : theme.accent);
+        c.drawText(pasteAction, cx, cy + 4.5f * dp, textPaint);
+        textPaint.setTypeface(Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL));
+        textPaint.setColor(theme.glyph);
+        textPaint.setTextAlign(Paint.Align.CENTER);
+        c.restore();
+        return pasteRect.right + 10 * dp;
     }
 
     private int[] tools() { return current != letters ? TOOLS_SYMBOLS : TOOLS_LETTERS; }
@@ -967,8 +1053,19 @@ public final class AurebeshKeyboardView extends View {
                     pressed.removeAt(i);
                 }
                 cancelTimers();
-                if (e.getY(idx) < stripHeight()) {                       // barra: sugerencias o iconos
+                if (e.getY(idx) < stripHeight()) {                       // barra: sugerencias, pegar o iconos
                     float tx = e.getX(idx), ty = e.getY(idx);
+                    if (!pasteRect.isEmpty() && pasteRect.contains(tx, ty) && listener != null) {
+                        feedback(special("", CODE_SPACE, 1f));
+                        listener.onPasteSuggestion();
+                        return true;
+                    }
+                    if (!moreRect.isEmpty() && moreRect.contains(tx, ty)) {
+                        feedback(special("", CODE_SPACE, 1f));
+                        toolsOverChips = true;
+                        invalidate();
+                        return true;
+                    }
                     for (int i = 0; i < suggestionRects.size(); i++) {
                         if (suggestionRects.get(i).contains(tx, ty) && listener != null) {
                             feedback(special("", CODE_SPACE, 1f));

@@ -94,6 +94,7 @@ public class ScreenshotTest {
             public void onSuggestion(String w) { typed.append("[").append(w).append("]"); }
             public void onToolbar(int t) { typed.append("<tool").append(t).append(">"); }
             public void onHandSide(int m) { typed.append("<side").append(m).append(">"); }
+            public void onPasteSuggestion() { typed.append("<paste>"); }
         });
         kb.setEnterAction(4);
 
@@ -241,10 +242,28 @@ public class ScreenshotTest {
         typed.setLength(0);
         kb.setHandMode(0);
 
-        // Chips de emoji en la barra de sugerencias
+        // Chips de emoji en la barra de sugerencias; los iconos se esconden tras "..." mientras hay chips
         kb.setSuggestions(java.util.Arrays.asList("perro", "perros", "\uD83D\uDC36", "\uD83D\uDC15"), null);
         save(render(kb), "sugerencias_emoji.png");
+        typed.setLength(0);
+        tap(kb, W - 28 * dp, 20 * dp);                 // "..." -> aparecen los iconos
+        render(kb);
+        tap(kb, W - 116 * dp, 20 * dp);
+        if (!typed.toString().equals("<tool1>")) throw new AssertionError("mas: " + typed);
+        typed.setLength(0);
         kb.setSuggestions(null, null);
+
+        // Chip "Pegar" con lo recien copiado: texto e imagen
+        kb.setPasteSuggestion(null, "Que la Fuerza te acompañe, siempre", "Pegar");
+        save(render(kb), "pegar_texto.png");
+        tap(kb, 60 * dp, 20 * dp);
+        if (!typed.toString().equals("<paste>")) throw new AssertionError("pegar: " + typed);
+        typed.setLength(0);
+        Bitmap thumb = Bitmap.createBitmap(120, 80, Bitmap.Config.ARGB_8888);
+        thumb.eraseColor(0xFF7FD3F0);
+        kb.setPasteSuggestion(thumb, null, "Pegar");
+        save(render(kb), "pegar_imagen.png");
+        kb.setPasteSuggestion(null, null, null);
         java.util.List<String> dogs = EmojiSuggest.lookup(app, "perro", 3);
         if (!dogs.contains("\uD83D\uDC36") && !dogs.contains("\uD83D\uDC15")) throw new AssertionError("emoji perro: " + dogs);
         if (!EmojiSuggest.lookup(app, "pizza", 2).contains("\uD83C\uDF55")) throw new AssertionError("emoji pizza");
