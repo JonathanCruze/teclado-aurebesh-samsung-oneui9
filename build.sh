@@ -6,7 +6,7 @@ cd "$(dirname "$0")"
 RES_JAR=${RES_JAR:-/usr/lib/android-sdk/platforms/android-23/android.jar}   # recursos (aapt)
 SDK_JAR=${SDK_JAR:-$RES_JAR}   # javac: necesita un android.jar de API 28 o superior
 PKG=com.aurebesh.teclado
-VERSION_CODE=${VERSION_CODE:-9}
+VERSION_CODE=${VERSION_CODE:-10}
 VERSION_NAME=${VERSION_NAME:-$(sed -n 's|.*<string name="version"[^>]*>\([^<]*\)</string>.*|\1|p' app/src/main/res/values/strings.xml)}
 KS_PASS=${KEYSTORE_PASS:-aurebesh}   # cambia esto (o exporta KEYSTORE_PASS) antes de publicar
 M=app/src/main
