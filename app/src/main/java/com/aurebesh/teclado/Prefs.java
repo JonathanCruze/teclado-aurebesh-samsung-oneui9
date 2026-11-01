@@ -17,6 +17,7 @@ final class Prefs {
     static final String HEIGHT = "keyboard_height";
     static final String AUTOCORRECT = "autocorrect";
     static final String HAND = "hand_mode";
+    static final String HAND_LAST = "hand_last";   // ultimo lado usado por el boton de la barra
     static final String TOOLBAR = "toolbar";
     static final String EMOJI_RECENT = "emoji_recent";
     static final String CUSTOM_SOUND = "custom_sound";    // nombre del archivo de sonido elegido
@@ -50,6 +51,15 @@ final class Prefs {
     }
     static boolean autocorrect(Context c) { return get(c).getBoolean(AUTOCORRECT, true); }
     static String hand(Context c) { return get(c).getString(HAND, "none"); }
+    /** Alterna el modo a una mano desde la barra: apagado <-> ultimo lado (derecha por defecto). */
+    static void toggleHand(Context c) {
+        String h = hand(c);
+        SharedPreferences.Editor e = get(c).edit();
+        if ("none".equals(h)) e.putString(HAND, get(c).getString(HAND_LAST, "right"));
+        else e.putString(HAND_LAST, h).putString(HAND, "none");
+        e.apply();
+    }
+    static void setHand(Context c, String side) { get(c).edit().putString(HAND, side).putString(HAND_LAST, side).apply(); }
     static int handMode(Context c) {
         switch (hand(c)) {
             case "left": return 1;

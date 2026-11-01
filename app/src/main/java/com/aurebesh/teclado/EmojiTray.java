@@ -233,6 +233,7 @@ final class EmojiTray extends LinearLayout {
                 refreshSearch();
             }
             @Override public void onEnter() {}
+            @Override public void onHandSide(int mode) {}
             @Override public void onSwitchKeyboard() {}
             @Override public void onSwitchLanguage() {}
             @Override public void onSuggestion(String word) {}

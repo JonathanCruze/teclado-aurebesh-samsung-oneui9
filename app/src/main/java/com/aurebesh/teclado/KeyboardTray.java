@@ -119,7 +119,7 @@ final class KeyboardTray extends LinearLayout {
         clear.setTextColor(theme.icon);
         clear.setBackground(ripple(0x00000000, theme.pressed, px(8)));
         close.setColor(theme.icon);
-        close.setBackground(ripple(0x00000000, theme.pressed, px(20)));
+        close.setBackground(ripple(theme.specialBg, theme.pressed, px(20)));
         if (shown) rebuild();
     }
 

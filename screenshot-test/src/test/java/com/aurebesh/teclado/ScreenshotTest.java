@@ -93,6 +93,7 @@ public class ScreenshotTest {
             public void onSwitchLanguage() {}
             public void onSuggestion(String w) { typed.append("[").append(w).append("]"); }
             public void onToolbar(int t) { typed.append("<tool").append(t).append(">"); }
+            public void onHandSide(int m) { typed.append("<side").append(m).append(">"); }
         });
         kb.setEnterAction(4);
 
@@ -198,9 +199,10 @@ public class ScreenshotTest {
         // Barra de herramientas: emojis y portapapeles a la derecha; en ?123 aparece ademas el engrane
         render(kb);
         typed.setLength(0);
+        tap(kb, W - 116 * dp, 20 * dp);
         tap(kb, W - 72 * dp, 20 * dp);
         tap(kb, W - 28 * dp, 20 * dp);
-        if (!typed.toString().equals("<tool1><tool2>")) throw new AssertionError("barra: " + typed);
+        if (!typed.toString().equals("<tool1><tool2><tool4>")) throw new AssertionError("barra: " + typed);
         typed.setLength(0);
         float modeY = kb.getMeasuredHeight() - 30 * dp;
         tap(kb, 30 * dp, modeY);                       // ?123
@@ -230,10 +232,24 @@ public class ScreenshotTest {
         tap(kb, 30 * dp, modeY);                       // abc
         render(kb);
 
-        // Modo a una mano (derecha)
+        // Modo a una mano (derecha): boton de la barra activo y flecha en el margen para cambiar de lado
         kb.setHandMode(2);
         save(render(kb), "una_mano.png");
+        typed.setLength(0);
+        tap(kb, 0.11f * W, kb.getMeasuredHeight() / 2f + 10 * dp);
+        if (!typed.toString().equals("<side1>")) throw new AssertionError("lado: " + typed);
+        typed.setLength(0);
         kb.setHandMode(0);
+
+        // Chips de emoji en la barra de sugerencias
+        kb.setSuggestions(java.util.Arrays.asList("perro", "perros", "\uD83D\uDC36", "\uD83D\uDC15"), null);
+        save(render(kb), "sugerencias_emoji.png");
+        kb.setSuggestions(null, null);
+        java.util.List<String> dogs = EmojiSuggest.lookup(app, "perro", 3);
+        if (!dogs.contains("\uD83D\uDC36") && !dogs.contains("\uD83D\uDC15")) throw new AssertionError("emoji perro: " + dogs);
+        if (!EmojiSuggest.lookup(app, "pizza", 2).contains("\uD83C\uDF55")) throw new AssertionError("emoji pizza");
+        if (!EmojiSuggest.lookup(app, "dog", 3).contains("\uD83D\uDC15") && !EmojiSuggest.lookup(app, "dog", 3).contains("\uD83D\uDC36")) throw new AssertionError("emoji dog: " + EmojiSuggest.lookup(app, "dog", 3));
+        System.out.println("EMOJISUG " + dogs.size() + " " + EmojiSuggest.lookup(app, "corazon", 3).size());
 
         // Bandejas: historial del portapapeles (claro y noche) y acciones de texto
         int trayH = kb.getMeasuredHeight();

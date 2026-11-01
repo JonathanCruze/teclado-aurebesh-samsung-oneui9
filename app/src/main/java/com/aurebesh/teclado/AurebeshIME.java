@@ -345,6 +345,7 @@ public class AurebeshIME extends InputMethodService
             if (chips.size() >= 3) break;
             chips.add(s);
         }
+        for (String e : EmojiSuggest.lookup(this, r.known ? word : (r.correction != null ? r.correction : word), 2)) chips.add(e);
         view.setSuggestions(chips, pendingCorrection);
     }
 
@@ -520,6 +521,10 @@ public class AurebeshIME extends InputMethodService
         if (word.length() >= 2 && word.startsWith("\"") && word.endsWith("\"")) {
             ic.commitText(" ", 1);                      // conservar lo escrito, y aprenderlo
             learnWord(cur);
+        } else if (AurebeshKeyboardView.isEmoji(word)) {   // emoji sugerido: sustituye la palabra
+            if (cur != null && !cur.isEmpty()) ic.deleteSurroundingText(cur.length(), 0);
+            ic.commitText(word, 1);
+            Prefs.addRecentEmoji(this, word);
         } else {
             if (cur != null && !cur.isEmpty()) {
                 ic.deleteSurroundingText(cur.length(), 0);
@@ -540,6 +545,7 @@ public class AurebeshIME extends InputMethodService
         switch (tool) {
             case AurebeshKeyboardView.TOOL_EMOJI: openEmojis(); break;
             case AurebeshKeyboardView.TOOL_CLIPBOARD: openClipboard(); break;
+            case AurebeshKeyboardView.TOOL_HAND: Prefs.toggleHand(this); break;      // el oyente de preferencias lo aplica
             case AurebeshKeyboardView.TOOL_SETTINGS:
                 try {
                     startActivity(new Intent(this, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
@@ -548,6 +554,11 @@ public class AurebeshIME extends InputMethodService
                 }
                 break;
         }
+    }
+
+    @Override
+    public void onHandSide(int mode) {
+        Prefs.setHand(this, mode == 1 ? "left" : "right");
     }
 
     /** Muestra una bandeja ocupando exactamente el alto del teclado. */

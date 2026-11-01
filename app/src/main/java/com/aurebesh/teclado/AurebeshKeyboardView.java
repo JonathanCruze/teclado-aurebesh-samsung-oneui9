@@ -28,6 +28,7 @@ public final class AurebeshKeyboardView extends View {
         void onSwitchLanguage();        // globo: siguiente idioma Aurebesh
         void onSuggestion(String word); // toque en una sugerencia de la barra
         void onToolbar(int tool);       // icono de la barra de herramientas (TOOL_*)
+        void onHandSide(int mode);      // flecha del modo a una mano: 1 izquierda, 2 derecha
     }
 
     static final int CODE_TEXT = 0;
@@ -43,6 +44,9 @@ public final class AurebeshKeyboardView extends View {
     static final int TOOL_EMOJI = 1;
     static final int TOOL_CLIPBOARD = 2;
     static final int TOOL_SETTINGS = 3;     // solo en la pagina ?123
+    static final int TOOL_HAND = 4;         // modo a una mano (junto al portapapeles)
+    private static final int[] TOOLS_LETTERS = {TOOL_EMOJI, TOOL_CLIPBOARD, TOOL_HAND};
+    private static final int[] TOOLS_SYMBOLS = {TOOL_EMOJI, TOOL_CLIPBOARD, TOOL_HAND, TOOL_SETTINGS};
 
     static final class Key {
         final String output;
@@ -112,7 +116,8 @@ public final class AurebeshKeyboardView extends View {
     private final List<RectF> suggestionRects = new ArrayList<>();
     private String highlighted;             // sugerencia que se aplicara sola (resaltada)
     private boolean toolbar = true;         // iconos sobre las teclas cuando no hay sugerencias
-    private final RectF[] toolRects = new RectF[3];
+    private final RectF[] toolRects = new RectF[4];
+    private final RectF sideRect = new RectF();     // flecha para cambiar de lado en modo a una mano
     private int toolPressed = -1;
     private int toolPointer = -1;
     private boolean previewEnabled = true;
@@ -495,6 +500,7 @@ public final class AurebeshKeyboardView extends View {
                 drawKeyFace(c, k, tmp, isDigitRow(current, ri));
             }
         }
+        drawSideSwitch(c);
         for (int i = 0; i < pressed.size(); i++) {
             Key k = pressed.valueAt(i);
             if (previewEnabled && k != null && k.code == CODE_TEXT && k != popupKey) drawPreview(c, k);
@@ -792,26 +798,65 @@ public final class AurebeshKeyboardView extends View {
         if (theme.keyStroke != 0) c.drawRect(0, stripHeight() - dp, getWidth(), stripHeight(), strokePaint);
     }
 
-    /** Iconos redondos a la derecha: emojis, portapapeles y, en ?123, ajustes. Devuelve el limite izquierdo. */
+    private int[] tools() { return current != letters ? TOOLS_SYMBOLS : TOOLS_LETTERS; }
+
+    /** Iconos redondos a la derecha: emojis, portapapeles, una mano y, en ?123, ajustes. Devuelve el limite izquierdo. */
     private float drawToolbar(Canvas c) {
-        int n = current != letters ? 3 : 2;
+        int[] ids = tools();
         float cell = 44 * dp, cy = stripHeight() / 2f;
-        float x = getWidth() - 6 * dp - cell * n;
+        float x = getWidth() - 6 * dp - cell * ids.length;
         float left = x;
-        for (int i = 0; i < n; i++) {
+        for (int i = 0; i < toolRects.length; i++) toolRects[i] = null;
+        for (int i = 0; i < ids.length; i++) {
             toolRects[i] = new RectF(x, 0, x + cell, stripHeight());
             float cx = x + cell / 2f;
-            fill.setColor(toolPressed == i ? theme.pressed : theme.specialBg);
+            boolean active = ids[i] == TOOL_HAND && handMode != 0;
+            fill.setColor(toolPressed == i ? theme.pressed : active ? theme.accent : theme.specialBg);
             c.drawCircle(cx, cy, 16 * dp, fill);
-            if (theme.keyStroke != 0) c.drawCircle(cx, cy, 16 * dp, strokePaint);
-            switch (i) {
-                case 0: drawSmiley(c, cx, cy); break;
-                case 1: drawPaste(c, cx, cy); break;
+            if (theme.keyStroke != 0 && !active) c.drawCircle(cx, cy, 16 * dp, strokePaint);
+            if (active) iconPaint.setColor(theme.onAccent);
+            switch (ids[i]) {
+                case TOOL_EMOJI: drawSmiley(c, cx, cy); break;
+                case TOOL_CLIPBOARD: drawPaste(c, cx, cy); break;
+                case TOOL_HAND: drawHand(c, cx, cy, active); break;
                 default: drawGear(c, cx, cy); break;
             }
+            if (active) iconPaint.setColor(theme.icon);
             x += cell;
         }
         return left - 6 * dp;
+    }
+
+    /** Modo a una mano: teclado estrecho con una flecha de desplazamiento. */
+    private void drawHand(Canvas c, float cx, float cy, boolean active) {
+        iconPaint.setStrokeWidth(2.2f * dp);
+        tmp.set(cx - 2 * dp, cy - 6 * dp, cx + 9 * dp, cy + 6 * dp);
+        c.drawRoundRect(tmp, 2 * dp, 2 * dp, iconPaint);
+        fill.setColor(active ? theme.onAccent : theme.icon);
+        for (int i = 0; i < 2; i++) for (int j = 0; j < 3; j++) c.drawCircle(cx + 1 * dp + j * 2.5f * dp, cy - 2.5f * dp + i * 2.8f * dp, 0.8f * dp, fill);
+        c.drawLine(cx - 9 * dp, cy, cx - 4.5f * dp, cy, iconPaint);
+        c.drawLine(cx - 9 * dp, cy, cx - 6.5f * dp, cy - 2.5f * dp, iconPaint);
+        c.drawLine(cx - 9 * dp, cy, cx - 6.5f * dp, cy + 2.5f * dp, iconPaint);
+    }
+
+    /** En modo a una mano, boton en el margen libre para pasar el teclado al otro lado. */
+    private void drawSideSwitch(Canvas c) {
+        sideRect.setEmpty();
+        if (handMode == 0 || current.isEmpty()) return;
+        float full = getWidth(), w = full * 0.78f;
+        float marginLeft = handMode == 2 ? 0 : w, marginRight = handMode == 2 ? full - w : full;
+        float cx = (marginLeft + marginRight) / 2f, cy = stripHeight() + keysHeight() / 2f;
+        float r = 20 * dp;
+        sideRect.set(cx - r, cy - r, cx + r, cy + r);
+        fill.setColor(theme.specialBg);
+        c.drawCircle(cx, cy, r, fill);
+        if (theme.keyStroke != 0) c.drawCircle(cx, cy, r, strokePaint);
+        iconPaint.setStrokeWidth(2.6f * dp);
+        float d = handMode == 2 ? -1 : 1;           // apunta hacia el margen vacio
+        float s = 7 * dp;
+        c.drawLine(cx - d * s, cy, cx + d * s, cy, iconPaint);
+        c.drawLine(cx + d * s, cy, cx + d * s * 0.35f, cy - s * 0.65f, iconPaint);
+        c.drawLine(cx + d * s, cy, cx + d * s * 0.35f, cy + s * 0.65f, iconPaint);
     }
 
     /** Engranaje (ajustes): corona gruesa con ocho dientes y eje hueco. */
@@ -833,12 +878,13 @@ public final class AurebeshKeyboardView extends View {
         float x = 8 * dp;
         for (int i = 0; i < suggestions.size(); i++) {
             String word = suggestions.get(i);
-            List<Glyphs.Token> tk = showHints ? null : Glyphs.tokenize(word, useDigraphs);
+            boolean emoji = isEmoji(word);
+            List<Glyphs.Token> tk = showHints || emoji ? null : Glyphs.tokenize(word, useDigraphs);
             float tw = 0;
             if (tk != null) {
                 for (Glyphs.Token t : tk) tw += Glyphs.tokenWidth(t, h, textPaint);
             } else {
-                textPaint.setTextSize(14 * sp);
+                textPaint.setTextSize(emoji ? 19 * sp : 14 * sp);
                 tw = textPaint.measureText(word);
             }
             RectF cell = new RectF(x, 5 * dp, x + tw + 24 * dp, stripHeight() - 5 * dp);
@@ -855,7 +901,7 @@ public final class AurebeshKeyboardView extends View {
             if (tk != null) {
                 for (Glyphs.Token t : tk) gx += Glyphs.drawToken(c, t, gx, top, h, glyphPaint, textPaint);
             } else {
-                c.drawText(word, gx, cell.centerY() + 5 * dp, textPaint);
+                c.drawText(word, gx, cell.centerY() + (emoji ? 7 : 5) * dp, textPaint);
             }
             textPaint.setTextAlign(Paint.Align.CENTER);
             glyphPaint.setColor(theme.glyph);
@@ -863,6 +909,13 @@ public final class AurebeshKeyboardView extends View {
             suggestionRects.add(cell);
             x = cell.right + 6 * dp;
         }
+    }
+
+    /** Una sugerencia sin letras ni digitos es un emoji: se dibuja con la fuente del sistema. */
+    static boolean isEmoji(String s) {
+        if (s == null || s.isEmpty()) return false;
+        for (int i = 0; i < s.length(); i++) if (Character.isLetterOrDigit(s.charAt(i))) return false;
+        return true;
     }
 
     /** Lo escrito, en Aurebesh, entre {@code left} y {@code right}; si no cabe se ve el final. */
@@ -934,6 +987,11 @@ public final class AurebeshKeyboardView extends View {
                     }
                     return true;
                 }
+                if (!sideRect.isEmpty() && sideRect.contains(e.getX(idx), e.getY(idx))) {   // cambiar de lado
+                    feedback(special("", CODE_SPACE, 1f));
+                    if (listener != null) listener.onHandSide(handMode == 2 ? 1 : 2);
+                    return true;
+                }
                 Key k = findKey(e.getX(idx), e.getY(idx));
                 if (k == null) return true;
                 if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(true);
@@ -976,8 +1034,9 @@ public final class AurebeshKeyboardView extends View {
                     toolPressed = -1;
                     toolPointer = -1;
                     invalidate();
-                    if (toolRects[t] != null && toolRects[t].contains(e.getX(idx), e.getY(idx)) && listener != null) {
-                        listener.onToolbar(t + 1);
+                    int[] ids = tools();
+                    if (toolRects[t] != null && t < ids.length && toolRects[t].contains(e.getX(idx), e.getY(idx)) && listener != null) {
+                        listener.onToolbar(ids[t]);
                     }
                     return true;
                 }
