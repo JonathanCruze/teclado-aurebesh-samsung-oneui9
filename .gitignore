@@ -4,6 +4,7 @@ build/
 .idea/
 local.properties
 *.apk
+!releases/*.apk
 *.apk.idsig
 screenshot-test/target/
 *.keystore

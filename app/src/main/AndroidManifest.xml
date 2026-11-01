@@ -1,6 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Internet: solo para la descarga del modelo de IA que el usuario inicia o para su propio servidor. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Fotos (opcional, se pide al activar "Sugerir capturas"): detectar capturas de pantalla recientes. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"

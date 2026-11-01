@@ -24,6 +24,9 @@ final class Prefs {
     static final String LEARN = "learn_words";
     static final String DOUBLE_SPACE = "double_space";
     static final String LEARNED = "learned_words";        // palabras aprendidas, separadas por salto de linea
+    static final String APP_LANG = "app_lang";     // idioma de la app: "system", "es", "en", "de"
+    static final String GLIDE = "glide";           // deslizar para escribir
+    static final String SCREENSHOTS = "screenshots"; // sugerir capturas de pantalla recientes
     private static final String LEGACY_DARK = "dark_theme";
 
     static SharedPreferences get(Context c) {
@@ -67,6 +70,9 @@ final class Prefs {
             default: return 0;
         }
     }
+    static String appLang(Context c) { return get(c).getString(APP_LANG, "system"); }
+    static boolean glide(Context c) { return get(c).getBoolean(GLIDE, true); }
+    static boolean screenshots(Context c) { return get(c).getBoolean(SCREENSHOTS, false); }
     static boolean strip(Context c) { return get(c).getBoolean(STRIP, false); }
     static boolean toolbar(Context c) { return get(c).getBoolean(TOOLBAR, true); }
     /** Nombre visible del sonido personalizado, o null si suena el clic del sistema. */
