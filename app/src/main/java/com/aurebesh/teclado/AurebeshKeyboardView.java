@@ -40,15 +40,34 @@ public final class AurebeshKeyboardView extends View {
         final String output;
         final String glyph;
         final String label;
-        final String alt;
+        final String[] alts;      // alternativas por pulsacion larga; la primera es la predeterminada
         final int code;
         final float weight;
         final RectF rect = new RectF();
 
-        Key(String output, String glyph, String label, String alt, int code, float weight) {
+        Key(String output, String glyph, String label, String[] alts, int code, float weight) {
             this.output = output; this.glyph = glyph; this.label = label;
-            this.alt = alt; this.code = code; this.weight = weight;
+            this.alts = alts == null || alts.length == 0 ? null : alts; this.code = code; this.weight = weight;
         }
+
+        Key withFirstAlt(String first) {
+            String[] a = new String[(alts == null ? 0 : alts.length) + 1];
+            a[0] = first;
+            if (alts != null) System.arraycopy(alts, 0, a, 1, alts.length);
+            return new Key(output, glyph, label, a, code, weight);
+        }
+    }
+
+    /** Alternativas de cada letra (acentos y variantes); la n~ y la c con cedilla incluidas. */
+    private static final java.util.Map<String, String[]> LETTER_ALTS = new java.util.HashMap<>();
+    static {
+        LETTER_ALTS.put("a", new String[]{"\u00e1", "\u00e0", "\u00e4", "\u00e2", "\u00e3"});
+        LETTER_ALTS.put("e", new String[]{"\u00e9", "\u00e8", "\u00eb", "\u00ea"});
+        LETTER_ALTS.put("i", new String[]{"\u00ed", "\u00ec", "\u00ef", "\u00ee"});
+        LETTER_ALTS.put("o", new String[]{"\u00f3", "\u00f2", "\u00f6", "\u00f4", "\u00f5"});
+        LETTER_ALTS.put("u", new String[]{"\u00fa", "\u00f9", "\u00fc", "\u00fb"});
+        LETTER_ALTS.put("n", new String[]{"\u00f1"});
+        LETTER_ALTS.put("c", new String[]{"\u00e7"});
     }
 
     private Listener listener;
@@ -69,6 +88,13 @@ public final class AurebeshKeyboardView extends View {
     private boolean sound = true;
     private float heightScale = 1f;
     private AudioManager audio;
+
+    // Menu de alternativas abierto por pulsacion larga
+    private Key popupKey;
+    private String[] popupAlts;
+    private int popupIndex;
+    private final RectF popupRect = new RectF();
+    private float popupCell;
     private String language = "es";        // "es": con tecla n~ y , -> ?; "en": sin tecla n~ y , -> !
     private String spaceLabel;             // nombre del idioma cuando hay mas de uno activo
     private boolean previewEnabled = true;
@@ -221,12 +247,11 @@ public final class AurebeshKeyboardView extends View {
 
     // ------------------------------------------------------------------ distribucion
 
-    private static Key letter(String c, String alt) { return new Key(c, c, c, alt, CODE_TEXT, 1f); }
-    private static Key sym(String out, float w) { return sym(out, w, null); }
+    private static Key letter(String c) { return new Key(c, c, c, LETTER_ALTS.get(c), CODE_TEXT, 1f); }
 
-    /** Signo con alternativa por pulsacion larga. */
-    private static Key sym(String out, float w, String alt) {
-        return new Key(out, Glyphs.has(out) ? out : null, out, alt, CODE_TEXT, w);
+    /** Signo, con alternativas opcionales por pulsacion larga. */
+    private static Key sym(String out, float w, String... alts) {
+        return new Key(out, Glyphs.has(out) ? out : null, out, alts, CODE_TEXT, w);
     }
     private static Key special(String label, int code, float w) { return new Key(null, null, label, null, code, w); }
 
@@ -236,12 +261,9 @@ public final class AurebeshKeyboardView extends View {
         layout.add(r);
     }
 
-    private void lettersRow(List<List<Key>> layout, String chars, String alts) {
+    private void lettersRow(List<List<Key>> layout, String chars) {
         List<Key> r = new ArrayList<>();
-        for (int i = 0; i < chars.length(); i++) {
-            String a = alts.charAt(i) == '.' ? null : String.valueOf(alts.charAt(i));
-            r.add(letter(String.valueOf(chars.charAt(i)), a));
-        }
+        for (int i = 0; i < chars.length(); i++) r.add(letter(String.valueOf(chars.charAt(i))));
         layout.add(r);
     }
 
@@ -254,16 +276,17 @@ public final class AurebeshKeyboardView extends View {
 
     private void buildLayouts() {
         if (numberRow) letters.add(digitsRow());
-        lettersRow(letters, "qwertyuiop", "..é...úíó.");
-        lettersRow(letters, "asdfghjkl", "á........");
+        lettersRow(letters, "qwertyuiop");
+        if (!numberRow) {                         // sin fila de numeros: q..p dan 1..0 en pulsacion larga
+            List<Key> top = letters.get(0);
+            for (int i = 0; i < 10 && i < top.size(); i++) top.set(i, top.get(i).withFirstAlt(String.valueOf((i + 1) % 10)));
+        }
+        lettersRow(letters, "asdfghjkl");
         if ("es".equals(language)) letters.get(letters.size() - 1).add(new Key("ñ", "ñ", "ñ", null, CODE_TEXT, 1f));
         List<Key> r3 = new ArrayList<>();
         r3.add(special("", CODE_SHIFT, 1.5f));
         String z = "zxcvbnm";
-        for (int i = 0; i < z.length(); i++) {
-            String c = String.valueOf(z.charAt(i));
-            r3.add(letter(c, c.equals("n") ? "ñ" : null));
-        }
+        for (int i = 0; i < z.length(); i++) r3.add(letter(String.valueOf(z.charAt(i))));
         r3.add(special("", CODE_DELETE, 1.5f));
         letters.add(r3);
         bottomRow(letters, "?123");
@@ -376,8 +399,9 @@ public final class AurebeshKeyboardView extends View {
         }
         for (int i = 0; i < pressed.size(); i++) {
             Key k = pressed.valueAt(i);
-            if (previewEnabled && k != null && k.code == CODE_TEXT) drawPreview(c, k);
+            if (previewEnabled && k != null && k.code == CODE_TEXT && k != popupKey) drawPreview(c, k);
         }
+        if (popupKey != null) drawPopup(c);
     }
 
     private void drawKeyFace(Canvas c, Key k, RectF r, boolean digitRow) {
@@ -400,9 +424,13 @@ public final class AurebeshKeyboardView extends View {
                     textPaint.setTextSize(19 * dp);
                     c.drawText(k.label, cx, cy + 7 * dp, textPaint);
                 }
-                if (showHints && k.alt != null && !digitRow) {  // alternativa por pulsacion larga (solo con pistas)
-                    hintPaint.setTextSize(9 * sp);
-                    c.drawText(k.alt, r.right - 4 * dp, r.top + 10 * dp, hintPaint);
+                if (k.alts != null && !digitRow) {
+                    String first = k.alts[0];
+                    boolean digit = first.length() == 1 && Character.isDigit(first.charAt(0));
+                    if (showHints || digit) {                    // los numeros ocultos siempre se insinuan
+                        hintPaint.setTextSize(9 * sp);
+                        c.drawText(first, r.right - 4 * dp, r.top + 10 * dp, hintPaint);
+                    }
                 }
                 break;
             case CODE_MODE:
@@ -522,6 +550,75 @@ public final class AurebeshKeyboardView extends View {
         }
     }
 
+    /** Menu de alternativas sobre la tecla mantenida; la opcion bajo el dedo va resaltada. */
+    private void drawPopup(Canvas c) {
+        float r = 10 * dp;
+        fill.setColor(0x40000000);
+        c.drawRoundRect(popupRect.left, popupRect.top + 3 * dp, popupRect.right, popupRect.bottom + 3 * dp, r, r, fill);
+        fill.setColor(theme.preview);
+        c.drawRoundRect(popupRect, r, r, fill);
+        if (theme.keyStroke != 0) c.drawRoundRect(popupRect, r, r, strokePaint);
+        for (int i = 0; i < popupAlts.length; i++) {
+            float left = popupRect.left + i * popupCell;
+            float cx = left + popupCell / 2f, cy = popupRect.centerY();
+            boolean sel = i == popupIndex;
+            if (sel) {
+                tmp.set(left + 3 * dp, popupRect.top + 3 * dp, left + popupCell - 3 * dp, popupRect.bottom - 3 * dp);
+                fill.setColor(theme.accent);
+                c.drawRoundRect(tmp, 8 * dp, 8 * dp, fill);
+            }
+            String a = popupAlts[i];
+            String shown = shiftActive() && current == letters ? a.toUpperCase() : a;
+            if (Glyphs.has(a)) {
+                glyphPaint.setColor(sel ? theme.onAccent : theme.previewText);
+                Glyphs.drawCentered(c, a, cx, cy - 6 * dp, popupRect.height() * 0.42f, popupCell * 0.7f, glyphPaint);
+                glyphPaint.setColor(theme.glyph);
+                textPaint.setColor(sel ? theme.onAccent : theme.previewLatin);
+                textPaint.setTextSize(10 * sp);
+                c.drawText(shown, cx, popupRect.bottom - 7 * dp, textPaint);
+            } else {
+                textPaint.setColor(sel ? theme.onAccent : theme.previewText);
+                textPaint.setTextSize(22 * dp);
+                c.drawText(shown, cx, cy + 8 * dp, textPaint);
+            }
+            textPaint.setColor(theme.glyph);
+        }
+    }
+
+    private void openPopup(Key k) {
+        popupKey = k;
+        popupAlts = k.alts;
+        popupIndex = 0;
+        popupCell = Math.max(k.rect.width(), 46 * dp);
+        float h = 64 * dp;
+        float total = popupCell * popupAlts.length;
+        float left = k.rect.centerX() - popupCell / 2f;              // la primera opcion, sobre la tecla
+        left = Math.max(2 * dp, Math.min(getWidth() - total - 2 * dp, left));
+        popupRect.set(left, Math.max(0, k.rect.top - h - 2 * dp), left + total, Math.max(0, k.rect.top - h - 2 * dp) + h);
+        invalidate();
+    }
+
+    private void commitPopup() {
+        if (popupKey == null) return;
+        String out = popupAlts[popupIndex];
+        if (shiftActive() && current == letters) out = out.toUpperCase();
+        if (listener != null) listener.onText(out);
+        if (shift && !capsLock) { shift = false; autoShifted = false; }
+        closePopup();
+    }
+
+    private void closePopup() {
+        popupKey = null;
+        popupAlts = null;
+    }
+
+    /** Celda i del menu abierto (para pruebas). */
+    RectF popupCellRect(int i) {
+        if (popupKey == null) return null;
+        float left = popupRect.left + i * popupCell;
+        return new RectF(left, popupRect.top, left + popupCell, popupRect.bottom);
+    }
+
     private void drawPreview(Canvas c, Key k) {
         float w = Math.max(k.rect.width() * 1.3f, 56 * dp);
         float h = 74 * dp;
@@ -596,7 +693,8 @@ public final class AurebeshKeyboardView extends View {
             case MotionEvent.ACTION_POINTER_DOWN: {
                 for (int i = pressed.size() - 1; i >= 0; i--) {
                     Key prev = pressed.valueAt(i);
-                    if (prev != null && prev.code != CODE_DELETE && !(prev == longPressKey && longPressFired)) release(prev);
+                    if (prev != null && prev == popupKey) commitPopup();
+                    else if (prev != null && prev.code != CODE_DELETE && !(prev == longPressKey && longPressFired)) release(prev);
                     pressed.removeAt(i);
                 }
                 cancelTimers();
@@ -618,7 +716,14 @@ public final class AurebeshKeyboardView extends View {
                 for (int i = 0; i < e.getPointerCount(); i++) {
                     int pid = e.getPointerId(i);
                     Key old = pressed.get(pid);
-                    if (old == null || old.code == CODE_DELETE || old.code == CODE_SPACE) continue;
+                    if (old == null) continue;
+                    if (popupKey != null && old == popupKey) {       // deslizar por el menu
+                        int ni = (int) Math.floor((e.getX(i) - popupRect.left) / popupCell);
+                        ni = Math.max(0, Math.min(popupAlts.length - 1, ni));
+                        if (ni != popupIndex) { popupIndex = ni; invalidate(); }
+                        continue;
+                    }
+                    if (old.code == CODE_DELETE || old.code == CODE_SPACE) continue;
                     Key k = findKey(e.getX(i), e.getY(i));
                     if (k != null && k != old && !longPressFired) {
                         pressed.put(pid, k);
@@ -632,6 +737,12 @@ public final class AurebeshKeyboardView extends View {
             case MotionEvent.ACTION_POINTER_UP: {
                 Key k = pressed.get(id);
                 pressed.remove(id);
+                if (k != null && k == popupKey) {
+                    commitPopup();
+                    cancelTimers();
+                    invalidate();
+                    return true;
+                }
                 boolean consumed = k != null && k == longPressKey && longPressFired;
                 cancelTimers();
                 if (k != null && !consumed && k.code != CODE_DELETE) release(k);
@@ -640,6 +751,7 @@ public final class AurebeshKeyboardView extends View {
             }
             case MotionEvent.ACTION_CANCEL:
                 pressed.clear();
+                closePopup();
                 cancelTimers();
                 invalidate();
                 return true;
@@ -686,11 +798,10 @@ public final class AurebeshKeyboardView extends View {
                 longPressFired = true;
                 feedback(k);
                 listener.onSwitchKeyboard();
-            } else if (k.code == CODE_TEXT && k.alt != null) {
+            } else if (k.code == CODE_TEXT && k.alts != null) {
                 longPressFired = true;
                 feedback(k);
-                listener.onText(shiftActive() ? k.alt.toUpperCase() : k.alt);
-                if (shift && !capsLock) { shift = false; autoShifted = false; }
+                openPopup(k);
             }
             invalidate();
         }
@@ -740,6 +851,7 @@ public final class AurebeshKeyboardView extends View {
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
         cancelTimers();
+        closePopup();
         pressed.clear();
     }
 }

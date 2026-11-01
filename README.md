@@ -14,8 +14,10 @@ así cualquiera puede leer lo que escribes.
 3. Para volver al teclado de Samsung toca el globo (o mantén pulsado el espacio).
 
 ## Funciones del teclado
-- QWERTY con ñ y fila de numerales Aurebesh (desactivable). Pulsación larga en vocales = acento; en n = ñ;
-  en `,` y `.` = `¿` y `?`; en `?123`, `?` y `!` dan `¿` y `¡`, y los signos tienen alternativas (`_ « » [ ] \ ~ € |`).
+- QWERTY con ñ y fila de numerales Aurebesh (desactivable; sin ella, q…p dan 1…0 en pulsación larga, con el
+  número insinuado en la esquina). Pulsación larga = **menú de alternativas** deslizable, como en Gboard:
+  vocales → á à ä â ã…, n → ñ, c → ç, `,`/`.` → `¿`/`?`; en `?123`, `?` y `!` dan `¿` y `¡` y los signos
+  tienen alternativas (`_ « » [ ] \ ~ € |`).
 - Mayúscula automática al inicio de frase; doble toque en ⇧ = bloqueo.
 - `?123`: signos con glifo propio, dígrafos Aurebesh (ch, ae, eo, kh, ng, oo, sh, th) y símbolos latinos.
 - Burbuja al pulsar con el glifo grande y la letra latina (para aprender el alfabeto).

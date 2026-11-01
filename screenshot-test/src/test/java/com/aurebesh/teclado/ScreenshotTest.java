@@ -13,6 +13,7 @@ import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 import org.robolectric.annotation.GraphicsMode;
+import org.robolectric.shadows.ShadowLooper;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -111,6 +112,27 @@ public class ScreenshotTest {
         kb.applyPrefs(false, false, false, true, Themes.ESTELAR.id, false);
         save(render(kb), "sin_fila_numeros.png");
         kb.applyPrefs(false, false, false, true, Themes.ESTELAR.id, true);
+
+        // Menu de alternativas: sin fila de numeros, mantener "q" da 1 y mantener "e" ofrece 3 y acentos
+        kb.applyPrefs(false, false, false, true, Themes.ESTELAR.id, false, false, 1f);
+        render(kb);
+        typed.setLength(0);
+        AurebeshKeyboardView.Key q = kb.keyFor("q");
+        down(kb, q.rect.centerX(), q.rect.centerY());
+        ShadowLooper.shadowMainLooper().idleFor(java.time.Duration.ofMillis(450));
+        save(render(kb), "alternativas_q.png");
+        up(kb, q.rect.centerX(), q.rect.centerY());
+        AurebeshKeyboardView.Key e = kb.keyFor("e");
+        down(kb, e.rect.centerX(), e.rect.centerY());
+        ShadowLooper.shadowMainLooper().idleFor(java.time.Duration.ofMillis(450));
+        android.graphics.RectF second = kb.popupCellRect(1);
+        long t = SystemClock.uptimeMillis();
+        kb.onTouchEvent(MotionEvent.obtain(t, t, MotionEvent.ACTION_MOVE, second.centerX(), second.centerY(), 0));
+        save(render(kb), "alternativas_e.png");
+        up(kb, second.centerX(), second.centerY());
+        System.out.println("ALTS=" + typed);
+        if (!typed.toString().equals("1é")) throw new AssertionError("alternativas: " + typed);
+        typed.setLength(0);
 
         // Tamanos compacto y extra; barra con signos de apertura
         kb.applyPrefs(false, false, false, true, Themes.ESTELAR.id, true, false, 0.85f);

@@ -6,7 +6,7 @@
     <string name="subtype_en" translatable="false">English (Aurebesh)</string>
     <string name="lang_es" translatable="false">Español</string>
     <string name="lang_en" translatable="false">English</string>
-    <string name="version" translatable="false">1.2</string>
+    <string name="version" translatable="false">1.3</string>
 
     <string name="tagline">The Star Wars alphabet on your keyboard. What you type is sent as normal letters, so anyone can read it.</string>
 
@@ -43,7 +43,7 @@
     <string name="opt_digraphs">Digraphs</string>
     <string name="opt_digraphs_sub">One glyph for ch, sh, th, ae, eo, kh, ng and oo</string>
     <string name="opt_numbers">Number row</string>
-    <string name="opt_numbers_sub">Above the letters; without it the keyboard is shorter</string>
+    <string name="opt_numbers_sub">Without it the keyboard is shorter and numbers move to long-press on q…p</string>
     <string name="opt_sound">Sound on keypress</string>
     <string name="opt_height">Keyboard size</string>
     <string name="size_compact">Compact</string>
@@ -54,7 +54,7 @@
 
     <string name="gestures">Gestures</string>
     <string name="gesture_accent">Hold a vowel</string>
-    <string name="gesture_accent_result">Accent: á, é, í, ó, ú</string>
+    <string name="gesture_accent_result">Accent menu: á à ä â…; slide and release</string>
     <string name="gesture_enye">Hold n</string>
     <string name="gesture_enye_result">ñ</string>
     <string name="gesture_marks">Hold , or .</string>

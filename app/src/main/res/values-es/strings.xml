@@ -37,7 +37,7 @@
     <string name="opt_digraphs">Dígrafos</string>
     <string name="opt_digraphs_sub">Un solo glifo para ch, sh, th, ae, eo, kh, ng y oo</string>
     <string name="opt_numbers">Fila de números</string>
-    <string name="opt_numbers_sub">Sobre las letras; sin ella el teclado es más bajo</string>
+    <string name="opt_numbers_sub">Sin ella el teclado es más bajo y los números pasan a pulsación larga en q…p</string>
     <string name="opt_sound">Sonido al pulsar</string>
     <string name="opt_height">Tamaño del teclado</string>
     <string name="size_compact">Compacto</string>
@@ -48,7 +48,7 @@
 
     <string name="gestures">Gestos</string>
     <string name="gesture_accent">Mantener una vocal</string>
-    <string name="gesture_accent_result">Acento: á, é, í, ó, ú</string>
+    <string name="gesture_accent_result">Menú de acentos: á à ä â…; desliza y suelta</string>
     <string name="gesture_enye">Mantener la n</string>
     <string name="gesture_enye_result">ñ</string>
     <string name="gesture_caps">Doble toque en mayúsculas</string>
