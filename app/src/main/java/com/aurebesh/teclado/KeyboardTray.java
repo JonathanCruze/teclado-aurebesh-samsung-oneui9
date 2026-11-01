@@ -2,6 +2,7 @@ package com.aurebesh.teclado;
 
 import android.content.Context;
 import android.content.res.ColorStateList;
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.RectF;
@@ -13,6 +14,8 @@ import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.HorizontalScrollView;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -22,30 +25,21 @@ import java.util.List;
 
 /**
  * Bandeja que sustituye a las teclas dentro de la ventana del teclado: el historial del
- * portapapeles (tocar pega, x borra, "Borrar todo" vacia).
+ * portapapeles (textos e imagenes). Tocar pega; bajo un texto con telefono, correo o enlace
+ * aparecen chips para pegar solo esa parte; la x borra y "Borrar todo" vacia.
  */
 final class KeyboardTray extends LinearLayout {
 
     interface Host {
-        void onTrayPick(Item item);
-        void onTrayRemove(Item item);
+        void onTrayPick(ClipHistory.Entry entry, String text);   // text: el texto completo, la parte elegida o null (imagen)
+        void onTrayRemove(ClipHistory.Entry entry);
         void onTrayClear();
         void onTrayClose();
     }
 
-    /** Elemento de la bandeja: un texto copiado. */
-    static final class Item {
-        final CharSequence title;
-        final Object tag;
-
-        Item(CharSequence title, Object tag) {
-            this.title = title;
-            this.tag = tag;
-        }
-    }
-
     private static final int MATCH = ViewGroup.LayoutParams.MATCH_PARENT;
     private static final int WRAP = ViewGroup.LayoutParams.WRAP_CONTENT;
+    private static final int PIECE_CHARS = 24;
 
     private final float dp;
     private final Typeface medium = Typeface.create("sans-serif-medium", Typeface.NORMAL);
@@ -58,7 +52,7 @@ final class KeyboardTray extends LinearLayout {
     private final LinearLayout list;
 
     // Contenido mostrado, para reconstruirlo si cambia el tema
-    private final List<Item> items = new ArrayList<>();
+    private final List<ClipHistory.Entry> items = new ArrayList<>();
     private CharSequence emptyText;
     private boolean shown = false;
 
@@ -130,7 +124,7 @@ final class KeyboardTray extends LinearLayout {
     }
 
     /** Muestra los elementos; si no hay ninguno se muestra {@code emptyText} centrado. */
-    void show(CharSequence titleText, List<Item> newItems, CharSequence emptyText) {
+    void show(CharSequence titleText, List<ClipHistory.Entry> newItems, CharSequence emptyText) {
         this.emptyText = emptyText;
         items.clear();
         if (newItems != null) items.addAll(newItems);
@@ -146,7 +140,7 @@ final class KeyboardTray extends LinearLayout {
             list.addView(emptyRow(), rowParams());
             return;
         }
-        for (Item item : items) list.addView(clipRow(item), rowParams());
+        for (ClipHistory.Entry e : items) list.addView(e.isImage() ? imageRow(e) : textRow(e), rowParams());
     }
 
     private LinearLayout.LayoutParams rowParams() {
@@ -167,7 +161,7 @@ final class KeyboardTray extends LinearLayout {
     }
 
     /** Fila base: fondo de tecla redondeado con borde si el tema lo lleva, y ondulacion al pulsar. */
-    private LinearLayout row(final Item item) {
+    private LinearLayout row(final ClipHistory.Entry entry, final String pick) {
         LinearLayout r = new LinearLayout(getContext());
         r.setOrientation(HORIZONTAL);
         r.setGravity(Gravity.CENTER_VERTICAL);
@@ -177,22 +171,14 @@ final class KeyboardTray extends LinearLayout {
         r.setClickable(true);
         r.setOnClickListener(new OnClickListener() {
             @Override public void onClick(View v) {
-                if (host != null) host.onTrayPick(item);
+                if (host != null) host.onTrayPick(entry, pick);
             }
         });
         return r;
     }
 
-    private LinearLayout clipRow(final Item item) {
-        final LinearLayout r = row(item);
-        TextView text = new TextView(getContext());
-        text.setText(item.title);
-        text.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-        text.setTextColor(theme.glyph);
-        text.setMaxLines(2);
-        text.setEllipsize(TextUtils.TruncateAt.END);
-        r.addView(text, new LinearLayout.LayoutParams(0, WRAP, 1f));
-
+    /** Boton x de una fila: quita la fila y avisa al anfitrion. */
+    private TextView deleteButton(final ClipHistory.Entry entry, final View row) {
         TextView del = new TextView(getContext());
         del.setText("×");
         del.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20);
@@ -202,18 +188,105 @@ final class KeyboardTray extends LinearLayout {
         del.setBackground(ripple(0x00000000, theme.pressed, px(20)));
         del.setOnClickListener(new OnClickListener() {
             @Override public void onClick(View v) {
-                items.remove(item);
-                list.removeView(r);
+                items.remove(entry);
+                list.removeView(row);
                 if (items.isEmpty()) {
                     clear.setVisibility(GONE);
                     list.addView(emptyRow(), rowParams());
                 }
-                if (host != null) host.onTrayRemove(item);
+                if (host != null) host.onTrayRemove(entry);
             }
         });
-        LinearLayout.LayoutParams dp40 = new LinearLayout.LayoutParams(px(40), MATCH);
-        dp40.leftMargin = px(4);
-        r.addView(del, dp40);
+        return del;
+    }
+
+    private LinearLayout.LayoutParams deleteParams() {
+        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(px(40), MATCH);
+        p.leftMargin = px(4);
+        return p;
+    }
+
+    /** Texto copiado, con chips para pegar solo el telefono, el correo o el enlace que contenga. */
+    private LinearLayout textRow(final ClipHistory.Entry entry) {
+        final LinearLayout r = row(entry, entry.text);
+        LinearLayout column = new LinearLayout(getContext());
+        column.setOrientation(VERTICAL);
+
+        TextView text = new TextView(getContext());
+        text.setText(entry.text);
+        text.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        text.setTextColor(theme.glyph);
+        text.setMaxLines(2);
+        text.setEllipsize(TextUtils.TruncateAt.END);
+        column.addView(text, new LinearLayout.LayoutParams(MATCH, WRAP));
+
+        String phone = ClipHistory.phoneIn(entry.text);
+        String email = ClipHistory.emailIn(entry.text);
+        String link = ClipHistory.linkIn(entry.text);
+        if (phone != null || email != null || link != null) {
+            LinearLayout chips = new LinearLayout(getContext());
+            chips.setOrientation(HORIZONTAL);
+            if (phone != null) chips.addView(chip(entry, R.string.clip_only_number, phone), chipParams());
+            if (email != null) chips.addView(chip(entry, R.string.clip_only_email, email), chipParams());
+            if (link != null) chips.addView(chip(entry, R.string.clip_only_link, link), chipParams());
+            HorizontalScrollView scroll = new HorizontalScrollView(getContext());
+            scroll.setHorizontalScrollBarEnabled(false);
+            scroll.addView(chips, new ViewGroup.LayoutParams(WRAP, WRAP));
+            LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(MATCH, WRAP);
+            sp.topMargin = px(6);
+            column.addView(scroll, sp);
+        }
+        r.addView(column, new LinearLayout.LayoutParams(0, WRAP, 1f));
+        r.addView(deleteButton(entry, r), deleteParams());
+        return r;
+    }
+
+    private LinearLayout.LayoutParams chipParams() {
+        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(WRAP, WRAP);
+        p.rightMargin = px(6);
+        return p;
+    }
+
+    /** Chip "Solo el numero · 55 1234 5678": pega solo esa parte, sin disparar el toque de la fila. */
+    private TextView chip(final ClipHistory.Entry entry, int label, final String piece) {
+        TextView t = new TextView(getContext());
+        String shown = piece.length() > PIECE_CHARS ? piece.substring(0, PIECE_CHARS - 1) + "…" : piece;
+        t.setText(getContext().getString(label) + " · " + shown);
+        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        t.setTypeface(medium);
+        t.setTextColor(theme.glyph);
+        t.setSingleLine(true);
+        t.setPadding(px(10), px(5), px(10), px(5));
+        t.setBackground(ripple(theme.specialBg, theme.pressed, px(8)));
+        t.setClickable(true);
+        t.setOnClickListener(new OnClickListener() {
+            @Override public void onClick(View v) {
+                if (host != null) host.onTrayPick(entry, piece);
+            }
+        });
+        return t;
+    }
+
+    /** Imagen copiada: miniatura con esquinas redondeadas; tocarla la pega. */
+    private LinearLayout imageRow(final ClipHistory.Entry entry) {
+        final LinearLayout r = row(entry, null);
+        ImageView img = new ImageView(getContext());
+        img.setContentDescription(getContext().getString(R.string.clip_image));
+        img.setAdjustViewBounds(true);
+        img.setMaxHeight(px(96));
+        img.setScaleType(ImageView.ScaleType.FIT_START);
+        GradientDrawable shape = new GradientDrawable();
+        shape.setColor(theme.specialBg);
+        shape.setCornerRadius(px(8));
+        img.setBackground(shape);
+        img.setClipToOutline(true);
+        Bitmap b = ClipHistory.thumbnail(entry, 320);
+        if (b != null) img.setImageBitmap(b);
+        else img.setMinimumHeight(px(48));
+        LinearLayout.LayoutParams ip = new LinearLayout.LayoutParams(WRAP, WRAP);
+        r.addView(img, ip);
+        r.addView(new View(getContext()), new LinearLayout.LayoutParams(0, 1, 1f));
+        r.addView(deleteButton(entry, r), deleteParams());
         return r;
     }
 

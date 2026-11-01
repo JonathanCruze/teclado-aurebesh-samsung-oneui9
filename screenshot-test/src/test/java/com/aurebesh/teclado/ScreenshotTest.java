@@ -195,13 +195,22 @@ public class ScreenshotTest {
         kb.setSuggestions(null, null);
         kb.setSuggestionBar(false);
 
-        // Barra de herramientas: emojis y portapapeles a la derecha
+        // Barra de herramientas: emojis y portapapeles a la derecha; en ?123 aparece ademas el engrane
         render(kb);
         typed.setLength(0);
         tap(kb, W - 72 * dp, 20 * dp);
         tap(kb, W - 28 * dp, 20 * dp);
         if (!typed.toString().equals("<tool1><tool2>")) throw new AssertionError("barra: " + typed);
         typed.setLength(0);
+        float modeY = kb.getMeasuredHeight() - 30 * dp;
+        tap(kb, 30 * dp, modeY);                       // ?123
+        render(kb);
+        save(render(kb), "simbolos_engrane.png");
+        tap(kb, W - 28 * dp, 20 * dp);
+        if (!typed.toString().equals("<tool3>")) throw new AssertionError("engrane: " + typed);
+        typed.setLength(0);
+        tap(kb, 30 * dp, modeY);                       // abc
+        render(kb);
 
         // Modo a una mano (derecha)
         kb.setHandMode(2);
@@ -212,15 +221,27 @@ public class ScreenshotTest {
         int trayH = kb.getMeasuredHeight();
         KeyboardTray tray = new KeyboardTray(app);
         tray.setHost(new KeyboardTray.Host() {
-            public void onTrayPick(KeyboardTray.Item item) { typed.append("{").append(item.title).append("}"); }
-            public void onTrayRemove(KeyboardTray.Item item) {}
+            public void onTrayPick(ClipHistory.Entry entry, String text) { typed.append("{").append(text).append("}"); }
+            public void onTrayRemove(ClipHistory.Entry entry) {}
             public void onTrayClear() {}
             public void onTrayClose() {}
         });
-        java.util.List<KeyboardTray.Item> clips = new java.util.ArrayList<>();
-        clips.add(new KeyboardTray.Item("Que la Fuerza te acompañe", "1"));
-        clips.add(new KeyboardTray.Item("Coordenadas del hangar 94: Mos Eisley, Tatooine. Llegamos en cinco minutos, no despeguen sin nosotros.", "2"));
-        clips.add(new KeyboardTray.Item("https://ejemplo.com/holocron", "3"));
+        File clipsDir = new File(app.getFilesDir(), ClipHistory.DIR);
+        clipsDir.mkdirs();
+        File png = new File(clipsDir, "prueba.png");
+        Bitmap sample = Bitmap.createBitmap(360, 200, Bitmap.Config.ARGB_8888);
+        Canvas sc = new Canvas(sample);
+        sc.drawColor(0xFF1B2838);
+        android.graphics.Paint sp = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+        sp.setColor(0xFF7FD3F0);
+        sc.drawCircle(180, 100, 70, sp);
+        try (FileOutputStream fos = new FileOutputStream(png)) { sample.compress(Bitmap.CompressFormat.PNG, 100, fos); }
+        java.util.List<ClipHistory.Entry> clips = new java.util.ArrayList<>();
+        clips.add(new ClipHistory.Entry(ClipHistory.Entry.TEXT, "Llámame al 55 1234 5678 o escribe a hola@ejemplo.com", null, null));
+        clips.add(new ClipHistory.Entry(ClipHistory.Entry.IMAGE, null, png.getAbsolutePath(), "image/png"));
+        clips.add(new ClipHistory.Entry(ClipHistory.Entry.TEXT, "Coordenadas del hangar 94: Mos Eisley, Tatooine. Llegamos en cinco minutos, no despeguen sin nosotros.", null, null));
+        clips.add(new ClipHistory.Entry(ClipHistory.Entry.TEXT, "Mira https://ejemplo.com/holocron cuando puedas", null, null));
+        if (ClipHistory.thumbnail(clips.get(1), 320) == null) throw new AssertionError("miniatura del portapapeles");
         tray.applyTheme(Themes.ESTELAR);
         tray.show("Portapapeles", clips, "Copia un texto y aparecerá aquí.");
         save(renderExact(tray, trayH), "portapapeles_estelar.png");
@@ -228,8 +249,14 @@ public class ScreenshotTest {
         tray.show("Portapapeles", clips, "Copia un texto y aparecerá aquí.");
         save(renderExact(tray, trayH), "portapapeles_noche.png");
         tray.applyTheme(Themes.ESTELAR);
-        tray.show("Portapapeles", new java.util.ArrayList<KeyboardTray.Item>(), "Copia un texto y aparecerá aquí. Toca uno para pegarlo.");
+        tray.show("Portapapeles", new java.util.ArrayList<ClipHistory.Entry>(), "Copia un texto y aparecerá aquí. Toca uno para pegarlo.");
         save(renderExact(tray, trayH), "portapapeles_vacio.png");
+        check(ClipHistory.phoneIn("Llámame al 55 1234 5678 mañana"), "55 1234 5678", "telefono");
+        check(ClipHistory.phoneIn("55 1234 5678"), null, "telefono solo");
+        check(ClipHistory.emailIn("escribe a hola@ejemplo.com ya"), "hola@ejemplo.com", "correo");
+        check(ClipHistory.linkIn("mira https://ejemplo.com/x ahora"), "https://ejemplo.com/x", "enlace");
+        System.out.println("CLIPS ok");
+
         // Panel de emojis: recientes, categorias, ABC / espacio / borrar
         EmojiTray emojis = new EmojiTray(app);
         emojis.setHost(new EmojiTray.Host() {
@@ -244,6 +271,17 @@ public class ScreenshotTest {
         emojis.applyTheme(Themes.NOCHE);
         emojis.show(new java.util.ArrayList<String>());
         save(renderExact(emojis, trayH), "emojis_noche.png");
+        emojis.applyTheme(Themes.ESTELAR);
+        emojis.show(new java.util.ArrayList<String>());
+        emojis.openSearch("cora");
+        save(renderExact(emojis, trayH), "emojis_busqueda.png");
+        emojis.closeSearch();
+        ShadowLooper.shadowMainLooper().idle();
+        if (!EmojiTray.search(app, "corazon", 10).contains("\u2764\uFE0F")) throw new AssertionError("buscar corazon: " + EmojiTray.search(app, "corazon", 10));
+        if (!EmojiTray.search(app, "mexico", 10).contains("\uD83C\uDDF2\uD83C\uDDFD")) throw new AssertionError("buscar mexico: " + EmojiTray.search(app, "mexico", 10));
+        if (!EmojiTray.search(app, "pizza", 10).contains("\uD83C\uDF55")) throw new AssertionError("buscar pizza");
+        if (!EmojiTray.search(app, "laugh", 10).contains("\uD83D\uDE02")) throw new AssertionError("buscar laugh: " + EmojiTray.search(app, "laugh", 10));
+        System.out.println("EMOJI ok " + EmojiTray.search(app, "corazon", 6) + " " + EmojiTray.search(app, "piza", 4));
 
         // Diccionarios integrados: una edicion, tildes, completado, contracciones inglesas
         Dictionary es = Dictionary.get(app, "es");
@@ -258,6 +296,13 @@ public class ScreenshotTest {
         check(es.suggest("qiero").correction, "quiero", "qiero");
         check(es.suggest("holla").correction, "hola", "holla");
         check(es.suggest("mañana").correction, null, "mañana");
+        check(es.suggest("nesecito").correction, "necesito", "nesecito (dos ediciones)");
+        check(es.suggest("probalemnte").correction, "probablemente", "probalemnte (dos ediciones)");
+        if (!es.suggest("qier").suggestions.contains("quiero")) throw new AssertionError("completado difuso qier: " + es.suggest("qier").suggestions);
+        es.setPersonal(java.util.Arrays.asList("aurebesh"));
+        check(es.suggest("aurebesh").correction, null, "palabra aprendida");
+        if (!es.suggest("aure").suggestions.contains("aurebesh")) throw new AssertionError("completar aprendida: " + es.suggest("aure").suggestions);
+        es.setPersonal(null);
         Dictionary en = Dictionary.get(app, "en");
         check(en.suggest("teh").correction, "the", "teh");
         check(en.suggest("dont").correction, "don't", "dont");

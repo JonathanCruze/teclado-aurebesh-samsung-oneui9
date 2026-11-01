@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -33,6 +34,8 @@ final class Dictionary {
     private static final Map<String, Dictionary> CACHE = new HashMap<>();
     private static final int MAX_SUGGESTIONS = 3;
     private static final int MAX_PREFIX_SCAN = 4000;
+    private static final int MAX_LEN = 24;
+    private static final double ED2_CUTOFF = 2.6;      // coste maximo de la busqueda a dos ediciones
 
     /** Nunca se proponen ni se usan como correccion (si se escriben, se respetan). */
     private static final Set<String> NO_SUGGEST = new HashSet<>(Arrays.asList(
@@ -86,6 +89,8 @@ final class Dictionary {
     private final HashMap<String, Integer> rank = new HashMap<>();
     private final HashMap<String, String> accented = new HashMap<>();   // sin tildes -> forma con tildes mas frecuente
     private final String[] sorted;                                       // orden alfabetico, para completar
+    private final String[][] byLength = new String[MAX_LEN + 3][];        // palabras por longitud, en orden de frecuencia
+    private volatile Set<String> personal = Collections.emptySet();      // palabras aprendidas del usuario
 
     /** Carga (o recupera de la cache) el diccionario de un idioma. Puede llamarse en segundo plano. */
     static synchronized Dictionary get(Context c, String lang) throws IOException {
@@ -124,6 +129,15 @@ final class Dictionary {
         }
         sorted = all.toArray(new String[0]);
         Arrays.sort(sorted);
+        List<List<String>> buckets = new ArrayList<>();
+        for (int i = 0; i < byLength.length; i++) buckets.add(new ArrayList<String>());
+        for (String w : all) if (w.length() < byLength.length) buckets.get(w.length()).add(w);
+        for (int i = 0; i < byLength.length; i++) byLength[i] = buckets.get(i).toArray(new String[0]);
+    }
+
+    /** Palabras aprendidas del usuario: se aceptan como conocidas y se completan. */
+    void setPersonal(Collection<String> words) {
+        personal = words == null ? Collections.<String>emptySet() : new HashSet<>(words);
     }
 
     /** Quita las tildes y la dieresis (la ñ se conserva: es una letra propia del teclado). */
@@ -153,7 +167,7 @@ final class Dictionary {
         }
     }
 
-    boolean contains(String w) { return rank.containsKey(w); }
+    boolean contains(String w) { return rank.containsKey(w) || personal.contains(w); }
 
     int size() { return sorted.length; }
 
@@ -199,14 +213,18 @@ final class Dictionary {
                 return res;
             }
         }
-        if (n < 2) return res;
-        res.known = rank.containsKey(w);
+        if (n < 2 || n > MAX_LEN) return res;
+        boolean learned = personal.contains(w);
+        res.known = rank.containsKey(w) || learned;
 
         HashMap<String, Double> cand = new HashMap<>();
-        String acc = resolve(w);
+        String acc = learned ? null : resolve(w);
         boolean accentFix = acc != null && !acc.equals(w);
         if (accentFix) put(cand, acc, score(acc, 0));
-        if (!res.known) edits(w, cand);
+        if (!res.known) {
+            edits(w, cand);
+            if (n >= 5) scan(w, cand);                   // tambien a dos ediciones
+        }
 
         String best = null;
         double bestScore = Double.MAX_VALUE;
@@ -220,6 +238,8 @@ final class Dictionary {
         }
 
         for (String s : completions(w, MAX_SUGGESTIONS)) put(cand, s, score(s, 0.5));
+        for (String p : personal) if (p.startsWith(w) && !p.equals(w)) put(cand, p, 1.0);
+        fuzzyCompletions(w, cand);
         List<Map.Entry<String, Double>> list = new ArrayList<>(cand.entrySet());
         Collections.sort(list, new Comparator<Map.Entry<String, Double>>() {
             @Override public int compare(Map.Entry<String, Double> a, Map.Entry<String, Double> b) {
@@ -268,6 +288,91 @@ final class Dictionary {
                 boolean doubled = (i > 0 && w.charAt(i - 1) == ch) || (i < n && w.charAt(i) == ch);
                 offer(cand, w.substring(0, i) + ch + w.substring(i), doubled ? 0.3 : 1.0);
             }
+        }
+    }
+
+    /**
+     * Busqueda a dos ediciones: palabras de longitud parecida que empiezan por la misma letra, con la
+     * distancia ponderada (los mismos costes que las variantes a una edicion) y corte temprano.
+     */
+    private void scan(String w, Map<String, Double> cand) {
+        String a = deaccent(w);
+        char first = a.charAt(0);
+        int n = a.length();
+        double[][] dp = new double[n + 1][n + 4];
+        for (int len = Math.max(2, n - 2); len <= Math.min(byLength.length - 1, n + 2); len++) {
+            for (String word : byLength[len]) {
+                if (plain(word.charAt(0)) != first) continue;
+                String b = deaccent(word);
+                double cost = distance(a, b, ED2_CUTOFF, dp);
+                if (cost <= 0 || cost > ED2_CUTOFF) continue;
+                put(cand, word, score(word, cost));
+            }
+        }
+    }
+
+    private static boolean close(char x, char y) {
+        String nb = NEIGHBORS.get(x);
+        return (nb != null && nb.indexOf(y) >= 0) || PHONETIC.contains("" + x + y) || PHONETIC.contains("" + y + x);
+    }
+
+    private static double deleteCost(String a, int i) {
+        boolean doubled = (i > 0 && a.charAt(i) == a.charAt(i - 1)) || (i + 1 < a.length() && a.charAt(i) == a.charAt(i + 1));
+        return doubled ? 0.4 : 2.0;
+    }
+
+    private static double insertCost(String b, int j) {
+        boolean doubled = (j > 0 && b.charAt(j) == b.charAt(j - 1)) || (j + 1 < b.length() && b.charAt(j) == b.charAt(j + 1));
+        return doubled ? 0.3 : 1.0;
+    }
+
+    /**
+     * Distancia de edicion ponderada entre lo escrito {@code a} y la palabra {@code b} (ambas sin tildes):
+     * Damerau-Levenshtein con el coste de cada tipo de error. Devuelve MAX_VALUE si supera el corte.
+     */
+    private static double distance(String a, String b, double cutoff, double[][] d) {
+        int n = a.length(), m = b.length();
+        d[0][0] = 0;
+        for (int j = 1; j <= m; j++) d[0][j] = d[0][j - 1] + insertCost(b, j - 1);
+        for (int i = 1; i <= n; i++) {
+            d[i][0] = d[i - 1][0] + deleteCost(a, i - 1);
+            double rowMin = d[i][0];
+            char ca = a.charAt(i - 1);
+            for (int j = 1; j <= m; j++) {
+                char cb = b.charAt(j - 1);
+                double best = d[i - 1][j - 1] + (ca == cb ? 0 : close(ca, cb) ? 0.4 : 2.5);
+                best = Math.min(best, d[i - 1][j] + deleteCost(a, i - 1));
+                best = Math.min(best, d[i][j - 1] + insertCost(b, j - 1));
+                if (i > 1 && j > 1 && ca != cb && ca == b.charAt(j - 2) && a.charAt(i - 2) == cb) {
+                    best = Math.min(best, d[i - 2][j - 2] + 0.6);
+                }
+                d[i][j] = best;
+                if (best < rowMin) rowMin = best;
+            }
+            if (rowMin > cutoff) return Double.MAX_VALUE;
+        }
+        return d[n][m];
+    }
+
+    /** Completados aunque el prefijo lleve un error: variantes a una edicion que sean prefijo de alguna palabra. */
+    private void fuzzyCompletions(String w, Map<String, Double> cand) {
+        int n = w.length();
+        if (n < 3) return;
+        HashSet<String> variants = new HashSet<>();
+        for (int i = 0; i < n; i++) variants.add(w.substring(0, i) + w.substring(i + 1));
+        for (int i = 0; i + 1 < n; i++) variants.add(w.substring(0, i) + w.charAt(i + 1) + w.charAt(i) + w.substring(i + 2));
+        for (int i = 0; i < n; i++) {
+            for (int a = 0; a < alphabet.length(); a++) {
+                char ch = alphabet.charAt(a);
+                if (close(w.charAt(i), ch)) variants.add(w.substring(0, i) + ch + w.substring(i + 1));
+            }
+        }
+        for (int i = 0; i <= n; i++) {
+            for (int a = 0; a < alphabet.length(); a++) variants.add(w.substring(0, i) + alphabet.charAt(a) + w.substring(i));
+        }
+        for (String v : variants) {
+            if (v.length() < 3 || v.equals(w)) continue;
+            for (String s : completions(v, 2)) put(cand, s, score(s, 1.2));
         }
     }
 

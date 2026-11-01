@@ -15,3 +15,9 @@ Los emojis de app/src/main/res/raw/emoji.txt se generan con tools/build_emoji.py
 emoji-test.txt (Unicode Emoji 16.0, datos de Unicode, Inc.; terminos de uso en
 https://www.unicode.org/terms_of_use.html). Se conservan solo las secuencias "fully-qualified"
 sin tono de piel, agrupadas por categoria.
+
+Los nombres y palabras clave de app/src/main/res/raw/emoji_names.txt (busqueda de emojis en espanol e
+ingles) vienen de las anotaciones de CLDR (common/annotations y common/annotationsDerived de
+https://github.com/unicode-org/cldr), datos de Unicode, Inc. bajo la Unicode License v3
+(tools/emoji/LICENSE-Unicode.txt). Se regeneran con:
+    python3 tools/build_emoji.py emoji-test.txt carpeta-cldr

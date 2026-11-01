@@ -25,15 +25,25 @@ escribes.
 - **Barra de herramientas** sobre las teclas, como la de Samsung Keyboard: autocorrector a la izquierda; a la
   derecha 😊 emojis y 📋 portapapeles (opción "Barra de herramientas", activada por defecto). Mientras se escribe una
   palabra, la parte izquierda muestra las sugerencias; la barra de traducción (opcional) se dibuja en ese mismo espacio.
+  En la página `?123` aparece además un ⚙ que abre la pantalla de ajustes.
 - **😊 Emojis**: panel con la clasificación oficial de Unicode: pestañas por grupo (recientes, caritas, personas,
   naturaleza, comida, viajes, actividades, objetos, símbolos, banderas) y, dentro de cada grupo, una sección por
   subgrupo en el orden canónico de `emoji-test.txt` (caras sonrientes, caras con cariño…, manos, profesiones,
   mamíferos, aves…). Se desplaza de forma continua y la pestaña sigue al desplazamiento; se queda abierto al elegir
-  y ABC vuelve a las letras. Los datos están en `app/src/main/res/raw/emoji.txt`, generado por
-  `tools/build_emoji.py` a partir de los datos de emojis de Unicode (Emoji 16.0, sin tonos de piel).
-- **📋 Portapapeles**: historial de lo copiado (hasta 20 textos), guardado solo en el teléfono (preferencias privadas
-  de la app), con "Borrar todo" y borrado por elemento; tocar un elemento lo pega.
-- **Autocorrección y sugerencias sin internet**, con diccionarios integrados de español e inglés (ver abajo).
+  y ABC vuelve a las letras. **Búsqueda** (🔍, a la izquierda de las pestañas) por nombre o palabra clave en español
+  e inglés, tolerante a errores ("piza" encuentra 🍕, "mexico" la bandera, "risa" o "laugh" 😂), con un teclado
+  reducido para escribir la consulta. Los datos están en `app/src/main/res/raw/emoji.txt` y `emoji_names.txt`,
+  generados por `tools/build_emoji.py` a partir de los datos de emojis de Unicode (Emoji 16.0, sin tonos de piel) y
+  de las anotaciones CLDR (nombres y palabras clave).
+- **📋 Portapapeles**: historial de lo copiado, **texto e imágenes** (hasta 20 elementos, 10 imágenes), guardado
+  solo en el teléfono (preferencias y carpeta privadas de la app), con "Borrar todo" y borrado por elemento. Tocar un
+  texto lo pega; si el texto contiene un **número de teléfono, un correo o un enlace**, aparece debajo un chip para
+  pegar solo esa parte. Tocar una imagen la inserta en el campo si la app lo admite (mensajería, correo…; se usa
+  `commitContent`, la misma vía que Gboard para GIF y stickers).
+- **Autocorrección y sugerencias sin internet**, con diccionarios integrados de español e inglés (ver abajo); **doble
+  espacio** escribe punto y espacio; las palabras que conservas se **aprenden** (opción desactivable y borrable).
+- **Sonido personalizado**: en ajustes puedes elegir un audio corto del teléfono como clic de tecla (se copia a la
+  carpeta privada de la app) o volver al clic del sistema.
 - **Modo a una mano** (izquierda o derecha, 78 % del ancho): opción "Modo a una mano".
 - **Globo**: solo aparece cuando hay dos idiomas Aurebesh activos y alterna español/inglés sin salir del teclado.
   Mantener el espacio abre el selector de teclados del sistema (para volver a Samsung Keyboard).
@@ -47,8 +57,8 @@ escribes.
 - `?123`: signos con glifo propio, dígrafos Aurebesh (ch, ae, eo, kh, ng, oo, sh, th) y símbolos latinos.
 - Burbuja al pulsar con el glifo grande y la letra latina (para aprender el alfabeto).
 - Opciones: tema, tamaño del teclado (4 niveles), modo a una mano, barra de herramientas, letra latina en las teclas
-  (con las alternativas de pulsación larga), barra de traducción, dígrafos, fila de números, autocorrección, sonido y
-  vibración.
+  (con las alternativas de pulsación larga), barra de traducción, dígrafos, fila de números, autocorrección, punto con
+  doble espacio, aprender palabras nuevas, sonido (del sistema o personalizado) y vibración.
 - `¿` y `¡` tienen glifo propio: el de `?` y `!` girado 180°, como en la tipografía española.
 - `+ = # * % @ &` y el resto de signos vienen de la fuente base; en la página `?123` cada signo lleva su leyenda latina en la esquina.
 - La app incluye campos reales (texto y contraseña) que usan el teclado elegido en Ajustes.
@@ -66,11 +76,19 @@ no lo registra y Gboard no siempre está instalado), así que el marco de correc
   generadas por `tools/build_dictionaries.py` a partir de las listas de frecuencia de
   [hermitdave/FrequencyWords](https://github.com/hermitdave/FrequencyWords) (MIT,
   `tools/dict/LICENSE-FrequencyWords.md`), calculadas sobre los subtítulos de OpenSubtitles 2018.
-- Palabra desconocida → mejor candidato a **una edición** (una letra de más, de menos, cambiada por una vecina en el
-  teclado, o dos letras invertidas), ponderado por frecuencia.
+- Palabra desconocida → mejor candidato a **una o dos ediciones** (letras de más, de menos, cambiadas o invertidas),
+  con el coste de cada tipo de error: cambiar una letra por una vecina en el teclado o por otra de sonido parecido
+  (s/z, c/s, b/v…) cuesta poco, una letra doble de más o de menos también, y una sustitución arbitraria mucho. La
+  puntuación es `ln(frecuencia) + coste`, así "fuersa" → "fuerza" (y no "fuera") y "nesecito" → "necesito". Para dos
+  ediciones se recorren las palabras de longitud parecida que empiezan por la misma letra, con corte temprano.
 - **Restauración de tildes** cuando la forma acentuada es mucho más frecuente: "mas" → "más", "cancion" → "canción",
   "tambien" → "también". Las parejas ambiguas ("esta/está", "si/sí", "el/él") se dejan como están.
-- **Completado de palabras** en la barra; en inglés, "i" → "I" y contracciones ("dont" → "don't").
+- **Completado de palabras** en la barra, también **difuso** (el prefijo puede llevar un error: "qier" ofrece "quiero");
+  en inglés, "i" → "I" y contracciones ("dont" → "don't").
+- **Palabras aprendidas**: lo que conservas con el chip entre comillas, o recuperas con retroceso, se guarda en el
+  teléfono (hasta 500 palabras), deja de corregirse y se completa. Opción "Aprender palabras nuevas" y botón
+  "Olvidar palabras aprendidas".
+- Las sugerencias se calculan en un hilo aparte; si tecleas el separador antes de que lleguen, se calculan al momento.
 - La corrección se aplica al teclear espacio o puntuación. **Retroceso justo después la deshace.** El primer chip de
   la barra (la palabra escrita, entre comillas) la conserva tal cual.
 - Nunca corrige en contraseñas, correos, URL ni campos marcados sin sugerencias.
@@ -87,11 +105,12 @@ porque no existe forma de integrarlo.
 | Función | Samsung Keyboard | Teclado Aurebesh 1.7 |
 |---|---|---|
 | Galaxy AI / Inteligencia avanzada | Sí | No (exclusivo de Samsung Keyboard); el menú de selección de texto sigue ofreciendo el Asistente de escritura |
-| Portapapeles con historial | Sí | Sí (📋, hasta 20 textos, borrable) |
+| Portapapeles con historial | Sí | Sí (📋, texto e imágenes, "solo el número/correo/enlace", borrable) |
 | Modo a una mano | Sí | Sí |
 | Teclado flotante | Sí | No en 1.7 |
 | Autocorrección y predicción | Sí | Sí, con diccionarios propios (sin internet) |
-| Emojis | Sí | Sí (panel por categorías con recientes) |
+| Emojis | Sí | Sí (clasificación oficial de Unicode, recientes y búsqueda) |
+| Sonido de tecla personalizado | Sí | Sí (cualquier audio corto del teléfono) |
 | Dictado por voz | Sí | No |
 | Cambio de idioma | Sí | Sí (globo con dos idiomas activos) |
 
@@ -105,21 +124,24 @@ app/src/main/java/com/aurebesh/teclado/
   ThemeSwatchView.java     muestra de tema para el selector de la app
   AurebeshIME.java         servicio de teclado
   Dictionary.java          diccionario y autocorrección
-  ClipHistory.java         historial del portapapeles
+  ClipHistory.java         historial del portapapeles (texto e imágenes) y extracción de teléfono/correo/enlace
+  ClipProvider.java        ContentProvider que sirve las imágenes copiadas a la app destino
   KeyboardTray.java        bandeja sobre las teclas: historial del portapapeles
-  EmojiTray.java           panel de emojis por categorías, con recientes
+  EmojiTray.java           panel de emojis por categorías, con recientes y búsqueda
+  KeySound.java            clic de tecla: el del sistema o un audio elegido por el usuario
   DeviceInfo.java          detección de Samsung / One UI
   AurebeshTextView.java    texto renderizado en Aurebesh
   MainActivity.java        pantalla de configuración y prueba
   Prefs.java               preferencias
 app/src/main/res/          strings, colores (claro/noche), tema, icono, method.xml
-app/src/main/res/raw/      words_es.txt y words_en.txt (diccionarios) y emoji.txt (emojis por categoría)
+app/src/main/res/raw/      words_es.txt y words_en.txt (diccionarios), emoji.txt (emojis por subgrupo) y
+                           emoji_names.txt (nombres y palabras clave es/en para la búsqueda)
 screenshot-test/           prueba Robolectric: renderiza el teclado y la app a PNG, comprueba que
                            teclear "hola" produce "hola" y prueba el diccionario
 build.sh                   compilación sin Android Studio
 tools/build_dictionaries.py genera los diccionarios a partir de FrequencyWords
-tools/build_emoji.py       genera emoji.txt a partir de los datos de emojis de Unicode
-tools/dict/                licencia de las listas de palabras
+tools/build_emoji.py       genera emoji.txt y emoji_names.txt a partir de los datos de Unicode y CLDR
+tools/dict/, tools/emoji/  licencias y procedencia de las listas de palabras y de los emojis
 promo/make_promo.py        imágenes promocionales (1080×1920 y gráfico 1024×500) a partir
                            de las capturas reales; salida en promo/out/
 ```
@@ -174,9 +196,11 @@ enviado siempre lleva los caracteres correctos.
 Añadir un tema es añadir una línea en `Themes.java`; el selector, la copia del teclado, la bandeja y las capturas lo recogen solos.
 
 ## Privacidad
-La app no pide permisos ni usa internet y no guarda nada de lo que escribes. Lo único que conserva es el
-historial del portapapeles (los textos que copias, hasta 20), en las preferencias privadas de la app, en el
-teléfono; se borra desde la propia bandeja 📋, por elemento o con "Borrar todo".
+La app no pide permisos ni usa internet y no guarda nada de lo que escribes, salvo lo que tú decides conservar:
+el historial del portapapeles (textos e imágenes que copias, hasta 20 elementos), las palabras aprendidas (las que
+conservas con el chip entre comillas o recuperas con retroceso, hasta 500) y, si lo eliges, el audio del clic. Todo
+queda en las preferencias y la carpeta privadas de la app, en el teléfono, y se borra desde la bandeja 📋 ("Borrar
+todo" o por elemento), con "Olvidar palabras aprendidas" y con "Usar el predeterminado".
 
 ## Créditos y licencias
 - **Fuente Aurebesh** © 2022 SilvinoR, [github.com/silvinor/font-aurebesh](https://github.com/silvinor/font-aurebesh),
@@ -215,13 +239,15 @@ clave de cuenta de servicio (`GOOGLE_APPLICATION_CREDENTIALS` o `GOOGLE_APPLICAT
 ./build.sh                      # deja los recursos compilados en build/
 cd screenshot-test && mvn test  # capturas en ../screenshots/
 ```
-Genera un teclado, una pantalla `?123`, una barra y una burbuja por tema, la barra de sugerencias
-(`sugerencias.png`), el modo a una mano (`una_mano.png`), la bandeja del portapapeles
-(`portapapeles_estelar.png`, `portapapeles_noche.png`), el panel de emojis (`emojis_estelar.png`,
-`emojis_noche.png`), la app en
-claro y noche, el aviso de dispositivo no probado (`app_experimental.png`) y el icono. La prueba también comprueba
-que teclear "hola" produce "hola" y que el diccionario corrige "holq" → "hola", "cancion" → "canción" y
-"teh" → "the". Después, `python3 promo/make_promo.py` compone las imágenes promocionales.
+Genera un teclado, una pantalla `?123` (con el ⚙ en `simbolos_engrane.png`), una barra y una burbuja por tema, la
+barra de sugerencias (`sugerencias.png`), el modo a una mano (`una_mano.png`), la bandeja del portapapeles con texto,
+chips de "solo el número/correo/enlace" e imagen (`portapapeles_estelar.png`, `portapapeles_noche.png`), el panel
+de emojis y su búsqueda (`emojis_estelar.png`, `emojis_noche.png`, `emojis_busqueda.png`), la app en claro y noche,
+el aviso de dispositivo no probado (`app_experimental.png`) y el icono. La prueba también comprueba que teclear
+"hola" produce "hola", que el diccionario corrige "holq" → "hola", "cancion" → "canción", "fuersa" → "fuerza",
+"nesecito" → "necesito" y "teh" → "the", que completa "qier" → "quiero", que respeta las palabras aprendidas, que la
+búsqueda de emojis encuentra "corazon", "mexico", "pizza" y "laugh", y que la extracción saca el teléfono, el
+correo y el enlace de un texto. Después, `python3 promo/make_promo.py` compone las imágenes promocionales.
 Usa Robolectric con gráficos nativos. Necesita acceso a Maven Central; `androidx.test:monitor`
 y `espresso-idling-resource` deben estar en el repositorio local de Maven (vienen del Maven de
 Google o se compilan desde `github.com/android/android-test`).

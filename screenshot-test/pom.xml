@@ -28,7 +28,7 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
         <version>3.2.5</version>
-        <configuration>
+        <configuration><argLine>--add-opens java.base/java.io=ALL-UNNAMED --add-opens java.base/java.nio=ALL-UNNAMED</argLine>
           <systemPropertyVariables>
             <robolectric.graphicsMode>NATIVE</robolectric.graphicsMode>
             <robolectric.offline>false</robolectric.offline>

@@ -29,5 +29,11 @@
                 android:name="android.view.im"
                 android:resource="@xml/method" />
         </service>
+
+        <provider
+            android:name=".ClipProvider"
+            android:authorities="com.aurebesh.teclado.clips"
+            android:exported="false"
+            android:grantUriPermissions="true" />
     </application>
 </manifest>

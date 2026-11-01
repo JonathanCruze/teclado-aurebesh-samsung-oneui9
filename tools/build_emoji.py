@@ -1,19 +1,25 @@
 #!/usr/bin/env python3
-"""Genera app/src/main/res/raw/emoji.txt a partir del emoji-test.txt de Unicode
-(https://unicode.org/Public/emoji/<version>/emoji-test.txt): una linea por subgrupo, en el orden
-oficial de Unicode (grupo y subgrupo), con el nombre del subgrupo en espanol e ingles:
+"""Genera los datos de emojis del teclado a partir de los datos oficiales de Unicode:
 
-    grupo<TAB>subgrupo<TAB>nombre es<TAB>nombre en<TAB>emoji emoji ...
+  app/src/main/res/raw/emoji.txt        una linea por subgrupo, en el orden oficial de emoji-test.txt
+                                        (grupo<TAB>subgrupo<TAB>nombre es<TAB>nombre en<TAB>emoji emoji ...)
+  app/src/main/res/raw/emoji_names.txt  una linea por emoji con su nombre y palabras clave en espanol e
+                                        ingles, tomados de las anotaciones de CLDR (para la busqueda):
+                                        emoji<TAB>nombre es | clave | clave<TAB>nombre en | clave | clave
 
-Uso:  python3 tools/build_emoji.py /ruta/a/emoji-test.txt
+Uso:  python3 tools/build_emoji.py /ruta/a/emoji-test.txt [/carpeta/cldr]
+      La carpeta CLDR debe contener annotations_es.xml, annotations_en.xml, annotationsDerived_es.xml y
+      annotationsDerived_en.xml (common/annotations y common/annotationsDerived de unicode-org/cldr).
 Se conservan las secuencias "fully-qualified" sin tono de piel; el grupo Component se omite.
 """
 import os
 import re
 import sys
+import xml.etree.ElementTree as ET
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, 'app', 'src', 'main', 'res', 'raw', 'emoji.txt')
+OUT_NAMES = os.path.join(ROOT, 'app', 'src', 'main', 'res', 'raw', 'emoji_names.txt')
 GROUPS = {
     'Smileys & Emotion': 'smileys', 'People & Body': 'people', 'Animals & Nature': 'nature',
     'Food & Drink': 'food', 'Travel & Places': 'travel', 'Activities': 'activities',
@@ -125,7 +131,40 @@ NAMES = {
 }
 
 
-def build(path):
+def load_cldr(folder, lang):
+    """Nombre (tts) y palabras clave por emoji; las anotaciones base mandan sobre las derivadas."""
+    names = {}
+    for fname in ('annotations_%s.xml' % lang, 'annotationsDerived_%s.xml' % lang):
+        path = os.path.join(folder, fname)
+        if not os.path.exists(path):
+            continue
+        for a in ET.parse(path).getroot().iter('annotation'):
+            cp, text = a.get('cp'), (a.text or '').strip()
+            if not cp or not text:
+                continue
+            entry = names.setdefault(cp, ['', []])
+            if a.get('type') == 'tts':
+                if not entry[0]:
+                    entry[0] = text
+            elif not entry[1]:
+                entry[1] = [k.strip() for k in text.split('|') if k.strip()]
+    return names
+
+
+def describe(names, emoji):
+    """'nombre | clave | clave' en minusculas, sin repetir; busca tambien sin selectores de variante."""
+    entry = names.get(emoji) or names.get(emoji.replace('\ufe0f', ''))
+    if not entry:
+        return ''
+    out = []
+    for k in [entry[0]] + entry[1]:
+        k = k.lower()
+        if k and k not in out:
+            out.append(k)
+    return ' | '.join(out)
+
+
+def build(path, cldr=None):
     sections = []          # [grupo, subgrupo, [emojis]] en orden de aparicion
     group = None
     with open(path, encoding='utf-8') as f:
@@ -162,7 +201,20 @@ def build(path):
     missing = [s for _, s, e in sections if e and s not in NAMES]
     if missing:
         print('sin nombre:', missing)
+    if cldr:
+        es_names, en_names = load_cldr(cldr, 'es'), load_cldr(cldr, 'en')
+        named = 0
+        with open(OUT_NAMES, 'w', encoding='utf-8', newline='\n') as f:
+            f.write('# emoji<TAB>nombre es | palabras clave<TAB>nombre en | palabras clave (anotaciones CLDR de Unicode). '
+                    'Generado por tools/build_emoji.py\n')
+            for _, _, emojis in sections:
+                for e in emojis:
+                    es, en = describe(es_names, e), describe(en_names, e)
+                    if es or en:
+                        named += 1
+                    f.write('%s\t%s\t%s\n' % (e, es, en))
+        print('%d de %d emojis con nombre -> %s' % (named, total, os.path.relpath(OUT_NAMES, ROOT)))
 
 
 if __name__ == '__main__':
-    build(sys.argv[1])
+    build(sys.argv[1], sys.argv[2] if len(sys.argv) > 2 else None)

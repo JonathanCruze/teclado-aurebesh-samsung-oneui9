@@ -6,7 +6,7 @@
     <string name="subtype_en" translatable="false">English (Aurebesh)</string>
     <string name="lang_es" translatable="false">Español</string>
     <string name="lang_en" translatable="false">English</string>
-    <string name="version" translatable="false">1.7.2</string>
+    <string name="version" translatable="false">1.8</string>
 
     <string name="tagline">The Star Wars alphabet on your keyboard. What you type is sent as normal letters, so anyone can read it.</string>
 
@@ -57,7 +57,7 @@
     <string name="hand_left">Left</string>
     <string name="hand_right">Right</string>
     <string name="opt_autocorrect">Autocorrect</string>
-    <string name="opt_autocorrect_sub">Built-in Spanish and English dictionaries, no internet. Backspace undoes a correction.</string>
+    <string name="opt_autocorrect_sub">Built-in Spanish and English dictionaries, no internet: fixes one or two mistakes, restores accents and completes words. Backspace undoes a correction.</string>
     <string name="opt_vibrate">Vibrate on keypress</string>
 
     <string name="gestures">Gestures</string>
@@ -84,6 +84,28 @@
     <string name="tool_clipboard">Clipboard</string>
     <string name="emoji_recent_title">Recent</string>
     <string name="emoji_recent_empty">Emoji you use will show up here</string>
+    <string name="emoji_search_hint">Search emoji</string>
+    <string name="emoji_search_empty">No emoji found</string>
+    <string name="clip_only_number">Only the number</string>
+    <string name="clip_only_email">Only the email</string>
+    <string name="clip_only_link">Only the link</string>
+    <string name="clip_image">Image</string>
+    <string name="clip_image_unsupported">This field doesn\'t accept images</string>
+    <string name="opt_custom_sound">Custom key sound</string>
+    <string name="opt_custom_sound_sub">A short audio file (about 3 s or less); by default the system click</string>
+    <string name="sound_choose">Choose a sound…</string>
+    <string name="sound_default">Use the default</string>
+    <string name="sound_current">Current: %1$s</string>
+    <string name="sound_error">Couldn\'t use that file</string>
+    <string name="opt_learn">Learn new words</string>
+    <string name="opt_learn_sub">Words you keep are remembered on this phone and suggested next time</string>
+    <string name="learn_clear">Forget learned words</string>
+    <string name="learn_cleared">Learned words forgotten</string>
+    <string name="opt_double_space">Period with double space</string>
+    <string name="opt_double_space_sub">Tap the space bar twice to end a sentence</string>
+    <string name="tool_settings">Settings</string>
+    <string name="gesture_gear">⚙ in ?123</string>
+    <string name="gesture_gear_result">Opens this settings screen from the keyboard</string>
     <string name="clipboard_title">Clipboard</string>
     <string name="clipboard_clear">Clear all</string>
     <string name="clipboard_empty">Copy some text and it will show up here. Tap an item to paste it.</string>
@@ -94,5 +116,5 @@
     <string name="footer_compat_other">Optimized for Samsung One UI 9.0 · this phone: %1$s (experimental)</string>
     <string name="credits">Aurebesh font © 2022 SilvinoR, SIL Open Font License 1.1. Word lists: FrequencyWords by Hermit Dave (MIT), built on OpenSubtitles. Star Wars and Aurebesh are trademarks of Lucasfilm Ltd.; fan project, not affiliated.</string>
 
-    <string name="footer">Version %1$s. No internet access; nothing you type is stored. Only the clipboard history is kept, on this phone.</string>
+    <string name="footer">Version %1$s. No internet access. Only the clipboard history and the words you choose to keep are stored, on this phone.</string>
 </resources>

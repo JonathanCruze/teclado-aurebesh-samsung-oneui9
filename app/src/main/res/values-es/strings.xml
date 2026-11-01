@@ -51,7 +51,7 @@
     <string name="hand_left">Izquierda</string>
     <string name="hand_right">Derecha</string>
     <string name="opt_autocorrect">Autocorrección</string>
-    <string name="opt_autocorrect_sub">Diccionarios integrados en español e inglés, sin internet. Retroceso deshace una corrección.</string>
+    <string name="opt_autocorrect_sub">Diccionarios integrados en español e inglés, sin internet: corrige uno o dos errores, restaura tildes y completa palabras. Retroceso deshace una corrección.</string>
     <string name="opt_vibrate">Vibración al pulsar</string>
 
     <string name="gestures">Gestos</string>
@@ -78,6 +78,28 @@
     <string name="tool_clipboard">Portapapeles</string>
     <string name="emoji_recent_title">Recientes</string>
     <string name="emoji_recent_empty">Los emojis que uses aparecerán aquí</string>
+    <string name="emoji_search_hint">Buscar emoji</string>
+    <string name="emoji_search_empty">Sin resultados</string>
+    <string name="clip_only_number">Solo el número</string>
+    <string name="clip_only_email">Solo el correo</string>
+    <string name="clip_only_link">Solo el enlace</string>
+    <string name="clip_image">Imagen</string>
+    <string name="clip_image_unsupported">Este campo no admite imágenes</string>
+    <string name="opt_custom_sound">Sonido personalizado</string>
+    <string name="opt_custom_sound_sub">Un audio corto (unos 3 s o menos); por defecto, el clic del sistema</string>
+    <string name="sound_choose">Elegir un sonido…</string>
+    <string name="sound_default">Usar el predeterminado</string>
+    <string name="sound_current">Actual: %1$s</string>
+    <string name="sound_error">No se pudo usar ese archivo</string>
+    <string name="opt_learn">Aprender palabras nuevas</string>
+    <string name="opt_learn_sub">Las palabras que conservas se recuerdan en este teléfono y se sugieren después</string>
+    <string name="learn_clear">Olvidar palabras aprendidas</string>
+    <string name="learn_cleared">Palabras aprendidas olvidadas</string>
+    <string name="opt_double_space">Punto con doble espacio</string>
+    <string name="opt_double_space_sub">Toca dos veces el espacio para terminar la frase</string>
+    <string name="tool_settings">Ajustes</string>
+    <string name="gesture_gear">⚙ en ?123</string>
+    <string name="gesture_gear_result">Abre esta pantalla de ajustes desde el teclado</string>
     <string name="clipboard_title">Portapapeles</string>
     <string name="clipboard_clear">Borrar todo</string>
     <string name="clipboard_empty">Copia un texto y aparecerá aquí. Toca uno para pegarlo.</string>
@@ -88,5 +110,5 @@
     <string name="footer_compat_other">Optimizado para Samsung One UI 9.0 · este teléfono: %1$s (experimental)</string>
     <string name="credits">Fuente Aurebesh © 2022 SilvinoR, SIL Open Font License 1.1. Listas de palabras: FrequencyWords de Hermit Dave (MIT), sobre OpenSubtitles. Star Wars y Aurebesh son marcas de Lucasfilm Ltd.; proyecto de aficionado sin afiliación.</string>
 
-    <string name="footer">Versión %1$s. No usa internet ni guarda lo que escribes; solo el historial del portapapeles, en este teléfono.</string>
+    <string name="footer">Versión %1$s. No usa internet. Solo se guardan en este teléfono el historial del portapapeles y las palabras que decides conservar.</string>
 </resources>

@@ -7,7 +7,9 @@ import android.content.res.ColorStateList;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.RippleDrawable;
+import android.net.Uri;
 import android.os.Bundle;
+import android.provider.OpenableColumns;
 import android.provider.Settings;
 import android.text.Editable;
 import android.text.InputType;
@@ -25,6 +27,7 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.Switch;
 import android.widget.TextView;
+import android.widget.Toast;
 
 /**
  * Pantalla de la app: configurar el teclado en dos pasos, probarlo con una copia
@@ -45,6 +48,10 @@ public final class MainActivity extends Activity {
     private AurebeshTextView translation;
     private AurebeshKeyboardView preview;
     private final java.util.List<View> themeItems = new java.util.ArrayList<>();
+    private TextView soundCurrent;                       // "Actual: nombre" del sonido personalizado
+
+    private static final int PICK_SOUND = 41;
+    private static final long MAX_SOUND_BYTES = 2L * 1024 * 1024;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -89,7 +96,11 @@ public final class MainActivity extends Activity {
         chipRow(typing, R.string.opt_height, Prefs.HEIGHT, SIZES, SIZE_NAMES, Prefs.height(this));
         chipRow(typing, R.string.opt_hand, Prefs.HAND, HANDS, HAND_NAMES, Prefs.hand(this));
         optionRow(typing, R.string.opt_autocorrect, R.string.opt_autocorrect_sub, Prefs.AUTOCORRECT, Prefs.autocorrect(this));
+        optionRow(typing, R.string.opt_double_space, R.string.opt_double_space_sub, Prefs.DOUBLE_SPACE, Prefs.doubleSpace(this));
+        optionRow(typing, R.string.opt_learn, R.string.opt_learn_sub, Prefs.LEARN, Prefs.learn(this));
+        learnClearRow(typing);
         optionRow(typing, R.string.opt_sound, 0, Prefs.SOUND, Prefs.sound(this));
+        customSoundRow(typing);
         optionRow(typing, R.string.opt_vibrate, 0, Prefs.VIBRATE, Prefs.vibrate(this));
         root.addView(typing, block(0));
 
@@ -104,6 +115,7 @@ public final class MainActivity extends Activity {
         gestureRow(gestures, R.string.gesture_picker, R.string.gesture_picker_result);
         gestureRow(gestures, R.string.gesture_emoji, R.string.gesture_emoji_result);
         gestureRow(gestures, R.string.gesture_clipboard, R.string.gesture_clipboard_result);
+        gestureRow(gestures, R.string.gesture_gear, R.string.gesture_gear_result);
         root.addView(gestures, block(0));
 
         LinearLayout foot = column();
@@ -209,6 +221,8 @@ public final class MainActivity extends Activity {
                         CharSequence t = cm.getPrimaryClip().getItemAt(0).coerceToText(MainActivity.this);
                         if (t != null) replaceSelection(t.toString());
                     }
+                } else if (tool == AurebeshKeyboardView.TOOL_SETTINGS) {
+                    // ya estamos en los ajustes
                 }
             }
             @Override public void onDelete() {
@@ -488,6 +502,144 @@ public final class MainActivity extends Activity {
         col.setPadding(px(18), px(12), px(18), px(12));
         col.addView(text(getString(gesture), 16, ink, false), block(0));
         col.addView(text(getString(result), 13, secondary, false), block(2));
+        parent.addView(col, block(0));
+    }
+
+    /** Boton de texto con el estilo de los chips. */
+    private TextView chipButton(int label, View.OnClickListener onClick) {
+        TextView chip = text(getString(label), 14, ink, true);
+        chip.setGravity(Gravity.CENTER);
+        chip.setPadding(px(14), px(9), px(14), px(9));
+        chip.setSelected(false);
+        styleChip(chip);
+        chip.setOnClickListener(onClick);
+        return chip;
+    }
+
+    /** Fila "Sonido personalizado": elegir un audio corto del telefono o volver al clic del sistema. */
+    private void customSoundRow(LinearLayout parent) {
+        if (parent.getChildCount() > 0) parent.addView(dividerLine());
+        LinearLayout col = column();
+        col.setPadding(px(18), px(14), px(18), px(16));
+        col.addView(text(getString(R.string.opt_custom_sound), 16, ink, false), block(0));
+        col.addView(text(getString(R.string.opt_custom_sound_sub), 13, secondary, false), block(2));
+        soundCurrent = text("", 13, secondary, true);
+        col.addView(soundCurrent, block(2));
+        refreshSoundRow();
+
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        TextView choose = chipButton(R.string.sound_choose, new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                i.addCategory(Intent.CATEGORY_OPENABLE);
+                i.setType("audio/*");
+                try {
+                    startActivityForResult(i, PICK_SOUND);
+                } catch (android.content.ActivityNotFoundException e) {
+                    Toast.makeText(MainActivity.this, R.string.sound_error, Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+        TextView reset = chipButton(R.string.sound_default, new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                new java.io.File(getFilesDir(), KeySound.FILE).delete();
+                Prefs.get(MainActivity.this).edit().remove(Prefs.CUSTOM_SOUND).apply();
+                KeySound.get(MainActivity.this).reload(MainActivity.this);
+                refreshSoundRow();
+            }
+        });
+        row.addView(choose, new LinearLayout.LayoutParams(WRAP, WRAP));
+        LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(WRAP, WRAP);
+        rp.leftMargin = px(8);
+        row.addView(reset, rp);
+        col.addView(row, block(10));
+        parent.addView(col, block(0));
+    }
+
+    private void refreshSoundRow() {
+        if (soundCurrent == null) return;
+        String name = Prefs.customSound(this);
+        if (name == null) {
+            soundCurrent.setVisibility(View.GONE);
+        } else {
+            soundCurrent.setText(getString(R.string.sound_current, name));
+            soundCurrent.setVisibility(View.VISIBLE);
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != PICK_SOUND || resultCode != RESULT_OK || data == null || data.getData() == null) return;
+        Uri uri = data.getData();
+        java.io.File target = new java.io.File(getFilesDir(), KeySound.FILE);
+        boolean ok = false;
+        java.io.InputStream in = null;
+        java.io.FileOutputStream out = null;
+        try {
+            in = getContentResolver().openInputStream(uri);
+            if (in != null) {
+                out = new java.io.FileOutputStream(target);
+                byte[] buf = new byte[8192];
+                long total = 0;
+                int n;
+                while ((n = in.read(buf)) > 0) {
+                    total += n;
+                    if (total > MAX_SOUND_BYTES) throw new java.io.IOException("demasiado grande");
+                    out.write(buf, 0, n);
+                }
+                ok = total > 0;
+            }
+        } catch (java.io.IOException | SecurityException e) {
+            ok = false;
+        } finally {
+            try { if (in != null) in.close(); } catch (java.io.IOException ignored) {}
+            try { if (out != null) out.close(); } catch (java.io.IOException ignored) {}
+        }
+        if (!ok) {
+            target.delete();
+            Toast.makeText(this, R.string.sound_error, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        Prefs.get(this).edit().putString(Prefs.CUSTOM_SOUND, displayName(uri)).apply();
+        KeySound.get(this).reload(this);
+        refreshSoundRow();
+    }
+
+    /** Nombre visible del archivo elegido (o el ultimo tramo de la URI). */
+    private String displayName(Uri uri) {
+        android.database.Cursor c = null;
+        try {
+            c = getContentResolver().query(uri, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null);
+            if (c != null && c.moveToFirst()) {
+                int i = c.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+                if (i >= 0) {
+                    String n = c.getString(i);
+                    if (n != null && !n.isEmpty()) return n;
+                }
+            }
+        } catch (RuntimeException ignored) {
+            // sin nombre: se usa el tramo final de la URI
+        } finally {
+            if (c != null) c.close();
+        }
+        String last = uri.getLastPathSegment();
+        return last == null || last.isEmpty() ? "audio" : last;
+    }
+
+    /** Boton "Olvidar palabras aprendidas". */
+    private void learnClearRow(LinearLayout parent) {
+        if (parent.getChildCount() > 0) parent.addView(dividerLine());
+        LinearLayout col = column();
+        col.setPadding(px(18), px(12), px(18), px(16));
+        TextView clear = chipButton(R.string.learn_clear, new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                Prefs.clearLearnedWords(MainActivity.this);
+                Toast.makeText(MainActivity.this, R.string.learn_cleared, Toast.LENGTH_SHORT).show();
+            }
+        });
+        col.addView(clear, new LinearLayout.LayoutParams(WRAP, WRAP));
         parent.addView(col, block(0));
     }
 

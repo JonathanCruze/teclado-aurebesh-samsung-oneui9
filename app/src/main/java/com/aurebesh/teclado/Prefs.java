@@ -19,6 +19,10 @@ final class Prefs {
     static final String HAND = "hand_mode";
     static final String TOOLBAR = "toolbar";
     static final String EMOJI_RECENT = "emoji_recent";
+    static final String CUSTOM_SOUND = "custom_sound";    // nombre del archivo de sonido elegido
+    static final String LEARN = "learn_words";
+    static final String DOUBLE_SPACE = "double_space";
+    static final String LEARNED = "learned_words";        // palabras aprendidas, separadas por salto de linea
     private static final String LEGACY_DARK = "dark_theme";
 
     static SharedPreferences get(Context c) {
@@ -55,6 +59,40 @@ final class Prefs {
     }
     static boolean strip(Context c) { return get(c).getBoolean(STRIP, false); }
     static boolean toolbar(Context c) { return get(c).getBoolean(TOOLBAR, true); }
+    /** Nombre visible del sonido personalizado, o null si suena el clic del sistema. */
+    static String customSound(Context c) { return get(c).getString(CUSTOM_SOUND, null); }
+    static boolean learn(Context c) { return get(c).getBoolean(LEARN, true); }
+    static boolean doubleSpace(Context c) { return get(c).getBoolean(DOUBLE_SPACE, true); }
+
+    /** Palabras que el usuario decidio conservar (en minusculas, tal como se guardan). */
+    static java.util.Set<String> learnedWords(Context c) {
+        java.util.Set<String> out = new java.util.HashSet<>();
+        for (String w : get(c).getString(LEARNED, "").split("\n")) {
+            if (!w.isEmpty()) out.add(w);
+        }
+        return out;
+    }
+
+    /** Guarda una palabra aprendida (la mas reciente primero; como mucho 500). */
+    static void addLearnedWord(Context c, String w) {
+        if (w == null) return;
+        String word = w.trim().toLowerCase(java.util.Locale.ROOT);
+        if (word.isEmpty() || word.length() > 30) return;
+        java.util.List<String> words = new java.util.ArrayList<>();
+        for (String x : get(c).getString(LEARNED, "").split("\n")) {
+            if (!x.isEmpty() && !x.equals(word)) words.add(x);
+        }
+        words.add(0, word);
+        while (words.size() > 500) words.remove(words.size() - 1);
+        StringBuilder b = new StringBuilder();
+        for (String x : words) {
+            if (b.length() > 0) b.append('\n');
+            b.append(x);
+        }
+        get(c).edit().putString(LEARNED, b.toString()).apply();
+    }
+
+    static void clearLearnedWords(Context c) { get(c).edit().remove(LEARNED).apply(); }
 
     /** Emojis usados recientemente, el ultimo primero (se guardan separados por espacios). */
     static java.util.List<String> recentEmoji(Context c) {

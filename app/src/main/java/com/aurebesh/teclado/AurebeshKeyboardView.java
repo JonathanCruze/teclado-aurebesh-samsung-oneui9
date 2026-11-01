@@ -2,7 +2,6 @@ package com.aurebesh.teclado;
 
 import android.content.Context;
 import android.content.res.Configuration;
-import android.media.AudioManager;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Path;
@@ -42,6 +41,7 @@ public final class AurebeshKeyboardView extends View {
     // Barra de herramientas (como la de Samsung Keyboard): a la derecha de las sugerencias, emojis y portapapeles
     static final int TOOL_EMOJI = 1;
     static final int TOOL_CLIPBOARD = 2;
+    static final int TOOL_SETTINGS = 3;     // solo en la pagina ?123
 
     static final class Key {
         final String output;
@@ -94,7 +94,6 @@ public final class AurebeshKeyboardView extends View {
     private boolean numberRow = true;
     private boolean sound = true;
     private float heightScale = 1f;
-    private AudioManager audio;
 
     // Menu de alternativas abierto por pulsacion larga
     private Key popupKey;
@@ -111,7 +110,7 @@ public final class AurebeshKeyboardView extends View {
     private final List<RectF> suggestionRects = new ArrayList<>();
     private String highlighted;             // sugerencia que se aplicara sola (resaltada)
     private boolean toolbar = true;         // iconos sobre las teclas cuando no hay sugerencias
-    private final RectF[] toolRects = new RectF[2];
+    private final RectF[] toolRects = new RectF[3];
     private int toolPressed = -1;
     private int toolPointer = -1;
     private boolean previewEnabled = true;
@@ -769,21 +768,40 @@ public final class AurebeshKeyboardView extends View {
         if (theme.keyStroke != 0) c.drawRect(0, stripHeight() - dp, getWidth(), stripHeight(), strokePaint);
     }
 
-    /** Iconos redondos a la derecha: emojis y portapapeles. Devuelve el limite izquierdo del grupo. */
+    /** Iconos redondos a la derecha: emojis, portapapeles y, en ?123, ajustes. Devuelve el limite izquierdo. */
     private float drawToolbar(Canvas c) {
+        int n = current == symbols ? 3 : 2;
         float cell = 44 * dp, cy = stripHeight() / 2f;
-        float x = getWidth() - 6 * dp - cell * toolRects.length;
+        float x = getWidth() - 6 * dp - cell * n;
         float left = x;
-        for (int i = 0; i < toolRects.length; i++) {
+        for (int i = 0; i < n; i++) {
             toolRects[i] = new RectF(x, 0, x + cell, stripHeight());
             float cx = x + cell / 2f;
             fill.setColor(toolPressed == i ? theme.pressed : theme.specialBg);
             c.drawCircle(cx, cy, 16 * dp, fill);
             if (theme.keyStroke != 0) c.drawCircle(cx, cy, 16 * dp, strokePaint);
-            if (i == 0) drawSmiley(c, cx, cy); else drawPaste(c, cx, cy);
+            switch (i) {
+                case 0: drawSmiley(c, cx, cy); break;
+                case 1: drawPaste(c, cx, cy); break;
+                default: drawGear(c, cx, cy); break;
+            }
             x += cell;
         }
         return left - 6 * dp;
+    }
+
+    /** Engranaje (ajustes): corona gruesa con ocho dientes y eje hueco. */
+    private void drawGear(Canvas c, float cx, float cy) {
+        iconPaint.setStrokeWidth(3.4f * dp);
+        for (int i = 0; i < 8; i++) {
+            double a = Math.PI / 4 * i + Math.PI / 8;
+            float dx = (float) Math.cos(a), dy = (float) Math.sin(a);
+            c.drawLine(cx + dx * 5.5f * dp, cy + dy * 5.5f * dp, cx + dx * 8.6f * dp, cy + dy * 8.6f * dp, iconPaint);
+        }
+        iconPaint.setStrokeWidth(3.2f * dp);
+        c.drawCircle(cx, cy, 5.2f * dp, iconPaint);
+        fill.setColor(theme.icon);
+        c.drawCircle(cx, cy, 2.1f * dp, fill);
     }
 
     /** Sugerencias del corrector como chips, de izquierda a derecha hasta {@code right}; la que se aplicara sola va resaltada. */
@@ -1043,14 +1061,7 @@ public final class AurebeshKeyboardView extends View {
 
     private void feedback(Key k) {
         if (vibrate) performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
-        if (!sound) return;
-        if (audio == null) audio = (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
-        if (audio == null) return;
-        int fx = k.code == CODE_DELETE ? AudioManager.FX_KEYPRESS_DELETE
-                : k.code == CODE_ENTER ? AudioManager.FX_KEYPRESS_RETURN
-                : k.code == CODE_SPACE ? AudioManager.FX_KEYPRESS_SPACEBAR
-                : AudioManager.FX_KEYPRESS_STANDARD;
-        audio.playSoundEffect(fx, 0.5f);
+        if (sound) KeySound.get(getContext()).play(k.code);   // clic del sistema o sonido personalizado
     }
 
     @Override
