@@ -67,6 +67,7 @@ public final class MainActivity extends Activity {
         scroll.addView(root, new ViewGroup.LayoutParams(MATCH, WRAP));
 
         buildHeader(root);
+        buildCompat(root);
         buildSetup(root);
 
         section(root, R.string.try_title);
@@ -78,13 +79,16 @@ public final class MainActivity extends Activity {
         themeRow(appearance);
         optionRow(appearance, R.string.opt_hints, R.string.opt_hints_sub, Prefs.HINTS, Prefs.hints(this));
         optionRow(appearance, R.string.opt_strip, R.string.opt_strip_sub, Prefs.STRIP, Prefs.strip(this));
+        optionRow(appearance, R.string.opt_toolbar, R.string.opt_toolbar_sub, Prefs.TOOLBAR, Prefs.toolbar(this));
         root.addView(appearance, block(0));
 
         section(root, R.string.typing);
         LinearLayout typing = cardColumn();
         optionRow(typing, R.string.opt_digraphs, R.string.opt_digraphs_sub, Prefs.DIGRAPHS, Prefs.digraphs(this));
         optionRow(typing, R.string.opt_numbers, R.string.opt_numbers_sub, Prefs.NUMBERS, Prefs.numbers(this));
-        sizeRow(typing);
+        chipRow(typing, R.string.opt_height, Prefs.HEIGHT, SIZES, SIZE_NAMES, Prefs.height(this));
+        chipRow(typing, R.string.opt_hand, Prefs.HAND, HANDS, HAND_NAMES, Prefs.hand(this));
+        optionRow(typing, R.string.opt_autocorrect, R.string.opt_autocorrect_sub, Prefs.AUTOCORRECT, Prefs.autocorrect(this));
         optionRow(typing, R.string.opt_sound, 0, Prefs.SOUND, Prefs.sound(this));
         optionRow(typing, R.string.opt_vibrate, 0, Prefs.VIBRATE, Prefs.vibrate(this));
         root.addView(typing, block(0));
@@ -97,11 +101,25 @@ public final class MainActivity extends Activity {
         gestureRow(gestures, R.string.gesture_caps, R.string.gesture_caps_result);
         gestureRow(gestures, R.string.gesture_symbols, R.string.gesture_symbols_result);
         gestureRow(gestures, R.string.gesture_switch, R.string.gesture_switch_result);
+        gestureRow(gestures, R.string.gesture_picker, R.string.gesture_picker_result);
+        gestureRow(gestures, R.string.gesture_actions, R.string.gesture_actions_result);
+        gestureRow(gestures, R.string.gesture_clipboard, R.string.gesture_clipboard_result);
+        gestureRow(gestures, R.string.gesture_settings, R.string.gesture_settings_result);
         root.addView(gestures, block(0));
 
+        LinearLayout foot = column();
+        foot.setGravity(Gravity.CENTER_HORIZONTAL);
         TextView footer = text(getString(R.string.footer, getString(R.string.version)), 13, secondary, false);
         footer.setGravity(Gravity.CENTER_HORIZONTAL);
-        root.addView(footer, block(28));
+        foot.addView(footer, block(0));
+        TextView compat = text(getString(DeviceInfo.optimized() ? R.string.footer_compat_ok : R.string.footer_compat_other,
+                DeviceInfo.label()), 12, secondary, false);
+        compat.setGravity(Gravity.CENTER_HORIZONTAL);
+        foot.addView(compat, block(6));
+        TextView credits = text(getString(R.string.credits), 12, secondary, false);
+        credits.setGravity(Gravity.CENTER_HORIZONTAL);
+        foot.addView(credits, block(6));
+        root.addView(foot, block(28));
 
         setContentView(scroll);
     }
@@ -126,6 +144,16 @@ public final class MainActivity extends Activity {
         root.addView(mark, block(0));
         root.addView(text(getString(R.string.app_name), 26, ink, true), block(10));
         root.addView(text(getString(R.string.tagline), 15, secondary, false), block(6));
+    }
+
+    /** Aviso solo fuera de Samsung One UI 9.x: el teclado se probo ahi; en otros dispositivos es experimental. */
+    private void buildCompat(LinearLayout root) {
+        if (DeviceInfo.optimized()) return;
+        LinearLayout c = cardColumn();
+        c.setPadding(px(20), px(16), px(20), px(18));
+        c.addView(text(getString(R.string.compat_title), 15, ink, true), block(0));
+        c.addView(text(getString(R.string.compat_body, DeviceInfo.label()), 13, secondary, false), block(4));
+        root.addView(c, block(20));
     }
 
     private void buildSetup(LinearLayout root) {
@@ -170,6 +198,20 @@ public final class MainActivity extends Activity {
             @Override public void onText(String s) { replaceSelection(s); }
             @Override public void onEnter() { replaceSelection("\n"); }
             @Override public void onSwitchKeyboard() {}
+            @Override public void onSwitchLanguage() {}
+            @Override public void onSuggestion(String word) { replaceSelection(word + " "); }
+            @Override public void onToolbar(int tool) {
+                // En la copia del teclado: pegar el portapapeles; las acciones de texto solo se explican
+                if (tool == AurebeshKeyboardView.TOOL_CLIPBOARD) {
+                    android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                    if (cm != null && cm.hasPrimaryClip() && cm.getPrimaryClip() != null && cm.getPrimaryClip().getItemCount() > 0) {
+                        CharSequence t = cm.getPrimaryClip().getItemAt(0).coerceToText(MainActivity.this);
+                        if (t != null) replaceSelection(t.toString());
+                    }
+                } else if (tool == AurebeshKeyboardView.TOOL_ACTIONS) {
+                    android.widget.Toast.makeText(MainActivity.this, R.string.actions_hint, android.widget.Toast.LENGTH_LONG).show();
+                }
+            }
             @Override public void onDelete() {
                 Editable e = input.getText();
                 int a = selStart(), b = selEnd();
@@ -245,6 +287,8 @@ public final class MainActivity extends Activity {
     private void applyPreviewPrefs() {
         preview.applyPrefs(Prefs.hints(this), Prefs.vibrate(this), Prefs.strip(this), Prefs.digraphs(this),
                 Prefs.theme(this), Prefs.numbers(this), Prefs.sound(this), Prefs.heightScale(this));
+        preview.setHandMode(Prefs.handMode(this));
+        preview.setToolbar(Prefs.toolbar(this));
     }
 
     /** Traduccion, barra y mayuscula automatica de la copia del teclado. */
@@ -283,28 +327,29 @@ public final class MainActivity extends Activity {
 
     private static final String[] SIZES = {"compact", "normal", "large", "xlarge"};
     private static final int[] SIZE_NAMES = {R.string.size_compact, R.string.size_normal, R.string.size_large, R.string.size_xlarge};
-    private final java.util.List<TextView> sizeChips = new java.util.ArrayList<>();
+    private static final String[] HANDS = {"none", "left", "right"};
+    private static final int[] HAND_NAMES = {R.string.hand_none, R.string.hand_left, R.string.hand_right};
 
-    /** Fila "Tamano del teclado": cuatro niveles; la copia del teclado cambia al instante. */
-    private void sizeRow(LinearLayout parent) {
+    /** Fila de opciones excluyentes (chips); la copia del teclado cambia al instante. */
+    private void chipRow(LinearLayout parent, int title, final String prefKey, final String[] ids, int[] names, String current) {
         if (parent.getChildCount() > 0) parent.addView(dividerLine());
         LinearLayout col = column();
         col.setPadding(px(18), px(14), px(18), px(16));
-        col.addView(text(getString(R.string.opt_height), 16, ink, false), block(0));
+        col.addView(text(getString(title), 16, ink, false), block(0));
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
-        String current = Prefs.height(this);
-        for (int i = 0; i < SIZES.length; i++) {
-            final String id = SIZES[i];
-            final TextView chip = text(getString(SIZE_NAMES[i]), 14, ink, true);
+        final java.util.List<TextView> chips = new java.util.ArrayList<>();
+        for (int i = 0; i < ids.length; i++) {
+            final String id = ids[i];
+            final TextView chip = text(getString(names[i]), 14, ink, true);
             chip.setGravity(Gravity.CENTER);
             chip.setPadding(0, px(9), 0, px(9));
             chip.setSelected(id.equals(current));
             styleChip(chip);
             chip.setOnClickListener(new View.OnClickListener() {
                 @Override public void onClick(View v) {
-                    Prefs.get(MainActivity.this).edit().putString(Prefs.HEIGHT, id).apply();
-                    for (TextView other : sizeChips) {
+                    Prefs.get(MainActivity.this).edit().putString(prefKey, id).apply();
+                    for (TextView other : chips) {
                         other.setSelected(other == chip);
                         styleChip(other);
                     }
@@ -314,7 +359,7 @@ public final class MainActivity extends Activity {
             LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(0, WRAP, 1f);
             if (i > 0) cp.leftMargin = px(8);
             row.addView(chip, cp);
-            sizeChips.add(chip);
+            chips.add(chip);
         }
         col.addView(row, block(10));
         parent.addView(col, block(0));

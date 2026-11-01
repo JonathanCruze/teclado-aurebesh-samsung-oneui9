@@ -11,7 +11,7 @@
     <string name="setup_select_title">Elige Aurebesh como teclado actual</string>
     <string name="setup_select_action">Elegir teclado</string>
     <string name="setup_done_title">Aurebesh es tu teclado</string>
-    <string name="setup_done_hint">Para volver al de Samsung, toca el globo del teclado.</string>
+    <string name="setup_done_hint">Para volver al de Samsung, mantén pulsada la barra espaciadora.</string>
     <string name="setup_done_action">Cambiar de teclado</string>
 
     <string name="try_title">Pruébalo</string>
@@ -32,6 +32,8 @@
     <string name="opt_hints_sub">Útil mientras aprendes el alfabeto</string>
     <string name="opt_strip">Barra de traducción</string>
     <string name="opt_strip_sub">Muestra lo escrito en Aurebesh sobre las teclas</string>
+    <string name="opt_toolbar">Barra de herramientas</string>
+    <string name="opt_toolbar_sub">✨ acciones de texto, 📋 portapapeles y ⚙ ajustes sobre las teclas</string>
 
     <string name="typing">Escritura</string>
     <string name="opt_digraphs">Dígrafos</string>
@@ -44,6 +46,12 @@
     <string name="size_normal">Normal</string>
     <string name="size_large">Grande</string>
     <string name="size_xlarge">Extra</string>
+    <string name="opt_hand">Modo a una mano</string>
+    <string name="hand_none">No</string>
+    <string name="hand_left">Izquierda</string>
+    <string name="hand_right">Derecha</string>
+    <string name="opt_autocorrect">Autocorrección</string>
+    <string name="opt_autocorrect_sub">Diccionarios integrados en español e inglés, sin internet. Retroceso deshace una corrección.</string>
     <string name="opt_vibrate">Vibración al pulsar</string>
 
     <string name="gestures">Gestos</string>
@@ -57,8 +65,33 @@
     <string name="gesture_symbols_result">Números, signos y dígrafos</string>
     <string name="gesture_marks">Mantener , o .</string>
     <string name="gesture_marks_result">¿ y ?  (en ?123, mantener ? y ! da ¿ y ¡)</string>
-    <string name="gesture_switch">Globo, o mantener el espacio</string>
-    <string name="gesture_switch_result">Cambiar de teclado o idioma</string>
+    <string name="gesture_switch">Globo</string>
+    <string name="gesture_switch_result">Siguiente idioma Aurebesh (aparece con dos idiomas activos)</string>
+    <string name="gesture_picker">Mantener el espacio</string>
+    <string name="gesture_picker_result">Elegir otro teclado (Samsung, etc.)</string>
+    <string name="gesture_actions">✨ Acciones de texto</string>
+    <string name="gesture_actions_result">Envía el texto al Asistente de escritura de Galaxy AI (si existe), al Traductor u otra app</string>
+    <string name="gesture_clipboard">📋 Portapapeles</string>
+    <string name="gesture_clipboard_result">Todo lo que copiaste; toca para pegar</string>
+    <string name="gesture_settings">⚙ Ajustes</string>
+    <string name="gesture_settings_result">Abre esta pantalla</string>
 
-    <string name="footer">Versión %1$s. No usa internet ni guarda lo que escribes.</string>
+    <string name="tool_actions">Acciones de texto</string>
+    <string name="tool_clipboard">Portapapeles</string>
+    <string name="tool_settings">Ajustes</string>
+    <string name="clipboard_title">Portapapeles</string>
+    <string name="clipboard_clear">Borrar todo</string>
+    <string name="clipboard_empty">Copia un texto y aparecerá aquí. Toca uno para pegarlo.</string>
+    <string name="actions_title">Acciones de texto</string>
+    <string name="actions_choose">Elegir otra app…</string>
+    <string name="actions_empty">Escribe algo primero</string>
+    <string name="actions_hint">Envía lo escrito (o la selección) a una app que procese texto: Asistente de escritura de Galaxy AI si el teléfono lo ofrece, Traductor y otras. Si la app devuelve texto, sustituye el tuyo.</string>
+
+    <string name="compat_title">Experimental en este dispositivo</string>
+    <string name="compat_body">Teclado Aurebesh está optimizado y probado en Samsung Galaxy con One UI 9.0 (Android 17). Este dispositivo: %1$s. Otras versiones de Android pueden fallar.</string>
+    <string name="footer_compat_ok">Optimizado para Samsung One UI 9.0 · este teléfono: %1$s</string>
+    <string name="footer_compat_other">Optimizado para Samsung One UI 9.0 · este teléfono: %1$s (experimental)</string>
+    <string name="credits">Fuente Aurebesh © 2022 SilvinoR, SIL Open Font License 1.1. Listas de palabras: FrequencyWords de Hermit Dave (MIT), sobre OpenSubtitles. Star Wars y Aurebesh son marcas de Lucasfilm Ltd.; proyecto de aficionado sin afiliación.</string>
+
+    <string name="footer">Versión %1$s. No usa internet ni guarda lo que escribes; solo el historial del portapapeles, en este teléfono.</string>
 </resources>

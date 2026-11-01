@@ -25,7 +25,10 @@ public final class AurebeshKeyboardView extends View {
         void onText(String text);
         void onDelete();
         void onEnter();
-        void onSwitchKeyboard();
+        void onSwitchKeyboard();        // selector de teclados del sistema (mantener el espacio)
+        void onSwitchLanguage();        // globo: siguiente idioma Aurebesh
+        void onSuggestion(String word); // toque en una sugerencia de la barra
+        void onToolbar(int tool);       // icono de la barra de herramientas (TOOL_*)
     }
 
     static final int CODE_TEXT = 0;
@@ -35,6 +38,11 @@ public final class AurebeshKeyboardView extends View {
     static final int CODE_DELETE = -5;
     static final int CODE_SPACE = -6;
     static final int CODE_GLOBE = -7;
+
+    // Barra de herramientas (como la de Samsung Keyboard): acciones de texto, portapapeles, ajustes
+    static final int TOOL_ACTIONS = 1;
+    static final int TOOL_CLIPBOARD = 2;
+    static final int TOOL_SETTINGS = 3;
 
     static final class Key {
         final String output;
@@ -97,6 +105,16 @@ public final class AurebeshKeyboardView extends View {
     private float popupCell;
     private String language = "es";        // "es": con tecla n~ y , -> ?; "en": sin tecla n~ y , -> !
     private String spaceLabel;             // nombre del idioma cuando hay mas de uno activo
+    private boolean languageSwitch = false; // tecla del globo (solo con varios idiomas Aurebesh activos)
+    private boolean suggestionBar = false;  // barra de sugerencias (autocorreccion)
+    private int handMode = 0;               // 0 normal, 1 izquierda, 2 derecha
+    private final List<String> suggestions = new ArrayList<>();
+    private final List<RectF> suggestionRects = new ArrayList<>();
+    private String highlighted;             // sugerencia que se aplicara sola (resaltada)
+    private boolean toolbar = true;         // iconos sobre las teclas cuando no hay sugerencias
+    private final RectF[] toolRects = new RectF[3];
+    private int toolPressed = -1;
+    private int toolPointer = -1;
     private boolean previewEnabled = true;
     private List<Glyphs.Token> stripTokens = new ArrayList<>();
     private Themes.Theme theme = Themes.DEFAULT;
@@ -219,6 +237,56 @@ public final class AurebeshKeyboardView extends View {
         invalidate();
     }
 
+    /** Tecla del globo visible o no; reconstruye la fila inferior. */
+    void setLanguageSwitch(boolean on) {
+        if (languageSwitch == on) return;
+        languageSwitch = on;
+        rebuildLayouts();
+    }
+
+    void setSuggestionBar(boolean on) {
+        if (suggestionBar == on) return;
+        suggestionBar = on;
+        requestLayout();
+        invalidate();
+    }
+
+    void setSuggestions(List<String> words) { setSuggestions(words, null); }
+
+    /** Chips de la barra; {@code highlight} es la que se aplicara sola al teclear un separador. */
+    void setSuggestions(List<String> words, String highlight) {
+        suggestions.clear();
+        if (words != null) suggestions.addAll(words);
+        highlighted = highlight;
+        invalidate();
+    }
+
+    /** Barra de herramientas (acciones de texto, portapapeles, ajustes) sobre las teclas. */
+    void setToolbar(boolean on) {
+        if (toolbar == on) return;
+        toolbar = on;
+        requestLayout();
+        invalidate();
+    }
+
+    /** Modo a una mano: 0 normal, 1 izquierda, 2 derecha. */
+    void setHandMode(int mode) {
+        if (handMode == mode) return;
+        handMode = mode;
+        requestLayout();
+        invalidate();
+    }
+
+    private void rebuildLayouts() {
+        boolean onSymbols = current == symbols;
+        letters.clear();
+        symbols.clear();
+        buildLayouts();
+        current = onSymbols ? symbols : letters;
+        requestLayout();
+        invalidate();
+    }
+
     void setSpaceLabel(String label) {
         spaceLabel = label;
         invalidate();
@@ -303,8 +371,15 @@ public final class AurebeshKeyboardView extends View {
     }
 
     private void bottomRow(List<List<Key>> layout, String modeLabel) {
-        row(layout, special(modeLabel, CODE_MODE, 1.5f), sym(",", 1f, "es".equals(language) ? "\u00bf" : "!"), special("", CODE_GLOBE, 1f),
-                special("", CODE_SPACE, 4f), sym(".", 1f, "?"), special("", CODE_ENTER, 1.5f));
+        List<Key> r = new ArrayList<>();
+        r.add(special(modeLabel, CODE_MODE, 1.5f));
+        r.add(sym(",", 1f, "es".equals(language) ? "\u00bf" : "!"));
+        float space = 5f;
+        if (languageSwitch) { r.add(special("", CODE_GLOBE, 1f)); space -= 1f; }
+        r.add(special("", CODE_SPACE, space));
+        r.add(sym(".", 1f, "?"));
+        r.add(special("", CODE_ENTER, 1.5f));
+        layout.add(r);
     }
 
     /** Tecla del teclado actual que escribe {@code output} (para pruebas). */
@@ -315,7 +390,7 @@ public final class AurebeshKeyboardView extends View {
 
     // ------------------------------------------------------------------ medidas
 
-    private float stripHeight() { return showStrip ? 36 * dp : 4 * dp; }
+    private float stripHeight() { return toolbar || showStrip || suggestionBar ? 40 * dp : 4 * dp; }
     private boolean isDigitRow(List<List<Key>> layout, int ri) {
         return ri == 0 && (numberRow || layout == symbols);
     }
@@ -347,7 +422,9 @@ public final class AurebeshKeyboardView extends View {
     }
 
     private void layoutKeys(List<List<Key>> layout) {
-        float w = getWidth();
+        float full = getWidth();
+        float w = handMode == 0 ? full : full * 0.78f;        // a una mano: 78 % del ancho
+        float offset = handMode == 2 ? full - w : 0;
         float pad = 4 * dp;
         float y = stripHeight();
         for (int ri = 0; ri < layout.size(); ri++) {
@@ -356,7 +433,7 @@ public final class AurebeshKeyboardView extends View {
             float total = 0;
             for (Key k : row) total += k.weight;
             float unit = (w - 2 * pad) / Math.max(10f, total);
-            float x = pad + ((w - 2 * pad) - unit * total) / 2f;
+            float x = offset + pad + ((w - 2 * pad) - unit * total) / 2f;
             for (Key k : row) {
                 float kw = unit * k.weight;
                 k.rect.set(x, y, x + kw, y + rh);
@@ -370,7 +447,7 @@ public final class AurebeshKeyboardView extends View {
 
     @Override
     protected void onDraw(Canvas c) {
-        if (showStrip) drawStrip(c);
+        if (toolbar || showStrip || suggestionBar) drawStrip(c);
         float inset = 3 * dp;
         float radius = theme.radiusDp * dp;
         for (int ri = 0; ri < current.size(); ri++) {
@@ -519,6 +596,55 @@ public final class AurebeshKeyboardView extends View {
         c.drawOval(tmp, iconPaint);
     }
 
+    /** Destellos (acciones de texto): una estrella de cuatro puntas grande y otra pequena. */
+    private void drawSparkles(Canvas c, float cx, float cy) {
+        fill.setColor(theme.icon);
+        star(c, cx - 1.5f * dp, cy + 1.5f * dp, 7.5f * dp);
+        star(c, cx + 5.5f * dp, cy - 5.5f * dp, 3.2f * dp);
+    }
+
+    private void star(Canvas c, float cx, float cy, float r) {
+        float k = r * 0.24f;
+        iconPath.reset();
+        iconPath.moveTo(cx, cy - r);
+        iconPath.lineTo(cx + k, cy - k);
+        iconPath.lineTo(cx + r, cy);
+        iconPath.lineTo(cx + k, cy + k);
+        iconPath.lineTo(cx, cy + r);
+        iconPath.lineTo(cx - k, cy + k);
+        iconPath.lineTo(cx - r, cy);
+        iconPath.lineTo(cx - k, cy - k);
+        iconPath.close();
+        c.drawPath(iconPath, fill);
+    }
+
+    /** Engranaje (ajustes): corona gruesa con ocho dientes y eje hueco. */
+    private void drawGear(Canvas c, float cx, float cy) {
+        iconPaint.setStrokeWidth(3.4f * dp);
+        for (int i = 0; i < 8; i++) {
+            double a = Math.PI / 4 * i + Math.PI / 8;
+            float dx = (float) Math.cos(a), dy = (float) Math.sin(a);
+            c.drawLine(cx + dx * 5.5f * dp, cy + dy * 5.5f * dp, cx + dx * 8.6f * dp, cy + dy * 8.6f * dp, iconPaint);
+        }
+        iconPaint.setStrokeWidth(3.2f * dp);
+        c.drawCircle(cx, cy, 5.2f * dp, iconPaint);
+        fill.setColor(theme.icon);
+        c.drawCircle(cx, cy, 2.1f * dp, fill);
+    }
+
+    /** Portapapeles: tablilla con pinza. */
+    private void drawPaste(Canvas c, float cx, float cy) {
+        iconPaint.setStrokeWidth(2.4f * dp);
+        float w = 7 * dp, h = 9 * dp;
+        tmp.set(cx - w, cy - h + 2 * dp, cx + w, cy + h);
+        c.drawRoundRect(tmp, 2.5f * dp, 2.5f * dp, iconPaint);
+        tmp.set(cx - 3.5f * dp, cy - h - dp, cx + 3.5f * dp, cy - h + 4 * dp);
+        fill.setColor(theme.icon);
+        c.drawRoundRect(tmp, 1.5f * dp, 1.5f * dp, fill);
+        c.drawLine(cx - 3.5f * dp, cy + 0.5f * dp, cx + 3.5f * dp, cy + 0.5f * dp, iconPaint);
+        c.drawLine(cx - 3.5f * dp, cy + 4.5f * dp, cx + 1.5f * dp, cy + 4.5f * dp, iconPaint);
+    }
+
     private void drawEnter(Canvas c, float cx, float cy) {
         iconPaint.setStrokeWidth(3f * dp);
         iconPaint.setColor(theme.onAccent);
@@ -660,11 +786,82 @@ public final class AurebeshKeyboardView extends View {
     private void drawStrip(Canvas c) {
         float h = 13.5f * dp;
         float top = (stripHeight() - h) / 2f;
+        suggestionRects.clear();
+        for (int i = 0; i < toolRects.length; i++) toolRects[i] = null;
+        if (!suggestions.isEmpty()) {
+            drawSuggestions(c, h, top);
+        } else {
+            float left = 12 * dp;
+            if (toolbar) left = drawToolbar(c);
+            if (showStrip) drawTranslation(c, h, top, left);
+        }
+        if (theme.keyStroke != 0) c.drawRect(0, stripHeight() - dp, getWidth(), stripHeight(), strokePaint);
+    }
+
+    /** Iconos redondos a la izquierda: acciones de texto, portapapeles, ajustes. Devuelve el borde derecho. */
+    private float drawToolbar(Canvas c) {
+        float cell = 44 * dp, x = 6 * dp, cy = stripHeight() / 2f;
+        for (int i = 0; i < toolRects.length; i++) {
+            toolRects[i] = new RectF(x, 0, x + cell, stripHeight());
+            float cx = x + cell / 2f;
+            fill.setColor(toolPressed == i ? theme.pressed : theme.specialBg);
+            c.drawCircle(cx, cy, 16 * dp, fill);
+            if (theme.keyStroke != 0) c.drawCircle(cx, cy, 16 * dp, strokePaint);
+            switch (i) {
+                case 0: drawSparkles(c, cx, cy); break;
+                case 1: drawPaste(c, cx, cy); break;
+                default: drawGear(c, cx, cy); break;
+            }
+            x += cell;
+        }
+        return x + 6 * dp;
+    }
+
+    /** Sugerencias del corrector como chips; la que se aplicara sola va resaltada. */
+    private void drawSuggestions(Canvas c, float h, float top) {
+        float x = 8 * dp;
+        for (int i = 0; i < suggestions.size(); i++) {
+            String word = suggestions.get(i);
+            List<Glyphs.Token> tk = showHints ? null : Glyphs.tokenize(word, useDigraphs);
+            float tw = 0;
+            if (tk != null) {
+                for (Glyphs.Token t : tk) tw += Glyphs.tokenWidth(t, h, textPaint);
+            } else {
+                textPaint.setTextSize(14 * sp);
+                tw = textPaint.measureText(word);
+            }
+            RectF cell = new RectF(x, 5 * dp, x + tw + 24 * dp, stripHeight() - 5 * dp);
+            if (cell.right > getWidth() - 8 * dp) break;
+            boolean hl = highlighted != null && highlighted.equals(word);
+            fill.setColor(hl ? theme.accent : theme.specialBg);
+            c.drawRoundRect(cell, 9 * dp, 9 * dp, fill);
+            if (theme.keyStroke != 0 && !hl) c.drawRoundRect(cell, 9 * dp, 9 * dp, strokePaint);
+            int ink = hl ? theme.onAccent : theme.glyph;
+            glyphPaint.setColor(ink);
+            textPaint.setColor(ink);
+            textPaint.setTextAlign(Paint.Align.LEFT);
+            float gx = cell.left + 12 * dp;
+            if (tk != null) {
+                for (Glyphs.Token t : tk) gx += Glyphs.drawToken(c, t, gx, top, h, glyphPaint, textPaint);
+            } else {
+                c.drawText(word, gx, cell.centerY() + 5 * dp, textPaint);
+            }
+            textPaint.setTextAlign(Paint.Align.CENTER);
+            glyphPaint.setColor(theme.glyph);
+            textPaint.setColor(theme.glyph);
+            suggestionRects.add(cell);
+            x = cell.right + 6 * dp;
+        }
+    }
+
+    /** Lo escrito, en Aurebesh, a la derecha de los iconos; si no cabe se ve el final. */
+    private void drawTranslation(Canvas c, float h, float top, float left) {
         List<Glyphs.Token> tokens = stripTokens;
         float total = 0;
         for (Glyphs.Token t : tokens) total += Glyphs.tokenWidth(t, h, textPaint);
-        float x = 12 * dp;
-        float maxW = getWidth() - 24 * dp;
+        float x = left;
+        float maxW = getWidth() - left - 12 * dp;
+        if (maxW <= 0) return;
         c.save();
         c.clipRect(x, 0, x + maxW, stripHeight());
         if (total > maxW) x -= total - maxW;
@@ -672,7 +869,6 @@ public final class AurebeshKeyboardView extends View {
         for (Glyphs.Token t : tokens) x += Glyphs.drawToken(c, t, x, top, h, glyphPaint, textPaint);
         textPaint.setTextAlign(Paint.Align.CENTER);
         c.restore();
-        if (theme.keyStroke != 0) c.drawRect(0, stripHeight() - dp, getWidth(), stripHeight(), strokePaint);
     }
 
     // ------------------------------------------------------------------ toque
@@ -707,6 +903,26 @@ public final class AurebeshKeyboardView extends View {
                     pressed.removeAt(i);
                 }
                 cancelTimers();
+                if (e.getY(idx) < stripHeight()) {                       // barra: sugerencias o iconos
+                    float tx = e.getX(idx), ty = e.getY(idx);
+                    for (int i = 0; i < suggestionRects.size(); i++) {
+                        if (suggestionRects.get(i).contains(tx, ty) && listener != null) {
+                            feedback(special("", CODE_SPACE, 1f));
+                            listener.onSuggestion(suggestions.get(i));
+                            return true;
+                        }
+                    }
+                    for (int i = 0; i < toolRects.length; i++) {
+                        if (toolRects[i] != null && toolRects[i].contains(tx, ty)) {
+                            toolPressed = i;
+                            toolPointer = id;
+                            feedback(special("", CODE_SPACE, 1f));
+                            invalidate();
+                            return true;
+                        }
+                    }
+                    return true;
+                }
                 Key k = findKey(e.getX(idx), e.getY(idx));
                 if (k == null) return true;
                 if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(true);
@@ -744,6 +960,16 @@ public final class AurebeshKeyboardView extends View {
             }
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_POINTER_UP: {
+                if (toolPressed >= 0 && id == toolPointer) {
+                    int t = toolPressed;
+                    toolPressed = -1;
+                    toolPointer = -1;
+                    invalidate();
+                    if (toolRects[t] != null && toolRects[t].contains(e.getX(idx), e.getY(idx)) && listener != null) {
+                        listener.onToolbar(t + 1);
+                    }
+                    return true;
+                }
                 Key k = pressed.get(id);
                 pressed.remove(id);
                 if (k != null && k == popupKey) {
@@ -759,6 +985,8 @@ public final class AurebeshKeyboardView extends View {
                 return true;
             }
             case MotionEvent.ACTION_CANCEL:
+                toolPressed = -1;
+                toolPointer = -1;
                 pressed.clear();
                 closePopup();
                 cancelTimers();
@@ -781,7 +1009,7 @@ public final class AurebeshKeyboardView extends View {
             }
             case CODE_SPACE: listener.onText(" "); break;
             case CODE_ENTER: listener.onEnter(); break;
-            case CODE_GLOBE: listener.onSwitchKeyboard(); break;
+            case CODE_GLOBE: listener.onSwitchLanguage(); break;
             case CODE_SHIFT: {
                 long now = System.currentTimeMillis();
                 if (capsLock) { capsLock = false; shift = false; }

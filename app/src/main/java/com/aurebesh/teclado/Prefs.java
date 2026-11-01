@@ -15,6 +15,9 @@ final class Prefs {
     static final String NUMBERS = "number_row";
     static final String SOUND = "sound";
     static final String HEIGHT = "keyboard_height";
+    static final String AUTOCORRECT = "autocorrect";
+    static final String HAND = "hand_mode";
+    static final String TOOLBAR = "toolbar";
     private static final String LEGACY_DARK = "dark_theme";
 
     static SharedPreferences get(Context c) {
@@ -40,5 +43,15 @@ final class Prefs {
             default: return 1f;
         }
     }
+    static boolean autocorrect(Context c) { return get(c).getBoolean(AUTOCORRECT, true); }
+    static String hand(Context c) { return get(c).getString(HAND, "none"); }
+    static int handMode(Context c) {
+        switch (hand(c)) {
+            case "left": return 1;
+            case "right": return 2;
+            default: return 0;
+        }
+    }
     static boolean strip(Context c) { return get(c).getBoolean(STRIP, false); }
+    static boolean toolbar(Context c) { return get(c).getBoolean(TOOLBAR, true); }
 }

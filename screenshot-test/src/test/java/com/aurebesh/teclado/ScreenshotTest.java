@@ -13,6 +13,7 @@ import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 import org.robolectric.annotation.GraphicsMode;
+import org.robolectric.shadows.ShadowBuild;
 import org.robolectric.shadows.ShadowLooper;
 
 import java.io.File;
@@ -37,6 +38,20 @@ public class ScreenshotTest {
         Bitmap b = Bitmap.createBitmap(W, v.getMeasuredHeight(), Bitmap.Config.ARGB_8888);
         v.draw(new Canvas(b));
         return b;
+    }
+
+    /** Renderiza con un alto fijo (bandejas que ocupan lo que ocupa el teclado). */
+    private Bitmap renderExact(View v, int h) {
+        v.measure(View.MeasureSpec.makeMeasureSpec(W, View.MeasureSpec.EXACTLY),
+                  View.MeasureSpec.makeMeasureSpec(h, View.MeasureSpec.EXACTLY));
+        v.layout(0, 0, W, h);
+        Bitmap b = Bitmap.createBitmap(W, h, Bitmap.Config.ARGB_8888);
+        v.draw(new Canvas(b));
+        return b;
+    }
+
+    private static void check(String got, String want, String what) {
+        if (got == null ? want != null : !got.equals(want)) throw new AssertionError(what + ": " + got + " (esperado " + want + ")");
     }
 
     private void save(Bitmap b, String name) throws Exception {
@@ -75,6 +90,9 @@ public class ScreenshotTest {
             public void onDelete() { if (typed.length() > 0) typed.setLength(typed.length() - 1); }
             public void onEnter() { typed.append("\n"); }
             public void onSwitchKeyboard() {}
+            public void onSwitchLanguage() {}
+            public void onSuggestion(String w) { typed.append("[").append(w).append("]"); }
+            public void onToolbar(int t) { typed.append("<tool").append(t).append(">"); }
         });
         kb.setEnterAction(4);
 
@@ -158,12 +176,90 @@ public class ScreenshotTest {
         save(lb, "apaisado_estelar.png");
         RuntimeEnvironment.setQualifiers("es-rES-w411dp-h914dp-xxhdpi");
 
-        // Distribucion inglesa: sin tecla n~, "," da "!", etiqueta de idioma en el espacio
+        // Distribucion inglesa con dos idiomas activos: globo y etiqueta de idioma en el espacio
         kb.setLanguage("en");
+        kb.setLanguageSwitch(true);
         kb.setSpaceLabel("English");
         save(render(kb), "teclado_ingles.png");
         kb.setLanguage("es");
+        kb.setLanguageSwitch(false);
         kb.setSpaceLabel(null);
+
+        // Barra de sugerencias del corrector (en Aurebesh): lo escrito entre comillas, la correccion resaltada
+        kb.setSuggestionBar(true);
+        kb.setSuggestions(java.util.Arrays.asList("\"fuersa\"", "fuerza", "fuera"), "fuerza");
+        save(render(kb), "sugerencias.png");
+        typed.setLength(0);
+        tap(kb, 40 * dp, 20 * dp);
+        if (!typed.toString().equals("[\"fuersa\"]")) throw new AssertionError("sugerencia: " + typed);
+        kb.setSuggestions(null, null);
+        kb.setSuggestionBar(false);
+
+        // Barra de herramientas: tres iconos (acciones de texto, portapapeles, ajustes)
+        render(kb);
+        typed.setLength(0);
+        tap(kb, 28 * dp, 20 * dp);
+        tap(kb, 72 * dp, 20 * dp);
+        tap(kb, 116 * dp, 20 * dp);
+        if (!typed.toString().equals("<tool1><tool2><tool3>")) throw new AssertionError("barra: " + typed);
+        typed.setLength(0);
+
+        // Modo a una mano (derecha)
+        kb.setHandMode(2);
+        save(render(kb), "una_mano.png");
+        kb.setHandMode(0);
+
+        // Bandejas: historial del portapapeles (claro y noche) y acciones de texto
+        int trayH = kb.getMeasuredHeight();
+        KeyboardTray tray = new KeyboardTray(app);
+        tray.setHost(new KeyboardTray.Host() {
+            public void onTrayPick(int mode, KeyboardTray.Item item) { typed.append("{").append(item.title).append("}"); }
+            public void onTrayRemove(KeyboardTray.Item item) {}
+            public void onTrayClear() {}
+            public void onTrayClose() {}
+        });
+        java.util.List<KeyboardTray.Item> clips = new java.util.ArrayList<>();
+        clips.add(new KeyboardTray.Item("Que la Fuerza te acompañe", null, "1"));
+        clips.add(new KeyboardTray.Item("Coordenadas del hangar 94: Mos Eisley, Tatooine. Llegamos en cinco minutos, no despeguen sin nosotros.", null, "2"));
+        clips.add(new KeyboardTray.Item("https://ejemplo.com/holocron", null, "3"));
+        tray.applyTheme(Themes.ESTELAR);
+        tray.show(KeyboardTray.MODE_CLIPBOARD, "Portapapeles", clips, "Copia un texto y aparecerá aquí.", null);
+        save(renderExact(tray, trayH), "portapapeles_estelar.png");
+        tray.applyTheme(Themes.NOCHE);
+        tray.show(KeyboardTray.MODE_CLIPBOARD, "Portapapeles", clips, "Copia un texto y aparecerá aquí.", null);
+        save(renderExact(tray, trayH), "portapapeles_noche.png");
+        tray.applyTheme(Themes.ESTELAR);
+        tray.show(KeyboardTray.MODE_CLIPBOARD, "Portapapeles", new java.util.ArrayList<KeyboardTray.Item>(), "Copia un texto y aparecerá aquí. Toca uno para pegarlo.", null);
+        save(renderExact(tray, trayH), "portapapeles_vacio.png");
+        java.util.List<KeyboardTray.Item> actions = new java.util.ArrayList<>();
+        android.graphics.drawable.Drawable icon = app.getDrawable(R.mipmap.ic_launcher);
+        actions.add(new KeyboardTray.Item("Asistente de escritura", icon, "a"));
+        actions.add(new KeyboardTray.Item("Traducir", icon, "b"));
+        actions.add(new KeyboardTray.Item("Elegir otra app…", null, null));
+        tray.show(KeyboardTray.MODE_ACTIONS, "Acciones de texto", actions, null, "Nos vemos en el hangar a las ocho");
+        save(renderExact(tray, trayH), "acciones_texto.png");
+
+        // Diccionarios integrados: una edicion, tildes, completado, contracciones inglesas
+        Dictionary es = Dictionary.get(app, "es");
+        check(es.suggest("holq").correction, "hola", "holq");
+        check(es.suggest("cancion").correction, "canción", "cancion");
+        check(es.suggest("mas").correction, "más", "mas");
+        check(es.suggest("tambien").correction, "también", "tambien");
+        check(es.suggest("hola").correction, null, "hola");
+        check(es.suggest("esta").correction, null, "esta");
+        if (!es.suggest("hol").suggestions.contains("hola")) throw new AssertionError("completar hol: " + es.suggest("hol").suggestions);
+        check(es.suggest("fuersa").correction, "fuerza", "fuersa");
+        check(es.suggest("qiero").correction, "quiero", "qiero");
+        check(es.suggest("holla").correction, "hola", "holla");
+        check(es.suggest("mañana").correction, null, "mañana");
+        Dictionary en = Dictionary.get(app, "en");
+        check(en.suggest("teh").correction, "the", "teh");
+        check(en.suggest("dont").correction, "don't", "dont");
+        check(en.suggest("i").correction, "I", "i");
+        check(en.suggest("don't").correction, null, "don't");
+        check(en.suggest("hello").correction, null, "hello");
+        System.out.println("DICT ok es=" + es.size() + " en=" + en.size() + " fuersa=" + es.suggest("fuersa").suggestions
+                + " qiero=" + es.suggest("qiero").suggestions + " helo=" + en.suggest("helo").suggestions);
 
         // Teclear tocando las teclas
         kb.applyPrefs(false, false, false, true, Themes.ESTELAR.id);
@@ -194,7 +290,9 @@ public class ScreenshotTest {
         }
         System.out.println("TOKENS ok");
 
-        // Pantalla de la app en claro y en noche: pagina completa y primera pantalla
+        // Pantalla de la app en claro y en noche: pagina completa y primera pantalla (Samsung One UI 9.0)
+        ShadowBuild.setManufacturer("samsung");
+        DeviceInfo.semOverride = 180000;
         Bitmap light = renderActivity();
         save(light, "app_claro.png");
         save(Bitmap.createBitmap(light, 0, 0, W, PHONE_H), "app_claro_primera.png");
@@ -206,6 +304,13 @@ public class ScreenshotTest {
         Bitmap english = renderActivity();
         save(english, "app_ingles.png");
         RuntimeEnvironment.setQualifiers("es-rES-w411dp-h914dp-xxhdpi");
+
+        // En otro dispositivo la app avisa de que es experimental
+        ShadowBuild.setManufacturer("Google");
+        ShadowBuild.setModel("Pixel 9");
+        DeviceInfo.semOverride = 0;
+        save(Bitmap.createBitmap(renderActivity(), 0, 0, W, PHONE_H), "app_experimental.png");
+        DeviceInfo.semOverride = null;
 
         // Icono adaptativo, compuesto como lo hace Android: capa de 108 dp vista por una
         // ventana de 72 dp (escala 1.5) con mascara circular.

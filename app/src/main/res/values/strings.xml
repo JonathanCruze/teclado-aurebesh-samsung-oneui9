@@ -6,7 +6,7 @@
     <string name="subtype_en" translatable="false">English (Aurebesh)</string>
     <string name="lang_es" translatable="false">Español</string>
     <string name="lang_en" translatable="false">English</string>
-    <string name="version" translatable="false">1.6</string>
+    <string name="version" translatable="false">1.7</string>
 
     <string name="tagline">The Star Wars alphabet on your keyboard. What you type is sent as normal letters, so anyone can read it.</string>
 
@@ -17,7 +17,7 @@
     <string name="setup_select_title">Choose Aurebesh as your current keyboard</string>
     <string name="setup_select_action">Choose keyboard</string>
     <string name="setup_done_title">Aurebesh is your keyboard</string>
-    <string name="setup_done_hint">To go back to the Samsung keyboard, tap the globe key.</string>
+    <string name="setup_done_hint">To go back to the Samsung keyboard, hold the space bar.</string>
     <string name="setup_done_action">Switch keyboard</string>
 
     <string name="try_title">Try it</string>
@@ -38,6 +38,8 @@
     <string name="opt_hints_sub">Handy while you learn the alphabet</string>
     <string name="opt_strip">Translation bar</string>
     <string name="opt_strip_sub">Shows what you type in Aurebesh above the keys</string>
+    <string name="opt_toolbar">Toolbar</string>
+    <string name="opt_toolbar_sub">✨ text actions, 📋 clipboard and ⚙ settings above the keys</string>
 
     <string name="typing">Typing</string>
     <string name="opt_digraphs">Digraphs</string>
@@ -50,6 +52,12 @@
     <string name="size_normal">Normal</string>
     <string name="size_large">Large</string>
     <string name="size_xlarge">Extra</string>
+    <string name="opt_hand">One-handed mode</string>
+    <string name="hand_none">Off</string>
+    <string name="hand_left">Left</string>
+    <string name="hand_right">Right</string>
+    <string name="opt_autocorrect">Autocorrect</string>
+    <string name="opt_autocorrect_sub">Built-in Spanish and English dictionaries, no internet. Backspace undoes a correction.</string>
     <string name="opt_vibrate">Vibrate on keypress</string>
 
     <string name="gestures">Gestures</string>
@@ -63,8 +71,33 @@
     <string name="gesture_caps_result">Caps lock</string>
     <string name="gesture_symbols">"?123 key"</string>
     <string name="gesture_symbols_result">Numbers, symbols and digraphs</string>
-    <string name="gesture_switch">Globe, or hold the space bar</string>
-    <string name="gesture_switch_result">Switch keyboard or language</string>
+    <string name="gesture_switch">Globe</string>
+    <string name="gesture_switch_result">Next Aurebesh language (shown when two are enabled)</string>
+    <string name="gesture_picker">Hold the space bar</string>
+    <string name="gesture_picker_result">Choose another keyboard (Samsung, etc.)</string>
+    <string name="gesture_actions">✨ Text actions</string>
+    <string name="gesture_actions_result">Send the text to Galaxy AI Writing assist (if available), Translate or another app</string>
+    <string name="gesture_clipboard">📋 Clipboard</string>
+    <string name="gesture_clipboard_result">Everything you copied; tap to paste</string>
+    <string name="gesture_settings">⚙ Settings</string>
+    <string name="gesture_settings_result">Opens this screen</string>
 
-    <string name="footer">Version %1$s. No internet access; nothing you type is stored.</string>
+    <string name="tool_actions">Text actions</string>
+    <string name="tool_clipboard">Clipboard</string>
+    <string name="tool_settings">Settings</string>
+    <string name="clipboard_title">Clipboard</string>
+    <string name="clipboard_clear">Clear all</string>
+    <string name="clipboard_empty">Copy some text and it will show up here. Tap an item to paste it.</string>
+    <string name="actions_title">Text actions</string>
+    <string name="actions_choose">Choose another app…</string>
+    <string name="actions_empty">Write something first</string>
+    <string name="actions_hint">Sends what you wrote (or the selection) to an app that processes text: Galaxy AI Writing assist if your phone offers it, Translate, and others. If the app returns text, it replaces yours.</string>
+
+    <string name="compat_title">Experimental on this device</string>
+    <string name="compat_body">Aurebesh Keyboard is optimized and tested on Samsung Galaxy phones with One UI 9.0 (Android 17). This device: %1$s. Other Android versions may misbehave.</string>
+    <string name="footer_compat_ok">Optimized for Samsung One UI 9.0 · this phone: %1$s</string>
+    <string name="footer_compat_other">Optimized for Samsung One UI 9.0 · this phone: %1$s (experimental)</string>
+    <string name="credits">Aurebesh font © 2022 SilvinoR, SIL Open Font License 1.1. Word lists: FrequencyWords by Hermit Dave (MIT), built on OpenSubtitles. Star Wars and Aurebesh are trademarks of Lucasfilm Ltd.; fan project, not affiliated.</string>
+
+    <string name="footer">Version %1$s. No internet access; nothing you type is stored. Only the clipboard history is kept, on this phone.</string>
 </resources>
