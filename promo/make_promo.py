@@ -54,13 +54,14 @@ def tokenize(text):
     return out
 
 
+def _adv(g): return g['adv'] if 'adv' in g else g['w'] + 2.2
 def aurebesh_width(text, h):
     w = 0
     for t in tokenize(text):
         if t == ' ':
-            w += 6 * h / 10
+            w += 4.5 * h / 10
         elif t in GLYPHS:
-            w += (GLYPHS[t]['w'] + 2.2) * h / 10
+            w += _adv(GLYPHS[t]) * h / 10
     return w
 
 
@@ -70,15 +71,16 @@ def draw_aurebesh(img, text, x, y, h, color):
     s = h / 10
     for t in tokenize(text):
         if t == ' ':
-            x += 6 * s; continue
+            x += 4.5 * s; continue
         if t not in GLYPHS:
             continue
         g = GLYPHS[t]
+        ox = x + g.get('lsb', 0) * s
         for poly in g['p']:
             m = Image.new('1', (img.width, img.height), 0)
-            ImageDraw.Draw(m).polygon([(x + px * s, y + py * s) for px, py in poly], fill=1)
+            ImageDraw.Draw(m).polygon([(ox + px * s, y + py * s) for px, py in poly], fill=1)
             mask ^= np.array(m)
-        x += (g['w'] + 2.2) * s
+        x += _adv(g) * s
     layer = Image.new('RGBA', img.size, color + (0,))
     layer.putalpha(Image.fromarray((mask * 255).astype('uint8')))
     img.alpha_composite(layer)

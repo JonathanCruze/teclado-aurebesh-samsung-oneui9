@@ -19,31 +19,31 @@ final class Glyphs {
 
     private static final HashMap<String, Path> PATHS = new HashMap<>();
     private static final HashMap<String, Float> WIDTHS = new HashMap<>();
+    private static final HashMap<String, Float> LSB = new HashMap<>();
+    private static final HashMap<String, Float> ADV = new HashMap<>();
     private static final Matrix MATRIX = new Matrix();
     private static final Path TMP = new Path();
 
     static {
         for (int i = 0; i < GlyphData.KEYS.length; i++) {
+            String[] f = GlyphData.DATA[i].split(";");
             Path path = new Path();
             path.setFillType(Path.FillType.EVEN_ODD);
-            for (float[] poly : GlyphData.POLYS[i]) {
-                path.moveTo(poly[0], poly[1]);
-                for (int j = 2; j < poly.length; j += 2) path.lineTo(poly[j], poly[j + 1]);
+            for (int k = 3; k < f.length; k++) {
+                String[] pts = f[k].split(" ");
+                for (int j = 0; j < pts.length; j++) {
+                    int comma = pts[j].indexOf(',');
+                    float x = Float.parseFloat(pts[j].substring(0, comma));
+                    float y = Float.parseFloat(pts[j].substring(comma + 1));
+                    if (j == 0) path.moveTo(x, y); else path.lineTo(x, y);
+                }
                 path.close();
             }
             PATHS.put(GlyphData.KEYS[i], path);
-            WIDTHS.put(GlyphData.KEYS[i], GlyphData.WIDTHS[i]);
+            WIDTHS.put(GlyphData.KEYS[i], Float.parseFloat(f[0]));
+            LSB.put(GlyphData.KEYS[i], Float.parseFloat(f[1]));
+            ADV.put(GlyphData.KEYS[i], Float.parseFloat(f[2]));
         }
-        // Equivalencias: comillas rectas y otros signos con su glifo mas cercano.
-        alias("\"", "“");
-        alias("'", "’");
-        alias("«", "“");
-        alias("»", "”");
-    }
-
-    private static void alias(String from, String to) {
-        PATHS.put(from, PATHS.get(to));
-        WIDTHS.put(from, WIDTHS.get(to));
     }
 
     static boolean has(String key) {
@@ -54,6 +54,17 @@ final class Glyphs {
     static float width(String key) {
         Float w = WIDTHS.get(key);
         return w == null ? 0 : w;
+    }
+
+    /** Avance (anchura tipografica) y margen izquierdo del glifo, en unidades. */
+    static float advance(String key) {
+        Float a = ADV.get(key);
+        return a == null ? width(key) + 0.8f : a;
+    }
+
+    static float lsb(String key) {
+        Float l = LSB.get(key);
+        return l == null ? 0 : l;
     }
 
     /** Dibuja el glifo con la caja de letra [top, top + h] y el borde izquierdo en x. */
@@ -137,22 +148,21 @@ final class Glyphs {
         return false;
     }
 
-    static final float LETTER_GAP = 2.2f;   // unidades entre glifos
-    static final float SPACE_W = 6f;        // unidades de un espacio
+    static final float LATIN_GAP = 0.8f;    // unidades tras un caracter latino sin glifo
 
-    /** Ancho de un token en pixeles para una altura de letra h. */
+    /** Ancho de un token en pixeles para una altura de letra h (metricas de la fuente). */
     static float tokenWidth(Token t, float h, Paint textPaint) {
-        if (t.glyph != null) return (width(t.glyph) + LETTER_GAP) * h / 10f;
-        if (t.isSpace()) return SPACE_W * h / 10f;
+        if (t.glyph != null) return advance(t.glyph) * h / 10f;
+        if (t.isSpace()) return GlyphData.SPACE_ADV * h / 10f;
         if (t.isNewline()) return 0;
         textPaint.setTextSize(h * 1.15f);
-        return textPaint.measureText(t.literal) + LETTER_GAP * h / 10f;
+        return textPaint.measureText(t.literal) + LATIN_GAP * h / 10f;
     }
 
-    /** Dibuja un token con su borde izquierdo en x; devuelve el avance. */
+    /** Dibuja un token con su origen en x; devuelve el avance. */
     static float drawToken(Canvas c, Token t, float x, float top, float h, Paint glyphPaint, Paint textPaint) {
         if (t.glyph != null) {
-            draw(c, t.glyph, x, top, h, glyphPaint);
+            draw(c, t.glyph, x + lsb(t.glyph) * h / 10f, top, h, glyphPaint);
         } else if (!t.isSpace() && !t.isNewline()) {
             textPaint.setTextSize(h * 1.15f);
             c.drawText(t.literal, x, top + h, textPaint);

@@ -23,7 +23,7 @@ así cualquiera puede leer lo que escribes.
 - Burbuja al pulsar con el glifo grande y la letra latina (para aprender el alfabeto).
 - Opciones: tema, tamaño del teclado (4 niveles), letra latina en las teclas (con las alternativas de pulsación larga), barra de traducción, dígrafos, fila de números, sonido y vibración.
 - `¿` y `¡` tienen glifo propio: el de `?` y `!` girado 180°, como en la tipografía española.
-- `+ = # * % @ &` también tienen glifo propio, construido con barras, cuadrados y chevrones del alfabeto (el `&` es un ocho de diamantes con un cubo macizo centrado en la esquina inferior derecha: mitad embebido en el trazo, mitad a la vista, en una sola pieza); en la página `?123` cada signo lleva su leyenda latina en la esquina.
+- `+ = # * % @ &` y el resto de signos vienen de la fuente base; en la página `?123` cada signo lleva su leyenda latina en la esquina.
 - La app incluye campos reales (texto y contraseña) que usan el teclado elegido en Ajustes.
 - Enter adapta su icono a la acción del campo (buscar, enviar, siguiente, listo).
 - Campos numéricos y de teléfono abren en `?123`; en contraseñas no hay burbuja ni barra.
@@ -32,7 +32,7 @@ así cualquiera puede leer lo que escribes.
 ## Estructura
 ```
 app/src/main/java/com/aurebesh/teclado/
-  GlyphData.java           glifos vectorizados (generado; incluye ñ y vocales con tilde)
+  GlyphData.java           glifos vectorizados con métricas de fuente (generado por tools/build_font_set.py)
   Glyphs.java              dibujo de glifos y conversión texto → glifos
   AurebeshKeyboardView.java vista del teclado: distribución, dibujo, toque
   Themes.java              los cinco temas (cada uno cambia relleno, borde, esquina, sombra, halo)
@@ -68,13 +68,21 @@ ellos y la barra espaciadora muestra el idioma actual. En español hay tecla ñ 
 en inglés la fila tiene nueve teclas y mantener `,` da `!`. La app está en español e inglés y sigue el
 idioma del teléfono.
 
+## Fuente
+Los glifos salen de la fuente **Aurebesh de SilvinoR** (`font/base-silvinor-Aurebesh.ttf`, SIL Open Font
+License 1.1, `font/OFL-silvinor.md`): letras, numerales, puntuación, signos y los ocho dígrafos como
+ligaduras. A ese conjunto se añaden la ñ con cuadrado y las vocales con tilde. `tools/build_font_set.py`
+genera a partir de ello `GlyphData.java` (vectores con avance y margen de cada glifo, que es lo que dibuja
+el teclado) y **`font/AurekTeclado.ttf`**, una fuente OpenType instalable con las mismas ligaduras, también
+bajo OFL (con nombre propio, como exige la licencia por el nombre reservado "Aurebesh").
+
 ## Español: ñ y tildes
 El Aurebesh canónico no tiene ñ ni acentos, y tampoco usa diacríticos: amplía el alfabeto con
 letras compuestas a partir de sus propias piezas (barras, chevrones, cuadrados). Siguiendo ese
 criterio, la **ñ es *nern* con un cuadrado sobre el vértice** (el cuadrado del dos puntos y de *shen*)
-y las vocales con tilde llevan una **barra corta a 45°** (el trazo de *senth* y *resh*). Son diseño
-propio, no canon; otros diacríticos (ü, ç…) se muestran con el glifo base. El texto enviado siempre
-lleva los caracteres correctos.
+y las vocales con tilde llevan una **barra corta a 45°** (el trazo de *senth* y *resh*), al grosor de la
+fuente. Son diseño propio, no canon; otros diacríticos (ü, ç…) se muestran con el glifo base. El texto
+enviado siempre lleva los caracteres correctos.
 
 ## Temas
 | Tema | Construcción |
