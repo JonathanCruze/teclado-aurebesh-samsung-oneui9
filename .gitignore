@@ -1,0 +1,11 @@
+build/
+.gradle/
+*.iml
+.idea/
+local.properties
+*.apk
+*.apk.idsig
+screenshot-test/target/
+*.keystore
+promo/out/
+__pycache__/

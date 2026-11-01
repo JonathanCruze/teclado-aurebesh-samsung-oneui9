@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="surface">#0E1419</color>
+    <color name="card">#18222B</color>
+    <color name="ink">#DCE6EE</color>
+    <color name="text_secondary">#A7B4C0</color>
+    <color name="divider">#28343F</color>
+    <color name="switch_thumb_off">#A7B4C0</color>
+    <color name="switch_track_off">#3A4650</color>
+    <color name="navigation_bar">#0E1419</color>
+</resources>

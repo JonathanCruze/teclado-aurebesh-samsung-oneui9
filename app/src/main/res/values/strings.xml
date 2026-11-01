@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Aurebesh Keyboard</string>
+    <string name="ime_name" translatable="false">Aurebesh</string>
+    <string name="subtype_es" translatable="false">Español (Aurebesh)</string>
+    <string name="subtype_en" translatable="false">English (Aurebesh)</string>
+    <string name="lang_es" translatable="false">Español</string>
+    <string name="lang_en" translatable="false">English</string>
+    <string name="version" translatable="false">1.1</string>
+
+    <string name="tagline">The Star Wars alphabet on your keyboard. What you type is sent as normal letters, so anyone can read it.</string>
+
+    <string name="step_1">Step 1 of 2</string>
+    <string name="step_2">Step 2 of 2</string>
+    <string name="setup_enable_title">Turn on Aurebesh in your phone settings</string>
+    <string name="setup_enable_action">Open keyboard settings</string>
+    <string name="setup_select_title">Choose Aurebesh as your current keyboard</string>
+    <string name="setup_select_action">Choose keyboard</string>
+    <string name="setup_done_title">Aurebesh is your keyboard</string>
+    <string name="setup_done_hint">To go back to the Samsung keyboard, tap the globe key.</string>
+    <string name="setup_done_action">Switch keyboard</string>
+
+    <string name="try_title">Try it</string>
+    <string name="try_hint">Type something</string>
+
+    <string name="appearance">Appearance</string>
+    <string name="opt_theme">Theme</string>
+    <string name="theme_estelar">Stellar</string>
+    <string name="theme_noche">Night</string>
+    <string name="theme_datapad">Datapad</string>
+    <string name="theme_imperial">Imperial</string>
+    <string name="theme_arena">Sand</string>
+    <string name="opt_hints">Latin letters on the keys</string>
+    <string name="opt_hints_sub">Handy while you learn the alphabet</string>
+    <string name="opt_strip">Translation bar</string>
+    <string name="opt_strip_sub">Shows what you type in Aurebesh above the keys</string>
+
+    <string name="typing">Typing</string>
+    <string name="opt_digraphs">Digraphs</string>
+    <string name="opt_digraphs_sub">One glyph for ch, sh, th, ae, eo, kh, ng and oo</string>
+    <string name="opt_numbers">Number row</string>
+    <string name="opt_numbers_sub">Above the letters; without it the keyboard is shorter</string>
+    <string name="opt_vibrate">Vibrate on keypress</string>
+
+    <string name="gestures">Gestures</string>
+    <string name="gesture_accent">Hold a vowel</string>
+    <string name="gesture_accent_result">Accent: á, é, í, ó, ú</string>
+    <string name="gesture_enye">Hold n</string>
+    <string name="gesture_enye_result">ñ</string>
+    <string name="gesture_marks">Hold , or .</string>
+    <string name="gesture_marks_result">! and ?  (in ?123, holding ? and ! gives ¿ and ¡)</string>
+    <string name="gesture_caps">Double-tap shift</string>
+    <string name="gesture_caps_result">Caps lock</string>
+    <string name="gesture_symbols">"?123 key"</string>
+    <string name="gesture_symbols_result">Numbers, symbols and digraphs</string>
+    <string name="gesture_switch">Globe, or hold the space bar</string>
+    <string name="gesture_switch_result">Switch keyboard or language</string>
+
+    <string name="footer">Version %1$s. No internet access; nothing you type is stored.</string>
+</resources>

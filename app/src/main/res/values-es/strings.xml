@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Teclado Aurebesh</string>
+
+    <string name="tagline">El alfabeto de Star Wars en tu teclado. Lo que escribes se envía en letras normales, así cualquiera puede leerlo.</string>
+
+    <string name="step_1">Paso 1 de 2</string>
+    <string name="step_2">Paso 2 de 2</string>
+    <string name="setup_enable_title">Activa Aurebesh en los ajustes del teléfono</string>
+    <string name="setup_enable_action">Abrir ajustes de teclado</string>
+    <string name="setup_select_title">Elige Aurebesh como teclado actual</string>
+    <string name="setup_select_action">Elegir teclado</string>
+    <string name="setup_done_title">Aurebesh es tu teclado</string>
+    <string name="setup_done_hint">Para volver al de Samsung, toca el globo del teclado.</string>
+    <string name="setup_done_action">Cambiar de teclado</string>
+
+    <string name="try_title">Pruébalo</string>
+    <string name="try_hint">Escribe algo</string>
+
+    <string name="appearance">Apariencia</string>
+    <string name="opt_theme">Tema</string>
+    <string name="theme_estelar">Estelar</string>
+    <string name="theme_noche">Noche</string>
+    <string name="theme_datapad">Datapad</string>
+    <string name="theme_imperial">Imperial</string>
+    <string name="theme_arena">Arena</string>
+    <string name="opt_hints">Letra latina en las teclas</string>
+    <string name="opt_hints_sub">Útil mientras aprendes el alfabeto</string>
+    <string name="opt_strip">Barra de traducción</string>
+    <string name="opt_strip_sub">Muestra lo escrito en Aurebesh sobre las teclas</string>
+
+    <string name="typing">Escritura</string>
+    <string name="opt_digraphs">Dígrafos</string>
+    <string name="opt_digraphs_sub">Un solo glifo para ch, sh, th, ae, eo, kh, ng y oo</string>
+    <string name="opt_numbers">Fila de números</string>
+    <string name="opt_numbers_sub">Sobre las letras; sin ella el teclado es más bajo</string>
+    <string name="opt_vibrate">Vibración al pulsar</string>
+
+    <string name="gestures">Gestos</string>
+    <string name="gesture_accent">Mantener una vocal</string>
+    <string name="gesture_accent_result">Acento: á, é, í, ó, ú</string>
+    <string name="gesture_enye">Mantener la n</string>
+    <string name="gesture_enye_result">ñ</string>
+    <string name="gesture_caps">Doble toque en mayúsculas</string>
+    <string name="gesture_caps_result">Bloqueo de mayúsculas</string>
+    <string name="gesture_symbols">Tecla ?123</string>
+    <string name="gesture_symbols_result">Números, signos y dígrafos</string>
+    <string name="gesture_marks">Mantener , o .</string>
+    <string name="gesture_marks_result">¿ y ?  (en ?123, mantener ? y ! da ¿ y ¡)</string>
+    <string name="gesture_switch">Globo, o mantener el espacio</string>
+    <string name="gesture_switch_result">Cambiar de teclado o idioma</string>
+
+    <string name="footer">Versión %1$s. No usa internet ni guarda lo que escribes.</string>
+</resources>
