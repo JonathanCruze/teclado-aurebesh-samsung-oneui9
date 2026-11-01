@@ -88,6 +88,21 @@ Añadir un tema es añadir una línea en `Themes.java`; el selector, la copia de
 - `targetSdk 34`: subir a 35 exige probar el modo *edge-to-edge* en un dispositivo.
 - El proyecto Gradle no se ha compilado en Android Studio desde este entorno (solo `build.sh`).
 
+## Probar en un teléfono
+Con el Samsung conectado por USB (depuración USB activada) y `adb` en el ordenador:
+```bash
+tools/device.sh install   # instala o actualiza el APK
+tools/device.sh enable    # activa el teclado y lo deja como actual
+tools/device.sh field     # abre un campo de texto real
+tools/device.sh shot      # captura -> screenshots/device/captura.png
+```
+Desde una sesión de Claude Code en la nube, el teléfono se alcanza activando **Remote Control** en la app
+de escritorio de Claude (Mac o Linux) sobre esta carpeta; en una sesión local basta con `adb`.
+
+Sin teléfono a mano, `tools/testlab.sh` ejecuta la app en Galaxy reales de **Firebase Test Lab** (cuota
+gratuita diaria) y deja capturas y vídeo en la consola de Firebase. Necesita `FIREBASE_PROJECT` y una
+clave de cuenta de servicio (`GOOGLE_APPLICATION_CREDENTIALS` o `GOOGLE_APPLICATION_CREDENTIALS_JSON`).
+
 ## Probar (capturas reales sin emulador)
 ```bash
 ./build.sh                      # deja los recursos compilados en build/
