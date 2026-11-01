@@ -209,6 +209,24 @@ public class ScreenshotTest {
         tap(kb, W - 28 * dp, 20 * dp);
         if (!typed.toString().equals("<tool3>")) throw new AssertionError("engrane: " + typed);
         typed.setLength(0);
+        // Signos como en Samsung Keyboard: , ; : ? en la cuarta fila y . en la fila inferior; 1/2 abre la segunda pagina
+        AurebeshKeyboardView.Key comma = kb.keyFor(","), semi = kb.keyFor(";"), colon = kb.keyFor(":"), quest = kb.keyFor("?"), dot = kb.keyFor(".");
+        AurebeshKeyboardView.Key page = kb.keyFor(AurebeshKeyboardView.CODE_PAGE);
+        if (comma == null || semi == null || colon == null || quest == null || dot == null || page == null) throw new AssertionError("signos");
+        if (!(comma.rect.top == page.rect.top && semi.rect.top == page.rect.top && colon.rect.top == page.rect.top && quest.rect.top == page.rect.top))
+            throw new AssertionError("fila de signos");
+        if (!(dot.rect.top > page.rect.top && comma.rect.left < quest.rect.left)) throw new AssertionError("orden de signos");
+        for (String ch : new String[]{",", ";", ":", "?", "."}) { AurebeshKeyboardView.Key k = kb.keyFor(ch); tap(kb, k.rect.centerX(), k.rect.centerY()); }
+        if (!typed.toString().equals(",;:?.")) throw new AssertionError("signos tecleados: " + typed);
+        typed.setLength(0);
+        tap(kb, page.rect.centerX(), page.rect.centerY());   // 1/2 -> 2/2
+        render(kb);
+        save(render(kb), "simbolos_2.png");
+        if (kb.keyFor("ch") == null || kb.keyFor("\u00bf") == null || kb.keyFor("\u20ac") == null) throw new AssertionError("pagina 2");
+        AurebeshKeyboardView.Key page2 = kb.keyFor(AurebeshKeyboardView.CODE_PAGE);
+        tap(kb, page2.rect.centerX(), page2.rect.centerY());   // 2/2 -> 1/2
+        render(kb);
+        if (kb.keyFor("ch") != null) throw new AssertionError("vuelta a 1/2");
         tap(kb, 30 * dp, modeY);                       // abc
         render(kb);
 

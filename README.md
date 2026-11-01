@@ -51,10 +51,13 @@ escribes.
   falta cerrar y abrir el teclado.
 - QWERTY con ñ y fila de numerales Aurebesh (desactivable; sin ella, q…p dan 1…0 en pulsación larga, con el
   número insinuado en la esquina). Pulsación larga = **menú de alternativas** deslizable, como en Gboard:
-  vocales → á à ä â ã…, n → ñ, c → ç, `,`/`.` → `¿`/`?`; en `?123`, `?` y `!` dan `¿` y `¡` y los signos
-  tienen alternativas (`_ « » [ ] \ ~ € |`).
+  vocales → á à ä â ã…, n → ñ, c → ç, `,`/`.` → `¿`/`?`; en `?123`, `?` y `!` dan `¿` y `¡`, `$` da `€`, `"` y `'`
+  dan comillas tipográficas, `[ ]` dan `{ }` y `/` da `\`.
 - Mayúscula automática al inicio de frase; doble toque en ⇧ = bloqueo.
-- `?123`: signos con glifo propio, dígrafos Aurebesh (ch, ae, eo, kh, ng, oo, sh, th) y símbolos latinos.
+- `?123` con la **misma distribución que Samsung Keyboard**: `1234567890` / `+ × ÷ = / _ < > [ ]` / `! @ # $ % ^ & * ( )` /
+  `1/2 - ' " : ; , ?` y `. ` en la fila inferior; la página `2/2` trae los dígrafos Aurebesh (ch, ae, eo, kh, ng, oo, sh,
+  th), `¿ ¡ « » { } | \ ~ •` y `£ € ¥ ° © ® ™`. Los signos con glifo Aurebesh llevan su leyenda latina en la esquina;
+  los que no lo tienen (× ÷ € £…) se muestran en latino.
 - Burbuja al pulsar con el glifo grande y la letra latina (para aprender el alfabeto).
 - Opciones: tema, tamaño del teclado (4 niveles), modo a una mano, barra de herramientas, letra latina en las teclas
   (con las alternativas de pulsación larga), barra de traducción, dígrafos, fila de números, autocorrección, punto con

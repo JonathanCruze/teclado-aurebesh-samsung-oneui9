@@ -62,7 +62,7 @@
     <string name="gesture_caps">Doble toque en mayúsculas</string>
     <string name="gesture_caps_result">Bloqueo de mayúsculas</string>
     <string name="gesture_symbols">Tecla ?123</string>
-    <string name="gesture_symbols_result">Números, signos y dígrafos</string>
+    <string name="gesture_symbols_result">Signos como en Samsung Keyboard; 1/2 abre la segunda página con dígrafos, ¿ ¡ « » y más</string>
     <string name="gesture_marks">Mantener , o .</string>
     <string name="gesture_marks_result">¿ y ?  (en ?123, mantener ? y ! da ¿ y ¡)</string>
     <string name="gesture_switch">Globo</string>

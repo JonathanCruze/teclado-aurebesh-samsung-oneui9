@@ -33,6 +33,7 @@ public final class AurebeshKeyboardView extends View {
     static final int CODE_TEXT = 0;
     static final int CODE_SHIFT = -1;
     static final int CODE_MODE = -2;
+    static final int CODE_PAGE = -3;      // 1/2 <-> 2/2 en la pagina de signos
     static final int CODE_ENTER = -4;
     static final int CODE_DELETE = -5;
     static final int CODE_SPACE = -6;
@@ -79,7 +80,8 @@ public final class AurebeshKeyboardView extends View {
 
     private Listener listener;
     private final List<List<Key>> letters = new ArrayList<>();
-    private final List<List<Key>> symbols = new ArrayList<>();
+    private final List<List<Key>> symbols = new ArrayList<>();    // signos 1/2 (como Samsung Keyboard)
+    private final List<List<Key>> symbols2 = new ArrayList<>();   // signos 2/2: digrafos, ¿ ¡ « » y mas simbolos
     private List<List<Key>> current;
 
     private boolean shift = false;
@@ -185,11 +187,12 @@ public final class AurebeshKeyboardView extends View {
         applyTheme();
         if (numberRow != numbers) {
             numberRow = numbers;
-            boolean onSymbols = current == symbols;
+            List<List<Key>> was = current;
             letters.clear();
             symbols.clear();
+            symbols2.clear();
             buildLayouts();
-            current = onSymbols ? symbols : letters;
+            current = was == symbols ? symbols : was == symbols2 ? symbols2 : letters;
             requestLayout();
         }
         if (showStrip != strip) {
@@ -226,11 +229,12 @@ public final class AurebeshKeyboardView extends View {
         String l = "en".equals(lang) ? "en" : "es";
         if (l.equals(language)) return;
         language = l;
-        boolean onSymbols = current == symbols;
+        List<List<Key>> was = current;
         letters.clear();
         symbols.clear();
+        symbols2.clear();
         buildLayouts();
-        current = onSymbols ? symbols : letters;
+        current = was == symbols ? symbols : was == symbols2 ? symbols2 : letters;
         requestLayout();
         invalidate();
     }
@@ -276,11 +280,12 @@ public final class AurebeshKeyboardView extends View {
     }
 
     private void rebuildLayouts() {
-        boolean onSymbols = current == symbols;
+        List<List<Key>> was = current;
         letters.clear();
         symbols.clear();
+        symbols2.clear();
         buildLayouts();
-        current = onSymbols ? symbols : letters;
+        current = was == symbols ? symbols : was == symbols2 ? symbols2 : letters;
         requestLayout();
         invalidate();
     }
@@ -357,15 +362,26 @@ public final class AurebeshKeyboardView extends View {
         letters.add(r3);
         bottomRow(letters, "?123");
 
+        // Signos 1/2: la misma distribucion que Samsung Keyboard (, ; : ? en la cuarta fila, . abajo)
         symbols.add(digitsRow());
+        row(symbols, sym("+", 1f, "\u00b1"), sym("\u00d7", 1f), sym("\u00f7", 1f), sym("=", 1f, "\u2260"), sym("/", 1f, "\\"),
+                sym("_", 1f), sym("<", 1f, "\u2264"), sym(">", 1f, "\u2265"), sym("[", 1f, "{"), sym("]", 1f, "}"));
+        row(symbols, sym("!", 1f, "\u00a1"), sym("@", 1f), sym("#", 1f), sym("$", 1f, "\u20ac"), sym("%", 1f, "\u2030"),
+                sym("^", 1f), sym("&", 1f), sym("*", 1f, "\u2022"), sym("(", 1f), sym(")", 1f));
+        row(symbols, special("1/2", CODE_PAGE, 1.5f), sym("-", 1f, "\u2013"), sym("'", 1f, "\u2018"), sym("\"", 1f, "\u201c"),
+                sym(":", 1f), sym(";", 1f), sym(",", 1f), sym("?", 1f, "\u00bf"), special("", CODE_DELETE, 1.5f));
+        bottomRow(symbols, "abc");
+
+        // Signos 2/2: digrafos Aurebesh, signos del espanol y simbolos menos frecuentes
+        symbols2.add(digitsRow());
         List<Key> dig = new ArrayList<>();
         for (String d : Glyphs.DIGRAPHS) dig.add(new Key(d, d, d, null, CODE_TEXT, 1.25f));
-        symbols.add(dig);
-        row(symbols, sym("-", 1f, "_"), sym("?", 1f, "\u00bf"), sym("!", 1f, "\u00a1"), sym(":", 1f), sym(";", 1f),
-                sym("\"", 1f, "\u00ab"), sym("'", 1f, "\u00bb"), sym("(", 1f, "["), sym(")", 1f, "]"), sym("/", 1f, "\\"));
-        row(symbols, sym("@", 1f), sym("#", 1f, "~"), sym("$", 1f, "\u20ac"), sym("&", 1f, "|"), sym("+", 1f),
-                sym("=", 1f), sym("*", 1f), sym("%", 1f), special("", CODE_DELETE, 2f));
-        bottomRow(symbols, "abc");
+        symbols2.add(dig);
+        row(symbols2, sym("\u00bf", 1f), sym("\u00a1", 1f), sym("\u00ab", 1f), sym("\u00bb", 1f), sym("{", 1f), sym("}", 1f),
+                sym("|", 1f), sym("\\", 1f), sym("~", 1f), sym("\u2022", 1f));
+        row(symbols2, special("2/2", CODE_PAGE, 1.5f), sym("\u00a3", 1f), sym("\u20ac", 1f), sym("\u00a5", 1f), sym("\u00b0", 1f),
+                sym("\u00a9", 1f), sym("\u00ae", 1f), sym("\u2122", 1f), special("", CODE_DELETE, 1.5f));
+        bottomRow(symbols2, "abc");
     }
 
     private void bottomRow(List<List<Key>> layout, String modeLabel) {
@@ -380,6 +396,12 @@ public final class AurebeshKeyboardView extends View {
         layout.add(r);
     }
 
+    /** Tecla de funcion del teclado actual con ese codigo (para pruebas). */
+    Key keyFor(int code) {
+        for (List<Key> row : current) for (Key k : row) if (k.code == code) return k;
+        return null;
+    }
+
     /** Tecla del teclado actual que escribe {@code output} (para pruebas). */
     Key keyFor(String output) {
         for (List<Key> row : current) for (Key k : row) if (output.equals(k.output)) return k;
@@ -390,7 +412,7 @@ public final class AurebeshKeyboardView extends View {
 
     private float stripHeight() { return toolbar || showStrip || suggestionBar ? 40 * dp : 4 * dp; }
     private boolean isDigitRow(List<List<Key>> layout, int ri) {
-        return ri == 0 && (numberRow || layout == symbols);
+        return ri == 0 && (numberRow || layout == symbols || layout == symbols2);
     }
 
     /** En apaisado las filas son mas bajas para no tapar media pantalla. */
@@ -417,6 +439,7 @@ public final class AurebeshKeyboardView extends View {
         super.onLayout(changed, l, t, r, b);
         layoutKeys(letters);
         layoutKeys(symbols);
+        layoutKeys(symbols2);
     }
 
     private void layoutKeys(List<List<Key>> layout) {
@@ -499,7 +522,7 @@ public final class AurebeshKeyboardView extends View {
                     textPaint.setTextSize(19 * dp);
                     c.drawText(k.label, cx, cy + 7 * dp, textPaint);
                 }
-                boolean symbolKey = current == symbols && k.glyph != null && !digitRow
+                boolean symbolKey = current != letters && k.glyph != null && !digitRow
                         && k.label.length() == 1 && !Character.isLetterOrDigit(k.label.charAt(0));
                 if (symbolKey) {                                 // leyenda del signo en la pagina ?123
                     hintPaint.setTextSize(9 * sp);
@@ -521,7 +544,8 @@ public final class AurebeshKeyboardView extends View {
                 }
                 break;
             case CODE_MODE:
-                // "?123" / "abc" escritos en Aurebesh pequeño
+            case CODE_PAGE:
+                // "?123" / "abc" / "1/2" escritos en Aurebesh pequeño
                 drawMiniWord(c, k.label, cx, cy, 10 * dp);
                 break;
             case CODE_SHIFT: drawShift(c, cx, cy); break;
@@ -770,7 +794,7 @@ public final class AurebeshKeyboardView extends View {
 
     /** Iconos redondos a la derecha: emojis, portapapeles y, en ?123, ajustes. Devuelve el limite izquierdo. */
     private float drawToolbar(Canvas c) {
-        int n = current == symbols ? 3 : 2;
+        int n = current != letters ? 3 : 2;
         float cell = 44 * dp, cy = stripHeight() / 2f;
         float x = getWidth() - 6 * dp - cell * n;
         float left = x;
@@ -1008,6 +1032,10 @@ public final class AurebeshKeyboardView extends View {
             }
             case CODE_MODE:
                 current = current == letters ? symbols : letters;
+                requestLayout();
+                break;
+            case CODE_PAGE:
+                current = current == symbols ? symbols2 : symbols;
                 requestLayout();
                 break;
         }

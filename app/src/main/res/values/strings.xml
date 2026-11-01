@@ -6,7 +6,7 @@
     <string name="subtype_en" translatable="false">English (Aurebesh)</string>
     <string name="lang_es" translatable="false">Español</string>
     <string name="lang_en" translatable="false">English</string>
-    <string name="version" translatable="false">1.8</string>
+    <string name="version" translatable="false">1.8.1</string>
 
     <string name="tagline">The Star Wars alphabet on your keyboard. What you type is sent as normal letters, so anyone can read it.</string>
 
@@ -70,7 +70,7 @@
     <string name="gesture_caps">Double-tap shift</string>
     <string name="gesture_caps_result">Caps lock</string>
     <string name="gesture_symbols">"?123 key"</string>
-    <string name="gesture_symbols_result">Numbers, symbols and digraphs</string>
+    <string name="gesture_symbols_result">Symbols laid out like Samsung Keyboard; 1/2 opens the second page with digraphs, ¿ ¡ « » and more</string>
     <string name="gesture_switch">Globe</string>
     <string name="gesture_switch_result">Next Aurebesh language (shown when two are enabled)</string>
     <string name="gesture_picker">Hold the space bar</string>
