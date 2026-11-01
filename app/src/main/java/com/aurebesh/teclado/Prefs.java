@@ -13,6 +13,8 @@ final class Prefs {
     static final String STRIP = "show_strip";
     static final String THEME = "theme";
     static final String NUMBERS = "number_row";
+    static final String SOUND = "sound";
+    static final String HEIGHT = "keyboard_height";
     private static final String LEGACY_DARK = "dark_theme";
 
     static SharedPreferences get(Context c) {
@@ -28,5 +30,15 @@ final class Prefs {
         return t;
     }
     static boolean numbers(Context c) { return get(c).getBoolean(NUMBERS, true); }
+    static boolean sound(Context c) { return get(c).getBoolean(SOUND, true); }
+    static String height(Context c) { return get(c).getString(HEIGHT, "normal"); }
+    static float heightScale(Context c) {
+        switch (height(c)) {
+            case "compact": return 0.85f;
+            case "large": return 1.15f;
+            case "xlarge": return 1.3f;
+            default: return 1f;
+        }
+    }
     static boolean strip(Context c) { return get(c).getBoolean(STRIP, false); }
 }

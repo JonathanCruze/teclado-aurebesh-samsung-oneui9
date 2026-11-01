@@ -71,6 +71,7 @@ public final class MainActivity extends Activity {
 
         section(root, R.string.try_title);
         buildTry(root);
+        buildRealFields(root);
 
         section(root, R.string.appearance);
         LinearLayout appearance = cardColumn();
@@ -83,6 +84,8 @@ public final class MainActivity extends Activity {
         LinearLayout typing = cardColumn();
         optionRow(typing, R.string.opt_digraphs, R.string.opt_digraphs_sub, Prefs.DIGRAPHS, Prefs.digraphs(this));
         optionRow(typing, R.string.opt_numbers, R.string.opt_numbers_sub, Prefs.NUMBERS, Prefs.numbers(this));
+        sizeRow(typing);
+        optionRow(typing, R.string.opt_sound, 0, Prefs.SOUND, Prefs.sound(this));
         optionRow(typing, R.string.opt_vibrate, 0, Prefs.VIBRATE, Prefs.vibrate(this));
         root.addView(typing, block(0));
 
@@ -241,7 +244,7 @@ public final class MainActivity extends Activity {
 
     private void applyPreviewPrefs() {
         preview.applyPrefs(Prefs.hints(this), Prefs.vibrate(this), Prefs.strip(this), Prefs.digraphs(this),
-                Prefs.theme(this), Prefs.numbers(this));
+                Prefs.theme(this), Prefs.numbers(this), Prefs.sound(this), Prefs.heightScale(this));
     }
 
     /** Traduccion, barra y mayuscula automatica de la copia del teclado. */
@@ -277,6 +280,89 @@ public final class MainActivity extends Activity {
     }
 
     // ------------------------------------------------------------------ filas
+
+    private static final String[] SIZES = {"compact", "normal", "large", "xlarge"};
+    private static final int[] SIZE_NAMES = {R.string.size_compact, R.string.size_normal, R.string.size_large, R.string.size_xlarge};
+    private final java.util.List<TextView> sizeChips = new java.util.ArrayList<>();
+
+    /** Fila "Tamano del teclado": cuatro niveles; la copia del teclado cambia al instante. */
+    private void sizeRow(LinearLayout parent) {
+        if (parent.getChildCount() > 0) parent.addView(dividerLine());
+        LinearLayout col = column();
+        col.setPadding(px(18), px(14), px(18), px(16));
+        col.addView(text(getString(R.string.opt_height), 16, ink, false), block(0));
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        String current = Prefs.height(this);
+        for (int i = 0; i < SIZES.length; i++) {
+            final String id = SIZES[i];
+            final TextView chip = text(getString(SIZE_NAMES[i]), 14, ink, true);
+            chip.setGravity(Gravity.CENTER);
+            chip.setPadding(0, px(9), 0, px(9));
+            chip.setSelected(id.equals(current));
+            styleChip(chip);
+            chip.setOnClickListener(new View.OnClickListener() {
+                @Override public void onClick(View v) {
+                    Prefs.get(MainActivity.this).edit().putString(Prefs.HEIGHT, id).apply();
+                    for (TextView other : sizeChips) {
+                        other.setSelected(other == chip);
+                        styleChip(other);
+                    }
+                    applyPreviewPrefs();
+                }
+            });
+            LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(0, WRAP, 1f);
+            if (i > 0) cp.leftMargin = px(8);
+            row.addView(chip, cp);
+            sizeChips.add(chip);
+        }
+        col.addView(row, block(10));
+        parent.addView(col, block(0));
+    }
+
+    private void styleChip(TextView chip) {
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(chip.isSelected() ? ink : divider);
+        bg.setCornerRadius(px(10));
+        chip.setBackground(bg);
+        chip.setTextColor(chip.isSelected() ? card : ink);
+    }
+
+    /** Campos que usan el teclado del sistema (el elegido en Ajustes): texto normal y contrasena. */
+    private void buildRealFields(LinearLayout root) {
+        LinearLayout c = cardColumn();
+        c.setPadding(0, px(14), 0, px(4));
+        TextView title = text(getString(R.string.real_title), 16, ink, false);
+        title.setPadding(px(18), 0, px(18), 0);
+        c.addView(title, block(0));
+        TextView sub = text(getString(R.string.real_sub), 13, secondary, false);
+        sub.setPadding(px(18), 0, px(18), px(8));
+        c.addView(sub, block(2));
+        c.addView(dividerLine());
+        EditText plain = realField(R.string.real_text_hint,
+                InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
+        plain.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH);
+        c.addView(plain, block(0));
+        c.addView(dividerLine());
+        EditText password = realField(R.string.real_password_hint,
+                InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        password.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_DONE);
+        c.addView(password, block(0));
+        root.addView(c, block(12));
+    }
+
+    private EditText realField(int hint, int inputType) {
+        EditText e = new EditText(this);
+        e.setBackground(null);
+        e.setHint(hint);
+        e.setTextColor(ink);
+        e.setHintTextColor(secondary);
+        e.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        e.setPadding(px(18), px(14), px(18), px(14));
+        e.setSingleLine(true);
+        e.setInputType(inputType);   // despues de setSingleLine para conservar el enmascarado de la contrasena
+        return e;
+    }
 
     /** Fila "Tema": muestras de cada tema; la copia del teclado cambia al instante. */
     private void themeRow(LinearLayout parent) {

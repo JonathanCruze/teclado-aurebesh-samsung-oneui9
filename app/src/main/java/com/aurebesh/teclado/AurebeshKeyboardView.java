@@ -2,6 +2,7 @@ package com.aurebesh.teclado;
 
 import android.content.Context;
 import android.content.res.Configuration;
+import android.media.AudioManager;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Path;
@@ -65,6 +66,9 @@ public final class AurebeshKeyboardView extends View {
     private boolean showStrip = false;
     private boolean useDigraphs = true;
     private boolean numberRow = true;
+    private boolean sound = true;
+    private float heightScale = 1f;
+    private AudioManager audio;
     private String language = "es";        // "es": con tecla n~ y , -> ?; "en": sin tecla n~ y , -> !
     private String spaceLabel;             // nombre del idioma cuando hay mas de uno activo
     private boolean previewEnabled = true;
@@ -119,6 +123,16 @@ public final class AurebeshKeyboardView extends View {
     }
 
     void applyPrefs(boolean hints, boolean vibrate, boolean strip, boolean digraphs, String themeId, boolean numbers) {
+        applyPrefs(hints, vibrate, strip, digraphs, themeId, numbers, true, 1f);
+    }
+
+    void applyPrefs(boolean hints, boolean vibrate, boolean strip, boolean digraphs, String themeId, boolean numbers,
+                    boolean sound, float heightScale) {
+        this.sound = sound;
+        if (this.heightScale != heightScale) {
+            this.heightScale = heightScale;
+            requestLayout();
+        }
         showHints = hints;
         this.vibrate = vibrate;
         if (useDigraphs != digraphs) {
@@ -286,8 +300,8 @@ public final class AurebeshKeyboardView extends View {
     /** En apaisado las filas son mas bajas para no tapar media pantalla. */
     private float rowHeight(List<List<Key>> layout, int ri) {
         boolean land = getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
-        if (land) return (isDigitRow(layout, ri) ? 30 : 38) * dp;
-        return (isDigitRow(layout, ri) ? 42 : 52) * dp;
+        if (land) return (isDigitRow(layout, ri) ? 30 : 38) * dp * Math.min(heightScale, 1f);
+        return (isDigitRow(layout, ri) ? 46 : 58) * dp * heightScale;
     }
 
     private float keysHeight() {
@@ -372,9 +386,9 @@ public final class AurebeshKeyboardView extends View {
         switch (k.code) {
             case CODE_TEXT:
                 if (k.glyph != null) {
-                    float h = r.height() * (digitRow ? 0.42f : 0.46f);
-                    if (theme.glow != 0) Glyphs.drawCentered(c, k.glyph, cx, cy, h, r.width() * 0.72f, glowPaint);
-                    Glyphs.drawCentered(c, k.glyph, cx, cy, h, r.width() * 0.72f, glyphPaint);
+                    float h = r.height() * (digitRow ? 0.44f : 0.50f);
+                    if (theme.glow != 0) Glyphs.drawCentered(c, k.glyph, cx, cy, h, r.width() * 0.74f, glowPaint);
+                    Glyphs.drawCentered(c, k.glyph, cx, cy, h, r.width() * 0.74f, glyphPaint);
                     if (showHints) {
                         hintPaint.setTextSize(9 * sp);
                         hintPaint.setTextAlign(Paint.Align.LEFT);
@@ -386,7 +400,7 @@ public final class AurebeshKeyboardView extends View {
                     textPaint.setTextSize(19 * dp);
                     c.drawText(k.label, cx, cy + 7 * dp, textPaint);
                 }
-                if (k.alt != null && !digitRow) {               // alternativa por pulsacion larga
+                if (showHints && k.alt != null && !digitRow) {  // alternativa por pulsacion larga (solo con pistas)
                     hintPaint.setTextSize(9 * sp);
                     c.drawText(k.alt, r.right - 4 * dp, r.top + 10 * dp, hintPaint);
                 }
@@ -590,7 +604,7 @@ public final class AurebeshKeyboardView extends View {
                 if (k == null) return true;
                 if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(true);
                 pressed.put(id, k);
-                feedback();
+                feedback(k);
                 if (k.code == CODE_DELETE) {
                     if (listener != null) listener.onDelete();
                     startRepeat(k);
@@ -670,11 +684,11 @@ public final class AurebeshKeyboardView extends View {
             if (k == null || listener == null) return;
             if (k.code == CODE_SPACE) {
                 longPressFired = true;
-                feedback();
+                feedback(k);
                 listener.onSwitchKeyboard();
             } else if (k.code == CODE_TEXT && k.alt != null) {
                 longPressFired = true;
-                feedback();
+                feedback(k);
                 listener.onText(shiftActive() ? k.alt.toUpperCase() : k.alt);
                 if (shift && !capsLock) { shift = false; autoShifted = false; }
             }
@@ -710,8 +724,16 @@ public final class AurebeshKeyboardView extends View {
         repeatKey = null;
     }
 
-    private void feedback() {
+    private void feedback(Key k) {
         if (vibrate) performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+        if (!sound) return;
+        if (audio == null) audio = (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
+        if (audio == null) return;
+        int fx = k.code == CODE_DELETE ? AudioManager.FX_KEYPRESS_DELETE
+                : k.code == CODE_ENTER ? AudioManager.FX_KEYPRESS_RETURN
+                : k.code == CODE_SPACE ? AudioManager.FX_KEYPRESS_SPACEBAR
+                : AudioManager.FX_KEYPRESS_STANDARD;
+        audio.playSoundEffect(fx, 0.5f);
     }
 
     @Override

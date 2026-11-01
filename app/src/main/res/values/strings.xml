@@ -6,7 +6,7 @@
     <string name="subtype_en" translatable="false">English (Aurebesh)</string>
     <string name="lang_es" translatable="false">Español</string>
     <string name="lang_en" translatable="false">English</string>
-    <string name="version" translatable="false">1.1</string>
+    <string name="version" translatable="false">1.2</string>
 
     <string name="tagline">The Star Wars alphabet on your keyboard. What you type is sent as normal letters, so anyone can read it.</string>
 
@@ -22,6 +22,10 @@
 
     <string name="try_title">Try it</string>
     <string name="try_hint">Type something</string>
+    <string name="real_title">With the system keyboard</string>
+    <string name="real_sub">The keyboard chosen in Settings appears here, to try a normal field and a password field.</string>
+    <string name="real_text_hint">Normal text</string>
+    <string name="real_password_hint">Password</string>
 
     <string name="appearance">Appearance</string>
     <string name="opt_theme">Theme</string>
@@ -40,6 +44,12 @@
     <string name="opt_digraphs_sub">One glyph for ch, sh, th, ae, eo, kh, ng and oo</string>
     <string name="opt_numbers">Number row</string>
     <string name="opt_numbers_sub">Above the letters; without it the keyboard is shorter</string>
+    <string name="opt_sound">Sound on keypress</string>
+    <string name="opt_height">Keyboard size</string>
+    <string name="size_compact">Compact</string>
+    <string name="size_normal">Normal</string>
+    <string name="size_large">Large</string>
+    <string name="size_xlarge">Extra</string>
     <string name="opt_vibrate">Vibrate on keypress</string>
 
     <string name="gestures">Gestures</string>

@@ -34,7 +34,7 @@ public class AurebeshIME extends InputMethodService implements AurebeshKeyboardV
         stripOn = Prefs.strip(this);
         if (view != null) {
             view.applyPrefs(Prefs.hints(this), Prefs.vibrate(this), stripOn, Prefs.digraphs(this),
-                    Prefs.theme(this), Prefs.numbers(this));
+                    Prefs.theme(this), Prefs.numbers(this), Prefs.sound(this), Prefs.heightScale(this));
         }
     }
 

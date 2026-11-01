@@ -112,6 +112,17 @@ public class ScreenshotTest {
         save(render(kb), "sin_fila_numeros.png");
         kb.applyPrefs(false, false, false, true, Themes.ESTELAR.id, true);
 
+        // Tamanos compacto y extra; barra con signos de apertura
+        kb.applyPrefs(false, false, false, true, Themes.ESTELAR.id, true, false, 0.85f);
+        save(render(kb), "tamano_compacto.png");
+        kb.applyPrefs(false, false, false, true, Themes.ESTELAR.id, true, false, 1.3f);
+        save(render(kb), "tamano_extra.png");
+        kb.applyPrefs(false, false, true, true, Themes.ESTELAR.id, true, false, 1f);
+        kb.setStripText("¿qué tal? ¡hola!");
+        save(render(kb), "barra_signos.png");
+        kb.setStripText("");
+        kb.applyPrefs(false, false, false, true, Themes.ESTELAR.id, true, false, 1f);
+
         // Apaisado: filas mas bajas
         RuntimeEnvironment.setQualifiers("es-rES-w914dp-h411dp-land-xxhdpi");
         AurebeshKeyboardView land = new AurebeshKeyboardView(app);
@@ -150,6 +161,11 @@ public class ScreenshotTest {
         for (int i = 0; i < expect.length; i++) {
             if (expect[i] == null ? tk.get(i).glyph != null : !expect[i].equals(tk.get(i).glyph))
                 throw new AssertionError("token " + i + ": " + tk.get(i).glyph);
+        }
+        java.util.List<Glyphs.Token> tk2 = Glyphs.tokenize("¿Qué?", true);
+        String[] expect2 = {"¿", "q", "u", "é", "?"};
+        for (int i = 0; i < expect2.length; i++) {
+            if (!expect2[i].equals(tk2.get(i).glyph)) throw new AssertionError("token2 " + i + ": " + tk2.get(i).glyph);
         }
         System.out.println("TOKENS ok");
 

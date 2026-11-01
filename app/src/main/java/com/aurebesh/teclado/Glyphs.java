@@ -39,8 +39,6 @@ final class Glyphs {
         alias("'", "’");
         alias("«", "“");
         alias("»", "”");
-        alias("¿", "?");
-        alias("¡", "!");
     }
 
     private static void alias(String from, String to) {

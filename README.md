@@ -19,7 +19,9 @@ así cualquiera puede leer lo que escribes.
 - Mayúscula automática al inicio de frase; doble toque en ⇧ = bloqueo.
 - `?123`: signos con glifo propio, dígrafos Aurebesh (ch, ae, eo, kh, ng, oo, sh, th) y símbolos latinos.
 - Burbuja al pulsar con el glifo grande y la letra latina (para aprender el alfabeto).
-- Opciones: tema, letra latina en las teclas, barra de traducción, dígrafos, fila de números, vibración.
+- Opciones: tema, tamaño del teclado (4 niveles), letra latina en las teclas (con las alternativas de pulsación larga), barra de traducción, dígrafos, fila de números, sonido y vibración.
+- `¿` y `¡` tienen glifo propio: el de `?` y `!` girado 180°, como en la tipografía española.
+- La app incluye campos reales (texto y contraseña) que usan el teclado elegido en Ajustes.
 - Enter adapta su icono a la acción del campo (buscar, enviar, siguiente, listo).
 - Campos numéricos y de teléfono abren en `?123`; en contraseñas no hay burbuja ni barra.
 - En apaisado las filas son más bajas y nunca se usa el editor a pantalla completa.

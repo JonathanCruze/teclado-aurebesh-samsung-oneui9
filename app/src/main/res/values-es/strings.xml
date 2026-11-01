@@ -16,6 +16,10 @@
 
     <string name="try_title">Pruébalo</string>
     <string name="try_hint">Escribe algo</string>
+    <string name="real_title">Con el teclado del sistema</string>
+    <string name="real_sub">Aquí aparece el teclado elegido en Ajustes; sirve para probar un campo normal y uno de contraseña.</string>
+    <string name="real_text_hint">Texto normal</string>
+    <string name="real_password_hint">Contraseña</string>
 
     <string name="appearance">Apariencia</string>
     <string name="opt_theme">Tema</string>
@@ -34,6 +38,12 @@
     <string name="opt_digraphs_sub">Un solo glifo para ch, sh, th, ae, eo, kh, ng y oo</string>
     <string name="opt_numbers">Fila de números</string>
     <string name="opt_numbers_sub">Sobre las letras; sin ella el teclado es más bajo</string>
+    <string name="opt_sound">Sonido al pulsar</string>
+    <string name="opt_height">Tamaño del teclado</string>
+    <string name="size_compact">Compacto</string>
+    <string name="size_normal">Normal</string>
+    <string name="size_large">Grande</string>
+    <string name="size_xlarge">Extra</string>
     <string name="opt_vibrate">Vibración al pulsar</string>
 
     <string name="gestures">Gestos</string>
