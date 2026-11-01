@@ -23,7 +23,7 @@ así cualquiera puede leer lo que escribes.
 - Burbuja al pulsar con el glifo grande y la letra latina (para aprender el alfabeto).
 - Opciones: tema, tamaño del teclado (4 niveles), letra latina en las teclas (con las alternativas de pulsación larga), barra de traducción, dígrafos, fila de números, sonido y vibración.
 - `¿` y `¡` tienen glifo propio: el de `?` y `!` girado 180°, como en la tipografía española.
-- `+ = # * % @ &` también tienen glifo propio, construido con barras, cuadrados y chevrones del alfabeto (el `&` son dos diamantes con un pie unido a la base); en la página `?123` cada signo lleva su leyenda latina en la esquina.
+- `+ = # * % @ &` también tienen glifo propio, construido con barras, cuadrados y chevrones del alfabeto (el `&` son dos diamantes con un cubo pegado en diagonal, como la cola del signo); en la página `?123` cada signo lleva su leyenda latina en la esquina.
 - La app incluye campos reales (texto y contraseña) que usan el teclado elegido en Ajustes.
 - Enter adapta su icono a la acción del campo (buscar, enviar, siguiente, listo).
 - Campos numéricos y de teléfono abren en `?123`; en contraseñas no hay burbuja ni barra.
