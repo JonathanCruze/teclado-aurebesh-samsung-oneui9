@@ -102,9 +102,8 @@ public final class MainActivity extends Activity {
         gestureRow(gestures, R.string.gesture_symbols, R.string.gesture_symbols_result);
         gestureRow(gestures, R.string.gesture_switch, R.string.gesture_switch_result);
         gestureRow(gestures, R.string.gesture_picker, R.string.gesture_picker_result);
-        gestureRow(gestures, R.string.gesture_actions, R.string.gesture_actions_result);
+        gestureRow(gestures, R.string.gesture_emoji, R.string.gesture_emoji_result);
         gestureRow(gestures, R.string.gesture_clipboard, R.string.gesture_clipboard_result);
-        gestureRow(gestures, R.string.gesture_settings, R.string.gesture_settings_result);
         root.addView(gestures, block(0));
 
         LinearLayout foot = column();
@@ -201,15 +200,15 @@ public final class MainActivity extends Activity {
             @Override public void onSwitchLanguage() {}
             @Override public void onSuggestion(String word) { replaceSelection(word + " "); }
             @Override public void onToolbar(int tool) {
-                // En la copia del teclado: pegar el portapapeles; las acciones de texto solo se explican
-                if (tool == AurebeshKeyboardView.TOOL_CLIPBOARD) {
+                // En la copia del teclado: un emoji de muestra o pegar el portapapeles
+                if (tool == AurebeshKeyboardView.TOOL_EMOJI) {
+                    replaceSelection("😊");
+                } else if (tool == AurebeshKeyboardView.TOOL_CLIPBOARD) {
                     android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
                     if (cm != null && cm.hasPrimaryClip() && cm.getPrimaryClip() != null && cm.getPrimaryClip().getItemCount() > 0) {
                         CharSequence t = cm.getPrimaryClip().getItemAt(0).coerceToText(MainActivity.this);
                         if (t != null) replaceSelection(t.toString());
                     }
-                } else if (tool == AurebeshKeyboardView.TOOL_ACTIONS) {
-                    android.widget.Toast.makeText(MainActivity.this, R.string.actions_hint, android.widget.Toast.LENGTH_LONG).show();
                 }
             }
             @Override public void onDelete() {

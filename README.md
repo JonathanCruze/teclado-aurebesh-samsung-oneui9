@@ -22,12 +22,13 @@ escribes.
 3. Para volver al teclado de Samsung, mantén pulsada la barra espaciadora y elige Samsung Keyboard.
 
 ## Funciones del teclado
-- **Barra de herramientas** sobre las teclas, como la de Samsung Keyboard: ✨ Acciones de texto, 📋 Portapapeles y
-  ⚙ Ajustes (opción "Barra de herramientas", activada por defecto). Mientras se escribe una palabra, la barra muestra
-  las sugerencias; la barra de traducción (opcional) se dibuja a la derecha de los iconos.
-- **✨ Acciones de texto**: envía el texto del campo (o la selección) a las apps del teléfono registradas para procesar
-  texto (`Intent.ACTION_PROCESS_TEXT`): el Asistente de escritura de Galaxy AI si el teléfono lo expone, el Traductor de
-  Google, etc. Si la app devuelve texto, reemplaza el contenido del campo. Véase "Galaxy AI" más abajo.
+- **Barra de herramientas** sobre las teclas, como la de Samsung Keyboard: autocorrector a la izquierda; a la
+  derecha 😊 emojis y 📋 portapapeles (opción "Barra de herramientas", activada por defecto). Mientras se escribe una
+  palabra, la parte izquierda muestra las sugerencias; la barra de traducción (opcional) se dibuja en ese mismo espacio.
+- **😊 Emojis**: panel por categorías (recientes, caritas, personas, naturaleza, comida, viajes, actividades, objetos,
+  símbolos y banderas). Se queda abierto al elegir, para escribir varios seguidos; ABC vuelve a las letras. Los datos
+  están en `app/src/main/res/raw/emoji.txt`, generado por `tools/build_emoji.py` a partir de los datos de emojis de
+  Unicode.
 - **📋 Portapapeles**: historial de lo copiado (hasta 20 textos), guardado solo en el teléfono (preferencias privadas
   de la app), con "Borrar todo" y borrado por elemento; tocar un elemento lo pega.
 - **Autocorrección y sugerencias sin internet**, con diccionarios integrados de español e inglés (ver abajo).
@@ -77,18 +78,18 @@ Galaxy AI (Asistente de escritura, Asistente de chat, traducción de chat) vive 
 **Samsung no ofrece una API para otros teclados**. Desde One UI 7, Samsung muestra el Asistente de escritura en el
 menú de selección de texto de cualquier app
 ([SamMobile](https://www.sammobile.com/news/one-ui-7-0-galaxy-ai-writing-tools-any-keyboard/),
-[Samsung](https://www.samsung.com/us/support/answer/ANS10000943/)), y ese es el camino que usa este teclado:
-la tecla ✨ ofrece las apps que procesan texto (entre ellas el Asistente de escritura, si el teléfono lo expone), y
-el menú de selección normal de Android sigue disponible (seleccionar texto → icono de Galaxy AI).
+[Samsung](https://www.samsung.com/us/support/answer/ANS10000943/)), y eso sigue funcionando mientras se usa este
+teclado: seleccionar texto → icono de Galaxy AI en el menú de selección. Dentro del teclado no hay botón de Galaxy AI,
+porque no existe forma de integrarlo.
 
 | Función | Samsung Keyboard | Teclado Aurebesh 1.7 |
 |---|---|---|
-| Galaxy AI / Inteligencia avanzada | Sí | No disponible para teclados de terceros → alternativa: ✨ Acciones de texto y menú de selección |
+| Galaxy AI / Inteligencia avanzada | Sí | No (exclusivo de Samsung Keyboard); el menú de selección de texto sigue ofreciendo el Asistente de escritura |
 | Portapapeles con historial | Sí | Sí (📋, hasta 20 textos, borrable) |
 | Modo a una mano | Sí | Sí |
 | Teclado flotante | Sí | No en 1.7 |
 | Autocorrección y predicción | Sí | Sí, con diccionarios propios (sin internet) |
-| Emojis | Sí | No |
+| Emojis | Sí | Sí (panel por categorías con recientes) |
 | Dictado por voz | Sí | No |
 | Cambio de idioma | Sí | Sí (globo con dos idiomas activos) |
 
@@ -103,18 +104,19 @@ app/src/main/java/com/aurebesh/teclado/
   AurebeshIME.java         servicio de teclado
   Dictionary.java          diccionario y autocorrección
   ClipHistory.java         historial del portapapeles
-  KeyboardTray.java        bandeja sobre las teclas: portapapeles y acciones de texto
-  TextActionActivity.java  puente invisible hacia las apps que procesan texto
+  KeyboardTray.java        bandeja sobre las teclas: historial del portapapeles
+  EmojiTray.java           panel de emojis por categorías, con recientes
   DeviceInfo.java          detección de Samsung / One UI
   AurebeshTextView.java    texto renderizado en Aurebesh
   MainActivity.java        pantalla de configuración y prueba
   Prefs.java               preferencias
 app/src/main/res/          strings, colores (claro/noche), tema, icono, method.xml
-app/src/main/res/raw/      words_es.txt y words_en.txt (diccionarios)
+app/src/main/res/raw/      words_es.txt y words_en.txt (diccionarios) y emoji.txt (emojis por categoría)
 screenshot-test/           prueba Robolectric: renderiza el teclado y la app a PNG, comprueba que
                            teclear "hola" produce "hola" y prueba el diccionario
 build.sh                   compilación sin Android Studio
 tools/build_dictionaries.py genera los diccionarios a partir de FrequencyWords
+tools/build_emoji.py       genera emoji.txt a partir de los datos de emojis de Unicode
 tools/dict/                licencia de las listas de palabras
 promo/make_promo.py        imágenes promocionales (1080×1920 y gráfico 1024×500) a partir
                            de las capturas reales; salida en promo/out/
@@ -185,9 +187,9 @@ teléfono; se borra desde la propia bandeja 📋, por elemento o con "Borrar tod
 
 ## Limitaciones conocidas
 - Sin soporte de TalkBack en el teclado (la vista es un `Canvas` sin nodos de accesibilidad).
-- Sin teclado flotante; sin emojis ni dictado por voz.
-- Galaxy AI solo a través de las apps que procesan texto (✨) o del menú de selección de texto de Android; no está
-  integrado en el teclado porque Samsung no lo ofrece a terceros.
+- Sin teclado flotante; sin dictado por voz.
+- Galaxy AI no está integrado en el teclado porque Samsung no lo ofrece a terceros; sigue disponible en el menú de
+  selección de texto de Android.
 - `targetSdk 34`: subir a 35 exige probar el modo *edge-to-edge* en un dispositivo.
 - El proyecto Gradle no se ha compilado en Android Studio desde este entorno (solo `build.sh`).
 
@@ -213,7 +215,8 @@ cd screenshot-test && mvn test  # capturas en ../screenshots/
 ```
 Genera un teclado, una pantalla `?123`, una barra y una burbuja por tema, la barra de sugerencias
 (`sugerencias.png`), el modo a una mano (`una_mano.png`), la bandeja del portapapeles
-(`portapapeles_estelar.png`, `portapapeles_noche.png`), las acciones de texto (`acciones_texto.png`), la app en
+(`portapapeles_estelar.png`, `portapapeles_noche.png`), el panel de emojis (`emojis_estelar.png`,
+`emojis_noche.png`), la app en
 claro y noche, el aviso de dispositivo no probado (`app_experimental.png`) y el icono. La prueba también comprueba
 que teclear "hola" produce "hola" y que el diccionario corrige "holq" → "hola", "cancion" → "canción" y
 "teh" → "the". Después, `python3 promo/make_promo.py` compone las imágenes promocionales.

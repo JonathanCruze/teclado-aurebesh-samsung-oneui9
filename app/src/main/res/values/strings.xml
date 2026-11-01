@@ -6,7 +6,7 @@
     <string name="subtype_en" translatable="false">English (Aurebesh)</string>
     <string name="lang_es" translatable="false">Español</string>
     <string name="lang_en" translatable="false">English</string>
-    <string name="version" translatable="false">1.7</string>
+    <string name="version" translatable="false">1.7.1</string>
 
     <string name="tagline">The Star Wars alphabet on your keyboard. What you type is sent as normal letters, so anyone can read it.</string>
 
@@ -39,7 +39,7 @@
     <string name="opt_strip">Translation bar</string>
     <string name="opt_strip_sub">Shows what you type in Aurebesh above the keys</string>
     <string name="opt_toolbar">Toolbar</string>
-    <string name="opt_toolbar_sub">✨ text actions, 📋 clipboard and ⚙ settings above the keys</string>
+    <string name="opt_toolbar_sub">😊 emoji and 📋 clipboard to the right of the suggestions</string>
 
     <string name="typing">Typing</string>
     <string name="opt_digraphs">Digraphs</string>
@@ -75,23 +75,17 @@
     <string name="gesture_switch_result">Next Aurebesh language (shown when two are enabled)</string>
     <string name="gesture_picker">Hold the space bar</string>
     <string name="gesture_picker_result">Choose another keyboard (Samsung, etc.)</string>
-    <string name="gesture_actions">✨ Text actions</string>
-    <string name="gesture_actions_result">Send the text to Galaxy AI Writing assist (if available), Translate or another app</string>
+    <string name="gesture_emoji">😊 Emoji</string>
+    <string name="gesture_emoji_result">Emoji panel by category, with recents; ABC returns to the letters</string>
     <string name="gesture_clipboard">📋 Clipboard</string>
     <string name="gesture_clipboard_result">Everything you copied; tap to paste</string>
-    <string name="gesture_settings">⚙ Settings</string>
-    <string name="gesture_settings_result">Opens this screen</string>
 
-    <string name="tool_actions">Text actions</string>
+    <string name="tool_emoji">Emoji</string>
     <string name="tool_clipboard">Clipboard</string>
-    <string name="tool_settings">Settings</string>
+    <string name="emoji_recent_empty">Emoji you use will show up here</string>
     <string name="clipboard_title">Clipboard</string>
     <string name="clipboard_clear">Clear all</string>
     <string name="clipboard_empty">Copy some text and it will show up here. Tap an item to paste it.</string>
-    <string name="actions_title">Text actions</string>
-    <string name="actions_choose">Choose another app…</string>
-    <string name="actions_empty">Write something first</string>
-    <string name="actions_hint">Sends what you wrote (or the selection) to an app that processes text: Galaxy AI Writing assist if your phone offers it, Translate, and others. If the app returns text, it replaces yours.</string>
 
     <string name="compat_title">Experimental on this device</string>
     <string name="compat_body">Aurebesh Keyboard is optimized and tested on Samsung Galaxy phones with One UI 9.0 (Android 17). This device: %1$s. Other Android versions may misbehave.</string>

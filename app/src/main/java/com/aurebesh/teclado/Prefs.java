@@ -18,6 +18,7 @@ final class Prefs {
     static final String AUTOCORRECT = "autocorrect";
     static final String HAND = "hand_mode";
     static final String TOOLBAR = "toolbar";
+    static final String EMOJI_RECENT = "emoji_recent";
     private static final String LEGACY_DARK = "dark_theme";
 
     static SharedPreferences get(Context c) {
@@ -54,4 +55,27 @@ final class Prefs {
     }
     static boolean strip(Context c) { return get(c).getBoolean(STRIP, false); }
     static boolean toolbar(Context c) { return get(c).getBoolean(TOOLBAR, true); }
+
+    /** Emojis usados recientemente, el ultimo primero (se guardan separados por espacios). */
+    static java.util.List<String> recentEmoji(Context c) {
+        java.util.List<String> out = new java.util.ArrayList<>();
+        for (String e : get(c).getString(EMOJI_RECENT, "").split(" ")) {
+            if (!e.isEmpty()) out.add(e);
+        }
+        return out;
+    }
+
+    static void addRecentEmoji(Context c, String e) {
+        if (e == null || e.trim().isEmpty()) return;
+        java.util.List<String> recent = recentEmoji(c);
+        recent.remove(e);
+        recent.add(0, e);
+        while (recent.size() > 32) recent.remove(recent.size() - 1);
+        StringBuilder b = new StringBuilder();
+        for (String r : recent) {
+            if (b.length() > 0) b.append(' ');
+            b.append(r);
+        }
+        get(c).edit().putString(EMOJI_RECENT, b.toString()).apply();
+    }
 }

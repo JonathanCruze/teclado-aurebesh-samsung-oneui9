@@ -39,10 +39,9 @@ public final class AurebeshKeyboardView extends View {
     static final int CODE_SPACE = -6;
     static final int CODE_GLOBE = -7;
 
-    // Barra de herramientas (como la de Samsung Keyboard): acciones de texto, portapapeles, ajustes
-    static final int TOOL_ACTIONS = 1;
+    // Barra de herramientas (como la de Samsung Keyboard): a la derecha de las sugerencias, emojis y portapapeles
+    static final int TOOL_EMOJI = 1;
     static final int TOOL_CLIPBOARD = 2;
-    static final int TOOL_SETTINGS = 3;
 
     static final class Key {
         final String output;
@@ -112,7 +111,7 @@ public final class AurebeshKeyboardView extends View {
     private final List<RectF> suggestionRects = new ArrayList<>();
     private String highlighted;             // sugerencia que se aplicara sola (resaltada)
     private boolean toolbar = true;         // iconos sobre las teclas cuando no hay sugerencias
-    private final RectF[] toolRects = new RectF[3];
+    private final RectF[] toolRects = new RectF[2];
     private int toolPressed = -1;
     private int toolPointer = -1;
     private boolean previewEnabled = true;
@@ -261,7 +260,7 @@ public final class AurebeshKeyboardView extends View {
         invalidate();
     }
 
-    /** Barra de herramientas (acciones de texto, portapapeles, ajustes) sobre las teclas. */
+    /** Barra de herramientas (emojis y portapapeles) a la derecha de las sugerencias. */
     void setToolbar(boolean on) {
         if (toolbar == on) return;
         toolbar = on;
@@ -596,40 +595,15 @@ public final class AurebeshKeyboardView extends View {
         c.drawOval(tmp, iconPaint);
     }
 
-    /** Destellos (acciones de texto): una estrella de cuatro puntas grande y otra pequena. */
-    private void drawSparkles(Canvas c, float cx, float cy) {
+    /** Carita (emojis): circulo, dos ojos y sonrisa. */
+    private void drawSmiley(Canvas c, float cx, float cy) {
+        iconPaint.setStrokeWidth(2.2f * dp);
+        c.drawCircle(cx, cy, 8 * dp, iconPaint);
         fill.setColor(theme.icon);
-        star(c, cx - 1.5f * dp, cy + 1.5f * dp, 7.5f * dp);
-        star(c, cx + 5.5f * dp, cy - 5.5f * dp, 3.2f * dp);
-    }
-
-    private void star(Canvas c, float cx, float cy, float r) {
-        float k = r * 0.24f;
-        iconPath.reset();
-        iconPath.moveTo(cx, cy - r);
-        iconPath.lineTo(cx + k, cy - k);
-        iconPath.lineTo(cx + r, cy);
-        iconPath.lineTo(cx + k, cy + k);
-        iconPath.lineTo(cx, cy + r);
-        iconPath.lineTo(cx - k, cy + k);
-        iconPath.lineTo(cx - r, cy);
-        iconPath.lineTo(cx - k, cy - k);
-        iconPath.close();
-        c.drawPath(iconPath, fill);
-    }
-
-    /** Engranaje (ajustes): corona gruesa con ocho dientes y eje hueco. */
-    private void drawGear(Canvas c, float cx, float cy) {
-        iconPaint.setStrokeWidth(3.4f * dp);
-        for (int i = 0; i < 8; i++) {
-            double a = Math.PI / 4 * i + Math.PI / 8;
-            float dx = (float) Math.cos(a), dy = (float) Math.sin(a);
-            c.drawLine(cx + dx * 5.5f * dp, cy + dy * 5.5f * dp, cx + dx * 8.6f * dp, cy + dy * 8.6f * dp, iconPaint);
-        }
-        iconPaint.setStrokeWidth(3.2f * dp);
-        c.drawCircle(cx, cy, 5.2f * dp, iconPaint);
-        fill.setColor(theme.icon);
-        c.drawCircle(cx, cy, 2.1f * dp, fill);
+        c.drawCircle(cx - 3 * dp, cy - 2.6f * dp, 1.5f * dp, fill);
+        c.drawCircle(cx + 3 * dp, cy - 2.6f * dp, 1.5f * dp, fill);
+        tmp.set(cx - 4.6f * dp, cy - 3.2f * dp, cx + 4.6f * dp, cy + 4.6f * dp);
+        c.drawArc(tmp, 25, 130, false, iconPaint);
     }
 
     /** Portapapeles: tablilla con pinza. */
@@ -788,37 +762,32 @@ public final class AurebeshKeyboardView extends View {
         float top = (stripHeight() - h) / 2f;
         suggestionRects.clear();
         for (int i = 0; i < toolRects.length; i++) toolRects[i] = null;
-        if (!suggestions.isEmpty()) {
-            drawSuggestions(c, h, top);
-        } else {
-            float left = 12 * dp;
-            if (toolbar) left = drawToolbar(c);
-            if (showStrip) drawTranslation(c, h, top, left);
-        }
+        float right = getWidth() - 12 * dp;
+        if (toolbar) right = drawToolbar(c);
+        if (!suggestions.isEmpty()) drawSuggestions(c, h, top, right);
+        else if (showStrip) drawTranslation(c, h, top, 12 * dp, right);
         if (theme.keyStroke != 0) c.drawRect(0, stripHeight() - dp, getWidth(), stripHeight(), strokePaint);
     }
 
-    /** Iconos redondos a la izquierda: acciones de texto, portapapeles, ajustes. Devuelve el borde derecho. */
+    /** Iconos redondos a la derecha: emojis y portapapeles. Devuelve el limite izquierdo del grupo. */
     private float drawToolbar(Canvas c) {
-        float cell = 44 * dp, x = 6 * dp, cy = stripHeight() / 2f;
+        float cell = 44 * dp, cy = stripHeight() / 2f;
+        float x = getWidth() - 6 * dp - cell * toolRects.length;
+        float left = x;
         for (int i = 0; i < toolRects.length; i++) {
             toolRects[i] = new RectF(x, 0, x + cell, stripHeight());
             float cx = x + cell / 2f;
             fill.setColor(toolPressed == i ? theme.pressed : theme.specialBg);
             c.drawCircle(cx, cy, 16 * dp, fill);
             if (theme.keyStroke != 0) c.drawCircle(cx, cy, 16 * dp, strokePaint);
-            switch (i) {
-                case 0: drawSparkles(c, cx, cy); break;
-                case 1: drawPaste(c, cx, cy); break;
-                default: drawGear(c, cx, cy); break;
-            }
+            if (i == 0) drawSmiley(c, cx, cy); else drawPaste(c, cx, cy);
             x += cell;
         }
-        return x + 6 * dp;
+        return left - 6 * dp;
     }
 
-    /** Sugerencias del corrector como chips; la que se aplicara sola va resaltada. */
-    private void drawSuggestions(Canvas c, float h, float top) {
+    /** Sugerencias del corrector como chips, de izquierda a derecha hasta {@code right}; la que se aplicara sola va resaltada. */
+    private void drawSuggestions(Canvas c, float h, float top, float right) {
         float x = 8 * dp;
         for (int i = 0; i < suggestions.size(); i++) {
             String word = suggestions.get(i);
@@ -831,7 +800,7 @@ public final class AurebeshKeyboardView extends View {
                 tw = textPaint.measureText(word);
             }
             RectF cell = new RectF(x, 5 * dp, x + tw + 24 * dp, stripHeight() - 5 * dp);
-            if (cell.right > getWidth() - 8 * dp) break;
+            if (cell.right > right - 2 * dp) break;
             boolean hl = highlighted != null && highlighted.equals(word);
             fill.setColor(hl ? theme.accent : theme.specialBg);
             c.drawRoundRect(cell, 9 * dp, 9 * dp, fill);
@@ -854,13 +823,13 @@ public final class AurebeshKeyboardView extends View {
         }
     }
 
-    /** Lo escrito, en Aurebesh, a la derecha de los iconos; si no cabe se ve el final. */
-    private void drawTranslation(Canvas c, float h, float top, float left) {
+    /** Lo escrito, en Aurebesh, entre {@code left} y {@code right}; si no cabe se ve el final. */
+    private void drawTranslation(Canvas c, float h, float top, float left, float right) {
         List<Glyphs.Token> tokens = stripTokens;
         float total = 0;
         for (Glyphs.Token t : tokens) total += Glyphs.tokenWidth(t, h, textPaint);
         float x = left;
-        float maxW = getWidth() - left - 12 * dp;
+        float maxW = right - left;
         if (maxW <= 0) return;
         c.save();
         c.clipRect(x, 0, x + maxW, stripHeight());

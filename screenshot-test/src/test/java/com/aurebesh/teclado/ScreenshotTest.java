@@ -195,13 +195,12 @@ public class ScreenshotTest {
         kb.setSuggestions(null, null);
         kb.setSuggestionBar(false);
 
-        // Barra de herramientas: tres iconos (acciones de texto, portapapeles, ajustes)
+        // Barra de herramientas: emojis y portapapeles a la derecha
         render(kb);
         typed.setLength(0);
-        tap(kb, 28 * dp, 20 * dp);
-        tap(kb, 72 * dp, 20 * dp);
-        tap(kb, 116 * dp, 20 * dp);
-        if (!typed.toString().equals("<tool1><tool2><tool3>")) throw new AssertionError("barra: " + typed);
+        tap(kb, W - 72 * dp, 20 * dp);
+        tap(kb, W - 28 * dp, 20 * dp);
+        if (!typed.toString().equals("<tool1><tool2>")) throw new AssertionError("barra: " + typed);
         typed.setLength(0);
 
         // Modo a una mano (derecha)
@@ -213,31 +212,38 @@ public class ScreenshotTest {
         int trayH = kb.getMeasuredHeight();
         KeyboardTray tray = new KeyboardTray(app);
         tray.setHost(new KeyboardTray.Host() {
-            public void onTrayPick(int mode, KeyboardTray.Item item) { typed.append("{").append(item.title).append("}"); }
+            public void onTrayPick(KeyboardTray.Item item) { typed.append("{").append(item.title).append("}"); }
             public void onTrayRemove(KeyboardTray.Item item) {}
             public void onTrayClear() {}
             public void onTrayClose() {}
         });
         java.util.List<KeyboardTray.Item> clips = new java.util.ArrayList<>();
-        clips.add(new KeyboardTray.Item("Que la Fuerza te acompañe", null, "1"));
-        clips.add(new KeyboardTray.Item("Coordenadas del hangar 94: Mos Eisley, Tatooine. Llegamos en cinco minutos, no despeguen sin nosotros.", null, "2"));
-        clips.add(new KeyboardTray.Item("https://ejemplo.com/holocron", null, "3"));
+        clips.add(new KeyboardTray.Item("Que la Fuerza te acompañe", "1"));
+        clips.add(new KeyboardTray.Item("Coordenadas del hangar 94: Mos Eisley, Tatooine. Llegamos en cinco minutos, no despeguen sin nosotros.", "2"));
+        clips.add(new KeyboardTray.Item("https://ejemplo.com/holocron", "3"));
         tray.applyTheme(Themes.ESTELAR);
-        tray.show(KeyboardTray.MODE_CLIPBOARD, "Portapapeles", clips, "Copia un texto y aparecerá aquí.", null);
+        tray.show("Portapapeles", clips, "Copia un texto y aparecerá aquí.");
         save(renderExact(tray, trayH), "portapapeles_estelar.png");
         tray.applyTheme(Themes.NOCHE);
-        tray.show(KeyboardTray.MODE_CLIPBOARD, "Portapapeles", clips, "Copia un texto y aparecerá aquí.", null);
+        tray.show("Portapapeles", clips, "Copia un texto y aparecerá aquí.");
         save(renderExact(tray, trayH), "portapapeles_noche.png");
         tray.applyTheme(Themes.ESTELAR);
-        tray.show(KeyboardTray.MODE_CLIPBOARD, "Portapapeles", new java.util.ArrayList<KeyboardTray.Item>(), "Copia un texto y aparecerá aquí. Toca uno para pegarlo.", null);
+        tray.show("Portapapeles", new java.util.ArrayList<KeyboardTray.Item>(), "Copia un texto y aparecerá aquí. Toca uno para pegarlo.");
         save(renderExact(tray, trayH), "portapapeles_vacio.png");
-        java.util.List<KeyboardTray.Item> actions = new java.util.ArrayList<>();
-        android.graphics.drawable.Drawable icon = app.getDrawable(R.mipmap.ic_launcher);
-        actions.add(new KeyboardTray.Item("Asistente de escritura", icon, "a"));
-        actions.add(new KeyboardTray.Item("Traducir", icon, "b"));
-        actions.add(new KeyboardTray.Item("Elegir otra app…", null, null));
-        tray.show(KeyboardTray.MODE_ACTIONS, "Acciones de texto", actions, null, "Nos vemos en el hangar a las ocho");
-        save(renderExact(tray, trayH), "acciones_texto.png");
+        // Panel de emojis: recientes, categorias, ABC / espacio / borrar
+        EmojiTray emojis = new EmojiTray(app);
+        emojis.setHost(new EmojiTray.Host() {
+            public void onEmoji(String e) { typed.append(e); }
+            public void onEmojiDelete() { typed.append("<del>"); }
+            public void onEmojiSpace() { typed.append(" "); }
+            public void onEmojiClose() { typed.append("<abc>"); }
+        });
+        emojis.applyTheme(Themes.ESTELAR);
+        emojis.show(java.util.Arrays.asList("\uD83D\uDE00", "\uD83D\uDE80", "\u2764\uFE0F", "\uD83D\uDC4D"));
+        save(renderExact(emojis, trayH), "emojis_estelar.png");
+        emojis.applyTheme(Themes.NOCHE);
+        emojis.show(new java.util.ArrayList<String>());
+        save(renderExact(emojis, trayH), "emojis_noche.png");
 
         // Diccionarios integrados: una edicion, tildes, completado, contracciones inglesas
         Dictionary es = Dictionary.get(app, "es");

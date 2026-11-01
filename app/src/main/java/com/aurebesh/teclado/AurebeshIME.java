@@ -4,28 +4,21 @@ import android.content.ClipData;
 import android.content.ClipDescription;
 import android.content.ClipboardManager;
 import android.content.Context;
-import android.content.Intent;
 import android.content.SharedPreferences;
-import android.content.pm.PackageManager;
-import android.content.pm.ResolveInfo;
 import android.inputmethodservice.InputMethodService;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
-import android.os.SystemClock;
 import android.text.InputType;
 import android.text.TextUtils;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
-import android.view.inputmethod.ExtractedText;
-import android.view.inputmethod.ExtractedTextRequest;
 import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputMethodManager;
 import android.view.inputmethod.InputMethodSubtype;
 import android.widget.FrameLayout;
-import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -35,18 +28,18 @@ import java.util.concurrent.Executors;
 
 /**
  * Servicio de teclado (IME) Aurebesh. Escribe letras latinas mostradas como glifos Aurebesh.
- * Autocorrige con los diccionarios integrados, guarda el historial del portapapeles y envia
- * texto a las apps del telefono que lo procesan (acciones de texto). Sin internet.
+ * Autocorrige con los diccionarios integrados y ofrece un panel de emojis y el historial del
+ * portapapeles. Sin internet.
  */
 public class AurebeshIME extends InputMethodService
-        implements AurebeshKeyboardView.Listener, KeyboardTray.Host {
+        implements AurebeshKeyboardView.Listener, KeyboardTray.Host, EmojiTray.Host {
 
     private static final String SEPARATORS = " .,;:!?\n";
-    private static final long PROCESSED_TTL = 5 * 60 * 1000L;
 
     private FrameLayout root;
     private AurebeshKeyboardView view;
-    private KeyboardTray tray;
+    private KeyboardTray tray;          // historial del portapapeles
+    private EmojiTray emojis;           // panel de emojis
     private boolean privateField = false;
     private boolean stripOn = false;
     private boolean autocorrect = true;
@@ -68,18 +61,10 @@ public class AurebeshIME extends InputMethodService
                 @Override public void onPrimaryClipChanged() { captureClip(); }
             };
 
-    // Acciones de texto: el resultado llega por TextActionActivity y se aplica al volver al campo
-    private static CharSequence processed;
-    private static long processedAt;
-    private String pendingText;
-    private String pendingField;
-    private boolean pendingWhole;
-    private int pendingSelStart, pendingSelEnd;
-
     private final SharedPreferences.OnSharedPreferenceChangeListener prefsListener =
             new SharedPreferences.OnSharedPreferenceChangeListener() {
                 @Override public void onSharedPreferenceChanged(SharedPreferences p, String key) {
-                    if (ClipHistory.KEY.equals(key)) return;
+                    if (ClipHistory.KEY.equals(key) || Prefs.EMOJI_RECENT.equals(key)) return;
                     applyPrefs();                   // el teclado en pantalla cambia al instante
                     applyLanguage();
                     refresh();
@@ -111,8 +96,12 @@ public class AurebeshIME extends InputMethodService
         tray = new KeyboardTray(this);
         tray.setHost(this);
         tray.setVisibility(View.GONE);
+        emojis = new EmojiTray(this);
+        emojis.setHost(this);
+        emojis.setVisibility(View.GONE);
         root.addView(view, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         root.addView(tray, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        root.addView(emojis, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         applyPrefs();
         return root;
     }
@@ -129,17 +118,12 @@ public class AurebeshIME extends InputMethodService
             if (!autocorrect) clearSuggestions();
         }
         if (tray != null) tray.applyTheme(Themes.byId(Prefs.theme(this)));
+        if (emojis != null) emojis.applyTheme(Themes.byId(Prefs.theme(this)));
     }
 
     @Override
     public boolean onEvaluateFullscreenMode() {
         return false;   // nunca el editor a pantalla completa en apaisado
-    }
-
-    @Override
-    public void onStartInput(EditorInfo info, boolean restarting) {
-        super.onStartInput(info, restarting);
-        applyProcessed(info);
     }
 
     @Override
@@ -169,7 +153,6 @@ public class AurebeshIME extends InputMethodService
         clearSuggestions();
         applyLanguage();
         captureClip();
-        applyProcessed(info);
         refresh();
     }
 
@@ -448,33 +431,56 @@ public class AurebeshIME extends InputMethodService
     @Override
     public void onToolbar(int tool) {
         switch (tool) {
-            case AurebeshKeyboardView.TOOL_ACTIONS: openTextActions(); break;
+            case AurebeshKeyboardView.TOOL_EMOJI: openEmojis(); break;
             case AurebeshKeyboardView.TOOL_CLIPBOARD: openClipboard(); break;
-            case AurebeshKeyboardView.TOOL_SETTINGS:
-                try {
-                    startActivity(new Intent(this, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-                } catch (RuntimeException ignored) {
-                }
-                break;
         }
     }
 
-    private void showTray() {
-        if (tray == null || view == null) return;
+    /** Muestra una bandeja ocupando exactamente el alto del teclado. */
+    private void showTray(View which) {
+        if (which == null || view == null) return;
         int h = view.getHeight() > 0 ? view.getHeight() : view.getMeasuredHeight();
         if (h <= 0) h = Math.round(260 * getResources().getDisplayMetrics().density);
-        ViewGroup.LayoutParams lp = tray.getLayoutParams();
+        ViewGroup.LayoutParams lp = which.getLayoutParams();
         lp.height = h;
-        tray.setLayoutParams(lp);
-        tray.setVisibility(View.VISIBLE);
+        which.setLayoutParams(lp);
+        if (tray != null) tray.setVisibility(tray == which ? View.VISIBLE : View.GONE);
+        if (emojis != null) emojis.setVisibility(emojis == which ? View.VISIBLE : View.GONE);
         view.setVisibility(View.INVISIBLE);
     }
 
     private void hideTray() {
-        if (tray == null || view == null) return;
-        tray.setVisibility(View.GONE);
+        if (view == null) return;
+        if (tray != null) tray.setVisibility(View.GONE);
+        if (emojis != null) emojis.setVisibility(View.GONE);
         view.setVisibility(View.VISIBLE);
     }
+
+    // ------------------------------------------------------------------ emojis
+
+    private void openEmojis() {
+        emojis.show(Prefs.recentEmoji(this));
+        showTray(emojis);
+    }
+
+    @Override
+    public void onEmoji(String emoji) {
+        InputConnection ic = getCurrentInputConnection();
+        if (ic == null) return;
+        applyCorrection(ic, "");
+        ic.commitText(emoji, 1);
+        lastCorrection = null;
+        Prefs.addRecentEmoji(this, emoji);
+    }
+
+    @Override
+    public void onEmojiDelete() { onDelete(); }
+
+    @Override
+    public void onEmojiSpace() { onText(" "); }
+
+    @Override
+    public void onEmojiClose() { hideTray(); }
 
     // ------------------------------------------------------------------ portapapeles
 
@@ -500,139 +506,22 @@ public class AurebeshIME extends InputMethodService
     private void openClipboard() {
         captureClip();
         List<KeyboardTray.Item> items = new ArrayList<>();
-        for (String s : ClipHistory.items(this)) items.add(new KeyboardTray.Item(s, null, s));
-        tray.show(KeyboardTray.MODE_CLIPBOARD, getString(R.string.clipboard_title), items,
-                getString(R.string.clipboard_empty), null);
-        showTray();
-    }
-
-    // ------------------------------------------------------------------ acciones de texto
-
-    private static Intent processIntent() {
-        return new Intent(Intent.ACTION_PROCESS_TEXT).setType("text/plain");
-    }
-
-    private static String fieldKey(EditorInfo info) {
-        return info.packageName + "#" + info.fieldId;
-    }
-
-    /** Texto del campo (o la seleccion) y lista de apps que pueden procesarlo. */
-    private void openTextActions() {
-        InputConnection ic = getCurrentInputConnection();
-        EditorInfo info = getCurrentInputEditorInfo();
-        if (ic == null || info == null) return;
-        CharSequence sel = ic.getSelectedText(0);
-        CharSequence text;
-        boolean whole;
-        ExtractedText et = ic.getExtractedText(new ExtractedTextRequest(), 0);
-        if (!TextUtils.isEmpty(sel)) {
-            text = sel;
-            whole = false;
-            if (et != null && et.selectionStart >= 0 && et.selectionEnd >= 0) {
-                pendingSelStart = et.startOffset + Math.min(et.selectionStart, et.selectionEnd);
-                pendingSelEnd = et.startOffset + Math.max(et.selectionStart, et.selectionEnd);
-            } else {
-                whole = true;
-            }
-        } else {
-            text = et != null ? et.text : null;
-            if (TextUtils.isEmpty(text)) {
-                CharSequence b = ic.getTextBeforeCursor(5000, 0);
-                CharSequence a = ic.getTextAfterCursor(5000, 0);
-                text = (b == null ? "" : b.toString()) + (a == null ? "" : a.toString());
-            }
-            whole = true;
-        }
-        if (text == null || text.toString().trim().isEmpty()) {
-            Toast.makeText(this, R.string.actions_empty, Toast.LENGTH_SHORT).show();
-            return;
-        }
-        pendingText = text.toString();
-        pendingWhole = whole;
-        pendingField = fieldKey(info);
-
-        PackageManager pm = getPackageManager();
-        List<KeyboardTray.Item> items = new ArrayList<>();
-        List<ResolveInfo> handlers = pm.queryIntentActivities(processIntent(), 0);
-        if (handlers != null) {
-            for (ResolveInfo ri : handlers) {
-                if (ri.activityInfo == null || getPackageName().equals(ri.activityInfo.packageName)) continue;
-                items.add(new KeyboardTray.Item(ri.loadLabel(pm), ri.loadIcon(pm), ri));
-            }
-        }
-        items.add(new KeyboardTray.Item(getString(R.string.actions_choose), null, null));
-        tray.show(KeyboardTray.MODE_ACTIONS, getString(R.string.actions_title), items, null, pendingText);
-        showTray();
-    }
-
-    private void launchTextAction(ResolveInfo ri) {
-        if (pendingText == null) return;
-        Intent i = new Intent(this, TextActionActivity.class)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_NO_ANIMATION)
-                .putExtra(TextActionActivity.EXTRA_TEXT, pendingText);
-        if (ri != null && ri.activityInfo != null) {
-            i.putExtra(TextActionActivity.EXTRA_PACKAGE, ri.activityInfo.packageName);
-            i.putExtra(TextActionActivity.EXTRA_CLASS, ri.activityInfo.name);
-        }
-        processed = null;
-        try {
-            startActivity(i);
-        } catch (RuntimeException e) {
-            Toast.makeText(this, R.string.actions_empty, Toast.LENGTH_SHORT).show();
-        }
-    }
-
-    /** Llamado por TextActionActivity con el texto que devolvio la app elegida. */
-    public static void deliverProcessedText(CharSequence text) {
-        processed = text;
-        processedAt = SystemClock.uptimeMillis();
-    }
-
-    /** Al volver al campo de origen, sustituye la seleccion (o todo el texto) por el resultado. */
-    private void applyProcessed(EditorInfo info) {
-        if (processed == null || pendingField == null || info == null) return;
-        if (SystemClock.uptimeMillis() - processedAt > PROCESSED_TTL) {
-            processed = null;
-            pendingField = null;
-            return;
-        }
-        if (!pendingField.equals(fieldKey(info))) return;
-        InputConnection ic = getCurrentInputConnection();
-        if (ic == null) return;
-        CharSequence out = processed;
-        processed = null;
-        pendingField = null;
-        ic.beginBatchEdit();
-        if (pendingWhole) {
-            ExtractedText et = ic.getExtractedText(new ExtractedTextRequest(), 0);
-            if (et != null && et.text != null && et.text.length() > 0) {
-                ic.setSelection(0, et.text.length());
-            } else {
-                CharSequence b = ic.getTextBeforeCursor(10000, 0);
-                CharSequence a = ic.getTextAfterCursor(10000, 0);
-                ic.deleteSurroundingText(b == null ? 0 : b.length(), a == null ? 0 : a.length());
-            }
-        } else {
-            ic.setSelection(pendingSelStart, pendingSelEnd);
-        }
-        ic.commitText(out, 1);
-        ic.endBatchEdit();
-        lastCorrection = null;
-        clearSuggestions();
+        for (String s : ClipHistory.items(this)) items.add(new KeyboardTray.Item(s, s));
+        tray.show(getString(R.string.clipboard_title), items, getString(R.string.clipboard_empty));
+        showTray(tray);
     }
 
     // ------------------------------------------------------------------ bandeja
 
     @Override
-    public void onTrayPick(int mode, KeyboardTray.Item item) {
-        if (mode == KeyboardTray.MODE_CLIPBOARD) {
-            InputConnection ic = getCurrentInputConnection();
-            if (ic != null && item.tag instanceof String) ic.commitText((String) item.tag, 1);
-            hideTray();
-        } else {
-            hideTray();
-            launchTextAction(item.tag instanceof ResolveInfo ? (ResolveInfo) item.tag : null);
+    public void onTrayPick(KeyboardTray.Item item) {
+        InputConnection ic = getCurrentInputConnection();
+        if (ic != null && item.tag instanceof String) {
+            applyCorrection(ic, "");
+            ic.commitText((String) item.tag, 1);
+            lastCorrection = null;
         }
+        hideTray();
     }
 
     @Override
@@ -643,8 +532,7 @@ public class AurebeshIME extends InputMethodService
     @Override
     public void onTrayClear() {
         ClipHistory.clear(this);
-        tray.show(KeyboardTray.MODE_CLIPBOARD, getString(R.string.clipboard_title), new ArrayList<KeyboardTray.Item>(),
-                getString(R.string.clipboard_empty), null);
+        tray.show(getString(R.string.clipboard_title), new ArrayList<KeyboardTray.Item>(), getString(R.string.clipboard_empty));
     }
 
     @Override

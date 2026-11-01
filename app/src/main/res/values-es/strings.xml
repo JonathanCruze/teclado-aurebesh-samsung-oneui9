@@ -33,7 +33,7 @@
     <string name="opt_strip">Barra de traducción</string>
     <string name="opt_strip_sub">Muestra lo escrito en Aurebesh sobre las teclas</string>
     <string name="opt_toolbar">Barra de herramientas</string>
-    <string name="opt_toolbar_sub">✨ acciones de texto, 📋 portapapeles y ⚙ ajustes sobre las teclas</string>
+    <string name="opt_toolbar_sub">😊 emojis y 📋 portapapeles a la derecha de las sugerencias</string>
 
     <string name="typing">Escritura</string>
     <string name="opt_digraphs">Dígrafos</string>
@@ -69,23 +69,17 @@
     <string name="gesture_switch_result">Siguiente idioma Aurebesh (aparece con dos idiomas activos)</string>
     <string name="gesture_picker">Mantener el espacio</string>
     <string name="gesture_picker_result">Elegir otro teclado (Samsung, etc.)</string>
-    <string name="gesture_actions">✨ Acciones de texto</string>
-    <string name="gesture_actions_result">Envía el texto al Asistente de escritura de Galaxy AI (si existe), al Traductor u otra app</string>
+    <string name="gesture_emoji">😊 Emojis</string>
+    <string name="gesture_emoji_result">Panel de emojis por categorías, con recientes; ABC vuelve a las letras</string>
     <string name="gesture_clipboard">📋 Portapapeles</string>
     <string name="gesture_clipboard_result">Todo lo que copiaste; toca para pegar</string>
-    <string name="gesture_settings">⚙ Ajustes</string>
-    <string name="gesture_settings_result">Abre esta pantalla</string>
 
-    <string name="tool_actions">Acciones de texto</string>
+    <string name="tool_emoji">Emojis</string>
     <string name="tool_clipboard">Portapapeles</string>
-    <string name="tool_settings">Ajustes</string>
+    <string name="emoji_recent_empty">Los emojis que uses aparecerán aquí</string>
     <string name="clipboard_title">Portapapeles</string>
     <string name="clipboard_clear">Borrar todo</string>
     <string name="clipboard_empty">Copia un texto y aparecerá aquí. Toca uno para pegarlo.</string>
-    <string name="actions_title">Acciones de texto</string>
-    <string name="actions_choose">Elegir otra app…</string>
-    <string name="actions_empty">Escribe algo primero</string>
-    <string name="actions_hint">Envía lo escrito (o la selección) a una app que procese texto: Asistente de escritura de Galaxy AI si el teléfono lo ofrece, Traductor y otras. Si la app devuelve texto, sustituye el tuyo.</string>
 
     <string name="compat_title">Experimental en este dispositivo</string>
     <string name="compat_body">Teclado Aurebesh está optimizado y probado en Samsung Galaxy con One UI 9.0 (Android 17). Este dispositivo: %1$s. Otras versiones de Android pueden fallar.</string>

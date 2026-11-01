@@ -6,7 +6,6 @@ import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import android.graphics.Typeface;
-import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.RippleDrawable;
 import android.text.TextUtils;
@@ -14,7 +13,6 @@ import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -24,29 +22,24 @@ import java.util.List;
 
 /**
  * Bandeja que sustituye a las teclas dentro de la ventana del teclado: el historial del
- * portapapeles o la lista de apps que pueden procesar el texto escrito.
+ * portapapeles (tocar pega, x borra, "Borrar todo" vacia).
  */
 final class KeyboardTray extends LinearLayout {
 
-    static final int MODE_CLIPBOARD = 1;
-    static final int MODE_ACTIONS = 2;
-
     interface Host {
-        void onTrayPick(int mode, Item item);
+        void onTrayPick(Item item);
         void onTrayRemove(Item item);
         void onTrayClear();
         void onTrayClose();
     }
 
-    /** Elemento de la bandeja: texto copiado o app que procesa texto. */
+    /** Elemento de la bandeja: un texto copiado. */
     static final class Item {
         final CharSequence title;
-        final Drawable icon;
         final Object tag;
 
-        Item(CharSequence title, Drawable icon, Object tag) {
+        Item(CharSequence title, Object tag) {
             this.title = title;
-            this.icon = icon;
             this.tag = tag;
         }
     }
@@ -65,10 +58,8 @@ final class KeyboardTray extends LinearLayout {
     private final LinearLayout list;
 
     // Contenido mostrado, para reconstruirlo si cambia el tema
-    private int mode = MODE_CLIPBOARD;
     private final List<Item> items = new ArrayList<>();
     private CharSequence emptyText;
-    private CharSequence note;
     private boolean shown = false;
 
     KeyboardTray(Context c) {
@@ -138,14 +129,9 @@ final class KeyboardTray extends LinearLayout {
         if (shown) rebuild();
     }
 
-    /**
-     * Muestra un contenido: {@code note} (opcional) es una primera fila no pulsable en color de
-     * pista; si no hay elementos se muestra {@code emptyText} centrado.
-     */
-    void show(int mode, CharSequence titleText, List<Item> newItems, CharSequence emptyText, CharSequence note) {
-        this.mode = mode;
+    /** Muestra los elementos; si no hay ninguno se muestra {@code emptyText} centrado. */
+    void show(CharSequence titleText, List<Item> newItems, CharSequence emptyText) {
         this.emptyText = emptyText;
-        this.note = note;
         items.clear();
         if (newItems != null) items.addAll(newItems);
         title.setText(titleText == null ? "" : titleText);
@@ -154,31 +140,19 @@ final class KeyboardTray extends LinearLayout {
     }
 
     private void rebuild() {
-        clear.setVisibility(mode == MODE_CLIPBOARD && !items.isEmpty() ? VISIBLE : GONE);
+        clear.setVisibility(items.isEmpty() ? GONE : VISIBLE);
         list.removeAllViews();
-        if (!TextUtils.isEmpty(note)) list.addView(noteRow(note), rowParams());
         if (items.isEmpty()) {
             list.addView(emptyRow(), rowParams());
             return;
         }
-        for (Item item : items) list.addView(mode == MODE_CLIPBOARD ? clipRow(item) : actionRow(item), rowParams());
+        for (Item item : items) list.addView(clipRow(item), rowParams());
     }
 
     private LinearLayout.LayoutParams rowParams() {
         LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(MATCH, WRAP);
         p.topMargin = px(6);
         return p;
-    }
-
-    private TextView noteRow(CharSequence text) {
-        TextView t = new TextView(getContext());
-        t.setText(text);
-        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-        t.setTextColor(theme.hint);
-        t.setMaxLines(2);
-        t.setEllipsize(TextUtils.TruncateAt.END);
-        t.setPadding(px(14), px(6), px(14), px(4));
-        return t;
     }
 
     private TextView emptyRow() {
@@ -203,7 +177,7 @@ final class KeyboardTray extends LinearLayout {
         r.setClickable(true);
         r.setOnClickListener(new OnClickListener() {
             @Override public void onClick(View v) {
-                if (host != null) host.onTrayPick(mode, item);
+                if (host != null) host.onTrayPick(item);
             }
         });
         return r;
@@ -240,28 +214,6 @@ final class KeyboardTray extends LinearLayout {
         LinearLayout.LayoutParams dp40 = new LinearLayout.LayoutParams(px(40), MATCH);
         dp40.leftMargin = px(4);
         r.addView(del, dp40);
-        return r;
-    }
-
-    private LinearLayout actionRow(final Item item) {
-        LinearLayout r = row(item);
-        if (item.icon != null) {
-            ImageView icon = new ImageView(getContext());
-            icon.setImageDrawable(item.icon);
-            icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
-            r.addView(icon, new LinearLayout.LayoutParams(px(26), px(26)));
-        } else {
-            r.addView(new View(getContext()), new LinearLayout.LayoutParams(px(26), px(26)));
-        }
-        TextView text = new TextView(getContext());
-        text.setText(item.title);
-        text.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
-        text.setTextColor(theme.glyph);
-        text.setSingleLine(true);
-        text.setEllipsize(TextUtils.TruncateAt.END);
-        LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(0, WRAP, 1f);
-        tp.leftMargin = px(12);
-        r.addView(text, tp);
         return r;
     }
 
