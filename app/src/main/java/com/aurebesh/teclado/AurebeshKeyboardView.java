@@ -489,7 +489,7 @@ public final class AurebeshKeyboardView extends View {
             c.drawPath(iconPath, fill);
             if (capsLock) c.drawRect(cx - s * 0.45f, cy + s * 1.2f, cx + s * 0.45f, cy + s * 1.5f, fill);
         } else {
-            iconPaint.setStrokeWidth(2 * dp);
+            iconPaint.setStrokeWidth(2.8f * dp);
             c.drawPath(iconPath, iconPaint);
         }
     }
@@ -503,7 +503,7 @@ public final class AurebeshKeyboardView extends View {
         iconPath.lineTo(cx + w, cy + h);
         iconPath.lineTo(cx - w * 0.45f, cy + h);
         iconPath.close();
-        iconPaint.setStrokeWidth(1.8f * dp);
+        iconPaint.setStrokeWidth(2.6f * dp);
         c.drawPath(iconPath, iconPaint);
         float x = cx + w * 0.2f, k = 2.6f * dp;
         c.drawLine(x - k, cy - k, x + k, cy + k, iconPaint);
@@ -512,18 +512,15 @@ public final class AurebeshKeyboardView extends View {
 
     private void drawGlobe(Canvas c, float cx, float cy) {
         float r = 8 * dp;
-        iconPaint.setStrokeWidth(1.6f * dp);
-        c.drawCircle(cx, cy, r, iconPaint);
+        iconPaint.setStrokeWidth(2.2f * dp);
+        c.drawCircle(cx, cy, r, iconPaint);                      // globo: circulo, ecuador y un meridiano
         c.drawLine(cx - r, cy, cx + r, cy, iconPaint);
-        c.drawLine(cx, cy - r, cx, cy + r, iconPaint);
-        tmp.set(cx - r * 0.45f, cy - r, cx + r * 0.45f, cy + r);
-        c.drawOval(tmp, iconPaint);
-        tmp.set(cx - r, cy - r * 0.45f, cx + r, cy + r * 0.45f);
+        tmp.set(cx - r * 0.42f, cy - r, cx + r * 0.42f, cy + r);
         c.drawOval(tmp, iconPaint);
     }
 
     private void drawEnter(Canvas c, float cx, float cy) {
-        iconPaint.setStrokeWidth(2.2f * dp);
+        iconPaint.setStrokeWidth(3f * dp);
         iconPaint.setColor(theme.onAccent);
         try { drawEnterIcon(c, cx, cy); } finally { iconPaint.setColor(theme.icon); }
     }
