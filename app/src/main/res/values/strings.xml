@@ -6,7 +6,7 @@
     <string name="subtype_en" translatable="false">English (Aurebesh)</string>
     <string name="lang_es" translatable="false">Español</string>
     <string name="lang_en" translatable="false">English</string>
-    <string name="version" translatable="false">1.7.1</string>
+    <string name="version" translatable="false">1.7.2</string>
 
     <string name="tagline">The Star Wars alphabet on your keyboard. What you type is sent as normal letters, so anyone can read it.</string>
 
@@ -82,6 +82,7 @@
 
     <string name="tool_emoji">Emoji</string>
     <string name="tool_clipboard">Clipboard</string>
+    <string name="emoji_recent_title">Recent</string>
     <string name="emoji_recent_empty">Emoji you use will show up here</string>
     <string name="clipboard_title">Clipboard</string>
     <string name="clipboard_clear">Clear all</string>

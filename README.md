@@ -25,10 +25,12 @@ escribes.
 - **Barra de herramientas** sobre las teclas, como la de Samsung Keyboard: autocorrector a la izquierda; a la
   derecha 😊 emojis y 📋 portapapeles (opción "Barra de herramientas", activada por defecto). Mientras se escribe una
   palabra, la parte izquierda muestra las sugerencias; la barra de traducción (opcional) se dibuja en ese mismo espacio.
-- **😊 Emojis**: panel por categorías (recientes, caritas, personas, naturaleza, comida, viajes, actividades, objetos,
-  símbolos y banderas). Se queda abierto al elegir, para escribir varios seguidos; ABC vuelve a las letras. Los datos
-  están en `app/src/main/res/raw/emoji.txt`, generado por `tools/build_emoji.py` a partir de los datos de emojis de
-  Unicode.
+- **😊 Emojis**: panel con la clasificación oficial de Unicode: pestañas por grupo (recientes, caritas, personas,
+  naturaleza, comida, viajes, actividades, objetos, símbolos, banderas) y, dentro de cada grupo, una sección por
+  subgrupo en el orden canónico de `emoji-test.txt` (caras sonrientes, caras con cariño…, manos, profesiones,
+  mamíferos, aves…). Se desplaza de forma continua y la pestaña sigue al desplazamiento; se queda abierto al elegir
+  y ABC vuelve a las letras. Los datos están en `app/src/main/res/raw/emoji.txt`, generado por
+  `tools/build_emoji.py` a partir de los datos de emojis de Unicode (Emoji 16.0, sin tonos de piel).
 - **📋 Portapapeles**: historial de lo copiado (hasta 20 textos), guardado solo en el teléfono (preferencias privadas
   de la app), con "Borrar todo" y borrado por elemento; tocar un elemento lo pega.
 - **Autocorrección y sugerencias sin internet**, con diccionarios integrados de español e inglés (ver abajo).

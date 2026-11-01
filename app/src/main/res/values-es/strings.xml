@@ -76,6 +76,7 @@
 
     <string name="tool_emoji">Emojis</string>
     <string name="tool_clipboard">Portapapeles</string>
+    <string name="emoji_recent_title">Recientes</string>
     <string name="emoji_recent_empty">Los emojis que uses aparecerán aquí</string>
     <string name="clipboard_title">Portapapeles</string>
     <string name="clipboard_clear">Borrar todo</string>

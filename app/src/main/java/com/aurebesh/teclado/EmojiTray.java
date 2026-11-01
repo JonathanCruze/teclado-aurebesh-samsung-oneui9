@@ -18,23 +18,24 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AbsListView;
-import android.widget.AdapterView;
 import android.widget.BaseAdapter;
-import android.widget.FrameLayout;
-import android.widget.GridView;
 import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
+import android.widget.ListView;
 import android.widget.TextView;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 /**
- * Panel de emojis que sustituye a las teclas dentro de la ventana del teclado: pestanas por
- * categoria (recientes primero), cuadricula desplazable y fila inferior con ABC, espacio y borrar.
- * Los emojis vienen de res/raw/emoji.txt (una categoria por linea: id, tabulador, emojis con espacios).
+ * Panel de emojis que sustituye a las teclas. Sigue la clasificacion oficial de Unicode
+ * (emoji-test.txt): pestanas por grupo (recientes mas los nueve grupos) y, dentro de cada grupo,
+ * una cabecera por subgrupo en el orden canonico. La lista es continua: la pestana marcada sigue
+ * al desplazamiento y tocar una pestana salta a su grupo. Abajo: abc, espacio y borrar.
  */
 final class EmojiTray extends LinearLayout {
 
@@ -45,298 +46,393 @@ final class EmojiTray extends LinearLayout {
         void onEmojiClose();
     }
 
-    private static final String[] TAB_ICONS = {"🕘", "😀", "🧑", "🐻", "🍔", "🚗", "⚽", "💡", "🔣", "🏁"};
-    private static final String[] CATEGORY_IDS = {"smileys", "people", "nature", "food", "travel", "activities", "objects", "symbols", "flags"};
     private static final int COLUMNS = 8;
-    private static final int KEY_ABC = 0, KEY_SPACE = 1, KEY_DELETE = 2;
-    private static List<List<String>> categories;      // cache: una lista por categoria, en el orden de CATEGORY_IDS
+    private static final String RECENT = "recent";
+    private static final String[] GROUPS = {RECENT, "smileys", "people", "nature", "food", "travel",
+            "activities", "objects", "symbols", "flags"};
+    private static final String[] ICONS = {"🕘", "😀", "🧑", "🐻", "🍔", "🚗", "⚽", "💡", "🔣", "🏁"};
 
-    private static final int MATCH = ViewGroup.LayoutParams.MATCH_PARENT;
+    /** Subgrupo de Unicode: grupo, nombre en espanol e ingles y emojis en orden canonico. */
+    private static final class Section {
+        final String group, nameEs, nameEn;
+        final List<String> emoji = new ArrayList<>();
+        Section(String group, String nameEs, String nameEn) {
+            this.group = group; this.nameEs = nameEs; this.nameEn = nameEn;
+        }
+    }
+
+    /** Fila de la lista: cabecera de subgrupo, mensaje (recientes vacios) o hasta COLUMNS emojis. */
+    private static final class Row {
+        final String group, header, message;
+        final List<String> emoji;
+        Row(String group, String header, String message, List<String> emoji) {
+            this.group = group; this.header = header; this.message = message; this.emoji = emoji;
+        }
+    }
+
+    private static List<Section> sections;      // recurso leido una sola vez
 
     private final float dp;
     private Themes.Theme theme = Themes.DEFAULT;
     private Host host;
-    private final List<String> recent = new ArrayList<>();
-    private final List<String> current = new ArrayList<>();
-    private int selectedTab = 1;
-
+    private final List<Row> rows = new ArrayList<>();
+    private final int[] groupStart = new int[GROUPS.length];
+    private final TextView[] tabs = new TextView[GROUPS.length];
     private final HorizontalScrollView tabScroll;
-    private final List<TextView> tabViews = new ArrayList<>();
-    private final GridView grid;
-    private final TextView empty;
-    private final EmojiAdapter adapter = new EmojiAdapter();
-    private final KeyView abcKey, spaceKey, deleteKey;
+    private final ListView list;
+    private final KeyView abc, space, delete;
+    private int currentTab = -1;
 
     EmojiTray(Context c) {
         super(c);
         dp = getResources().getDisplayMetrics().density;
         setOrientation(VERTICAL);
 
-        // Pestanas de categoria
+        // Pestanas de grupo
         tabScroll = new HorizontalScrollView(c);
         tabScroll.setHorizontalScrollBarEnabled(false);
-        LinearLayout tabs = new LinearLayout(c);
-        tabs.setOrientation(HORIZONTAL);
-        tabs.setPadding(px(4), 0, px(4), 0);
-        for (int i = 0; i < TAB_ICONS.length; i++) {
-            final int index = i;
-            TextView tab = new TextView(c);
-            tab.setText(TAB_ICONS[i]);
-            tab.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20);
-            tab.setGravity(Gravity.CENTER);
-            tab.setOnClickListener(new OnClickListener() {
+        LinearLayout tabRow = new LinearLayout(c);
+        tabRow.setOrientation(HORIZONTAL);
+        tabRow.setPadding(px(4), 0, px(4), 0);
+        for (int i = 0; i < GROUPS.length; i++) {
+            final int g = i;
+            TextView t = new TextView(c);
+            t.setText(ICONS[i]);
+            t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20);
+            t.setGravity(Gravity.CENTER);
+            t.setContentDescription(GROUPS[i]);
+            t.setOnClickListener(new OnClickListener() {
                 @Override public void onClick(View v) {
                     v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
-                    selectTab(index);
+                    if (groupStart[g] >= 0) list.setSelection(groupStart[g]);
+                    highlight(g);
                 }
             });
-            tabs.addView(tab, new LayoutParams(px(40), MATCH));
-            tabViews.add(tab);
+            tabRow.addView(t, new LinearLayout.LayoutParams(px(40), px(40)));
+            tabs[i] = t;
         }
-        tabScroll.addView(tabs, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, MATCH));
-        addView(tabScroll, new LayoutParams(MATCH, px(40)));
+        tabScroll.addView(tabRow, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, px(40)));
+        addView(tabScroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, px(40)));
 
-        // Cuadricula (o aviso de recientes vacios)
-        FrameLayout body = new FrameLayout(c);
-        grid = new GridView(c);
-        grid.setNumColumns(COLUMNS);
-        grid.setStretchMode(GridView.STRETCH_COLUMN_WIDTH);
-        grid.setVerticalSpacing(0);
-        grid.setHorizontalSpacing(0);
-        grid.setVerticalScrollBarEnabled(false);
-        grid.setSelector(new ColorDrawable(0));
-        grid.setAdapter(adapter);
-        grid.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override public void onItemClick(AdapterView<?> parent, View v, int position, long id) {
-                if (position < 0 || position >= current.size()) return;
-                v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
-                if (host != null) host.onEmoji(current.get(position));
+        // Lista continua: cabeceras de subgrupo y filas de emojis
+        list = new ListView(c);
+        list.setAdapter(adapter);
+        list.setDivider(null);
+        list.setDividerHeight(0);
+        list.setVerticalScrollBarEnabled(false);
+        list.setSelector(new ColorDrawable(0));
+        list.setCacheColorHint(0);
+        list.setOnScrollListener(new AbsListView.OnScrollListener() {
+            @Override public void onScrollStateChanged(AbsListView v, int state) {}
+            @Override public void onScroll(AbsListView v, int first, int visible, int total) {
+                if (first >= 0 && first < rows.size()) highlight(groupIndex(rows.get(first).group));
             }
         });
-        body.addView(grid, new FrameLayout.LayoutParams(MATCH, MATCH));
-        empty = new TextView(c);
-        empty.setText(R.string.emoji_recent_empty);
-        empty.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-        empty.setGravity(Gravity.CENTER);
-        empty.setPadding(px(32), px(16), px(32), px(16));
-        empty.setVisibility(GONE);
-        body.addView(empty, new FrameLayout.LayoutParams(MATCH, MATCH));
-        addView(body, new LayoutParams(MATCH, 0, 1f));
+        addView(list, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
-        // Fila inferior: ABC, espacio, borrar
-        LinearLayout row = new LinearLayout(c);
-        row.setOrientation(HORIZONTAL);
-        row.setPadding(px(6), px(4), px(6), px(6));
-        abcKey = new KeyView(c, KEY_ABC);
-        spaceKey = new KeyView(c, KEY_SPACE);
-        deleteKey = new KeyView(c, KEY_DELETE);
-        row.addView(abcKey, new LayoutParams(px(64), MATCH));
-        LayoutParams sp = new LayoutParams(0, MATCH, 1f);
-        sp.leftMargin = px(4);
-        row.addView(spaceKey, sp);
-        LayoutParams dl = new LayoutParams(px(64), MATCH);
-        dl.leftMargin = px(4);
-        row.addView(deleteKey, dl);
-        addView(row, new LayoutParams(MATCH, px(58)));
+        // Fila inferior
+        LinearLayout bottom = new LinearLayout(c);
+        bottom.setOrientation(HORIZONTAL);
+        bottom.setPadding(px(6), px(4), px(6), px(6));
+        abc = new KeyView(c, KeyView.ABC);
+        space = new KeyView(c, KeyView.SPACE);
+        delete = new KeyView(c, KeyView.DELETE);
+        LinearLayout.LayoutParams side = new LinearLayout.LayoutParams(px(64), px(48));
+        LinearLayout.LayoutParams mid = new LinearLayout.LayoutParams(0, px(48), 1f);
+        mid.leftMargin = px(4);
+        mid.rightMargin = px(4);
+        bottom.addView(abc, side);
+        bottom.addView(space, mid);
+        bottom.addView(delete, new LinearLayout.LayoutParams(px(64), px(48)));
+        addView(bottom, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         applyTheme(theme);
     }
 
     void setHost(Host h) { host = h; }
 
-    /** Colores del tema en pestanas, celdas, teclas y fondo. */
+    /** Colores del tema del teclado. */
     void applyTheme(Themes.Theme t) {
-        theme = t;
-        setBackgroundColor(t.bg);
-        for (int i = 0; i < tabViews.size(); i++) styleTab(i);
-        empty.setTextColor(t.hint);
+        theme = t == null ? Themes.DEFAULT : t;
+        setBackgroundColor(theme.bg);
+        for (int i = 0; i < tabs.length; i++) styleTab(i);
+        abc.invalidate();
+        space.invalidate();
+        delete.invalidate();
         adapter.notifyDataSetChanged();
-        abcKey.invalidate();
-        spaceKey.invalidate();
-        deleteKey.invalidate();
     }
 
-    /** (Re)abre el panel; recientes primero (los mas nuevos al principio), o caritas si no hay. */
-    void show(List<String> recentEmoji) {
-        load(getContext());
-        recent.clear();
-        if (recentEmoji != null) recent.addAll(recentEmoji);
-        selectTab(recent.isEmpty() ? 1 : 0);
-        tabScroll.scrollTo(0, 0);
+    /** Construye las filas (recientes primero) y abre el panel en recientes o, si no hay, en caritas. */
+    void show(List<String> recent) {
+        List<Section> data = load(getContext());
+        boolean es = "es".equals(Locale.getDefault().getLanguage());
+        rows.clear();
+        for (int i = 0; i < GROUPS.length; i++) groupStart[i] = -1;
+        groupStart[0] = 0;
+        rows.add(new Row(RECENT, getContext().getString(R.string.emoji_recent_title), null, null));
+        if (recent == null || recent.isEmpty()) {
+            rows.add(new Row(RECENT, null, getContext().getString(R.string.emoji_recent_empty), null));
+        } else {
+            addChunks(RECENT, recent);
+        }
+        for (Section s : data) {
+            int g = groupIndex(s.group);
+            if (g < 0 || s.emoji.isEmpty()) continue;
+            if (groupStart[g] < 0) groupStart[g] = rows.size();
+            rows.add(new Row(s.group, es ? s.nameEs : s.nameEn, null, null));
+            addChunks(s.group, s.emoji);
+        }
+        adapter.notifyDataSetChanged();
+        int start = recent == null || recent.isEmpty() ? Math.max(0, groupStart[1]) : 0;
+        list.setSelection(start);
+        highlight(groupIndex(rows.get(start).group));
     }
 
-    private void selectTab(int index) {
-        selectedTab = index;
-        for (int i = 0; i < tabViews.size(); i++) styleTab(i);
-        current.clear();
-        if (index == 0) current.addAll(recent);
-        else if (categories != null && index - 1 < categories.size()) current.addAll(categories.get(index - 1));
-        adapter.notifyDataSetChanged();
-        grid.setSelection(0);
-        boolean showEmpty = index == 0 && current.isEmpty();
-        empty.setVisibility(showEmpty ? VISIBLE : GONE);
-        grid.setVisibility(showEmpty ? INVISIBLE : VISIBLE);
+    private void addChunks(String group, List<String> emoji) {
+        for (int i = 0; i < emoji.size(); i += COLUMNS) {
+            rows.add(new Row(group, null, null, emoji.subList(i, Math.min(emoji.size(), i + COLUMNS))));
+        }
+    }
+
+    private static int groupIndex(String group) {
+        for (int i = 0; i < GROUPS.length; i++) if (GROUPS[i].equals(group)) return i;
+        return -1;
+    }
+
+    private void highlight(int g) {
+        if (g < 0 || g == currentTab) return;
+        currentTab = g;
+        for (int i = 0; i < tabs.length; i++) styleTab(i);
+        final TextView tab = tabs[g];
+        tabScroll.post(new Runnable() {
+            @Override public void run() {
+                int target = tab.getLeft() - (tabScroll.getWidth() - tab.getWidth()) / 2;
+                tabScroll.smoothScrollTo(Math.max(0, target), 0);
+            }
+        });
     }
 
     private void styleTab(int i) {
-        TextView tab = tabViews.get(i);
-        if (i == selectedTab) {
+        if (i == currentTab) {
             GradientDrawable bg = new GradientDrawable();
             bg.setColor(theme.specialBg);
             bg.setCornerRadius(theme.radiusDp * dp);
             if (theme.keyStroke != 0) bg.setStroke(Math.max(1, px(1)), theme.keyStroke);
-            tab.setBackground(bg);
+            tabs[i].setBackground(bg);
         } else {
-            tab.setBackground(null);
+            tabs[i].setBackground(null);
         }
     }
 
-    private int px(float dps) { return Math.round(dps * dp); }
-
-    /** Lee res/raw/emoji.txt una sola vez; una categoria que falte queda vacia. */
-    private static synchronized void load(Context c) {
-        if (categories != null) return;
-        List<List<String>> cats = new ArrayList<>();
-        for (int i = 0; i < CATEGORY_IDS.length; i++) cats.add(new ArrayList<String>());
+    /** Lee el recurso una sola vez: una linea por subgrupo (grupo, subgrupo, nombre es, nombre en, emojis). */
+    private static synchronized List<Section> load(Context c) {
+        if (sections != null) return sections;
+        List<Section> out = new ArrayList<>();
         try {
-            BufferedReader r = new BufferedReader(new InputStreamReader(c.getResources().openRawResource(R.raw.emoji), "UTF-8"));
+            BufferedReader r = new BufferedReader(new InputStreamReader(
+                    c.getResources().openRawResource(R.raw.emoji), "UTF-8"));
             try {
                 String line;
                 while ((line = r.readLine()) != null) {
                     if (line.isEmpty() || line.startsWith("#")) continue;
-                    int tab = line.indexOf('\t');
-                    if (tab < 0) continue;
-                    String id = line.substring(0, tab).trim();
-                    for (int i = 0; i < CATEGORY_IDS.length; i++) {
-                        if (!CATEGORY_IDS[i].equals(id)) continue;
-                        for (String e : line.substring(tab + 1).trim().split(" ")) if (!e.isEmpty()) cats.get(i).add(e);
-                    }
+                    String[] f = line.split("\t");
+                    if (f.length < 5) continue;
+                    Section s = new Section(f[0], f[2], f[3]);
+                    for (String e : f[4].trim().split(" ")) if (!e.isEmpty()) s.emoji.add(e);
+                    out.add(s);
                 }
             } finally {
                 r.close();
             }
-        } catch (Exception ignored) {
-            // sin archivo de emojis el panel queda vacio pero no falla
+        } catch (IOException ignored) {
+            // sin datos el panel queda vacio
         }
-        categories = cats;
+        sections = out;
+        return out;
     }
 
-    /** Celdas de la cuadricula: un TextView por emoji, reciclado. */
-    private final class EmojiAdapter extends BaseAdapter {
-        @Override public int getCount() { return current.size(); }
-        @Override public Object getItem(int position) { return current.get(position); }
-        @Override public long getItemId(int position) { return position; }
+    // ------------------------------------------------------------------ filas
 
-        @Override public View getView(int position, View convertView, ViewGroup parent) {
-            TextView cell;
-            if (convertView instanceof TextView) {
-                cell = (TextView) convertView;
-            } else {
-                cell = new TextView(getContext());
-                cell.setTextSize(TypedValue.COMPLEX_UNIT_SP, 24);
-                cell.setGravity(Gravity.CENTER);
-                cell.setLayoutParams(new AbsListView.LayoutParams(MATCH, px(44)));
+    private final BaseAdapter adapter = new BaseAdapter() {
+        @Override public int getCount() { return rows.size(); }
+        @Override public Object getItem(int i) { return rows.get(i); }
+        @Override public long getItemId(int i) { return i; }
+        @Override public int getViewTypeCount() { return 3; }
+        @Override public boolean areAllItemsEnabled() { return false; }
+        @Override public boolean isEnabled(int i) { return false; }
+        @Override public int getItemViewType(int i) {
+            Row r = rows.get(i);
+            return r.header != null ? 0 : r.message != null ? 1 : 2;
+        }
+
+        @Override public View getView(int i, View convert, ViewGroup parent) {
+            Row r = rows.get(i);
+            if (r.header != null) {
+                TextView t = convert instanceof TextView ? (TextView) convert : textRow(12, true);
+                t.setText(r.header);
+                t.setTextColor(theme.hint);
+                return t;
             }
-            if (cell.getTag() != theme) {                      // colores del tema actual
-                cell.setTextColor(theme.glyph);
-                cell.setBackground(new RippleDrawable(ColorStateList.valueOf(theme.pressed), null, new ColorDrawable(0xFFFFFFFF)));
-                cell.setTag(theme);
+            if (r.message != null) {
+                TextView t = convert instanceof TextView ? (TextView) convert : textRow(14, false);
+                t.setText(r.message);
+                t.setTextColor(theme.hint);
+                return t;
             }
-            cell.setText(current.get(position));
-            return cell;
+            EmojiRow row = convert instanceof EmojiRow ? (EmojiRow) convert : new EmojiRow(getContext());
+            row.bind(r.emoji);
+            return row;
+        }
+    };
+
+    private TextView textRow(int sp, boolean header) {
+        TextView t = new TextView(getContext());
+        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, sp);
+        if (header) {
+            t.setAllCaps(true);
+            t.setLetterSpacing(0.06f);
+            t.setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL));
+            t.setPadding(px(12), px(12), px(12), px(4));
+        } else {
+            t.setGravity(Gravity.CENTER);
+            t.setPadding(px(24), px(14), px(24), px(14));
+        }
+        return t;
+    }
+
+    /** Fila de hasta COLUMNS celdas; cada celda escribe su emoji al tocarla. */
+    private final class EmojiRow extends LinearLayout {
+        private final TextView[] cells = new TextView[COLUMNS];
+
+        EmojiRow(Context c) {
+            super(c);
+            setOrientation(HORIZONTAL);
+            for (int j = 0; j < COLUMNS; j++) {
+                TextView t = new TextView(c);
+                t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 24);
+                t.setGravity(Gravity.CENTER);
+                t.setIncludeFontPadding(false);
+                t.setOnClickListener(new OnClickListener() {
+                    @Override public void onClick(View v) {
+                        v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+                        if (host != null) host.onEmoji(((TextView) v).getText().toString());
+                    }
+                });
+                addView(t, new LinearLayout.LayoutParams(0, px(44), 1f));
+                cells[j] = t;
+            }
+        }
+
+        void bind(List<String> emoji) {
+            for (int j = 0; j < COLUMNS; j++) {
+                boolean has = j < emoji.size();
+                cells[j].setText(has ? emoji.get(j) : "");
+                cells[j].setVisibility(has ? VISIBLE : INVISIBLE);
+                cells[j].setTextColor(theme.glyph);
+                GradientDrawable mask = new GradientDrawable();
+                mask.setColor(0xFFFFFFFF);
+                mask.setCornerRadius(px(8));
+                cells[j].setBackground(new RippleDrawable(
+                        ColorStateList.valueOf((theme.pressed & 0x00FFFFFF) | 0x80000000), null, mask));
+            }
         }
     }
 
-    /** Tecla de la fila inferior dibujada con Paint: ABC en Aurebesh, espacio o borrar (con repeticion). */
+    // ------------------------------------------------------------------ teclas inferiores
+
+    /** Tecla dibujada a mano: abc (en Aurebesh), espacio o borrar (con repeticion al mantener). */
     private final class KeyView extends View {
-        private final int type;
+        static final int ABC = 0, SPACE = 1, DELETE = 2;
+        private final int kind;
         private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint stroke = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint glyphPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint iconPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint glyph = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint latin = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Path path = new Path();
         private final RectF rect = new RectF();
-        private final List<Glyphs.Token> abc = Glyphs.tokenize("abc", false);
         private final Handler handler = new Handler(Looper.getMainLooper());
-        private boolean pressed;
+        private boolean down = false;
         private final Runnable repeat = new Runnable() {
             @Override public void run() {
-                if (!pressed || host == null) return;
+                if (!down || host == null) return;
                 host.onEmojiDelete();
                 handler.postDelayed(this, 60);
             }
         };
 
-        KeyView(Context c, int type) {
+        KeyView(Context c, int kind) {
             super(c);
-            this.type = type;
+            this.kind = kind;
             stroke.setStyle(Paint.Style.STROKE);
-            stroke.setStrokeWidth(dp);
-            iconPaint.setStyle(Paint.Style.STROKE);
-            iconPaint.setStrokeCap(Paint.Cap.ROUND);
-            iconPaint.setStrokeJoin(Paint.Join.ROUND);
-            iconPaint.setStrokeWidth(2.6f * dp);
-            textPaint.setTextAlign(Paint.Align.CENTER);
+            stroke.setStrokeCap(Paint.Cap.ROUND);
+            stroke.setStrokeJoin(Paint.Join.ROUND);
+            latin.setTextAlign(Paint.Align.CENTER);
         }
 
-        @Override protected void onDraw(Canvas c) {
+        @Override
+        protected void onDraw(Canvas c) {
             float r = theme.radiusDp * dp;
             rect.set(0, 0, getWidth(), getHeight());
-            fill.setColor(pressed ? theme.pressed : type == KEY_SPACE ? theme.keyBg : theme.specialBg);
+            fill.setColor(down ? theme.pressed : kind == SPACE ? theme.keyBg : theme.specialBg);
             c.drawRoundRect(rect, r, r, fill);
             if (theme.keyStroke != 0) {
                 stroke.setColor(theme.keyStroke);
+                stroke.setStrokeWidth(dp);
                 rect.inset(dp / 2f, dp / 2f);
                 c.drawRoundRect(rect, r, r, stroke);
             }
             float cx = getWidth() / 2f, cy = getHeight() / 2f;
-            if (type == KEY_ABC) {
-                float h = 10 * dp, total = 0;
-                glyphPaint.setColor(theme.glyph);
-                textPaint.setColor(theme.glyph);
-                for (Glyphs.Token t : abc) total += Glyphs.tokenWidth(t, h, textPaint);
+            if (kind == ABC) {
+                glyph.setColor(theme.glyph);
+                latin.setColor(theme.glyph);
+                float h = 10 * dp;
+                List<Glyphs.Token> tokens = Glyphs.tokenize("abc", false);
+                float total = 0;
+                for (Glyphs.Token t : tokens) total += Glyphs.tokenWidth(t, h, latin);
                 float x = cx - total / 2f;
-                for (Glyphs.Token t : abc) x += Glyphs.drawToken(c, t, x, cy - h / 2f, h, glyphPaint, textPaint);
-            } else if (type == KEY_DELETE) {
-                float w = 11 * dp, h = 7 * dp;                // mismo icono que la tecla de borrar del teclado
-                iconPaint.setColor(theme.icon);
+                for (Glyphs.Token t : tokens) x += Glyphs.drawToken(c, t, x, cy - h / 2f, h, glyph, latin);
+            } else if (kind == DELETE) {
+                stroke.setColor(theme.icon);
+                stroke.setStrokeWidth(2.6f * dp);
+                float w = 11 * dp, hh = 7 * dp;
                 path.reset();
                 path.moveTo(cx - w, cy);
-                path.lineTo(cx - w * 0.45f, cy - h);
-                path.lineTo(cx + w, cy - h);
-                path.lineTo(cx + w, cy + h);
-                path.lineTo(cx - w * 0.45f, cy + h);
+                path.lineTo(cx - w * 0.45f, cy - hh);
+                path.lineTo(cx + w, cy - hh);
+                path.lineTo(cx + w, cy + hh);
+                path.lineTo(cx - w * 0.45f, cy + hh);
                 path.close();
-                c.drawPath(path, iconPaint);
+                c.drawPath(path, stroke);
                 float x = cx + w * 0.2f, k = 2.6f * dp;
-                c.drawLine(x - k, cy - k, x + k, cy + k, iconPaint);
-                c.drawLine(x - k, cy + k, x + k, cy - k, iconPaint);
+                c.drawLine(x - k, cy - k, x + k, cy + k, stroke);
+                c.drawLine(x - k, cy + k, x + k, cy - k, stroke);
             }
         }
 
-        @Override public boolean onTouchEvent(MotionEvent e) {
+        @Override
+        public boolean onTouchEvent(MotionEvent e) {
             switch (e.getActionMasked()) {
                 case MotionEvent.ACTION_DOWN:
-                    pressed = true;
+                    down = true;
                     performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
-                    if (type == KEY_DELETE && host != null) {
+                    if (kind == DELETE && host != null) {
                         host.onEmojiDelete();
                         handler.postDelayed(repeat, 420);
                     }
                     invalidate();
                     return true;
                 case MotionEvent.ACTION_UP:
-                    pressed = false;
+                    boolean inside = e.getX() >= 0 && e.getY() >= 0 && e.getX() <= getWidth() && e.getY() <= getHeight();
+                    down = false;
                     handler.removeCallbacks(repeat);
-                    if (host != null) {
-                        if (type == KEY_ABC) host.onEmojiClose();
-                        else if (type == KEY_SPACE) host.onEmojiSpace();
+                    if (inside && host != null) {
+                        if (kind == ABC) host.onEmojiClose();
+                        else if (kind == SPACE) host.onEmojiSpace();
                     }
                     invalidate();
                     return true;
                 case MotionEvent.ACTION_CANCEL:
-                    pressed = false;
+                    down = false;
                     handler.removeCallbacks(repeat);
                     invalidate();
                     return true;
@@ -344,10 +440,13 @@ final class EmojiTray extends LinearLayout {
             return super.onTouchEvent(e);
         }
 
-        @Override protected void onDetachedFromWindow() {
+        @Override
+        protected void onDetachedFromWindow() {
             super.onDetachedFromWindow();
-            pressed = false;
+            down = false;
             handler.removeCallbacks(repeat);
         }
     }
+
+    private int px(float dps) { return Math.round(dps * dp); }
 }
