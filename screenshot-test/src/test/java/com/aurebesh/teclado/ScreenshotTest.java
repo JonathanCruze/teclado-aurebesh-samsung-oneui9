@@ -189,6 +189,9 @@ public class ScreenshotTest {
         for (int i = 0; i < expect2.length; i++) {
             if (!expect2[i].equals(tk2.get(i).glyph)) throw new AssertionError("token2 " + i + ": " + tk2.get(i).glyph);
         }
+        for (String sym : new String[]{"+", "=", "#", "*", "%", "@", "&", "$"}) {
+            if (!Glyphs.has(sym)) throw new AssertionError("sin glifo: " + sym);
+        }
         System.out.println("TOKENS ok");
 
         // Pantalla de la app en claro y en noche: pagina completa y primera pantalla

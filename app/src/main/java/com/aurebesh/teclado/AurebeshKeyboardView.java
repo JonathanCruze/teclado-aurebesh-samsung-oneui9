@@ -424,12 +424,24 @@ public final class AurebeshKeyboardView extends View {
                     textPaint.setTextSize(19 * dp);
                     c.drawText(k.label, cx, cy + 7 * dp, textPaint);
                 }
+                boolean symbolKey = current == symbols && k.glyph != null && !digitRow
+                        && k.label.length() == 1 && !Character.isLetterOrDigit(k.label.charAt(0));
+                if (symbolKey) {                                 // leyenda del signo en la pagina ?123
+                    hintPaint.setTextSize(9 * sp);
+                    c.drawText(k.label, r.right - 4 * dp, r.top + 10 * dp, hintPaint);
+                }
                 if (k.alts != null && !digitRow) {
                     String first = k.alts[0];
                     boolean digit = first.length() == 1 && Character.isDigit(first.charAt(0));
                     if (showHints || digit) {                    // los numeros ocultos siempre se insinuan
                         hintPaint.setTextSize(9 * sp);
-                        c.drawText(first, r.right - 4 * dp, r.top + 10 * dp, hintPaint);
+                        if (symbolKey) {
+                            hintPaint.setTextAlign(Paint.Align.LEFT);
+                            c.drawText(first, r.left + 4 * dp, r.top + 10 * dp, hintPaint);
+                            hintPaint.setTextAlign(Paint.Align.RIGHT);
+                        } else {
+                            c.drawText(first, r.right - 4 * dp, r.top + 10 * dp, hintPaint);
+                        }
                     }
                 }
                 break;
