@@ -12,12 +12,12 @@
 
 <p align="center">
   <a href="https://github.com/JonathanCruze/teclado-aurebesh-samsung-oneui9/raw/main/releases/TecladoAurebesh.apk">
-    <img src="https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20%20DESCARGAR%20APK%20%E2%80%94%20Teclado%20Aurebesh%201.9.1-1B2838?style=for-the-badge&logoColor=white&labelColor=1B2838&color=7FD3F0" alt="Descargar APK">
+    <img src="https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20%20DESCARGAR%20APK%20%E2%80%94%20Teclado%20Aurebesh%201.9.2-1B2838?style=for-the-badge&logoColor=white&labelColor=1B2838&color=7FD3F0" alt="Descargar APK">
   </a>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/versi%C3%B3n-1.9.1-7FD3F0?style=flat-square" alt="versión 1.9.1">
+  <img src="https://img.shields.io/badge/versi%C3%B3n-1.9.2-7FD3F0?style=flat-square" alt="versión 1.9.2">
   <img src="https://img.shields.io/badge/Android-8.0%2B-3DDC84?style=flat-square" alt="Android 8+">
   <img src="https://img.shields.io/badge/Samsung-One%20UI%209.0-1428A0?style=flat-square" alt="Samsung One UI 9.0">
   <img src="https://img.shields.io/badge/sin%20anuncios-%E2%9C%93-2E7D32?style=flat-square" alt="sin anuncios">
@@ -43,6 +43,12 @@
    momento, mantén pulsada la barra espaciadora.
 
 Para actualizar, descarga el nuevo APK e instálalo encima: conserva tus ajustes.
+
+### Novedades de la 1.9.2
+- **Margen lateral en las teclas**, como en Samsung Keyboard: las teclas empiezan a un 3 % del ancho en teléfonos y a un 5 % en
+  pantallas de 600 dp o más (Fold desplegado), nunca menos de 8 dp, en el teclado normal, a una mano y dividido; la cinta de
+  herramientas (✦, sugerencias, emojis, portapapeles) sigue de borde a borde. Tocar dentro del margen pulsa la tecla del borde. En
+  el dividido las mitades miden el 37,5 % del ancho y el hueco central el 15 %, como en Samsung.
 
 ### Novedades de la 1.9.1
 - **Arreglado: "Este archivo no es un modelo GGUF admitido"** al usar un modelo descargado. El tokenizador compilaba sus expresiones
@@ -126,14 +132,14 @@ a partir de un prompt. El resultado se puede reemplazar, insertar, copiar o rein
 - **Estado de verificación.** El motor se comprobó numéricamente en el entorno de desarrollo contra una implementación de referencia
   (numpy) y con los vocabularios reales de llama.cpp, incluidos los formatos Q4_0, Q8_0, Q4_K y Q6_K. En la 1.9 la primera prueba
   en un Galaxy real falló al cargar el modelo por una bandera de expresiones regulares que Android no admite; está corregido en la
-  1.9.1 y la prueba del tokenizador lo vigila. Sigue sin haberse medido la velocidad con un modelo real en un teléfono: trátalo como
+  1.9.2 y la prueba del tokenizador lo vigila. Sigue sin haberse medido la velocidad con un modelo real en un teléfono: trátalo como
   experimental.
 - Galaxy AI (el de Samsung Keyboard) es exclusivo de Samsung y no se puede integrar; sigue disponible en el menú de selección de texto
   de Android mientras usas este teclado.
 
 ## Frente a Samsung Keyboard
 
-| Función | Samsung Keyboard | Teclado Aurebesh 1.9.1 |
+| Función | Samsung Keyboard | Teclado Aurebesh 1.9.2 |
 |---|---|---|
 | Galaxy AI / Inteligencia avanzada | Sí | Inteligencia local (modelo en el teléfono) o servidor propio |
 | Deslizar para escribir | Sí | Sí, con estela y alternativas |
@@ -317,7 +323,7 @@ Después, `python3 promo/make_promo.py` compone las imágenes promocionales. Nec
   Lucasfilm, Disney, Samsung, Alibaba ni Hugging Face.
 
 ## Limitaciones conocidas
-- El modelo de inteligencia local es lento (unos pocos tokens por segundo); la carga en un Galaxy real se arregló en la 1.9.1 y la
+- El modelo de inteligencia local es lento (unos pocos tokens por segundo); la carga en un Galaxy real se arregló en la 1.9.2 y la
   velocidad real está por medir (el botón Probar de Ajustes la muestra).
 - Sin teclado flotante; sin dictado por voz; Galaxy AI es exclusivo de Samsung Keyboard.
 - Sin soporte de TalkBack en el teclado (la vista es un `Canvas` sin nodos de accesibilidad).

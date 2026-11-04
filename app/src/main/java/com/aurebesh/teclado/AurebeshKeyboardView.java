@@ -591,12 +591,23 @@ public final class AurebeshKeyboardView extends View {
         warmGlide();
     }
 
+    /**
+     * Margen lateral de las teclas (no de la cinta de herramientas, que va de borde a borde), como en
+     * Samsung Keyboard: un 3 % del ancho en telefonos y un 5 % en pantallas de 600 dp o mas (Fold
+     * desplegado, tabletas), nunca menos de 8 dp.
+     */
+    float keyMargin() {
+        float wdp = getWidth() / dp;
+        float pct = wdp >= 600 ? 0.05f : 0.03f;
+        return Math.max(8 * dp, getWidth() * pct);
+    }
+
     private void layoutKeys(List<List<Key>> layout) {
         if (split) { layoutKeysSplit(layout); return; }
         float full = getWidth();
         float w = handMode == 0 ? full : full * 0.78f;        // a una mano: 78 % del ancho
         float offset = handMode == 2 ? full - w : 0;
-        float pad = 4 * dp;
+        float pad = keyMargin();
         float y = stripHeight();
         for (int ri = 0; ri < layout.size(); ri++) {
             List<Key> row = layout.get(ri);
@@ -623,8 +634,8 @@ public final class AurebeshKeyboardView extends View {
      */
     private void layoutKeysSplit(List<List<Key>> layout) {
         float full = getWidth();
-        float pad = 4 * dp;
-        float box = (full - 2 * pad) * 0.38f;
+        float pad = keyMargin();
+        float box = full * 0.375f;                  // sobre el ancho completo: el margen se come hueco, no teclas
         float unit = box / 5.5f;
         float x0 = pad, x1 = full - pad - box;
         float y = stripHeight();
@@ -1184,8 +1195,8 @@ public final class AurebeshKeyboardView extends View {
     private void drawSideSwitch(Canvas c) {
         sideRect.setEmpty();
         if (handMode == 0 || current.isEmpty()) return;
-        float full = getWidth(), w = full * 0.78f;
-        float marginLeft = handMode == 2 ? 0 : w, marginRight = handMode == 2 ? full - w : full;
+        float full = getWidth(), w = full * 0.78f, pad = keyMargin();
+        float marginLeft = handMode == 2 ? 0 : w - pad, marginRight = handMode == 2 ? full - w + pad : full;
         float cx = (marginLeft + marginRight) / 2f, cy = stripHeight() + keysHeight() / 2f;
         float r = 20 * dp;
         sideRect.set(cx - r, cy - r, cx + r, cy + r);
@@ -1330,7 +1341,8 @@ public final class AurebeshKeyboardView extends View {
                 if (d < bestDist) { bestDist = d; best = k; }
             }
         }
-        return bestDist < (20 * dp) * (20 * dp) ? best : null;
+        float tol = Math.max(20 * dp, keyMargin() + 4 * dp);   // el margen lateral entero lleva a la tecla del borde
+        return bestDist < tol * tol ? best : null;
     }
 
     @Override

@@ -307,6 +307,12 @@ public class SwipeTest {
         kb.setListener(rec);
         kb.setGlideEnabled(true);
         SwipeDecoder.Geometry g = kb.glideGeometry();
+        // La geometria del deslizado sigue a las teclas con margen: ancho de tecla sobre el ancho util, q y p al margen
+        float km = kb.keyMargin();
+        assertEquals((W - 2 * km) / 10f, g.keyW, 2.5f);
+        assertEquals(km + g.keyW / 2f, g.cx[g.indexOf('q')], 2.5f);
+        assertEquals(W - km - g.keyW / 2f, g.cx[g.indexOf('p')], 2.5f);
+        assertEquals(kb.keyFor("q").rect.centerX(), g.cx[g.indexOf('q')], 0.01f);
         Random rnd = new Random(1);
 
         // Un toque sigue siendo un toque

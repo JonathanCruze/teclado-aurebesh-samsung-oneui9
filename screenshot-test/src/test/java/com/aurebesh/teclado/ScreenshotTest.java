@@ -209,6 +209,14 @@ public class ScreenshotTest {
         tap(kb, W - 28 * dp, 20 * dp);
         if (!typed.toString().equals("<tool1><tool2><tool4>")) throw new AssertionError("barra: " + typed);
         typed.setLength(0);
+        // La cinta no lleva el margen de las teclas: a 8 dp del borde (dentro del margen de las teclas) aun se
+        // tocan el boton de inteligencia y el icono de una mano
+        float km0 = kb.keyMargin();
+        if (!(8 * dp < km0)) throw new AssertionError("margen de teclas menor que 8 dp: " + km0);
+        tap(kb, 8 * dp, 20 * dp);
+        tap(kb, W - 8 * dp, 20 * dp);
+        if (!typed.toString().equals("<tool5><tool4>")) throw new AssertionError("cinta al borde: " + typed);
+        typed.setLength(0);
         float modeY = kb.getMeasuredHeight() - 30 * dp;
         tap(kb, 30 * dp, modeY);                       // ?123
         render(kb);
@@ -240,6 +248,19 @@ public class ScreenshotTest {
         // Modo a una mano (derecha): boton de la barra activo y flecha en el margen para cambiar de lado
         kb.setHandMode(2);
         save(render(kb), "una_mano.png");
+        // El margen se aplica dentro de la caja del 78 % y la cinta acompana a la caja sin ese margen
+        float km1 = kb.keyMargin();
+        assertNear("una mano: q tras el margen de la caja", kb.keyFor("q").rect.left, 0.22f * W + km1);
+        assertNear("una mano: p al margen derecho", kb.keyFor("p").rect.right, W - km1);
+        typed.setLength(0);
+        tap(kb, 0.22f * W + 8 * dp, 20 * dp);
+        if (!typed.toString().equals("<tool5>")) throw new AssertionError("una mano, inteligencia: " + typed);
+        kb.setHandMode(1);
+        render(kb);
+        assertNear("una mano izq.: q al margen", kb.keyFor("q").rect.left, km1);
+        assertNear("una mano izq.: p al borde de la caja", kb.keyFor("p").rect.right, 0.78f * W - km1);
+        kb.setHandMode(2);
+        render(kb);
         typed.setLength(0);
         tap(kb, 0.11f * W, kb.getMeasuredHeight() / 2f + 10 * dp);
         if (!typed.toString().equals("<side1>")) throw new AssertionError("lado: " + typed);
@@ -266,6 +287,15 @@ public class ScreenshotTest {
         assertNear("intro al borde", kb.keyFor(AurebeshKeyboardView.CODE_ENTER).rect.right, kb.keyFor("p").rect.right);
         assertNear("?123 al borde", kb.keyFor(AurebeshKeyboardView.CODE_MODE).rect.left, kb.keyFor("q").rect.left);
         if (kb.keyFor(".").rect.left < kb.keyFor("y").rect.left) throw new AssertionError("punto en la mitad derecha");
+        // Margen exterior de las dos mitades: la primera tecla empieza en keyMargin() y la ultima acaba en W - keyMargin()
+        float km = kb.keyMargin();
+        assertNear("margen 3 % del ancho", km, Math.max(8 * dp, 0.03f * W));
+        assertNear("q al margen", kb.keyFor("q").rect.left, km);
+        if (kb.keyFor("1") != null) assertNear("1 al margen", kb.keyFor("1").rect.left, km);
+        assertNear("?123 al margen", kb.keyFor(AurebeshKeyboardView.CODE_MODE).rect.left, km);
+        assertNear("p al margen derecho", kb.keyFor("p").rect.right, W - km);
+        assertNear("borrar al margen derecho", kb.keyFor(AurebeshKeyboardView.CODE_DELETE).rect.right, W - km);
+        assertNear("intro al margen derecho", kb.keyFor(AurebeshKeyboardView.CODE_ENTER).rect.right, W - km);
         typed.setLength(0);
         for (String ch : new String[]{"h", "o", "l", "a"}) { AurebeshKeyboardView.Key k = kb.keyFor(ch); tap(kb, k.rect.centerX(), k.rect.centerY()); }
         if (!typed.toString().equals("hola")) throw new AssertionError("dividido teclea: " + typed);
@@ -279,11 +309,30 @@ public class ScreenshotTest {
         Bitmap wb = Bitmap.createBitmap(2176, wide.getMeasuredHeight(), Bitmap.Config.ARGB_8888);
         wide.draw(new Canvas(wb));
         save(wb, "dividido_fold.png");
+        // Fold (725 dp): margen del 5 % como Samsung, mitades del 37,5 % del ancho y hueco central del 15 %
+        float mw = wide.keyMargin();
+        assertNear("Fold: margen = 5 % del ancho", mw, 2176 * 0.05f);
+        if (!(mw > 8 * dp)) throw new AssertionError("Fold: el 5 % deberia superar los 8 dp: " + mw);
+        assertNear("Fold: q al margen", wide.keyFor("q").rect.left, mw);
+        assertNear("Fold: mayusculas al margen", wide.keyFor(AurebeshKeyboardView.CODE_SHIFT).rect.left, mw);
+        assertNear("Fold: p al margen derecho", wide.keyFor("p").rect.right, 2176 - mw);
+        assertNear("Fold: borrar al margen derecho", wide.keyFor(AurebeshKeyboardView.CODE_DELETE).rect.right, 2176 - mw);
+        assertNear("Fold: borde interior izquierdo al 42,5 %", wide.keyFor("g").rect.right, 2176 * 0.425f);
+        assertNear("Fold: borde interior derecho al 57,5 %", wide.keyFor("h").rect.left, 2176 * 0.575f);
         kb.setSplitMode(2);
         render(kb);
         if (kb.isSplit()) throw new AssertionError("dividido apagado");
         kb.setSplitMode(0);
         render(kb);
+        // Pantalla estrecha (720 px): el margen no baja de 8 dp (el 3 % serian 7,2 dp)
+        AurebeshKeyboardView narrow = new AurebeshKeyboardView(app);
+        narrow.applyPrefs(false, false, false, true, Themes.ESTELAR.id);
+        narrow.setEnterAction(4);
+        narrow.measure(View.MeasureSpec.makeMeasureSpec(720, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+        narrow.layout(0, 0, 720, narrow.getMeasuredHeight());
+        assertNear("margen minimo de 8 dp", narrow.keyMargin(), 8 * dp);
+        assertNear("estrecha: q al margen", narrow.keyFor("q").rect.left, 8 * dp);
+        assertNear("estrecha: p al margen derecho", narrow.keyFor("p").rect.right, 720 - 8 * dp);
 
         // Chips de emoji en la barra de sugerencias; los iconos se esconden tras "..." mientras hay chips
         kb.setSuggestions(java.util.Arrays.asList("perro", "perros", "\uD83D\uDC36", "\uD83D\uDC15"), null);
