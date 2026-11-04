@@ -1,0 +1,24 @@
+# APK publicado
+
+`TecladoAurebesh.apk` es la versión instalable de **Teclado Aurebesh 1.9** (versionCode 25), firmada con la clave del proyecto,
+para Android 8.0 o superior y optimizada para Samsung Galaxy con One UI 9.0. Pesa alrededor de 1,4 MB; el modelo de inteligencia no va
+dentro y solo se descarga si lo pides desde Ajustes.
+
+## Instalar
+1. Descarga el archivo en el teléfono:
+   https://github.com/JonathanCruze/teclado-aurebesh-samsung-oneui9/raw/main/releases/TecladoAurebesh.apk
+2. Ábrelo desde la barra de notificaciones o desde *Mis archivos › Descargas*. Si Android pide permiso para instalar apps
+   desconocidas, actívalo para el navegador y vuelve a tocar **Instalar**.
+3. Abre **Teclado Aurebesh** y sigue los dos pasos de la pantalla (activar y elegir como teclado actual).
+
+Las versiones anteriores están en https://github.com/JonathanCruze/teclado-aurebesh-samsung-oneui9/releases.
+Instalar un APK nuevo encima del anterior conserva los ajustes.
+
+## Verificar la descarga
+En un ordenador:
+```bash
+sha256sum TecladoAurebesh.apk
+```
+En Windows: `certutil -hashfile TecladoAurebesh.apk SHA256`. El resultado debe coincidir con la línea siguiente.
+
+SHA-256: `7f82d1cdb23b19a9cb149758530ac409687666a161a52ae2ed7194d94b6c5c9a`

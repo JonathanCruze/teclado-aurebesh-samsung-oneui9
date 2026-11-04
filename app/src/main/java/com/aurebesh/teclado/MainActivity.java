@@ -236,7 +236,7 @@ public final class MainActivity extends Activity {
         c.addView(translation, block(0));
 
         preview = new AurebeshKeyboardView(this);
-        preview.setLanguage("es".equals(java.util.Locale.getDefault().getLanguage()) ? "es" : "en");
+        preview.setLanguage(AppLocale.current(this));
         preview.setEnterAction(4);
         preview.setListener(new AurebeshKeyboardView.Listener() {
             @Override public void onText(String s) { replaceSelection(s); }
@@ -682,6 +682,7 @@ public final class MainActivity extends Activity {
         TextView clear = chipButton(R.string.learn_clear, new View.OnClickListener() {
             @Override public void onClick(View v) {
                 Prefs.clearLearnedWords(MainActivity.this);
+                Bigrams.forget(MainActivity.this);
                 Toast.makeText(MainActivity.this, R.string.learn_cleared, Toast.LENGTH_SHORT).show();
             }
         });

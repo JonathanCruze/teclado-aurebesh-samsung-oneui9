@@ -1,5 +1,6 @@
 package com.aurebesh.teclado.llm;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -37,22 +38,26 @@ final class ChatTemplate {
     }
 
     /** Elige la plantilla a partir de los metadatos del modelo. */
-    static ChatTemplate detect(String arch, String jinja, Tokenizer tk) {
+    static ChatTemplate detect(String arch, String jinja, Tokenizer tk) throws IOException {
         String t = jinja == null ? "" : jinja;
         boolean hasImStart = tk.idOf("<|im_start|>") >= 0;
+        if (t.contains("<|im_sep|>")) throw new IOException("Plantilla de chat no admitida (<|im_sep|>)");
         if (t.contains("<|im_start|>") || (t.isEmpty() && hasImStart)) {
             if ("qwen3".equals(arch) || t.contains("enable_thinking")) return new ChatTemplate(CHATML_QWEN3, null);
-            if ("llama".equals(arch)) {
-                return new ChatTemplate(CHATML, "You are a helpful AI assistant named SmolLM, trained by Hugging Face");
-            }
-            return new ChatTemplate(CHATML, "You are Qwen, created by Alibaba Cloud. You are a helpful assistant.");
+            String system = null;
+            if (t.contains("named SmolLM")) system = "You are a helpful AI assistant named SmolLM, trained by Hugging Face";
+            else if (t.contains("You are Qwen, created by Alibaba Cloud")) system = "You are Qwen, created by Alibaba Cloud. You are a helpful assistant.";
+            return new ChatTemplate(CHATML, system);
         }
         if (t.contains("<|start_header_id|>") || (t.isEmpty() && tk.idOf("<|start_header_id|>") >= 0)) {
             return new ChatTemplate(LLAMA3, null);
         }
+        if (!t.isEmpty()) {
+            throw new IOException("Plantilla de chat no admitida: " + t.substring(0, Math.min(40, t.length())).replace('\n', ' '));
+        }
+        // Sin plantilla en los metadatos: ChatML, que es lo que usan los modelos admitidos
         if ("qwen3".equals(arch)) return new ChatTemplate(CHATML_QWEN3, null);
-        return new ChatTemplate(CHATML, "qwen2".equals(arch)
-                ? "You are Qwen, created by Alibaba Cloud. You are a helpful assistant." : null);
+        return new ChatTemplate(CHATML, null);
     }
 
     String name() {

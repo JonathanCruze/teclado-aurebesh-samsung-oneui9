@@ -41,6 +41,7 @@ public final class LlmEngine {
     private final ChatTemplate template;
     private final Workers workers;
     private final boolean[] hidden;
+    private final boolean[] eogMask;      // fin de generacion: sin penalizacion de repeticion
     private final int thinkStart, thinkEnd;
     private final long fileSize;
     private final String generalName;
@@ -54,7 +55,11 @@ public final class LlmEngine {
         this.fileSize = fileSize;
         this.generalName = name;
         hidden = new boolean[model.nVocab];
-        for (int i = 0; i < model.nVocab; i++) hidden[i] = tokenizer.isHidden(i);
+        eogMask = new boolean[model.nVocab];
+        for (int i = 0; i < model.nVocab; i++) {
+            hidden[i] = tokenizer.isHidden(i);
+            eogMask[i] = tokenizer.isEog(i);
+        }
         thinkStart = tokenizer.idOf("<think>");
         thinkEnd = tokenizer.idOf("</think>");
     }
@@ -166,6 +171,13 @@ public final class LlmEngine {
                     + (ctx - 8) + ")");
         }
         int maxNew = Math.max(1, Math.min(o.maxTokens, ctx - prompt.length));
+        // Tope por la memoria realmente disponible: la cache KV ocupa 8 bytes por token, capa y columna
+        Runtime rt = Runtime.getRuntime();
+        long free = rt.maxMemory() - (rt.totalMemory() - rt.freeMemory());
+        long perToken = 8L * model.nLayer * model.kvStride;
+        int ctxMem = (int) Math.min(Integer.MAX_VALUE, free / 2 / Math.max(1L, perToken));
+        if (prompt.length + 8 > ctxMem) throw new IOException("El texto es demasiado largo para la memoria disponible");
+        maxNew = Math.max(1, Math.min(maxNew, ctxMem - prompt.length));
         int[] history = new int[prompt.length + maxNew];
         System.arraycopy(prompt, 0, history, 0, prompt.length);
         int histLen = prompt.length;
@@ -177,7 +189,7 @@ public final class LlmEngine {
             model.reset(prompt.length + maxNew);
             float[] logits = model.forward(prompt, 0, prompt.length, true);
             for (int i = 0; i < maxNew; i++) {
-                int id = sampler.sample(logits, hidden, history, histLen, o.temperature, o.topP, o.repeatPenalty);
+                int id = sampler.sample(logits, hidden, eogMask, history, histLen, o.temperature, o.topP, o.repeatPenalty);
                 if (tokenizer.isEog(id)) break;
                 history[histLen++] = id;
                 if (id == thinkStart && thinkStart >= 0) {

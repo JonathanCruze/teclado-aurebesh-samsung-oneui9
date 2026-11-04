@@ -13,7 +13,7 @@
     <string name="gesture_ai">✦ links in der Leiste</string>
     <string name="gesture_ai_result">Rechtschreibung, Schreibstil, Zusammenfassung, Aufzählung, Tabelle und Verfassen, mit lokalem Modell oder eigenem Server</string>
     <string name="opt_split">Geteilte Tastatur</string>
-    <string name="split_auto">Automatisch (aufgeklapptes Display)</string>
+    <string name="split_auto">Aufgeklappt</string>
     <string name="split_on">Immer</string>
     <string name="split_off">Nie</string>
 </resources>

@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="es" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Teclado Aurebesh</title>
+<meta name="description" content="El alfabeto de Star Wars en tu teclado Samsung: autocorrector, deslizar para escribir, emojis, portapapeles con imágenes e inteligencia sin internet.">
+<style>
+  :root {
+    --bg: #060a0e; --panel: #0a1219; --line: #1c4556; --ink: #dce6ee; --dim: #7fa0b0;
+    --glow: #7fd3f0; --glow-soft: rgba(127, 211, 240, 0.18); --accent: #c8541f;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font: 16px/1.55 -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; overflow-x: hidden; }
+  img { max-width: 100%; height: auto; display: block; }
+  a { color: var(--glow); }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 0 16px; }
+  header { padding: 28px 0 8px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .brand { font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--glow); font-size: 14px; }
+  .lang { display: flex; gap: 6px; }
+  .lang button { background: transparent; border: 1px solid var(--line); color: var(--dim); padding: 6px 12px; border-radius: 999px; cursor: pointer; font-size: 13px; }
+  .lang button[aria-pressed="true"] { color: var(--bg); background: var(--glow); border-color: var(--glow); }
+  .hero { padding: 32px 0 24px; display: grid; gap: 24px; grid-template-columns: 1fr; align-items: center; }
+  .hero h1 { font-size: clamp(30px, 6vw, 52px); line-height: 1.08; margin: 0 0 12px; letter-spacing: -0.01em; }
+  .hero h1 span { color: var(--glow); text-shadow: 0 0 24px var(--glow-soft); }
+  .hero p { color: var(--dim); font-size: 17px; margin: 0 0 22px; }
+  .hero img { border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 0 48px var(--glow-soft); }
+  .btn { display: inline-block; background: var(--glow); color: var(--bg); font-weight: 800; font-size: 20px; padding: 18px 28px; border-radius: 14px; text-decoration: none; letter-spacing: 0.01em; box-shadow: 0 0 36px var(--glow-soft); }
+  .btn:active { transform: translateY(1px); }
+  .btn small { display: block; font-weight: 500; font-size: 13px; opacity: 0.8; }
+  .meta { color: var(--dim); font-size: 13px; margin-top: 12px; }
+  .badges { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 0; padding: 0; list-style: none; }
+  .badges li { border: 1px solid var(--line); color: var(--dim); font-size: 12px; padding: 4px 10px; border-radius: 999px; background: var(--panel); }
+  .notice { border: 1px solid var(--line); background: var(--panel); border-radius: 12px; padding: 14px 16px; color: var(--dim); font-size: 14px; margin: 8px 0 28px; }
+  .notice b { color: var(--ink); }
+  section { padding: 28px 0; border-top: 1px solid var(--line); }
+  h2 { font-size: 24px; margin: 0 0 18px; }
+  h2 small { display: block; color: var(--dim); font-size: 14px; font-weight: 400; margin-top: 4px; }
+  ol.steps { counter-reset: s; list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; grid-template-columns: 1fr; }
+  ol.steps li { counter-increment: s; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 16px 16px 60px; position: relative; }
+  ol.steps li::before { content: counter(s); position: absolute; left: 16px; top: 14px; width: 32px; height: 32px; border-radius: 50%; background: var(--glow); color: var(--bg); font-weight: 800; display: flex; align-items: center; justify-content: center; }
+  ol.steps b { display: block; margin-bottom: 4px; }
+  .grid { display: grid; gap: 16px; grid-template-columns: 1fr; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+  .card img { width: 100%; border-bottom: 1px solid var(--line); }
+  .card div { padding: 14px 16px 16px; }
+  .card h3 { margin: 0 0 6px; font-size: 17px; }
+  .card p { margin: 0; color: var(--dim); font-size: 14px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--dim); font-weight: 600; }
+  .faq details { border: 1px solid var(--line); background: var(--panel); border-radius: 12px; padding: 12px 16px; margin-bottom: 10px; }
+  .faq summary { cursor: pointer; font-weight: 600; }
+  .faq p { color: var(--dim); margin: 10px 0 0; font-size: 15px; }
+  footer { padding: 28px 0 40px; color: var(--dim); font-size: 13px; border-top: 1px solid var(--line); }
+  .hidden { display: none !important; }
+  @media (min-width: 720px) {
+    .hero { grid-template-columns: 1.1fr 1fr; }
+    .grid { grid-template-columns: repeat(2, 1fr); }
+    ol.steps { grid-template-columns: repeat(3, 1fr); }
+  }
+  @media (min-width: 1000px) { .grid { grid-template-columns: repeat(3, 1fr); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">Teclado Aurebesh · 1.9</div>
+    <div class="lang" role="group" aria-label="Idioma / Language">
+      <button type="button" id="btn-es" aria-pressed="true" onclick="setLang('es')">Español</button>
+      <button type="button" id="btn-en" aria-pressed="false" onclick="setLang('en')">English</button>
+    </div>
+  </header>
+
+  <!-- ===================== ESPAÑOL ===================== -->
+  <div id="lang-es">
+    <div class="hero">
+      <div>
+        <h1>El alfabeto de <span>Star Wars</span> en tu teclado</h1>
+        <p>Las teclas muestran glifos Aurebesh y lo que escribes se envía en letras normales, así cualquiera puede leerlo.
+           Autocorrector, deslizar para escribir, emojis con búsqueda, portapapeles con imágenes, teclado dividido para Fold
+           y un panel de inteligencia que funciona sin internet.</p>
+        <a class="btn" href="https://github.com/JonathanCruze/teclado-aurebesh-samsung-oneui9/raw/main/releases/TecladoAurebesh.apk">⬇️ Descargar APK<small>Teclado Aurebesh 1.9 · 1,4 MB · Android 8.0+</small></a>
+        <p class="meta">Optimizado para Samsung Galaxy con One UI 9.0. Todas las versiones en la
+          <a href="https://github.com/JonathanCruze/teclado-aurebesh-samsung-oneui9/releases">página de Releases</a>.</p>
+        <ul class="badges">
+          <li>Sin anuncios</li><li>Sin recopilación de datos</li><li>Funciona offline</li><li>Código abierto</li><li>Fuente OFL · listas MIT · modelos Apache-2.0</li>
+        </ul>
+      </div>
+      <img src="../promo/out/01_escribe_en_aurebesh.png" alt="Teclado Aurebesh escribiendo un mensaje">
+    </div>
+
+    <div class="notice"><b>Compatibilidad.</b> Probado en Samsung Galaxy con One UI 9.0 (Android 17). Cualquier otra versión de Android u otro
+      fabricante es experimental y puede fallar; la app lo detecta y lo avisa.</div>
+
+    <section>
+      <h2>Instalar en tres pasos <small>No hace falta saber qué es GitHub</small></h2>
+      <ol class="steps">
+        <li><b>Descarga el APK</b> con el botón de arriba desde el teléfono. Si el navegador pregunta, elige "Descargar de todas formas".</li>
+        <li><b>Abre el archivo</b> desde las notificaciones. Si Android pide permiso para instalar apps desconocidas, actívalo para el navegador y toca Instalar.</li>
+        <li><b>Abre Teclado Aurebesh</b> y sigue los dos pasos de la pantalla: activar en Ajustes y elegir como teclado actual. Para volver al de Samsung, mantén pulsada la barra espaciadora.</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>Qué hace</h2>
+      <div class="grid">
+        <div class="card"><img src="../screenshots/barra_estelar.png" alt="Barra de herramientas"><div><h3>Barra como la de Samsung</h3><p>✦ inteligencia a la izquierda; emojis, portapapeles y modo a una mano a la derecha; ajustes en ?123.</p></div></div>
+        <div class="card"><img src="../screenshots/sugerencias_emoji.png" alt="Sugerencias con emoji"><div><h3>Autocorrector con emojis</h3><p>Corrige uno o dos errores, restaura tildes, completa palabras, predice la siguiente y sugiere el emoji de lo que escribes.</p></div></div>
+        <div class="card"><img src="../screenshots/pegar_imagen.png" alt="Chip Pegar"><div><h3>Chip "Pegar"</h3><p>Lo que acabas de copiar, incluida una captura de pantalla reciente, aparece listo para pegar y desaparece al escribir.</p></div></div>
+        <div class="card"><img src="../screenshots/emojis_busqueda.png" alt="Búsqueda de emojis"><div><h3>Emojis con búsqueda</h3><p>Grupos y subgrupos oficiales de Unicode, recientes y búsqueda tolerante a errores en español e inglés.</p></div></div>
+        <div class="card"><img src="../screenshots/portapapeles_estelar.png" alt="Portapapeles"><div><h3>Portapapeles con imágenes</h3><p>Historial de texto e imágenes; pega solo el número, el correo o el enlace con un toque.</p></div></div>
+        <div class="card"><img src="../screenshots/ia_acciones.png" alt="Panel de inteligencia"><div><h3>✦ Inteligencia</h3><p>Ortografía, estilo con tonos, resumir, viñetas, tabla y redactor, con un modelo en tu teléfono o tu propio servidor.</p></div></div>
+        <div class="card"><img src="../screenshots/dividido_fold.png" alt="Teclado dividido"><div><h3>Dividido para Galaxy Fold</h3><p>Dos mitades con hueco central y dos espacios al desplegar la pantalla; también por opción.</p></div></div>
+        <div class="card"><img src="../screenshots/simbolos_estelar.png" alt="Signos como Samsung"><div><h3>?123 como Samsung Keyboard</h3><p>Misma distribución de signos; la página 2/2 añade dígrafos Aurebesh, ¿ ¡ « » y más símbolos.</p></div></div>
+        <div class="card"><img src="../promo/out/02_cinco_temas.png" alt="Cinco temas"><div><h3>Cinco temas y tres idiomas</h3><p>Estelar, Noche, Datapad, Imperial y Arena. Español, inglés y alemán (QWERTZ), con deslizar para escribir en todos.</p></div></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Frente a Samsung Keyboard</h2>
+      <table>
+        <tr><th>Función</th><th>Samsung Keyboard</th><th>Teclado Aurebesh 1.9</th></tr>
+        <tr><td>Galaxy AI / Inteligencia avanzada</td><td>Sí</td><td>Inteligencia local o servidor propio</td></tr>
+        <tr><td>Deslizar para escribir</td><td>Sí</td><td>Sí</td></tr>
+        <tr><td>Emojis</td><td>Sí</td><td>Sí, con búsqueda y sugerencias</td></tr>
+        <tr><td>Portapapeles con historial</td><td>Sí</td><td>Sí, texto e imágenes</td></tr>
+        <tr><td>Capturas sugeridas</td><td>Sí</td><td>Sí (permiso de fotos opcional)</td></tr>
+        <tr><td>Modo a una mano</td><td>Sí</td><td>Sí</td></tr>
+        <tr><td>Teclado dividido (Fold)</td><td>Sí</td><td>Sí</td></tr>
+        <tr><td>Teclado flotante</td><td>Sí</td><td>No</td></tr>
+        <tr><td>Dictado por voz</td><td>Sí</td><td>No</td></tr>
+        <tr><td>Alfabeto Aurebesh</td><td>No</td><td>Sí</td></tr>
+      </table>
+    </section>
+
+    <section class="faq">
+      <h2>Preguntas frecuentes</h2>
+      <details open><summary>¿Recopila datos? ¿Usa internet?</summary><p>No recopila nada: sin analítica, sin registros, sin cuentas. Internet se usa solo para dos cosas que tú inicias: descargar un modelo de inteligencia o hablar con tu propio servidor. El historial del portapapeles, las palabras y pares que aprende, los modelos y el sonido personalizado se quedan en el teléfono y se borran desde Ajustes. La copia de seguridad de Android está desactivada para la app.</p></details>
+      <details><summary>¿Cómo funciona la inteligencia sin internet?</summary><p>Un motor escrito en Java puro ejecuta un modelo pequeño de pesos abiertos (por defecto Qwen2.5-0.5B-Instruct, unos 350 MB, licencia Apache-2.0) dentro del teléfono. Se descarga de Hugging Face solo cuando tocas Descargar en Ajustes › Inteligencia, o importas un archivo GGUF. Es lento: unos pocos tokens por segundo, un párrafo puede tardar entre 20 y 60 segundos. Si quieres velocidad, indica un servidor compatible con OpenAI en tu ordenador (Ollama, LM Studio, llama.cpp). El motor se verificó numéricamente contra una implementación de referencia, pero aún no con un modelo real en un teléfono: considéralo experimental.</p></details>
+      <details><summary>¿Solo para Samsung?</summary><p>Se desarrolló y probó en Samsung Galaxy con One UI 9.0. Debería instalarse en cualquier Android 8.0 o superior, pero fuera de ese entorno está sujeto a fallos y la app muestra un aviso.</p></details>
+      <details><summary>¿Y Galaxy AI?</summary><p>Galaxy AI es exclusivo de Samsung Keyboard y no se puede integrar en otros teclados. Sigue disponible en el menú de selección de texto de Android mientras usas Teclado Aurebesh. A cambio, el panel ✦ ofrece las mismas acciones con un modelo local o tu servidor.</p></details>
+      <details><summary>¿Por qué pide permiso de fotos?</summary><p>Solo si activas "Sugerir capturas": lee únicamente la carpeta Screenshots para ofrecerte la última captura como chip "Pegar". Puedes no activarlo nunca.</p></details>
+      <details><summary>¿Es de código abierto?</summary><p>Sí: todo el código, las herramientas para generar los datos y las pruebas están en <a href="https://github.com/JonathanCruze/teclado-aurebesh-samsung-oneui9">GitHub</a>. La fuente Aurebesh es de SilvinoR (OFL 1.1), las listas de palabras de FrequencyWords (MIT), los bigramas de corpus abiertos (CC BY-SA 4.0) y los emojis de Unicode y CLDR.</p></details>
+    </section>
+  </div>
+
+  <!-- ===================== ENGLISH ===================== -->
+  <div id="lang-en" class="hidden">
+    <div class="hero">
+      <div>
+        <h1>The <span>Star Wars</span> alphabet on your keyboard</h1>
+        <p>The keys show Aurebesh glyphs and what you type is sent as normal letters, so anyone can read it.
+           Autocorrect, glide typing, emoji with search, a clipboard with images, a split layout for the Fold
+           and an intelligence panel that works offline.</p>
+        <a class="btn" href="https://github.com/JonathanCruze/teclado-aurebesh-samsung-oneui9/raw/main/releases/TecladoAurebesh.apk">⬇️ Download APK<small>Aurebesh Keyboard 1.9 · 1.4 MB · Android 8.0+</small></a>
+        <p class="meta">Optimized for Samsung Galaxy with One UI 9.0. Every version on the
+          <a href="https://github.com/JonathanCruze/teclado-aurebesh-samsung-oneui9/releases">Releases page</a>.</p>
+        <ul class="badges">
+          <li>No ads</li><li>No data collection</li><li>Works offline</li><li>Open source</li><li>OFL font · MIT lists · Apache-2.0 models</li>
+        </ul>
+      </div>
+      <img src="../promo/out/01_escribe_en_aurebesh.png" alt="Aurebesh keyboard typing a message">
+    </div>
+
+    <div class="notice"><b>Compatibility.</b> Tested on Samsung Galaxy with One UI 9.0 (Android 17). Any other Android version or maker is
+      experimental and may fail; the app detects it and warns you.</div>
+
+    <section>
+      <h2>Install in three steps <small>No GitHub knowledge needed</small></h2>
+      <ol class="steps">
+        <li><b>Download the APK</b> with the button above, on your phone. If the browser asks, choose "Download anyway".</li>
+        <li><b>Open the file</b> from your notifications. If Android asks for permission to install unknown apps, allow it for the browser and tap Install.</li>
+        <li><b>Open Aurebesh Keyboard</b> and follow the two on-screen steps: enable it in Settings and choose it as the current keyboard. To go back to Samsung Keyboard, hold the space bar.</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>What it does</h2>
+      <div class="grid">
+        <div class="card"><img src="../screenshots/barra_estelar.png" alt="Toolbar"><div><h3>A toolbar like Samsung's</h3><p>✦ intelligence at the left; emoji, clipboard and one-handed mode at the right; settings on ?123.</p></div></div>
+        <div class="card"><img src="../screenshots/sugerencias_emoji.png" alt="Suggestions with emoji"><div><h3>Autocorrect with emoji</h3><p>Fixes one or two mistakes, restores accents, completes words, predicts the next one and suggests the emoji for what you type.</p></div></div>
+        <div class="card"><img src="../screenshots/pegar_imagen.png" alt="Paste chip"><div><h3>"Paste" chip</h3><p>Whatever you just copied, including a recent screenshot, is ready to paste and goes away as soon as you type.</p></div></div>
+        <div class="card"><img src="../screenshots/emojis_busqueda.png" alt="Emoji search"><div><h3>Emoji with search</h3><p>Official Unicode groups and subgroups, recents and typo-tolerant search in Spanish and English.</p></div></div>
+        <div class="card"><img src="../screenshots/portapapeles_estelar.png" alt="Clipboard"><div><h3>Clipboard with images</h3><p>History of text and images; paste only the number, the email or the link with one tap.</p></div></div>
+        <div class="card"><img src="../screenshots/ia_acciones.png" alt="Intelligence panel"><div><h3>✦ Intelligence</h3><p>Spelling, writing style with tones, summary, bullets, table and composer, with a model on your phone or your own server.</p></div></div>
+        <div class="card"><img src="../screenshots/dividido_fold.png" alt="Split keyboard"><div><h3>Split for the Galaxy Fold</h3><p>Two halves with a central gap and two space bars when the screen is unfolded; also as an option.</p></div></div>
+        <div class="card"><img src="../screenshots/simbolos_estelar.png" alt="Symbols like Samsung"><div><h3>?123 like Samsung Keyboard</h3><p>Same symbol layout; the 2/2 page adds Aurebesh digraphs, ¿ ¡ « » and more symbols.</p></div></div>
+        <div class="card"><img src="../promo/out/02_cinco_temas.png" alt="Five themes"><div><h3>Five themes, three languages</h3><p>Stellar, Night, Datapad, Imperial and Sand. Spanish, English and German (QWERTZ), with glide typing in all of them.</p></div></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Compared with Samsung Keyboard</h2>
+      <table>
+        <tr><th>Feature</th><th>Samsung Keyboard</th><th>Aurebesh Keyboard 1.9</th></tr>
+        <tr><td>Galaxy AI / Advanced intelligence</td><td>Yes</td><td>Local intelligence or your own server</td></tr>
+        <tr><td>Glide typing</td><td>Yes</td><td>Yes</td></tr>
+        <tr><td>Emoji</td><td>Yes</td><td>Yes, with search and suggestions</td></tr>
+        <tr><td>Clipboard history</td><td>Yes</td><td>Yes, text and images</td></tr>
+        <tr><td>Screenshot suggestions</td><td>Yes</td><td>Yes (optional photos permission)</td></tr>
+        <tr><td>One-handed mode</td><td>Yes</td><td>Yes</td></tr>
+        <tr><td>Split keyboard (Fold)</td><td>Yes</td><td>Yes</td></tr>
+        <tr><td>Floating keyboard</td><td>Yes</td><td>No</td></tr>
+        <tr><td>Voice dictation</td><td>Yes</td><td>No</td></tr>
+        <tr><td>Aurebesh alphabet</td><td>No</td><td>Yes</td></tr>
+      </table>
+    </section>
+
+    <section class="faq">
+      <h2>FAQ</h2>
+      <details open><summary>Does it collect data? Does it use the internet?</summary><p>It collects nothing: no analytics, no logs, no accounts. The internet is used only for two things you start yourself: downloading an intelligence model or talking to your own server. The clipboard history, the words and word pairs it learns, the models and the custom sound stay on the phone and can be deleted from Settings. Android backup is disabled for the app.</p></details>
+      <details><summary>How does the intelligence work offline?</summary><p>A pure-Java engine runs a small open-weights model (by default Qwen2.5-0.5B-Instruct, about 350 MB, Apache-2.0) inside the phone. It is downloaded from Hugging Face only when you tap Download in Settings › Intelligence, or you import a GGUF file. It is slow: a few tokens per second, a paragraph can take 20 to 60 seconds. For speed, point it at an OpenAI-compatible server on your computer (Ollama, LM Studio, llama.cpp). The engine was verified numerically against a reference implementation, but not yet with a real model on a phone: treat it as experimental.</p></details>
+      <details><summary>Samsung only?</summary><p>It was built and tested on Samsung Galaxy with One UI 9.0. It should install on any Android 8.0 or newer, but outside that environment it may fail and the app shows a warning.</p></details>
+      <details><summary>What about Galaxy AI?</summary><p>Galaxy AI is exclusive to Samsung Keyboard and cannot be embedded in other keyboards. It stays available in Android's text-selection menu while you use Aurebesh Keyboard. The ✦ panel offers the same actions with a local model or your server instead.</p></details>
+      <details><summary>Why does it ask for the photos permission?</summary><p>Only if you turn on "Suggest screenshots": it reads just the Screenshots folder to offer the latest capture as a "Paste" chip. You can leave it off forever.</p></details>
+      <details><summary>Is it open source?</summary><p>Yes: all the code, the data-building tools and the tests are on <a href="https://github.com/JonathanCruze/teclado-aurebesh-samsung-oneui9">GitHub</a>. The Aurebesh font is by SilvinoR (OFL 1.1), the word lists come from FrequencyWords (MIT), the bigrams from open corpora (CC BY-SA 4.0) and the emoji from Unicode and CLDR.</p></details>
+    </section>
+  </div>
+
+  <footer>
+    Teclado Aurebesh · <a href="https://github.com/JonathanCruze/teclado-aurebesh-samsung-oneui9">GitHub</a> ·
+    Star Wars y Aurebesh son marcas de Lucasfilm Ltd. / Disney. Proyecto de aficionado sin afiliación con Lucasfilm, Disney ni Samsung.
+  </footer>
+</div>
+<script>
+  function setLang(l) {
+    document.getElementById('lang-es').classList.toggle('hidden', l !== 'es');
+    document.getElementById('lang-en').classList.toggle('hidden', l !== 'en');
+    document.getElementById('btn-es').setAttribute('aria-pressed', l === 'es');
+    document.getElementById('btn-en').setAttribute('aria-pressed', l === 'en');
+    document.documentElement.lang = l;
+    try { localStorage.setItem('lang', l); } catch (e) {}
+  }
+  try {
+    var saved = localStorage.getItem('lang');
+    if (saved === 'en' || (!saved && (navigator.language || '').toLowerCase().indexOf('es') !== 0)) setLang('en');
+  } catch (e) {}
+</script>
+</body>
+</html>

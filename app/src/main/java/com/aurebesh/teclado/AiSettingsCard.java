@@ -111,20 +111,26 @@ final class AiSettingsCard {
 
             // Motor
             LinearLayout mode = new LinearLayout(a);
-            mode.setOrientation(HORIZONTAL);
-            mode.setGravity(Gravity.CENTER_VERTICAL);
+            mode.setOrientation(VERTICAL);
             mode.setPadding(px(18), px(14), px(18), px(12));
-            mode.addView(text(a.getString(R.string.ai_engine), 15, ink, true), new LinearLayout.LayoutParams(0, WRAP, 1f));
+            mode.addView(text(a.getString(R.string.ai_engine), 15, ink, true), new LinearLayout.LayoutParams(MATCH, WRAP));
             localChip = chip(R.string.ai_engine_local, new OnClickListener() {
                 @Override public void onClick(View v) { AiModels.setMode(a, AiModels.MODE_LOCAL); refresh(); }
             });
             remoteChip = chip(R.string.ai_engine_remote, new OnClickListener() {
                 @Override public void onClick(View v) { switchToRemote(); }
             });
-            LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(WRAP, WRAP);
-            cp.leftMargin = px(6);
-            mode.addView(localChip, cp);
-            mode.addView(remoteChip, cp);
+            localChip.setGravity(Gravity.CENTER);
+            remoteChip.setGravity(Gravity.CENTER);
+            LinearLayout chips = new LinearLayout(a);
+            chips.setOrientation(HORIZONTAL);
+            chips.addView(localChip, new LinearLayout.LayoutParams(0, WRAP, 1f));
+            LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(0, WRAP, 1f);
+            rp.leftMargin = px(8);
+            chips.addView(remoteChip, rp);
+            LinearLayout.LayoutParams cl = new LinearLayout.LayoutParams(MATCH, WRAP);
+            cl.topMargin = px(10);
+            mode.addView(chips, cl);
             addView(mode, new LinearLayout.LayoutParams(MATCH, WRAP));
             addView(dividerLine(), new LinearLayout.LayoutParams(MATCH, Math.max(1, px(1))));
 

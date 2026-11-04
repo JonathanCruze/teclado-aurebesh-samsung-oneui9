@@ -18,7 +18,7 @@
     <string name="ai_action_fix">Ortografía y gramática</string>
     <string name="ai_action_style">Estilo de escritura</string>
     <string name="ai_action_summary">Resumir</string>
-    <string name="ai_action_bullets">Punto de viñeta</string>
+    <string name="ai_action_bullets">Viñetas</string>
     <string name="ai_action_table">Tabla</string>
     <string name="ai_action_compose">Redactor</string>
     <string name="ai_tone_original">Original corregido</string>

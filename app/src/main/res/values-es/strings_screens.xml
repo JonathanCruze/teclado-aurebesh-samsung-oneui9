@@ -2,7 +2,7 @@
 <resources>
     <!-- Ajuste "sugerir pegar la ultima captura de pantalla" -->
     <string name="shots_title">Sugerir pegar la última captura de pantalla</string>
-    <string name="shots_sub">Al abrir el teclado justo después de una captura, aparece como sugerencia. Necesita el permiso de fotos; solo se lee la carpeta Screenshots y nada sale del teléfono.</string>
+    <string name="shots_sub">Al abrir el teclado justo después de una captura, aparece como sugerencia y se guarda una copia en el historial del portapapeles del teclado (se borra desde 📋). Necesita el permiso de fotos; solo se lee la carpeta Screenshots y nada sale del teléfono.</string>
     <string name="shots_partial">Acceso parcial a las fotos: elige «Permitir todo» para detectar capturas nuevas.</string>
     <string name="shots_denied">Permiso de fotos denegado. Actívalo en Ajustes › Aplicaciones › Teclado Aurebesh › Permisos.</string>
 </resources>

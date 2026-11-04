@@ -85,7 +85,7 @@ final class AiRunner {
         @Override public Thread newThread(Runnable r) {
             Thread t = new Thread(r, "ai-runner");
             t.setDaemon(true);
-            t.setPriority(Thread.MIN_PRIORITY + 1);
+            t.setPriority(Thread.NORM_PRIORITY);    // es el trabajador 0 del motor
             return t;
         }
     });
@@ -146,6 +146,7 @@ final class AiRunner {
                 try { engine.close(); } catch (Exception ignored) { }
                 engine = null;
                 engineFile = null;
+                System.gc();                       // libera el mapeo anterior antes de otro modelo
             }
         }
     }
@@ -174,7 +175,7 @@ final class AiRunner {
         exec.execute(new Runnable() {
             @Override public void run() {
                 try {
-                    android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND);
+                    android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_DEFAULT);
                 } catch (Throwable ignored) {
                 }
                 work(req, cb, id, flag, useRemote, watchdog);
@@ -318,7 +319,8 @@ final class AiRunner {
                 engineFile = f.getAbsolutePath();
                 return engine;
             } catch (IOException e) {
-                fail(cb, id, flag, app.getString(R.string.ai_err_model_bad));
+                boolean mapFail = e.getMessage() != null && e.getMessage().startsWith("MAPFAIL");
+                fail(cb, id, flag, app.getString(mapFail ? R.string.ai_err_memory : R.string.ai_err_model_bad));
             } catch (OutOfMemoryError e) {
                 fail(cb, id, flag, app.getString(R.string.ai_err_memory));
             }

@@ -33,13 +33,13 @@
     <string name="opt_strip">Übersetzungsleiste</string>
     <string name="opt_strip_sub">Zeigt über den Tasten, was du in Aurebesh schreibst</string>
     <string name="opt_toolbar">Symbolleiste</string>
-    <string name="opt_toolbar_sub">😊 Emojis und 📋 Zwischenablage rechts neben den Vorschlägen</string>
+    <string name="opt_toolbar_sub">✦ Intelligenz links; 😊 Emojis, 📋 Zwischenablage und Einhandmodus rechts (⚙ Einstellungen in ?123)</string>
 
     <string name="typing">Eingabe</string>
     <string name="opt_digraphs">Digraphen</string>
     <string name="opt_digraphs_sub">Ein Zeichen für ch, sh, th, ae, eo, kh, ng und oo</string>
     <string name="opt_numbers">Zahlenreihe</string>
-    <string name="opt_numbers_sub">Ohne sie ist die Tastatur niedriger und die Zahlen liegen auf langem Drücken von q…p</string>
+    <string name="opt_numbers_sub">Ohne sie ist die Tastatur niedriger und die Zahlen liegen auf langem Drücken von q⁠…⁠p</string>
     <string name="opt_sound">Ton beim Tippen</string>
     <string name="opt_height">Tastaturgröße</string>
     <string name="size_compact">Kompakt</string>
@@ -57,10 +57,10 @@
     <string name="gestures">Gesten</string>
     <string name="gesture_accent">Vokal gedrückt halten</string>
     <string name="gesture_accent_result">Akzentmenü: á à ä â…; wischen und loslassen</string>
-    <string name="gesture_enye">n gedrückt halten</string>
-    <string name="gesture_enye_result">ñ</string>
+    <string name="gesture_enye">s gedrückt halten</string>
+    <string name="gesture_enye_result">ß (ü, ö und ä haben eigene Tasten; auf der spanischen Tastatur gibt n die ñ)</string>
     <string name="gesture_marks">, oder . gedrückt halten</string>
-    <string name="gesture_marks_result">! und ?  (in ?123 ergeben ? und ! bei langem Drücken ¿ und ¡)</string>
+    <string name="gesture_marks_result">; und ?  (in ?123 ergeben ? und ! bei langem Drücken ¿ und ¡)</string>
     <string name="gesture_caps">Umschalttaste doppelt tippen</string>
     <string name="gesture_caps_result">Feststelltaste</string>
     <string name="gesture_symbols">"?123-Taste"</string>
@@ -92,9 +92,9 @@
     <string name="sound_current">Aktuell: %1$s</string>
     <string name="sound_error">Diese Datei konnte nicht verwendet werden</string>
     <string name="opt_learn">Neue Wörter lernen</string>
-    <string name="opt_learn_sub">Wörter, die du behältst, werden auf diesem Telefon gespeichert und beim nächsten Mal vorgeschlagen</string>
-    <string name="learn_clear">Gelernte Wörter vergessen</string>
-    <string name="learn_cleared">Gelernte Wörter vergessen</string>
+    <string name="opt_learn_sub">Wörter, die du behältst, und Wortpaare, die du tippst, werden auf diesem Telefon gespeichert und beim nächsten Mal vorgeschlagen</string>
+    <string name="learn_clear">Gelernte Wörter und Paare vergessen</string>
+    <string name="learn_cleared">Gelernte Wörter und Paare wurden vergessen</string>
     <string name="opt_double_space">Punkt durch doppeltes Leerzeichen</string>
     <string name="opt_double_space_sub">Tippe die Leertaste zweimal, um einen Satz zu beenden</string>
     <string name="paste">Einfügen</string>
@@ -110,7 +110,7 @@
     <string name="compat_body">Die Aurebesh-Tastatur ist für Samsung-Galaxy-Telefone mit One UI 9.0 (Android 17) optimiert und getestet. Dieses Gerät: %1$s. Auf anderen Android-Versionen kann es zu Fehlern kommen.</string>
     <string name="footer_compat_ok">Optimiert für Samsung One UI 9.0 · dieses Telefon: %1$s</string>
     <string name="footer_compat_other">Optimiert für Samsung One UI 9.0 · dieses Telefon: %1$s (experimentell)</string>
-    <string name="credits">Aurebesh-Schrift © 2022 SilvinoR, SIL Open Font License 1.1. Wortlisten: FrequencyWords von Hermit Dave (MIT), auf Basis von OpenSubtitles. Star Wars und Aurebesh sind Marken von Lucasfilm Ltd.; Fanprojekt, nicht verbunden.</string>
+    <string name="credits">Aurebesh-Schrift © 2022 SilvinoR, SIL Open Font License 1.1. Wortlisten: FrequencyWords von Hermit Dave (MIT), auf Basis von OpenSubtitles. Vorhersagetabellen (Bigramme) CC BY-SA 4.0: aus Sätzen von Mozilla Common Voice (CC0 / Wikipedia-Auszüge CC BY-SA 3.0), Universal-Dependencies-Baumbanken (CC BY-SA 4.0 / CC BY 4.0), Europarl (NLTK), SQuAD-es (MIT) und Google Books Ngram (CC BY 3.0) über symspellpy und orgtre; siehe tools/dict/FUENTES-bigramas.md. Star Wars und Aurebesh sind Marken von Lucasfilm Ltd.; Fanprojekt, nicht verbunden.</string>
 
-    <string name="footer">Version %1$s. Kein Internetzugriff. Nur der Verlauf der Zwischenablage und die Wörter, die du behalten möchtest, werden gespeichert, und zwar auf diesem Telefon.</string>
+    <string name="footer">Version %1$s. Das Internet wird nur genutzt, um auf Wunsch ein KI-Modell herunterzuladen oder für deinen eigenen Server. Nur der Verlauf der Zwischenablage, die Wörter, die du behalten möchtest, und heruntergeladene Modelle werden gespeichert, und zwar auf diesem Telefon.</string>
 </resources>

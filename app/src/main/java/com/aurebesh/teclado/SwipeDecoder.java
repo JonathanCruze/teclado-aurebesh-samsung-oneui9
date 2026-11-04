@@ -38,12 +38,12 @@ final class SwipeDecoder {
     static final float REJECT_SCORE = 24f;
     static final float REJECT_LOC = 1.2f;
     /** Pausa minima (ms) y desplazamiento maximo (anchos de tecla) que insinuan una letra doble. */
-    static final long DWELL_MS = 80;
-    static final float DWELL_MOVE = 0.3f;
+    static final long DWELL_MS = 150;
+    static final float DWELL_MOVE = 0.25f;
     /** La pausa se atribuye a la tecla cuyo centro queda a menos de esto (anchos de tecla). */
     static final float DWELL_RADIUS = 0.6f;
     /** Ajuste de puntuacion por pausa: a favor de la letra doble, en contra de la simple. */
-    static final float DWELL_BONUS = 1.5f;
+    static final float DWELL_BONUS = 2.0f;
     /** Lado del bucle con el que se dibuja una letra doble en la plantilla (fraccion de la tecla). */
     static final float LOOP = 0.25f;
     /** Resultados devueltos (el primero se escribe; el resto van a la barra). */
@@ -64,10 +64,12 @@ final class SwipeDecoder {
         final char[] letter;
         final float[] cx, cy;
         final float keyW, keyH;
+        final float keyY;        // unidad vertical: la menor de las dos (en vertical, igual que el ancho; en apaisado, el alto)
         private final int[] index = new int[512];
 
         Geometry(char[] letter, float[] cx, float[] cy, float keyW, float keyH) {
             this.letter = letter; this.cx = cx; this.cy = cy; this.keyW = keyW; this.keyH = keyH;
+            this.keyY = Math.min(keyW, keyH);
             java.util.Arrays.fill(index, -1);
             for (int i = 0; i < letter.length; i++) if (letter[i] < index.length) index[letter[i]] = i;
         }
@@ -80,7 +82,7 @@ final class SwipeDecoder {
             int best = -1;
             float bd = Float.MAX_VALUE;
             for (int i = 0; i < letter.length; i++) {
-                float dx = cx[i] - x, dy = cy[i] - y, d = dx * dx + dy * dy;
+                float dx = (cx[i] - x) / keyW, dy = (cy[i] - y) / keyY, d = dx * dx + dy * dy;   // en teclas
                 if (d < bd) { bd = d; best = i; }
             }
             return best;
@@ -136,16 +138,28 @@ final class SwipeDecoder {
             int len = plain.length();
             if (len < 2 || len > MAX_WORD) continue;
             boolean ok = true;
-            int dbl = 0;
+            int dbl = 0, m = 0;
             for (int i = 0; i < len && ok; i++) {
-                int k = geo.indexOf(plain.charAt(i));
-                if (k < 0) ok = false;
+                char ch = plain.charAt(i);
+                if (ch == '\u00df') {                             // eszett sin tecla propia: se desliza como "ss"
+                    int k = geo.indexOf('s');
+                    if (k < 0 || m + 2 > MAX_WORD) { ok = false; break; }
+                    tmpSeq[m++] = (byte) k;
+                    tmpSeq[m++] = (byte) k;
+                    dbl++;
+                    continue;
+                }
+                if (ch == '\u00fc' && geo.indexOf('\u00fc') < 0) ch = 'u';
+                int k = geo.indexOf(ch);
+                if (k < 0 || m >= MAX_WORD) ok = false;
                 else {
-                    tmpSeq[i] = (byte) k;
-                    if (i > 0 && tmpSeq[i - 1] == k) dbl++;
+                    tmpSeq[m] = (byte) k;
+                    if (m > 0 && tmpSeq[m - 1] == k) dbl++;
+                    m++;
                 }
             }
             if (!ok) continue;
+            len = m;
             if (pos + len > buf.length) buf = java.util.Arrays.copyOf(buf, buf.length * 2);
             System.arraycopy(tmpSeq, 0, buf, pos, len);
             pos += len;
@@ -235,13 +249,22 @@ final class SwipeDecoder {
                 int wl = plain.length();
                 if (wl < 2 || wl > MAX_WORD || wl > maxLetters || dict.rankOf(p) >= 0) continue;
                 boolean ok = true;
-                int dbl = 0;
+                int dbl = 0, m = 0;
                 for (int i = 0; i < wl && ok; i++) {
-                    int k = geo.indexOf(plain.charAt(i));
-                    if (k < 0) ok = false;
-                    else { tmpSeq[i] = (byte) k; if (i > 0 && tmpSeq[i - 1] == k) dbl++; }
+                    char ch = plain.charAt(i);
+                    if (ch == '\u00df') {
+                        int k = geo.indexOf('s');
+                        if (k < 0 || m + 2 > MAX_WORD) { ok = false; break; }
+                        tmpSeq[m++] = (byte) k; tmpSeq[m++] = (byte) k; dbl++;
+                        continue;
+                    }
+                    if (ch == '\u00fc' && geo.indexOf('\u00fc') < 0) ch = 'u';
+                    int k = geo.indexOf(ch);
+                    if (k < 0 || m >= MAX_WORD || m >= maxLetters) ok = false;
+                    else { tmpSeq[m] = (byte) k; if (m > 0 && tmpSeq[m - 1] == k) dbl++; m++; }
                 }
-                if (!ok || !contains(startKeys, ns, tmpSeq[0]) || !contains(endKeys, ne, tmpSeq[wl - 1])) continue;
+                wl = m;
+                if (!ok || wl < 2 || !contains(startKeys, ns, tmpSeq[0]) || !contains(endKeys, ne, tmpSeq[wl - 1])) continue;
                 float il = polylineLength(tmpSeq, wl);
                 if (Math.abs(il - len) > lenTol && !(dbl > 0 && Math.abs(il + dbl * loopLen - len) <= lenTol)) continue;
                 float s = scoreSeq(tmpSeq, 0, wl, dbl, dwells) + pLog;
@@ -304,9 +327,10 @@ final class SwipeDecoder {
     /** Teclas cuyo centro queda a menos de {@code radius} del punto; si ninguna, la mas cercana. */
     private int keysNear(float x, float y, float radius, int[] out) {
         int n = 0;
-        float r2 = radius * radius;
+        float rk = radius / geo.keyW;                       // radio en teclas: anisotropo (ancho y alto distintos)
+        float r2 = rk * rk;
         for (int i = 0; i < keys && n < out.length; i++) {
-            float dx = geo.cx[i] - x, dy = geo.cy[i] - y;
+            float dx = (geo.cx[i] - x) / geo.keyW, dy = (geo.cy[i] - y) / geo.keyY;
             if (dx * dx + dy * dy <= r2) out[n++] = i;
         }
         if (n == 0) { out[0] = geo.nearest(x, y); n = 1; }
@@ -319,27 +343,33 @@ final class SwipeDecoder {
      */
     private int findDwells(float[] x, float[] y, long[] t, int n, float keyW, int[] out) {
         int count = 0;
-        float maxMove2 = DWELL_MOVE * keyW * DWELL_MOVE * keyW;
-        float end2 = END_RADIUS * keyW * END_RADIUS * keyW;
+        float maxMove2 = DWELL_MOVE * DWELL_MOVE;            // distancias al cuadrado en teclas
+        float end2 = END_RADIUS * END_RADIUS;
         int i = 0;
         while (i < n - 1 && count < out.length) {
             int j = i + 1;
             boolean still = true;
             while (j < n && t[j] - t[i] < DWELL_MS) {
-                if (dist2(x[i], y[i], x[j], y[j]) > maxMove2) { still = false; break; }
+                if (keyDist2(x[i], y[i], x[j], y[j]) > maxMove2) { still = false; break; }
                 j++;
             }
-            if (!still || j >= n || dist2(x[i], y[i], x[j], y[j]) > maxMove2) { i++; continue; }
-            while (j + 1 < n && dist2(x[i], y[i], x[j + 1], y[j + 1]) <= maxMove2) j++;
+            if (!still || j >= n || keyDist2(x[i], y[i], x[j], y[j]) > maxMove2) { i++; continue; }
+            while (j + 1 < n && keyDist2(x[i], y[i], x[j + 1], y[j + 1]) <= maxMove2) j++;
             float mx = (x[i] + x[j]) / 2f, my = (y[i] + y[j]) / 2f;
-            if (dist2(mx, my, x[0], y[0]) > end2 && dist2(mx, my, x[n - 1], y[n - 1]) > end2) {
+            if (keyDist2(mx, my, x[0], y[0]) > end2 && keyDist2(mx, my, x[n - 1], y[n - 1]) > end2) {
                 int k = geo.nearest(mx, my);
-                if (k >= 0 && dist2(mx, my, geo.cx[k], geo.cy[k]) <= DWELL_RADIUS * keyW * DWELL_RADIUS * keyW
+                if (k >= 0 && keyDist2(mx, my, geo.cx[k], geo.cy[k]) <= DWELL_RADIUS * DWELL_RADIUS
                         && !contains(out, count, k)) out[count++] = k;
             }
             i = j + 1;
         }
         return count;
+    }
+
+    /** Distancia al cuadrado en unidades de tecla (ancho y alto por separado). */
+    private float keyDist2(float ax, float ay, float bx, float by) {
+        float dx = (ax - bx) / geo.keyW, dy = (ay - by) / geo.keyY;
+        return dx * dx + dy * dy;
     }
 
     private static float dist2(float ax, float ay, float bx, float by) {
@@ -392,8 +422,8 @@ final class SwipeDecoder {
         float loc = 0, wsum = 0, shape = 0;
         for (int i = 0; i < N; i++) {
             float w = (i < 2 || i >= N - 2) ? END_WEIGHT : 1f;
-            float dx = ux[i] - rx[i], dy = uy[i] - ry[i];
-            float d = (float) Math.sqrt(dx * dx + dy * dy) / keyW - TUNNEL;
+            float ex = (ux[i] - rx[i]) / keyW, ey = (uy[i] - ry[i]) / geo.keyY;   // en teclas, cada eje con su tamano
+            float d = (float) Math.sqrt(ex * ex + ey * ey) - TUNNEL;
             if (d > 0) loc += w * d;
             wsum += w;
             float sx = nux[i] - ntx[i], sy = nuy[i] - nty[i];

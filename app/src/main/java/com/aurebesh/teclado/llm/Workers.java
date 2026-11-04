@@ -43,6 +43,7 @@ final class Workers {
             }, "llm-worker-" + worker);
             t.setDaemon(true);
             threads[i] = t;
+            t.setPriority(Thread.NORM_PRIORITY);   // nice 0: los nucleos grandes, no el cpuset de fondo
             t.start();
         }
     }

@@ -33,13 +33,13 @@
     <string name="opt_strip">Barra de traducción</string>
     <string name="opt_strip_sub">Muestra lo escrito en Aurebesh sobre las teclas</string>
     <string name="opt_toolbar">Barra de herramientas</string>
-    <string name="opt_toolbar_sub">😊 emojis y 📋 portapapeles a la derecha de las sugerencias</string>
+    <string name="opt_toolbar_sub">✦ inteligencia a la izquierda; 😊 emojis, 📋 portapapeles y modo a una mano a la derecha (⚙ ajustes en ?123)</string>
 
     <string name="typing">Escritura</string>
     <string name="opt_digraphs">Dígrafos</string>
     <string name="opt_digraphs_sub">Un solo glifo para ch, sh, th, ae, eo, kh, ng y oo</string>
     <string name="opt_numbers">Fila de números</string>
-    <string name="opt_numbers_sub">Sin ella el teclado es más bajo y los números pasan a pulsación larga en q…p</string>
+    <string name="opt_numbers_sub">Sin ella el teclado es más bajo y los números pasan a pulsación larga en q⁠…⁠p</string>
     <string name="opt_sound">Sonido al pulsar</string>
     <string name="opt_height">Tamaño del teclado</string>
     <string name="size_compact">Compacto</string>
@@ -47,11 +47,11 @@
     <string name="size_large">Grande</string>
     <string name="size_xlarge">Extra</string>
     <string name="opt_hand">Modo a una mano</string>
-    <string name="hand_none">No</string>
+    <string name="hand_none">Desactivado</string>
     <string name="hand_left">Izquierda</string>
     <string name="hand_right">Derecha</string>
     <string name="opt_autocorrect">Autocorrección</string>
-    <string name="opt_autocorrect_sub">Diccionarios integrados en español e inglés, sin internet: corrige uno o dos errores, restaura tildes y completa palabras. Retroceso deshace una corrección.</string>
+    <string name="opt_autocorrect_sub">Diccionarios integrados en español, inglés y alemán, sin internet: corrige uno o dos errores, restaura tildes y completa palabras. Retroceso deshace una corrección.</string>
     <string name="opt_vibrate">Vibración al pulsar</string>
 
     <string name="gestures">Gestos</string>
@@ -66,7 +66,7 @@
     <string name="gesture_marks">Mantener , o .</string>
     <string name="gesture_marks_result">¿ y ?  (en ?123, mantener ? y ! da ¿ y ¡)</string>
     <string name="gesture_switch">Globo</string>
-    <string name="gesture_switch_result">Siguiente idioma Aurebesh (aparece con dos idiomas activos)</string>
+    <string name="gesture_switch_result">Siguiente idioma Aurebesh (aparece con más de un idioma activo)</string>
     <string name="gesture_picker">Mantener el espacio</string>
     <string name="gesture_picker_result">Elegir otro teclado (Samsung, etc.)</string>
     <string name="gesture_emoji">😊 Emojis</string>
@@ -88,13 +88,13 @@
     <string name="opt_custom_sound">Sonido personalizado</string>
     <string name="opt_custom_sound_sub">Un audio corto (unos 3 s o menos); por defecto, el clic del sistema</string>
     <string name="sound_choose">Elegir un sonido…</string>
-    <string name="sound_default">Usar el predeterminado</string>
+    <string name="sound_default">Predeterminado</string>
     <string name="sound_current">Actual: %1$s</string>
     <string name="sound_error">No se pudo usar ese archivo</string>
     <string name="opt_learn">Aprender palabras nuevas</string>
-    <string name="opt_learn_sub">Las palabras que conservas se recuerdan en este teléfono y se sugieren después</string>
-    <string name="learn_clear">Olvidar palabras aprendidas</string>
-    <string name="learn_cleared">Palabras aprendidas olvidadas</string>
+    <string name="opt_learn_sub">Las palabras que conservas y los pares de palabras que escribes se recuerdan en este teléfono y se sugieren después</string>
+    <string name="learn_clear">Olvidar palabras y pares aprendidos</string>
+    <string name="learn_cleared">Palabras y pares aprendidos olvidados</string>
     <string name="opt_double_space">Punto con doble espacio</string>
     <string name="opt_double_space_sub">Toca dos veces el espacio para terminar la frase</string>
     <string name="paste">Pegar</string>
@@ -110,7 +110,7 @@
     <string name="compat_body">Teclado Aurebesh está optimizado y probado en Samsung Galaxy con One UI 9.0 (Android 17). Este dispositivo: %1$s. Otras versiones de Android pueden fallar.</string>
     <string name="footer_compat_ok">Optimizado para Samsung One UI 9.0 · este teléfono: %1$s</string>
     <string name="footer_compat_other">Optimizado para Samsung One UI 9.0 · este teléfono: %1$s (experimental)</string>
-    <string name="credits">Fuente Aurebesh © 2022 SilvinoR, SIL Open Font License 1.1. Listas de palabras: FrequencyWords de Hermit Dave (MIT), sobre OpenSubtitles. Star Wars y Aurebesh son marcas de Lucasfilm Ltd.; proyecto de aficionado sin afiliación.</string>
+    <string name="credits">Fuente Aurebesh © 2022 SilvinoR, SIL Open Font License 1.1. Listas de palabras: FrequencyWords de Hermit Dave (MIT), sobre OpenSubtitles. Tablas de predicción (bigramas) CC BY-SA 4.0: contienen frases de Mozilla Common Voice (CC0 / extractos de Wikipedia CC BY-SA 3.0), treebanks Universal Dependencies (CC BY-SA 4.0 / CC BY 4.0), Europarl (NLTK), SQuAD-es (MIT) y Google Books Ngram (CC BY 3.0) vía symspellpy y orgtre; ver tools/dict/FUENTES-bigramas.md. Star Wars y Aurebesh son marcas de Lucasfilm Ltd.; proyecto de aficionado sin afiliación.</string>
 
-    <string name="footer">Versión %1$s. No usa internet. Solo se guardan en este teléfono el historial del portapapeles y las palabras que decides conservar.</string>
+    <string name="footer">Versión %1$s. Internet solo se usa para descargar un modelo de IA cuando tú lo pides o para tu propio servidor. Solo se guardan en este teléfono el historial del portapapeles, las palabras que decides conservar y los modelos que descargas.</string>
 </resources>

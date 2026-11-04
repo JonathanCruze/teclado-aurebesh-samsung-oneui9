@@ -31,12 +31,20 @@ final class Sampler {
      */
     int sample(float[] logits, boolean[] hidden, int[] history, int histLen, float temperature, float topP,
                float repeatPenalty) {
+        return sample(logits, hidden, null, history, histLen, temperature, topP, repeatPenalty);
+    }
+
+    /** Igual, sin penalizar los ids de fin de generacion ({@code eog}) para no alargar la respuesta. */
+    int sample(float[] logits, boolean[] hidden, boolean[] eog, int[] history, int histLen, float temperature,
+               float topP, float repeatPenalty) {
         int n = logits.length;
         if (repeatPenalty != 1f && repeatPenalty > 0f) {
             int from = Math.max(0, histLen - REPEAT_WINDOW);
             for (int i = from; i < histLen; i++) {
                 int id = history[i];
                 if (id < 0 || id >= n) continue;
+                if (hidden != null && hidden[id]) continue;
+                if (eog != null && eog[id]) continue;
                 float l = logits[id];
                 logits[id] = l > 0 ? l / repeatPenalty : l * repeatPenalty;
             }

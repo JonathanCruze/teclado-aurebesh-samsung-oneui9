@@ -316,12 +316,21 @@ final class Gguf implements Closeable {
         }
     }
 
+    /** Mapea un tramo del archivo; sin espacio de direcciones (procesos de 32 bits) avisa con MAPFAIL. */
+    private MappedByteBuffer mapSegment(long offset, long len) throws IOException {
+        try {
+            return channel.map(FileChannel.MapMode.READ_ONLY, offset, len);
+        } catch (IOException e) {
+            throw new IOException("MAPFAIL: sin memoria de direcciones para mapear el modelo", e);
+        }
+    }
+
     private void map() throws IOException {
         raf = new RandomAccessFile(file, "r");
         channel = raf.getChannel();
         long dataLen = fileSize - dataOffset;
         if (dataLen <= Integer.MAX_VALUE) {
-            segments = new MappedByteBuffer[]{channel.map(FileChannel.MapMode.READ_ONLY, dataOffset, dataLen)};
+            segments = new MappedByteBuffer[]{mapSegment(dataOffset, dataLen)};
             for (Tensor t : tensorList) {
                 t.segment = 0;
                 t.segmentOffset = (int) t.offset;
@@ -331,7 +340,7 @@ final class Gguf implements Closeable {
             for (int i = 0; i < tensorList.size(); i++) {
                 Tensor t = tensorList.get(i);
                 if (t.nbytes > Integer.MAX_VALUE) throw new IOException("Tensor de mas de 2 GB: " + t.name);
-                segments[i] = channel.map(FileChannel.MapMode.READ_ONLY, dataOffset + t.offset, t.nbytes);
+                segments[i] = mapSegment(dataOffset + t.offset, t.nbytes);
                 t.segment = i;
                 t.segmentOffset = 0;
             }

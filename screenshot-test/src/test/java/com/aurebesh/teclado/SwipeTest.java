@@ -358,7 +358,7 @@ public class SwipeTest {
         assertEquals("hola", rec.glides.get(rec.glides.size() - 1));
         assertEquals("", rec.typed.toString());
 
-        // Un tiron corto (menos de 1.2 teclas) es un toque en la tecla inicial
+        // Un tiron corto (menos de 1.2 teclas) escribe la tecla bajo el dedo al soltar (h -> j), como el deslizado lento
         rec.typed.setLength(0);
         before = rec.glides.size();
         t = SystemClock.uptimeMillis();
@@ -366,7 +366,7 @@ public class SwipeTest {
         event(kb, MotionEvent.ACTION_MOVE, h.rect.centerX() + h.rect.width() * 1.0f, h.rect.centerY(), t, t + 40);
         event(kb, MotionEvent.ACTION_UP, h.rect.centerX() + h.rect.width() * 1.0f, h.rect.centerY(), t, t + 60);
         awaitGlide(kb);
-        assertEquals("h", rec.typed.toString());
+        assertEquals("j", rec.typed.toString());
         assertEquals(before, rec.glides.size());
 
         // Deslizar despacio a la tecla vecina sigue corrigiendo el toque (h -> j)

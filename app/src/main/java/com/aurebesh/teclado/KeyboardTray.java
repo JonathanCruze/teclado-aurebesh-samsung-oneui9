@@ -226,11 +226,15 @@ final class KeyboardTray extends LinearLayout {
         if (phone != null || email != null || link != null) {
             LinearLayout chips = new LinearLayout(getContext());
             chips.setOrientation(HORIZONTAL);
+            chips.setPadding(0, 0, px(12), 0);
+            chips.setClipToPadding(false);
             if (phone != null) chips.addView(chip(entry, R.string.clip_only_number, phone), chipParams());
             if (email != null) chips.addView(chip(entry, R.string.clip_only_email, email), chipParams());
             if (link != null) chips.addView(chip(entry, R.string.clip_only_link, link), chipParams());
             HorizontalScrollView scroll = new HorizontalScrollView(getContext());
             scroll.setHorizontalScrollBarEnabled(false);
+            scroll.setHorizontalFadingEdgeEnabled(true);
+            scroll.setFadingEdgeLength(px(24));
             scroll.addView(chips, new ViewGroup.LayoutParams(WRAP, WRAP));
             LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(MATCH, WRAP);
             sp.topMargin = px(6);

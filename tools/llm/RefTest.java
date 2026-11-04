@@ -90,9 +90,13 @@ public final class RefTest {
             case ChatTemplate.CHATML_QWEN3:
                 expectedPrompt = "<|im_start|>user\nhola<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n";
                 break;
-            case ChatTemplate.CHATML:
-                expectedPrompt = "<|im_start|>system\n" + engine.template().defaultSystem + "<|im_end|>\n<|im_start|>user\nhola<|im_end|>\n<|im_start|>assistant\n";
+            case ChatTemplate.CHATML: {
+                // Solo las plantillas que traen su propio sistema (Qwen2.5, SmolLM) lo inyectan; el resto, ninguno.
+                String sys = engine.template().defaultSystem == null ? ""
+                        : "<|im_start|>system\n" + engine.template().defaultSystem + "<|im_end|>\n";
+                expectedPrompt = sys + "<|im_start|>user\nhola<|im_end|>\n<|im_start|>assistant\n";
                 break;
+            }
             default:
                 expectedPrompt = prompt;
         }

@@ -43,7 +43,7 @@ final class Bigrams {
     private static final double USER_BASE = 2.0;             // bonificacion de una pareja aprendida una vez
     private static final double USER_STEP = 0.1;             // y cuanto crece con cada repeticion
 
-    private static final Map<String, Bigrams> CACHE = new HashMap<>();
+    private static final Map<String, Bigrams> CACHE = new java.util.concurrent.ConcurrentHashMap<>();   // lectura sin bloqueo
 
     /** Parejas aprendidas, compartidas por todos los idiomas: "previa palabra" -> veces, la mas antigua primero. */
     private static final Object USER_LOCK = new Object();
@@ -84,7 +84,7 @@ final class Bigrams {
     }
 
     /** Tabla ya cargada, o null (para no bloquear el hilo principal con la carga). */
-    static synchronized Bigrams cached(String lang) {
+    static Bigrams cached(String lang) {
         return CACHE.get(normalizeLang(lang));
     }
 

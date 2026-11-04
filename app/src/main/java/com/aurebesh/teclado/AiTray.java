@@ -232,7 +232,7 @@ final class AiTray extends LinearLayout {
         // Tonos
         tonesScroll = scroll(c);
         tones = column(c);
-        tones.setPadding(px(10), px(2), px(10), px(8));
+        tones.setPadding(px(10), px(2), px(10), px(16));
         tonesScroll.addView(tones, new ViewGroup.LayoutParams(MATCH, WRAP));
         content.addView(tonesScroll, new FrameLayout.LayoutParams(MATCH, MATCH));
 
@@ -695,8 +695,8 @@ final class AiTray extends LinearLayout {
             }
         });
         styleChip(t);
-        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(MATCH, px(40));
-        p.topMargin = px(3);
+        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(MATCH, px(34));
+        p.topMargin = px(2);
         tones.addView(t, p);
         toneChips.add(t);
     }

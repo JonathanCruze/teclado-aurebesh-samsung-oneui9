@@ -44,7 +44,13 @@ done
 
 for v in qwen2 llama-bpe; do
   F="$VOCABS/ggml-vocab-$v.gguf"
-  if [ ! -f "$F" ]; then echo "## Tokenizador $v: falta $F (se omite)"; continue; fi
+  if [ ! -f "$F" ]; then
+    mkdir -p "$VOCABS"
+    for ext in "" .inp .out; do
+      curl -fsSL -o "$F$ext" "https://raw.githubusercontent.com/ggml-org/llama.cpp/master/models/ggml-vocab-$v.gguf$ext" \
+        || { echo "## Tokenizador $v: falta $F y no se pudo descargar"; STATUS=1; rm -f "$F$ext"; continue 2; }
+    done
+  fi
   echo "## Tokenizador: $v"
   "$PYTHON" tools/llm/ref_tokenize.py "$F" tools/llm/sentences.txt "$SCRATCH/tok-$v.ref.txt"
   FIX=""

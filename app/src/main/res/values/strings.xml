@@ -41,13 +41,13 @@
     <string name="opt_strip">Translation bar</string>
     <string name="opt_strip_sub">Shows what you type in Aurebesh above the keys</string>
     <string name="opt_toolbar">Toolbar</string>
-    <string name="opt_toolbar_sub">😊 emoji and 📋 clipboard to the right of the suggestions</string>
+    <string name="opt_toolbar_sub">✦ intelligence at the left; 😊 emoji, 📋 clipboard and one-handed mode at the right (⚙ settings in ?123)</string>
 
     <string name="typing">Typing</string>
     <string name="opt_digraphs">Digraphs</string>
     <string name="opt_digraphs_sub">One glyph for ch, sh, th, ae, eo, kh, ng and oo</string>
     <string name="opt_numbers">Number row</string>
-    <string name="opt_numbers_sub">Without it the keyboard is shorter and numbers move to long-press on q…p</string>
+    <string name="opt_numbers_sub">Without it the keyboard is shorter and numbers move to long-press on q⁠…⁠p</string>
     <string name="opt_sound">Sound on keypress</string>
     <string name="opt_height">Keyboard size</string>
     <string name="size_compact">Compact</string>
@@ -59,7 +59,7 @@
     <string name="hand_left">Left</string>
     <string name="hand_right">Right</string>
     <string name="opt_autocorrect">Autocorrect</string>
-    <string name="opt_autocorrect_sub">Built-in Spanish and English dictionaries, no internet: fixes one or two mistakes, restores accents and completes words. Backspace undoes a correction.</string>
+    <string name="opt_autocorrect_sub">Built-in Spanish, English and German dictionaries, no internet: fixes one or two mistakes, restores accents and completes words. Backspace undoes a correction.</string>
     <string name="opt_vibrate">Vibrate on keypress</string>
 
     <string name="gestures">Gestures</string>
@@ -74,7 +74,7 @@
     <string name="gesture_symbols">"?123 key"</string>
     <string name="gesture_symbols_result">Symbols laid out like Samsung Keyboard; 1/2 opens the second page with digraphs, ¿ ¡ « » and more</string>
     <string name="gesture_switch">Globe</string>
-    <string name="gesture_switch_result">Next Aurebesh language (shown when two are enabled)</string>
+    <string name="gesture_switch_result">Next Aurebesh language (shown when more than one is enabled)</string>
     <string name="gesture_picker">Hold the space bar</string>
     <string name="gesture_picker_result">Choose another keyboard (Samsung, etc.)</string>
     <string name="gesture_emoji">😊 Emoji</string>
@@ -100,9 +100,9 @@
     <string name="sound_current">Current: %1$s</string>
     <string name="sound_error">Couldn\'t use that file</string>
     <string name="opt_learn">Learn new words</string>
-    <string name="opt_learn_sub">Words you keep are remembered on this phone and suggested next time</string>
-    <string name="learn_clear">Forget learned words</string>
-    <string name="learn_cleared">Learned words forgotten</string>
+    <string name="opt_learn_sub">The words you keep and the word pairs you type are remembered on this phone and suggested next time</string>
+    <string name="learn_clear">Forget learned words and pairs</string>
+    <string name="learn_cleared">Learned words and pairs forgotten</string>
     <string name="opt_double_space">Period with double space</string>
     <string name="opt_double_space_sub">Tap the space bar twice to end a sentence</string>
     <string name="paste">Paste</string>
@@ -118,7 +118,7 @@
     <string name="compat_body">Aurebesh Keyboard is optimized and tested on Samsung Galaxy phones with One UI 9.0 (Android 17). This device: %1$s. Other Android versions may misbehave.</string>
     <string name="footer_compat_ok">Optimized for Samsung One UI 9.0 · this phone: %1$s</string>
     <string name="footer_compat_other">Optimized for Samsung One UI 9.0 · this phone: %1$s (experimental)</string>
-    <string name="credits">Aurebesh font © 2022 SilvinoR, SIL Open Font License 1.1. Word lists: FrequencyWords by Hermit Dave (MIT), built on OpenSubtitles. Star Wars and Aurebesh are trademarks of Lucasfilm Ltd.; fan project, not affiliated.</string>
+    <string name="credits">Aurebesh font © 2022 SilvinoR, SIL Open Font License 1.1. Word lists: FrequencyWords by Hermit Dave (MIT), built on OpenSubtitles. Prediction tables (bigrams) CC BY-SA 4.0: built from Mozilla Common Voice sentences (CC0 / Wikipedia extracts CC BY-SA 3.0), Universal Dependencies treebanks (CC BY-SA 4.0 / CC BY 4.0), Europarl (NLTK), SQuAD-es (MIT) and Google Books Ngram (CC BY 3.0) via symspellpy and orgtre; see tools/dict/FUENTES-bigramas.md. Star Wars and Aurebesh are trademarks of Lucasfilm Ltd.; fan project, not affiliated.</string>
 
-    <string name="footer">Version %1$s. No internet access. Only the clipboard history and the words you choose to keep are stored, on this phone.</string>
+    <string name="footer">Version %1$s. Internet is used only to download an AI model when you ask, or to reach your own server. Only the clipboard history, the words you choose to keep and the models you download are stored, on this phone.</string>
 </resources>

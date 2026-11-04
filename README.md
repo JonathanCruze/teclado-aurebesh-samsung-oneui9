@@ -1,152 +1,189 @@
-# Teclado Aurebesh para Samsung One UI 9.0
+<p align="center">
+  <img src="promo/out/07_grafico_destacado_1024x500.png" alt="Teclado Aurebesh" width="100%">
+</p>
 
-> **Compatibilidad.** Este teclado está optimizado y probado en **Samsung Galaxy con One UI 9.0 (Android 17)**.
-> Cualquier otra versión de Android, u otro fabricante, es **experimental y está sujeta a fallos**: la app lo
-> detecta (lee `Build.VERSION.SEM_PLATFORM_INT`, el número de versión de One UI) y, si el teléfono no es un
-> Samsung con One UI 9, muestra un aviso de "funcionamiento experimental" y el dispositivo detectado en el pie.
->
-> Repositorio: `JonathanCruze/teclado-aurebesh-samsung-oneui9`.
+<h1 align="center">Teclado Aurebesh para Samsung One UI 9.0</h1>
 
-Teclado (IME) que muestra el alfabeto Aurebesh de Star Wars. Las teclas llevan los glifos de la fuente
-Aurebesh de SilvinoR (OFL) y el texto se envía con letras latinas normales, así cualquiera puede leer lo que
-escribes.
+<p align="center">
+  <b>El alfabeto de Star Wars en tu teclado.</b> Las teclas muestran glifos Aurebesh; lo que escribes se envía en letras normales,
+  así cualquiera puede leerlo. Con autocorrector, deslizar para escribir, emojis con búsqueda, portapapeles con imágenes,
+  teclado dividido para Fold y un panel de inteligencia que funciona sin internet.
+</p>
 
-- Sin permisos, sin internet, sin dependencias: ~500 KB (los diccionarios de autocorrección ocupan casi todo).
-- Android 8.0 o superior (`minSdk 26`), icono adaptativo.
-- Cinco temas de teclado: Estelar, Noche, Datapad, Imperial y Arena. La app sigue el modo claro/noche del sistema.
-- Versión 1.7.
+<p align="center">
+  <a href="https://github.com/JonathanCruze/teclado-aurebesh-samsung-oneui9/raw/main/releases/TecladoAurebesh.apk">
+    <img src="https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20%20DESCARGAR%20APK%20%E2%80%94%20Teclado%20Aurebesh%201.9-1B2838?style=for-the-badge&logoColor=white&labelColor=1B2838&color=7FD3F0" alt="Descargar APK">
+  </a>
+</p>
 
-## Instalar en el teléfono
-1. Copia `TecladoAurebesh.apk` al teléfono y ábrelo (permite "Instalar apps desconocidas" para la app desde la que lo abres).
-2. Abre **Teclado Aurebesh** y sigue los dos pasos: activar en Ajustes y elegir como teclado actual.
-3. Para volver al teclado de Samsung, mantén pulsada la barra espaciadora y elige Samsung Keyboard.
+<p align="center">
+  <img src="https://img.shields.io/badge/versi%C3%B3n-1.9-7FD3F0?style=flat-square" alt="versión 1.9">
+  <img src="https://img.shields.io/badge/Android-8.0%2B-3DDC84?style=flat-square" alt="Android 8+">
+  <img src="https://img.shields.io/badge/Samsung-One%20UI%209.0-1428A0?style=flat-square" alt="Samsung One UI 9.0">
+  <img src="https://img.shields.io/badge/sin%20anuncios-%E2%9C%93-2E7D32?style=flat-square" alt="sin anuncios">
+  <img src="https://img.shields.io/badge/funciona-offline-455A64?style=flat-square" alt="offline">
+  <img src="https://img.shields.io/badge/sin%20recopilaci%C3%B3n%20de%20datos-%E2%9C%93-2E7D32?style=flat-square" alt="sin recopilación de datos">
+  <img src="https://img.shields.io/badge/licencias-OFL%20%C2%B7%20MIT%20%C2%B7%20Apache--2.0-6A1B9A?style=flat-square" alt="licencias">
+</p>
 
-## Funciones del teclado
-- **Barra de herramientas** sobre las teclas, como la de Samsung Keyboard: autocorrector a la izquierda; a la
-  derecha 😊 emojis y 📋 portapapeles (opción "Barra de herramientas", activada por defecto). Mientras se escribe una
-  palabra, la parte izquierda muestra las sugerencias; la barra de traducción (opcional) se dibuja en ese mismo espacio.
-  En la página `?123` aparece además un ⚙ que abre la pantalla de ajustes.
-- **😊 Emojis**: panel con la clasificación oficial de Unicode: pestañas por grupo (recientes, caritas, personas,
-  naturaleza, comida, viajes, actividades, objetos, símbolos, banderas) y, dentro de cada grupo, una sección por
-  subgrupo en el orden canónico de `emoji-test.txt` (caras sonrientes, caras con cariño…, manos, profesiones,
-  mamíferos, aves…). Se desplaza de forma continua y la pestaña sigue al desplazamiento; se queda abierto al elegir
-  y ABC vuelve a las letras. **Búsqueda** (🔍, a la izquierda de las pestañas) por nombre o palabra clave en español
-  e inglés, tolerante a errores ("piza" encuentra 🍕, "mexico" la bandera, "risa" o "laugh" 😂), con un teclado
-  reducido para escribir la consulta. Los datos están en `app/src/main/res/raw/emoji.txt` y `emoji_names.txt`,
-  generados por `tools/build_emoji.py` a partir de los datos de emojis de Unicode (Emoji 16.0, sin tonos de piel) y
-  de las anotaciones CLDR (nombres y palabras clave).
-- **📋 Portapapeles**: historial de lo copiado, **texto e imágenes** (hasta 20 elementos, 10 imágenes), guardado
-  solo en el teléfono (preferencias y carpeta privadas de la app), con "Borrar todo" y borrado por elemento. Tocar un
-  texto lo pega; si el texto contiene un **número de teléfono, un correo o un enlace**, aparece debajo un chip para
-  pegar solo esa parte. Tocar una imagen la inserta en el campo si la app lo admite (mensajería, correo…; se usa
-  `commitContent`, la misma vía que Gboard para GIF y stickers).
-- **Autocorrección y sugerencias sin internet**, con diccionarios integrados de español e inglés (ver abajo); **doble
-  espacio** escribe punto y espacio; las palabras que conservas se **aprenden** (opción desactivable y borrable).
-- **Sonido personalizado**: en ajustes puedes elegir un audio corto del teléfono como clic de tecla (se copia a la
-  carpeta privada de la app) o volver al clic del sistema.
-- **Modo a una mano** (izquierda o derecha, 78 % del ancho): opción "Modo a una mano".
-- **Globo**: solo aparece cuando hay dos idiomas Aurebesh activos y alterna español/inglés sin salir del teclado.
-  Mantener el espacio abre el selector de teclados del sistema (para volver a Samsung Keyboard).
-- Los ajustes se aplican al teclado **en tiempo real**: el servicio escucha los cambios de preferencias, no hace
-  falta cerrar y abrir el teclado.
-- QWERTY con ñ y fila de numerales Aurebesh (desactivable; sin ella, q…p dan 1…0 en pulsación larga, con el
-  número insinuado en la esquina). Pulsación larga = **menú de alternativas** deslizable, como en Gboard:
-  vocales → á à ä â ã…, n → ñ, c → ç, `,`/`.` → `¿`/`?`; en `?123`, `?` y `!` dan `¿` y `¡`, `$` da `€`, `"` y `'`
-  dan comillas tipográficas, `[ ]` dan `{ }` y `/` da `\`.
-- Mayúscula automática al inicio de frase; doble toque en ⇧ = bloqueo.
-- `?123` con la **misma distribución que Samsung Keyboard**: `1234567890` / `+ × ÷ = / _ < > [ ]` / `! @ # $ % ^ & * ( )` /
-  `1/2 - ' " : ; , ?` y `. ` en la fila inferior; la página `2/2` trae los dígrafos Aurebesh (ch, ae, eo, kh, ng, oo, sh,
-  th), `¿ ¡ « » { } | \ ~ •` y `£ € ¥ ° © ® ™`. Los signos con glifo Aurebesh llevan su leyenda latina en la esquina;
-  los que no lo tienen (× ÷ € £…) se muestran en latino.
-- Burbuja al pulsar con el glifo grande y la letra latina (para aprender el alfabeto).
-- Opciones: tema, tamaño del teclado (4 niveles), modo a una mano, barra de herramientas, letra latina en las teclas
-  (con las alternativas de pulsación larga), barra de traducción, dígrafos, fila de números, autocorrección, punto con
-  doble espacio, aprender palabras nuevas, sonido (del sistema o personalizado) y vibración.
-- `¿` y `¡` tienen glifo propio: el de `?` y `!` girado 180°, como en la tipografía española.
-- `+ = # * % @ &` y el resto de signos vienen de la fuente base; en la página `?123` cada signo lleva su leyenda latina en la esquina.
-- La app incluye campos reales (texto y contraseña) que usan el teclado elegido en Ajustes.
-- Enter adapta su icono a la acción del campo (buscar, enviar, siguiente, listo).
-- Campos numéricos y de teléfono abren en `?123`; en contraseñas no hay burbuja, barra ni sugerencias.
-- En apaisado las filas son más bajas y nunca se usa el editor a pantalla completa.
+> **Compatibilidad.** Optimizado y probado en **Samsung Galaxy con One UI 9.0 (Android 17)**. Cualquier otra versión de
+> Android u otro fabricante es **experimental y está sujeta a fallos**: la app lo detecta y muestra un aviso.
+> Página del proyecto: [docs/index.html](docs/index.html) · Versiones: [Releases](https://github.com/JonathanCruze/teclado-aurebesh-samsung-oneui9/releases)
 
-## Autocorrección
-Los teléfonos Samsung suelen venir **sin ningún servicio de corrector ortográfico del sistema** (Samsung Keyboard
-no lo registra y Gboard no siempre está instalado), así que el marco de corrección de Android
-(`TextServicesManager`) no sirve: desarrolladores de otros teclados llevan años reportando que su corrector
-"funciona en todas partes menos en Samsung". Por eso el teclado lleva sus propios diccionarios:
+---
 
-- `app/src/main/res/raw/words_es.txt` y `words_en.txt`: 40 000 palabras por idioma, de más a menos frecuente,
-  generadas por `tools/build_dictionaries.py` a partir de las listas de frecuencia de
-  [hermitdave/FrequencyWords](https://github.com/hermitdave/FrequencyWords) (MIT,
-  `tools/dict/LICENSE-FrequencyWords.md`), calculadas sobre los subtítulos de OpenSubtitles 2018.
-- Palabra desconocida → mejor candidato a **una o dos ediciones** (letras de más, de menos, cambiadas o invertidas),
-  con el coste de cada tipo de error: cambiar una letra por una vecina en el teclado o por otra de sonido parecido
-  (s/z, c/s, b/v…) cuesta poco, una letra doble de más o de menos también, y una sustitución arbitraria mucho. La
-  puntuación es `ln(frecuencia) + coste`, así "fuersa" → "fuerza" (y no "fuera") y "nesecito" → "necesito". Para dos
-  ediciones se recorren las palabras de longitud parecida que empiezan por la misma letra, con corte temprano.
-- **Restauración de tildes** cuando la forma acentuada es mucho más frecuente: "mas" → "más", "cancion" → "canción",
-  "tambien" → "también". Las parejas ambiguas ("esta/está", "si/sí", "el/él") se dejan como están.
-- **Completado de palabras** en la barra, también **difuso** (el prefijo puede llevar un error: "qier" ofrece "quiero");
-  en inglés, "i" → "I" y contracciones ("dont" → "don't").
-- **Palabras aprendidas**: lo que conservas con el chip entre comillas, o recuperas con retroceso, se guarda en el
-  teléfono (hasta 500 palabras), deja de corregirse y se completa. Opción "Aprender palabras nuevas" y botón
-  "Olvidar palabras aprendidas".
-- Las sugerencias se calculan en un hilo aparte; si tecleas el separador antes de que lleguen, se calculan al momento.
-- La corrección se aplica al teclear espacio o puntuación. **Retroceso justo después la deshace.** El primer chip de
-  la barra (la palabra escrita, entre comillas) la conserva tal cual.
-- Nunca corrige en contraseñas, correos, URL ni campos marcados sin sugerencias.
+## Instalar en tres pasos (sin saber qué es GitHub)
 
-## Galaxy AI ("Inteligencia avanzada") y otras funciones de Samsung Keyboard
-Galaxy AI (Asistente de escritura, Asistente de chat, traducción de chat) vive dentro de Samsung Keyboard y
-**Samsung no ofrece una API para otros teclados**. Desde One UI 7, Samsung muestra el Asistente de escritura en el
-menú de selección de texto de cualquier app
-([SamMobile](https://www.sammobile.com/news/one-ui-7-0-galaxy-ai-writing-tools-any-keyboard/),
-[Samsung](https://www.samsung.com/us/support/answer/ANS10000943/)), y eso sigue funcionando mientras se usa este
-teclado: seleccionar texto → icono de Galaxy AI en el menú de selección. Dentro del teclado no hay botón de Galaxy AI,
-porque no existe forma de integrarlo.
+1. **Descarga el APK** desde el teléfono con el botón grande de arriba. Si el navegador pregunta, elige *Descargar de todas formas*:
+   es un archivo de ~1,4 MB firmado por este proyecto.
+2. **Abre el archivo** desde la barra de notificaciones o desde *Mis archivos › Descargas*. Si Android dice que no permite instalar
+   apps desconocidas, toca **Ajustes** en ese aviso y activa *Permitir de esta fuente* para el navegador; vuelve atrás y toca **Instalar**.
+3. **Abre Teclado Aurebesh** y sigue los dos pasos de la pantalla: *Activar en Ajustes* y *Elegir como teclado actual*.
+   Para volver al teclado de Samsung en cualquier momento, mantén pulsada la barra espaciadora.
 
-| Función | Samsung Keyboard | Teclado Aurebesh 1.7 |
+Para actualizar, descarga el nuevo APK e instálalo encima: conserva tus ajustes.
+
+---
+
+## Qué hace
+
+<table>
+  <tr>
+    <td width="33%" align="center"><img src="screenshots/barra_estelar.png" alt="Barra de herramientas"><br><b>Barra como la de Samsung</b><br>✦ inteligencia a la izquierda; 😊 emojis, 📋 portapapeles y modo a una mano a la derecha; ⚙ ajustes en ?123.</td>
+    <td width="33%" align="center"><img src="screenshots/sugerencias_emoji.png" alt="Sugerencias con emoji"><br><b>Autocorrector con emojis</b><br>Corrige uno o dos errores, restaura tildes, completa palabras y sugiere el emoji de lo que escribes.</td>
+    <td width="33%" align="center"><img src="screenshots/pegar_imagen.png" alt="Chip Pegar"><br><b>Chip "Pegar"</b><br>Lo que acabas de copiar (texto, imagen o captura) aparece listo para pegar y desaparece al escribir.</td>
+  </tr>
+  <tr>
+    <td align="center"><img src="screenshots/emojis_busqueda.png" alt="Búsqueda de emojis"><br><b>Emojis con búsqueda</b><br>Grupos y subgrupos oficiales de Unicode, recientes y búsqueda tolerante a errores en español e inglés.</td>
+    <td align="center"><img src="screenshots/portapapeles_estelar.png" alt="Portapapeles"><br><b>Portapapeles con imágenes</b><br>Historial de texto e imágenes; "solo el número", "solo el correo" o "solo el enlace" con un toque.</td>
+    <td align="center"><img src="screenshots/ia_acciones.png" alt="Panel de inteligencia"><br><b>✦ Inteligencia</b><br>Ortografía, estilo con tonos, resumir, viñetas, tabla y redactor, con un modelo en tu teléfono o tu propio servidor.</td>
+  </tr>
+  <tr>
+    <td align="center"><img src="screenshots/dividido_fold.png" alt="Teclado dividido"><br><b>Dividido para Galaxy Fold</b><br>Dos mitades con hueco central y dos espacios al desplegar la pantalla; también por opción.</td>
+    <td align="center"><img src="screenshots/simbolos_estelar.png" alt="Signos como Samsung"><br><b>?123 como Samsung Keyboard</b><br>Misma distribución de signos; la página 2/2 añade dígrafos Aurebesh, ¿ ¡ « » y más símbolos.</td>
+    <td align="center"><img src="screenshots/tema_datapad.png" alt="Tema Datapad"><br><b>Cinco temas</b><br>Estelar, Noche, Datapad, Imperial y Arena; la app sigue el modo claro u oscuro del teléfono.</td>
+  </tr>
+</table>
+
+- **Deslizar para escribir**: traza la palabra sobre las letras (estela en el color del tema) y aparece con sus alternativas;
+  retroceso justo después la borra entera. Decodificador propio al estilo SHARK2; en trayectorias sintéticas acierta a la primera
+  el 98 % en español y el 96 % en inglés.
+- **Predicción de la siguiente palabra** con tablas de bigramas de corpus abiertos y los pares que tú mismo escribes (aprendidos
+  solo en el teléfono).
+- **Tres idiomas de teclado**: español (ñ, ¿ ¡), inglés y alemán (QWERTZ con ü ö ä y ß en pulsación larga), cada uno con su
+  diccionario y sus bigramas. El globo alterna entre los activos.
+- **Idioma de la app**: Sistema, Español, English o Deutsch, para los menús del teclado y la pantalla de ajustes.
+- **Modo a una mano** (con flecha para cambiar de lado), **sonido de tecla personalizado**, **tamaño del teclado** en cuatro
+  niveles, letra latina opcional en las teclas para aprender el alfabeto, barra de traducción, punto con doble espacio.
+- Burbuja al pulsar con el glifo grande y la letra latina; `¿` y `¡` tienen glifo propio (el de `?` y `!` girado 180°).
+
+## ✦ Inteligencia
+
+El panel ✦ (a la izquierda de la barra, donde salen las sugerencias) ofrece **Ortografía y gramática**, **Estilo de escritura**
+(original corregido, formal, respetuoso, amigable o un tono que tú describes), **Resumir**, **Viñetas**, **Tabla** y **Redactor**
+a partir de un prompt. El resultado se puede reemplazar, insertar, copiar o reintentar.
+
+<p align="center">
+  <img src="screenshots/ia_tonos_datapad.png" width="48%" alt="Tonos"> <img src="screenshots/ia_redactor_noche.png" width="48%" alt="Redactor">
+</p>
+
+- **Modelo en el teléfono.** Un motor de inferencia GGUF escrito en Java puro (sin librerías, sin NDK) ejecuta un modelo pequeño de
+  pesos abiertos. Por defecto **Qwen2.5-0.5B-Instruct Q4_0 (≈352 MB)**; alternativas Qwen2.5-0.5B Q8_0 (≈531 MB), Qwen3-0.6B Q8_0
+  (≈639 MB) y SmolLM2-360M-Instruct Q8_0 (≈386 MB, solo inglés). Todos con licencia Apache-2.0. El modelo se descarga de Hugging Face
+  **solo cuando tocas Descargar** en Ajustes › Inteligencia, o se importa un archivo `.gguf` que ya tengas.
+- **Servidor propio (opcional).** Si prefieres velocidad, indica un servidor compatible con la API de OpenAI (Ollama, LM Studio o
+  llama.cpp en tu ordenador). Solo recibe el texto que eliges procesar.
+- **Velocidad, con honestidad.** En un teléfono el modelo local genera unos pocos tokens por segundo: reescribir un párrafo puede
+  tardar entre 20 y 60 segundos; el texto va apareciendo y se puede cancelar.
+- **Estado de verificación.** El motor se comprobó numéricamente en el entorno de desarrollo contra una implementación de referencia
+  (numpy) y con los vocabularios reales de llama.cpp, incluidos los formatos Q4_0, Q8_0, Q4_K y Q6_K. Todavía no se ha ejecutado con
+  un modelo real en un teléfono: trátalo como experimental.
+- Galaxy AI (el de Samsung Keyboard) es exclusivo de Samsung y no se puede integrar; sigue disponible en el menú de selección de texto
+  de Android mientras usas este teclado.
+
+## Frente a Samsung Keyboard
+
+| Función | Samsung Keyboard | Teclado Aurebesh 1.9 |
 |---|---|---|
-| Galaxy AI / Inteligencia avanzada | Sí | No (exclusivo de Samsung Keyboard); el menú de selección de texto sigue ofreciendo el Asistente de escritura |
-| Portapapeles con historial | Sí | Sí (📋, texto e imágenes, "solo el número/correo/enlace", borrable) |
+| Galaxy AI / Inteligencia avanzada | Sí | Inteligencia local (modelo en el teléfono) o servidor propio |
+| Deslizar para escribir | Sí | Sí, con estela y alternativas |
+| Emojis | Sí | Sí, con búsqueda y sugerencias en la barra |
+| Portapapeles con historial | Sí | Sí, texto e imágenes, "solo el número/correo/enlace" |
+| Capturas de pantalla sugeridas | Sí | Sí (permiso de fotos opcional) |
 | Modo a una mano | Sí | Sí |
-| Teclado flotante | Sí | No en 1.7 |
-| Autocorrección y predicción | Sí | Sí, con diccionarios propios (sin internet) |
-| Emojis | Sí | Sí (clasificación oficial de Unicode, recientes y búsqueda) |
-| Sonido de tecla personalizado | Sí | Sí (cualquier audio corto del teléfono) |
+| Teclado dividido (Fold) | Sí | Sí |
+| Teclado flotante | Sí | No |
 | Dictado por voz | Sí | No |
-| Cambio de idioma | Sí | Sí (globo con dos idiomas activos) |
+| Alfabeto Aurebesh | No | Sí |
+
+## Privacidad
+
+- **Sin recopilación de datos.** No hay analítica, ni registros, ni cuentas.
+- **Internet** solo para dos cosas que tú inicias: descargar un modelo de inteligencia o hablar con tu propio servidor. A ese servidor
+  se envía únicamente la selección o el texto del campo que decides procesar (hasta 8000 caracteres) y la app lo avisa la primera vez.
+- **Permiso de fotos (opcional)**, solo si activas "Sugerir capturas": lee únicamente la carpeta *Screenshots* y copia la captura
+  reciente a la carpeta privada de la app.
+- **Lo que se guarda, siempre en el teléfono y borrable desde Ajustes:** el historial del portapapeles (hasta 20 elementos),
+  las palabras que conservas (hasta 500), los pares de palabras aprendidos (hasta 2000), los modelos que descargas y el sonido
+  personalizado. La copia de seguridad de Android está desactivada para esta app.
+- No corrige ni aprende en contraseñas, correos, URL ni campos marcados sin sugerencias.
+
+## Autocorrección y predicción
+
+Los teléfonos Samsung suelen venir sin corrector ortográfico del sistema para teclados de terceros, así que el teclado lleva el suyo:
+
+- Diccionarios de 40 000 palabras por idioma (`app/src/main/res/raw/words_es.txt`, `words_en.txt`, `words_de.txt`), generados por
+  `tools/build_dictionaries.py` a partir de las listas de frecuencia de FrequencyWords (MIT).
+- Palabra desconocida → mejor candidato a **una o dos ediciones**, con el coste de cada error: cambiar una letra por una vecina en el
+  teclado o por otra de sonido parecido (s/z, c/s, b/v…) cuesta poco, una sustitución arbitraria mucho; "fuersa" → "fuerza",
+  "nesecito" → "necesito". **Restauración de tildes** ("mas" → "más", "cancion" → "canción"); las parejas ambiguas (esta/está) se respetan.
+- **Completado**, también difuso ("qier" → "quiero"); en inglés "i" → "I" y contracciones ("dont" → "don't").
+- **Contexto y siguiente palabra** con tablas de bigramas (`bigrams_es.txt`, `bigrams_en.txt`, `bigrams_de.txt`) construidas por
+  `tools/build_bigrams.py` a partir de corpus abiertos: Common Voice (CC0 y extractos de Wikipedia CC BY-SA), Universal Dependencies,
+  Europarl, SQuAD-es, Brown y webtext. Los pares que tú escribes se aprenden en el teléfono y tienen prioridad.
+- La corrección se aplica al teclear espacio o puntuación; **retroceso la deshace** y el chip entre comillas conserva lo escrito
+  (y lo aprende). Las sugerencias se calculan en segundo plano.
 
 ## Estructura
 ```
 app/src/main/java/com/aurebesh/teclado/
-  GlyphData.java           glifos vectorizados con métricas de fuente (generado por tools/build_font_set.py)
-  Glyphs.java              dibujo de glifos y conversión texto → glifos
-  AurebeshKeyboardView.java vista del teclado: distribución, barra de herramientas, dibujo, toque
-  Themes.java              los cinco temas (cada uno cambia relleno, borde, esquina, sombra, halo)
-  ThemeSwatchView.java     muestra de tema para el selector de la app
-  AurebeshIME.java         servicio de teclado
-  Dictionary.java          diccionario y autocorrección
-  ClipHistory.java         historial del portapapeles (texto e imágenes) y extracción de teléfono/correo/enlace
-  ClipProvider.java        ContentProvider que sirve las imágenes copiadas a la app destino
-  KeyboardTray.java        bandeja sobre las teclas: historial del portapapeles
-  EmojiTray.java           panel de emojis por categorías, con recientes y búsqueda
-  KeySound.java            clic de tecla: el del sistema o un audio elegido por el usuario
-  DeviceInfo.java          detección de Samsung / One UI
-  AurebeshTextView.java    texto renderizado en Aurebesh
-  MainActivity.java        pantalla de configuración y prueba
-  Prefs.java               preferencias
-app/src/main/res/          strings, colores (claro/noche), tema, icono, method.xml
-app/src/main/res/raw/      words_es.txt y words_en.txt (diccionarios), emoji.txt (emojis por subgrupo) y
-                           emoji_names.txt (nombres y palabras clave es/en para la búsqueda)
-screenshot-test/           prueba Robolectric: renderiza el teclado y la app a PNG, comprueba que
-                           teclear "hola" produce "hola" y prueba el diccionario
-build.sh                   compilación sin Android Studio
-tools/build_dictionaries.py genera los diccionarios a partir de FrequencyWords
-tools/build_emoji.py       genera emoji.txt y emoji_names.txt a partir de los datos de Unicode y CLDR
-tools/dict/, tools/emoji/  licencias y procedencia de las listas de palabras y de los emojis
-promo/make_promo.py        imágenes promocionales (1080×1920 y gráfico 1024×500) a partir
-                           de las capturas reales; salida en promo/out/
+  AurebeshIME.java           servicio de teclado: integra todo lo demás
+  AurebeshKeyboardView.java  vista: distribuciones (es/en/de, ?123 1/2 y 2/2, dividido, una mano), barra, deslizar, dibujo, toque
+  SwipeDecoder.java          decodificador de trazos (índice por primera/última letra, forma y posición)
+  Dictionary.java            diccionarios y autocorrección (ediciones, tildes, completado, palabras aprendidas)
+  Bigrams.java               siguiente palabra y contexto (tablas + pares aprendidos)
+  EmojiSuggest.java          emoji sugerido por palabra (palabras clave de CLDR)
+  EmojiTray.java             panel de emojis por grupos y subgrupos, recientes y búsqueda
+  KeyboardTray.java          bandeja del portapapeles (texto, imágenes, chips de número/correo/enlace)
+  ClipHistory.java           historial del portapapeles y extracción de teléfono/correo/enlace
+  ClipProvider.java          ContentProvider que entrega las imágenes copiadas a la app destino
+  ScreenshotWatcher.java     capturas de pantalla recientes (permiso de fotos opcional)
+  ScreenshotSettingsRow.java fila de ajustes que pide el permiso
+  AiTray.java                panel ✦ Inteligencia (acciones, tonos, redactor, resultado)
+  AiRunner.java              construye los prompts y ejecuta en el modelo local o en el servidor
+  AiModels.java              modelos: presets, descarga, importación, selección
+  AiRemote.java              cliente de servidores compatibles con OpenAI (streaming)
+  AiSettingsCard.java        tarjeta de ajustes de inteligencia
+  llm/                       motor GGUF en Java puro: Gguf, Quant, Model, Tokenizer, ChatTemplate, Sampler, Workers, LlmEngine
+  KeySound.java              clic de tecla: el del sistema o un audio elegido
+  AppLocale.java             idioma de la app (sistema, es, en, de)
+  Themes.java, ThemeSwatchView.java   temas y su muestra
+  Glyphs.java, GlyphData.java         glifos Aurebesh (generados por tools/build_font_set.py)
+  AurebeshTextView.java      texto renderizado en Aurebesh
+  DeviceInfo.java            detección de Samsung / One UI
+  MainActivity.java, Prefs.java        pantalla de ajustes y preferencias
+app/src/main/res/raw/        words_*.txt, bigrams_*.txt, emoji.txt, emoji_names.txt
+app/src/main/res/            strings (es/en/de), colores, tema, icono, method.xml (tres subtipos)
+screenshot-test/             pruebas Robolectric: ScreenshotTest, SwipeTest, PredictionTest
+tools/build_dictionaries.py  diccionarios desde FrequencyWords
+tools/build_bigrams.py       tablas de bigramas desde los corpus abiertos
+tools/build_emoji.py         emoji.txt y emoji_names.txt desde Unicode y CLDR
+tools/build_font_set.py      glifos desde la fuente Aurebesh de SilvinoR
+tools/llm/                   verificación del motor: modelos aleatorios + referencia numpy, tokenizador, kernels, benchmark
+tools/dict/, tools/emoji/    licencias y procedencia de las listas y los emojis
+promo/make_promo.py          imágenes promocionales a partir de las capturas reales (salida en promo/out/)
+docs/index.html              página del proyecto (GitHub Pages)
+releases/                    APK publicado
 ```
 
 ## Compilar
@@ -157,35 +194,34 @@ promo/make_promo.py        imágenes promocionales (1080×1920 y gráfico 1024×
 sudo apt install aapt apksigner zipalign dalvik-exchange android-sdk-platform-23 openjdk-17-jdk
 SDK_JAR=/ruta/a/android-28-o-superior.jar ./build.sh
 ```
-`RES_JAR` (recursos, por defecto el `android.jar` 23 de Ubuntu) y `SDK_JAR` (compilación Java,
-necesita API 28 o superior) se pueden sobrescribir. `KEYSTORE_PASS`, `VERSION_CODE` y
-`VERSION_NAME` también. El script genera un keystore propio la primera vez: guárdalo para
-poder actualizar la app instalada.
+`RES_JAR` (recursos, por defecto el `android.jar` 23 de Ubuntu) y `SDK_JAR` (compilación Java, necesita API 28 o superior) se
+pueden sobrescribir; `KEYSTORE_PASS`, `VERSION_CODE` y `VERSION_NAME` también. El script genera un keystore propio la primera vez:
+guárdalo para poder actualizar la app instalada. Todo es Java 8 sin librerías externas (se compila con `javac` y `dx`), minSdk 26.
 
-Para regenerar los diccionarios: `python3 tools/build_dictionaries.py` (descarga las listas) o
-`python3 tools/build_dictionaries.py carpeta/` con `es_50k.txt` y `en_50k.txt` ya descargados.
+Para regenerar los datos: `python3 tools/build_dictionaries.py`, `python3 tools/build_bigrams.py` y
+`python3 tools/build_emoji.py` (ver la cabecera de cada script). Para verificar el motor de inteligencia:
+`tools/llm/run_tests.sh` (necesita Python con `gguf`, `numpy` y `regex`).
 
 ## Idiomas
-El teclado declara dos subtipos, **español** e **inglés**. Con los dos activos aparece el globo, que alterna entre
-ellos sin salir del teclado, y la barra espaciadora muestra el idioma actual. En español hay tecla ñ y mantener `,`
-da `¿`; en inglés la fila tiene nueve teclas y mantener `,` da `!`. La autocorrección usa el diccionario del idioma
-activo. La app está en español e inglés y sigue el idioma del teléfono.
+El teclado declara tres subtipos: **español**, **inglés** y **alemán**. Con más de uno activo aparece el globo, que alterna entre
+ellos sin salir del teclado, y la barra espaciadora muestra el idioma actual. En español hay tecla ñ y mantener `,` da `¿`; en
+inglés la fila tiene nueve teclas y mantener `,` da `!`; en alemán la distribución es QWERTZ con ü ö ä, ß en pulsación larga de la s
+y mantener `,` da `;`. La autocorrección, la predicción y el deslizado usan el diccionario del idioma activo. Los menús están en
+español, inglés y alemán; siguen el idioma del teléfono o el que elijas en Ajustes.
 
 ## Fuente
-Los glifos salen de la fuente **Aurebesh de SilvinoR** (`font/base-silvinor-Aurebesh.ttf`, SIL Open Font
-License 1.1, `font/OFL-silvinor.md`): letras, numerales, puntuación, signos y los ocho dígrafos como
-ligaduras. A ese conjunto se añaden la ñ con cuadrado y las vocales con tilde. `tools/build_font_set.py`
-genera a partir de ello `GlyphData.java` (vectores con avance y margen de cada glifo, que es lo que dibuja
-el teclado) y **`font/AurekTeclado.ttf`**, una fuente OpenType instalable con las mismas ligaduras, también
-bajo OFL (con nombre propio, como exige la licencia por el nombre reservado "Aurebesh").
+Los glifos salen de la fuente **Aurebesh de SilvinoR** (`font/base-silvinor-Aurebesh.ttf`, SIL Open Font License 1.1,
+`font/OFL-silvinor.md`): letras, numerales, puntuación, signos y los ocho dígrafos como ligaduras. A ese conjunto se añaden la ñ con
+cuadrado y las vocales con tilde. `tools/build_font_set.py` genera a partir de ello `GlyphData.java` (vectores con avance y margen de
+cada glifo, que es lo que dibuja el teclado) y **`font/AurekTeclado.ttf`**, una fuente OpenType instalable con las mismas ligaduras,
+también bajo OFL (con nombre propio, como exige la licencia por el nombre reservado "Aurebesh").
 
 ## Español: ñ y tildes
-El Aurebesh canónico no tiene ñ ni acentos, y tampoco usa diacríticos: amplía el alfabeto con
-letras compuestas a partir de sus propias piezas (barras, chevrones, cuadrados). Siguiendo ese
-criterio, la **ñ es *nern* con un cuadrado sobre el vértice** (el cuadrado del dos puntos y de *shen*)
-y las vocales con tilde llevan una **barra corta a 45°** (el trazo de *senth* y *resh*), al grosor de la
-fuente. Son diseño propio, no canon; otros diacríticos (ü, ç…) se muestran con el glifo base. El texto
-enviado siempre lleva los caracteres correctos.
+El Aurebesh canónico no tiene ñ ni acentos, y tampoco usa diacríticos: amplía el alfabeto con letras compuestas a partir de sus
+propias piezas (barras, chevrones, cuadrados). Siguiendo ese criterio, la **ñ es *nern* con un cuadrado sobre el vértice** (el
+cuadrado del dos puntos y de *shen*) y las vocales con tilde llevan una **barra corta a 45°** (el trazo de *senth* y *resh*), al
+grosor de la fuente. Son diseño propio, no canon; otros diacríticos (ü, ö, ä, ç…) se muestran con el glifo base. El texto enviado
+siempre lleva los caracteres correctos.
 
 ## Temas
 | Tema | Construcción |
@@ -196,31 +232,7 @@ enviado siempre lleva los caracteres correctos.
 | Imperial | grafito, glifos blancos, esquinas duras, un solo rojo apagado |
 | Arena | tonos de arena, teclas hueso muy redondeadas, naranja de atardecer |
 
-Añadir un tema es añadir una línea en `Themes.java`; el selector, la copia del teclado, la bandeja y las capturas lo recogen solos.
-
-## Privacidad
-La app no pide permisos ni usa internet y no guarda nada de lo que escribes, salvo lo que tú decides conservar:
-el historial del portapapeles (textos e imágenes que copias, hasta 20 elementos), las palabras aprendidas (las que
-conservas con el chip entre comillas o recuperas con retroceso, hasta 500) y, si lo eliges, el audio del clic. Todo
-queda en las preferencias y la carpeta privadas de la app, en el teléfono, y se borra desde la bandeja 📋 ("Borrar
-todo" o por elemento), con "Olvidar palabras aprendidas" y con "Usar el predeterminado".
-
-## Créditos y licencias
-- **Fuente Aurebesh** © 2022 SilvinoR, [github.com/silvinor/font-aurebesh](https://github.com/silvinor/font-aurebesh),
-  SIL Open Font License 1.1 (`font/OFL-silvinor.md`). La fuente derivada **Aurek Teclado** (`font/AurekTeclado.ttf`)
-  se distribuye también bajo OFL.
-- **Listas de palabras** de [FrequencyWords](https://github.com/hermitdave/FrequencyWords) © 2016 Hermit Dave,
-  licencia MIT (`tools/dict/LICENSE-FrequencyWords.md`), construidas sobre los subtítulos de OpenSubtitles (corpus OPUS).
-- *Star Wars* y *Aurebesh* son marcas de Lucasfilm Ltd. / Disney. Este es un proyecto de aficionado, sin afiliación
-  ni respaldo de Lucasfilm, Disney ni Samsung.
-
-## Limitaciones conocidas
-- Sin soporte de TalkBack en el teclado (la vista es un `Canvas` sin nodos de accesibilidad).
-- Sin teclado flotante; sin dictado por voz.
-- Galaxy AI no está integrado en el teclado porque Samsung no lo ofrece a terceros; sigue disponible en el menú de
-  selección de texto de Android.
-- `targetSdk 34`: subir a 35 exige probar el modo *edge-to-edge* en un dispositivo.
-- El proyecto Gradle no se ha compilado en Android Studio desde este entorno (solo `build.sh`).
+Añadir un tema es añadir una línea en `Themes.java`; el selector, la copia del teclado, las bandejas y las capturas lo recogen solos.
 
 ## Probar en un teléfono
 Con el Samsung conectado por USB (depuración USB activada) y `adb` en el ordenador:
@@ -230,27 +242,54 @@ tools/device.sh enable    # activa el teclado y lo deja como actual
 tools/device.sh field     # abre un campo de texto real
 tools/device.sh shot      # captura -> screenshots/device/captura.png
 ```
-Desde una sesión de Claude Code en la nube, el teléfono se alcanza activando **Remote Control** en la app
-de escritorio de Claude (Mac o Linux) sobre esta carpeta; en una sesión local basta con `adb`.
+Desde una sesión de Claude Code en la nube, el teléfono se alcanza activando **Remote Control** en la app de escritorio de Claude
+(Mac o Linux) sobre esta carpeta; en una sesión local basta con `adb`.
 
-Sin teléfono a mano, `tools/testlab.sh` ejecuta la app en Galaxy reales de **Firebase Test Lab** (cuota
-gratuita diaria) y deja capturas y vídeo en la consola de Firebase. Necesita `FIREBASE_PROJECT` y una
-clave de cuenta de servicio (`GOOGLE_APPLICATION_CREDENTIALS` o `GOOGLE_APPLICATION_CREDENTIALS_JSON`).
+Sin teléfono a mano, `tools/testlab.sh` ejecuta la app en Galaxy reales de **Firebase Test Lab** (cuota gratuita diaria) y deja
+capturas y vídeo en la consola de Firebase. Necesita `FIREBASE_PROJECT` y una clave de cuenta de servicio
+(`GOOGLE_APPLICATION_CREDENTIALS` o `GOOGLE_APPLICATION_CREDENTIALS_JSON`).
 
 ## Probar (capturas reales sin emulador)
 ```bash
 ./build.sh                      # deja los recursos compilados en build/
 cd screenshot-test && mvn test  # capturas en ../screenshots/
 ```
-Genera un teclado, una pantalla `?123` (con el ⚙ en `simbolos_engrane.png`), una barra y una burbuja por tema, la
-barra de sugerencias (`sugerencias.png`), el modo a una mano (`una_mano.png`), la bandeja del portapapeles con texto,
-chips de "solo el número/correo/enlace" e imagen (`portapapeles_estelar.png`, `portapapeles_noche.png`), el panel
-de emojis y su búsqueda (`emojis_estelar.png`, `emojis_noche.png`, `emojis_busqueda.png`), la app en claro y noche,
-el aviso de dispositivo no probado (`app_experimental.png`) y el icono. La prueba también comprueba que teclear
-"hola" produce "hola", que el diccionario corrige "holq" → "hola", "cancion" → "canción", "fuersa" → "fuerza",
-"nesecito" → "necesito" y "teh" → "the", que completa "qier" → "quiero", que respeta las palabras aprendidas, que la
-búsqueda de emojis encuentra "corazon", "mexico", "pizza" y "laugh", y que la extracción saca el teléfono, el
-correo y el enlace de un texto. Después, `python3 promo/make_promo.py` compone las imágenes promocionales.
-Usa Robolectric con gráficos nativos. Necesita acceso a Maven Central; `androidx.test:monitor`
-y `espresso-idling-resource` deben estar en el repositorio local de Maven (vienen del Maven de
-Google o se compilan desde `github.com/android/android-test`).
+Tres clases de prueba con Robolectric y gráficos nativos:
+
+- **ScreenshotTest** renderiza un teclado, una pantalla `?123` (y la 2/2), una barra y una burbuja por tema, la barra de sugerencias
+  con emoji, el chip "Pegar", el modo a una mano, el teclado dividido (también a ancho de Fold), la bandeja del portapapeles con
+  texto, chips e imagen, el panel de emojis y su búsqueda, los estados del panel ✦ Inteligencia, la app en claro, noche, inglés y en
+  un dispositivo no probado, y el icono. Además comprueba que teclear "hola" produce "hola", que el diccionario corrige "holq" → "hola",
+  "cancion" → "canción", "fuersa" → "fuerza", "nesecito" → "necesito" y "teh" → "the", que completa "qier" → "quiero", que respeta
+  las palabras aprendidas, que la búsqueda de emojis encuentra "corazon", "mexico", "pizza" y "laugh" y que la extracción saca el
+  teléfono, el correo y el enlace de un texto.
+- **SwipeTest** genera trayectorias sintéticas por los centros de las teclas, con ruido, para las 200 palabras más frecuentes y exige
+  al menos 80 % de acierto a la primera y 92 % entre las tres primeras (obtiene 98 % / 100 % en español y 96 % / 100 % en inglés).
+- **PredictionTest** comprueba la siguiente palabra ("muchas" → "gracias", "thank" → "you"), los pares aprendidos y el contexto.
+
+Después, `python3 promo/make_promo.py` compone las imágenes promocionales. Necesita acceso a Maven Central; `androidx.test:monitor` y
+`espresso-idling-resource` deben estar en el repositorio local de Maven (vienen del Maven de Google o se compilan desde
+`github.com/android/android-test`).
+
+## Créditos y licencias
+- **Fuente Aurebesh** © 2022 SilvinoR, [github.com/silvinor/font-aurebesh](https://github.com/silvinor/font-aurebesh),
+  SIL Open Font License 1.1 (`font/OFL-silvinor.md`). La fuente derivada **Aurek Teclado** (`font/AurekTeclado.ttf`) se distribuye
+  también bajo OFL.
+- **Listas de palabras** de [FrequencyWords](https://github.com/hermitdave/FrequencyWords) © 2016 Hermit Dave, licencia MIT
+  (`tools/dict/LICENSE-FrequencyWords.md`), construidas sobre los subtítulos de OpenSubtitles (corpus OPUS).
+- **Tablas de predicción (bigramas)**, distribuidas bajo **CC BY-SA 4.0**: contienen frases de Mozilla Common Voice (CC0 y extractos
+  de Wikipedia CC BY-SA 3.0), treebanks de Universal Dependencies (CC BY-SA 4.0 / CC BY 4.0), Europarl (vía NLTK), SQuAD-es (MIT) y
+  Google Books Ngram (CC BY 3.0) vía symspellpy y orgtre. Detalle y atribuciones en `tools/dict/FUENTES-bigramas.md`.
+- **Emojis**: datos de Unicode (`emoji-test.txt`) y anotaciones CLDR, Unicode License v3 (`tools/emoji/`).
+- **Modelos de inteligencia** (descargados por el usuario, no incluidos en el APK): Qwen2.5 y Qwen3 (Alibaba, Apache-2.0),
+  SmolLM2 (Hugging Face, Apache-2.0). Formato GGUF de ggml.
+- *Star Wars* y *Aurebesh* son marcas de Lucasfilm Ltd. / Disney. Este es un proyecto de aficionado, sin afiliación ni respaldo de
+  Lucasfilm, Disney, Samsung, Alibaba ni Hugging Face.
+
+## Limitaciones conocidas
+- El modelo de inteligencia local es lento (unos pocos tokens por segundo) y aún no se ha probado con un modelo real en un teléfono.
+- Sin teclado flotante; sin dictado por voz; Galaxy AI es exclusivo de Samsung Keyboard.
+- Sin soporte de TalkBack en el teclado (la vista es un `Canvas` sin nodos de accesibilidad).
+- La precisión del deslizado se midió con trayectorias sintéticas; en el teléfono puede requerir ajuste de constantes.
+- `targetSdk 34`: subir a 35 exige probar el modo *edge-to-edge* en un dispositivo.
+- El proyecto Gradle no se ha compilado en Android Studio desde este entorno (solo `build.sh`).

@@ -31,7 +31,7 @@ final class Dictionary {
         boolean known;          // la palabra escrita existe tal cual
     }
 
-    private static final Map<String, Dictionary> CACHE = new HashMap<>();
+    private static final Map<String, Dictionary> CACHE = new java.util.concurrent.ConcurrentHashMap<>();   // lectura sin bloqueo
     private static final int MAX_SUGGESTIONS = 3;
     private static final int MAX_PREFIX_SCAN = 4000;
     private static final int MAX_LEN = 24;
@@ -128,8 +128,8 @@ final class Dictionary {
         return d;
     }
 
-    /** Diccionario ya cargado, o null. */
-    static synchronized Dictionary cached(String lang) {
+    /** Diccionario ya cargado, o null (sin bloquear aunque otro hilo este cargando). */
+    static Dictionary cached(String lang) {
         return CACHE.get(normalize(lang));
     }
 

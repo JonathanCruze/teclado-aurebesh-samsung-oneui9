@@ -2,7 +2,7 @@
 <resources>
     <!-- Ajuste "sugerir pegar la ultima captura de pantalla" -->
     <string name="shots_title">Suggest pasting the latest screenshot</string>
-    <string name="shots_sub">When you open the keyboard right after taking a screenshot, it shows up as a suggestion. Needs the Photos permission; only the Screenshots folder is read and nothing leaves the phone.</string>
+    <string name="shots_sub">When you open the keyboard right after taking a screenshot, it shows up as a suggestion and a copy is kept in the keyboard\'s clipboard history (deletable from 📋). Needs the Photos permission; only the Screenshots folder is read and nothing leaves the phone.</string>
     <string name="shots_partial">Partial photo access: choose “Allow all” so new screenshots can be detected.</string>
-    <string name="shots_denied">Photos permission denied. Turn it on in Settings › Apps › Teclado Aurebesh › Permissions.</string>
+    <string name="shots_denied">Photos permission denied. Turn it on in Settings › Apps › Aurebesh Keyboard › Permissions.</string>
 </resources>
