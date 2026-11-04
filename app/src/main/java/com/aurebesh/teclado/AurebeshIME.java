@@ -825,6 +825,57 @@ public class AurebeshIME extends InputMethodService
         }
     }
 
+    // ------------------------------------------------------------------ 1.10: cursor, borrar palabra, ocultar, tamano
+
+    /** Deslizar sobre el espacio en modo cursor: flechas del teclado fisico (funcionan en cualquier editor); con select, extienden la seleccion. */
+    @Override
+    public void onCursorMove(int steps, boolean select) {
+        if (steps == 0) return;
+        int code = steps < 0 ? KeyEvent.KEYCODE_DPAD_LEFT : KeyEvent.KEYCODE_DPAD_RIGHT;
+        InputConnection ic = getCurrentInputConnection();
+        int n = Math.abs(steps);
+        for (int i = 0; i < n; i++) {
+            if (select && ic != null) {
+                long now = android.os.SystemClock.uptimeMillis();
+                int meta = KeyEvent.META_SHIFT_ON | KeyEvent.META_SHIFT_LEFT_ON;
+                ic.sendKeyEvent(new KeyEvent(now, now, KeyEvent.ACTION_DOWN, code, 0, meta));
+                ic.sendKeyEvent(new KeyEvent(now, now, KeyEvent.ACTION_UP, code, 0, meta));
+            } else {
+                sendDownUpKeyEvents(code);
+            }
+        }
+        lastCorrection = null;
+        clearSuggestions();
+    }
+
+    /** Borrar la palabra anterior entera (mantener borrar mas de ~2 s). */
+    @Override
+    public void onDeleteWord() {
+        InputConnection ic = getCurrentInputConnection();
+        if (ic == null) return;
+        CharSequence before = ic.getTextBeforeCursor(64, 0);
+        if (before == null || before.length() == 0) { sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL); return; }
+        int n = before.length(), i = n;
+        while (i > 0 && Character.isWhitespace(before.charAt(i - 1))) i--;
+        while (i > 0 && !Character.isWhitespace(before.charAt(i - 1))) i--;
+        int count = n - i;
+        if (count <= 0) count = 1;
+        lastCorrection = null;
+        ic.deleteSurroundingText(count, 0);
+        clearSuggestions();
+    }
+
+    /** Boton ∨ de la banda inferior. */
+    @Override
+    public void onHide() { requestHideSelf(0); }
+
+    /** Fin del modo de ajuste: se guardan alto y margen (por pantalla) y el oyente de preferencias los aplica. */
+    @Override
+    public void onResize(int heightPct, int bottomDp) {
+        Prefs.setHeightPct(this, heightPct);
+        Prefs.setBottomDp(this, bottomDp);
+    }
+
     /** Mantener el espacio: selector de teclados del sistema (para volver al de Samsung). */
     @Override
     public void onSwitchKeyboard() {

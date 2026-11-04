@@ -234,6 +234,10 @@ final class EmojiTray extends LinearLayout {
             }
             @Override public void onEnter() {}
             @Override public void onHandSide(int mode) {}
+            @Override public void onCursorMove(int steps, boolean select) {}
+            @Override public void onDeleteWord() {}
+            @Override public void onHide() {}
+            @Override public void onResize(int heightPct, int bottomDp) {}
             @Override public void onPasteSuggestion() {}
             @Override public void onSwitchKeyboard() {}
             @Override public void onSwitchLanguage() {}

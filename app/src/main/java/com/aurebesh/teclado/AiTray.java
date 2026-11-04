@@ -111,11 +111,18 @@ final class AiTray extends LinearLayout {
     private final TextView cancelKey, replaceKey, insertKey, copyKey, retryKey;
     private final List<TextView> keys = new ArrayList<>();
 
-    AiTray(Context c) {
+    /** True si el runner es propio (se libera con el panel); false si lo presta el servicio y sobrevive al rehacer la vista. */
+    private final boolean ownsRunner;
+
+    AiTray(Context c) { this(c, null); }
+
+    /** Con un runner compartido (el del servicio) el modelo no se descarga al plegar, girar o cambiar de tema. */
+    AiTray(Context c, AiRunner shared) {
         super(c);
         dp = getResources().getDisplayMetrics().density;
         setOrientation(VERTICAL);
-        runner = new AiRunner(c);
+        runner = shared != null ? shared : new AiRunner(c);
+        ownsRunner = shared == null;
 
         // ---------------------------------------------------------------- cabecera
         header = new LinearLayout(c);
@@ -337,6 +344,10 @@ final class AiTray extends LinearLayout {
             }
             @Override public void onEnter() { go(); }
             @Override public void onHandSide(int mode) {}
+            @Override public void onCursorMove(int steps, boolean select) {}
+            @Override public void onDeleteWord() {}
+            @Override public void onHide() {}
+            @Override public void onResize(int heightPct, int bottomDp) {}
             @Override public void onPasteSuggestion() {}
             @Override public void onGlide(String best, java.util.List<String> alternatives) { onText(best); }
             @Override public void onSwitchKeyboard() {}
@@ -436,7 +447,7 @@ final class AiTray extends LinearLayout {
     boolean isBusy() { return runner.isBusy(); }
 
     /** Libera el modelo y el hilo de trabajo (al destruir el servicio). */
-    void release() { runner.release(); }
+    void release() { if (ownsRunner) runner.release(); }
 
     /** Descarga el modelo de memoria sin cerrar el panel (memoria baja, teclado oculto). */
     void unloadModel() { runner.unloadModel(); }

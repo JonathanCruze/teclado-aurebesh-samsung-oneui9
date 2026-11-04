@@ -96,6 +96,10 @@ public class ScreenshotTest {
             public void onToolbar(int t) { typed.append("<tool").append(t).append(">"); }
             public void onHandSide(int m) { typed.append("<side").append(m).append(">"); }
             public void onPasteSuggestion() { typed.append("<paste>"); }
+            public void onCursorMove(int steps, boolean select) { typed.append("<cur").append(steps).append(select ? "s" : "").append(">"); }
+            public void onDeleteWord() { typed.append("<delword>"); }
+            public void onHide() { typed.append("<hide>"); }
+            public void onResize(int heightPct, int bottomDp) { typed.append("<resize").append(heightPct).append(",").append(bottomDp).append(">"); }
         });
         kb.setEnterAction(4);
 

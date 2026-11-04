@@ -43,6 +43,14 @@ public final class AurebeshKeyboardView extends View {
          * alternativas para la barra, de mejor a peor (puede estar vacia). Llega en el hilo principal.
          */
         void onGlide(String best, List<String> alternatives);
+        /** Deslizar sobre la barra espaciadora en modo cursor: pasos (negativo = izquierda); select = extender la seleccion. */
+        void onCursorMove(int steps, boolean select);
+        /** Mantener borrar mas de ~2 s: borrar la palabra anterior entera. */
+        void onDeleteWord();
+        /** Boton ∨ de la banda inferior: ocultar el teclado. */
+        void onHide();
+        /** Fin del modo de ajuste de tamano: alto en % (70-140) y margen inferior en dp (0-40) elegidos con los tiradores. */
+        void onResize(int heightPct, int bottomDp);
     }
 
     static final int CODE_TEXT = 0;
@@ -50,6 +58,11 @@ public final class AurebeshKeyboardView extends View {
     static final int CODE_MODE = -2;
     static final int CODE_PAGE = -3;      // 1/2 <-> 2/2 en la pagina de signos
     static final int CODE_GAP = -10;      // hueco central del teclado dividido (no se dibuja ni se toca)
+    static final int TOOL_RESIZE = 6;     // icono "Tamano y posicion" (modo de ajuste con tiradores), en la cinta de ?123
+    /** Deslizar sobre el espacio: nada, mover el cursor o cambiar de idioma. */
+    static final int SPACE_NONE = 0, SPACE_CURSOR = 1, SPACE_LANG = 2;
+    /** Variante del campo: ninguna, correo (@ y .com) o direccion web (/ y .com). */
+    static final int FIELD_NONE = 0, FIELD_EMAIL = 1, FIELD_URL = 2;
     static final int CODE_ENTER = -4;
     static final int CODE_DELETE = -5;
     static final int CODE_SPACE = -6;
@@ -276,6 +289,41 @@ public final class AurebeshKeyboardView extends View {
 
     /** Sin burbuja de vista previa (campos de contrasena). */
     void setPreviewEnabled(boolean on) { previewEnabled = on; }
+
+    // ------------------------------------------------------------------ 1.10: contrato (los cuerpos se completan por partes)
+
+    /** Que hace deslizar el dedo sobre la barra espaciadora (SPACE_NONE, SPACE_CURSOR, SPACE_LANG). */
+    void setSpaceSlide(int mode) { spaceSlide = mode; }
+    private int spaceSlide = SPACE_CURSOR;
+
+    /** Retardo de la pulsacion larga en ms (el espacio suma 220; repetir borrar suma 40). */
+    void setLongPressMs(int ms) { longPressMs = Math.max(150, Math.min(900, ms)); }
+    private int longPressMs = 380;
+
+    /** Nivel de vibracion: 0 respuesta del sistema, 1 suave, 2 media, 3 fuerte. */
+    void setHaptics(int level) { hapticsLevel = level; }
+    private int hapticsLevel = 0;
+
+    /** Margen inferior bajo la ultima fila, en px; con >= 24 dp se dibuja ahi el boton ∨ de ocultar. */
+    void setBottomPad(float px) { if (bottomPad != px) { bottomPad = px; requestLayout(); invalidate(); } }
+    private float bottomPad = 0f;
+
+    /** Fraccion del ancho de cada mitad del teclado dividido (0,33 / 0,375 / 0,42). */
+    void setSplitBox(float fraction) { if (splitBox != fraction) { splitBox = fraction; requestLayout(); invalidate(); } }
+    private float splitBox = 0.375f;
+
+    /** Teclas especiales segun el campo: FIELD_EMAIL anade @ y .com, FIELD_URL anade / y .com; FIELD_NONE lo normal. */
+    void setFieldVariant(int variant) { if (fieldVariant != variant) { fieldVariant = variant; rebuildLayouts(); } }
+    private int fieldVariant = FIELD_NONE;
+
+    /** Teclado numerico 3x4 con glifos Aurebesh para campos de numero, telefono y PIN. */
+    void showNumpad(boolean phone, boolean decimal, boolean signed) { showSymbols(); }
+    boolean isNumpad() { return false; }
+
+    /** Modo de ajuste de tamano y posicion con tiradores (TOOL_RESIZE); al terminar llama a onResize. */
+    void setResizeMode(boolean on) { resizeMode = on; invalidate(); }
+    boolean isResizeMode() { return resizeMode; }
+    private boolean resizeMode = false;
 
     /**
      * Escritura deslizando el dedo por las letras (solo en la pagina de letras; los toques siguen igual).

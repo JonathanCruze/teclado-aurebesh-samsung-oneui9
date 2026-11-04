@@ -268,6 +268,10 @@ public class SwipeTest {
         public void onHandSide(int m) {}
         public void onPasteSuggestion() {}
         public void onGlide(String best, List<String> alternatives) { glides.add(best); alts.add(alternatives); }
+        public void onCursorMove(int steps, boolean select) {}
+        public void onDeleteWord() {}
+        public void onHide() {}
+        public void onResize(int heightPct, int bottomDp) {}
     }
 
     private static void event(View v, int action, float x, float y, long down, long t) {

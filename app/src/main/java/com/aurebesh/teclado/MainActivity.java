@@ -311,6 +311,24 @@ public final class MainActivity extends Activity {
             @Override public void onHandSide(int mode) { Prefs.setHand(MainActivity.this, mode == 1 ? "left" : "right"); applyPreviewPrefs(); }
             @Override public void onPasteSuggestion() {}
             @Override public void onSuggestion(String word) { replaceSelection(word + " "); }
+            @Override public void onCursorMove(int steps, boolean select) {
+                int a = selStart(), b = selEnd();
+                int pos = Math.max(0, Math.min(input.length(), (steps < 0 ? a : b) + steps));
+                if (select) input.setSelection(steps < 0 ? pos : a, steps < 0 ? b : pos); else input.setSelection(pos);
+            }
+            @Override public void onDeleteWord() {
+                Editable e = input.getText();
+                int b = selStart(), a = b;
+                while (a > 0 && Character.isWhitespace(e.charAt(a - 1))) a--;
+                while (a > 0 && !Character.isWhitespace(e.charAt(a - 1))) a--;
+                if (a < b) e.delete(a, b);
+            }
+            @Override public void onHide() {}
+            @Override public void onResize(int heightPct, int bottomDp) {
+                Prefs.setHeightPct(MainActivity.this, heightPct);
+                Prefs.setBottomDp(MainActivity.this, bottomDp);
+                applyPreviewPrefs();
+            }
             @Override public void onGlide(String best, java.util.List<String> alternatives) { replaceSelection(best + " "); }
             @Override public void onToolbar(int tool) {
                 // En la copia del teclado: un emoji de muestra o pegar el portapapeles
