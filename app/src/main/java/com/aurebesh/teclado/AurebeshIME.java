@@ -18,6 +18,8 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.ExtractedText;
+import android.view.inputmethod.ExtractedTextRequest;
 import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputContentInfo;
 import android.view.inputmethod.InputMethodManager;
@@ -37,7 +39,7 @@ import java.util.concurrent.Executors;
  * busqueda y el historial del portapapeles (texto e imagenes). Sin internet.
  */
 public class AurebeshIME extends InputMethodService
-        implements AurebeshKeyboardView.Listener, KeyboardTray.Host, EmojiTray.Host {
+        implements AurebeshKeyboardView.Listener, KeyboardTray.Host, EmojiTray.Host, AiTray.Host {
 
     private static final String SEPARATORS = " .,;:!?\n";
     private static final long DOUBLE_SPACE_MS = 500;
@@ -46,6 +48,9 @@ public class AurebeshIME extends InputMethodService
     private AurebeshKeyboardView view;
     private KeyboardTray tray;          // historial del portapapeles
     private EmojiTray emojis;           // panel de emojis
+    private AiTray ai;                  // panel de inteligencia (modelo local o servidor propio)
+    private ScreenshotWatcher screenshots;   // capturas recientes (opcional, con permiso de fotos)
+    private Bigrams bigrams;            // siguiente palabra y contexto del idioma actual
     private boolean privateField = false;
     private boolean stripOn = false;
     private boolean autocorrect = true;
@@ -63,6 +68,13 @@ public class AurebeshIME extends InputMethodService
     private int suggestSeq = 0;                   // descarta resultados atrasados
     private long lastSpaceAt = 0;
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
+
+    // Escritura deslizando: la ultima palabra escrita con un trazo, para cambiarla por un chip o borrarla entera
+    private static final String GLIDE_PUNCTUATION = ".,;:!?";
+    private String glideWord;                     // tal cual se escribio (con mayusculas), o null
+    private List<String> glideAlts;               // alternativas que se muestran en la barra
+    private String glideAnchor;                   // texto previo al cursor al poner los chips: si cambia, se quitan
+    private boolean glideAutoSpace;               // el espacio tras la palabra es automatico (la puntuacion lo absorbe)
     private final Handler main = new Handler(Looper.getMainLooper());
 
     // Portapapeles y chip "Pegar" de lo recien copiado
@@ -100,6 +112,9 @@ public class AurebeshIME extends InputMethodService
         ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
         if (cm != null) cm.addPrimaryClipChangedListener(clipListener);
         KeySound.get(this).reload(this);
+        screenshots = new ScreenshotWatcher(this, new ScreenshotWatcher.Listener() {
+            @Override public void onScreenshot(ClipHistory.Entry e) { onScreenshotFound(e); }
+        });
     }
 
     @Override
@@ -107,8 +122,34 @@ public class AurebeshIME extends InputMethodService
         Prefs.get(this).unregisterOnSharedPreferenceChangeListener(prefsListener);
         ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
         if (cm != null) cm.removePrimaryClipChangedListener(clipListener);
+        if (screenshots != null) screenshots.stop();
+        if (ai != null) ai.release();
         worker.shutdownNow();
         super.onDestroy();
+    }
+
+    @Override
+    public void onWindowShown() {
+        super.onWindowShown();
+        if (screenshots != null) screenshots.start();     // no hace nada sin la opcion o sin permiso
+    }
+
+    @Override
+    public void onWindowHidden() {
+        super.onWindowHidden();
+        if (screenshots != null) screenshots.stop();
+    }
+
+    @Override
+    public void onTrimMemory(int level) {
+        super.onTrimMemory(level);
+        if (ai != null && level >= TRIM_MEMORY_BACKGROUND) ai.unloadModel();
+    }
+
+    @Override
+    public void onLowMemory() {
+        super.onLowMemory();
+        if (ai != null) ai.unloadModel();
     }
 
     @Override
@@ -122,10 +163,14 @@ public class AurebeshIME extends InputMethodService
         emojis = new EmojiTray(this);
         emojis.setHost(this);
         emojis.setVisibility(View.GONE);
+        ai = new AiTray(this);
+        ai.setHost(this);
+        ai.setVisibility(View.GONE);
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         root.addView(view, lp);
         root.addView(tray, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         root.addView(emojis, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        root.addView(ai, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         applyPrefs();
         return root;
     }
@@ -143,12 +188,18 @@ public class AurebeshIME extends InputMethodService
             view.setSuggestionBar(autocorrect);
             view.setHandMode(Prefs.handMode(this));
             if (!autocorrect) clearSuggestions();
+            updateGlide();
         }
         if (tray != null) tray.applyTheme(theme);
         if (emojis != null) {
             emojis.setFeedback(Prefs.vibrate(this), Prefs.sound(this));
             emojis.setLanguage(lang);
             emojis.applyTheme(theme);
+        }
+        if (ai != null) {
+            ai.setFeedback(Prefs.vibrate(this), Prefs.sound(this));
+            ai.setLanguage(lang);
+            ai.applyTheme(theme);
         }
     }
 
@@ -175,6 +226,8 @@ public class AurebeshIME extends InputMethodService
                 && variation != InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
                 && variation != InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS;
         view.setPreviewEnabled(!privateField);   // sin burbuja en contrasenas
+        updateGlide();
+        if (ai != null) ai.setFieldAllowed(suggestionsAllowed && !privateField);
         if (!restarting) {
             if (cls == InputType.TYPE_CLASS_NUMBER || cls == InputType.TYPE_CLASS_PHONE) view.showSymbols();
             else view.resetToLetters();
@@ -186,13 +239,30 @@ public class AurebeshIME extends InputMethodService
         applyLanguage();
         captureClip();
         showPasteChip();
+        if (Prefs.screenshots(this) && !privateField) {          // captura reciente -> chip "Pegar"
+            worker.execute(new Runnable() {
+                @Override public void run() {
+                    final ClipHistory.Entry e = screenshots.checkRecent(PASTE_FRESH_MS);
+                    if (e != null) main.post(new Runnable() { @Override public void run() { onScreenshotFound(e); } });
+                }
+            });
+        }
         refresh();
+    }
+
+    private void onScreenshotFound(ClipHistory.Entry e) {
+        if (e == null || privateField || view == null) return;
+        if (fresh != null && fresh.isImage() && Math.abs(freshAt - System.currentTimeMillis()) < 10000) return;
+        fresh = e;
+        freshAt = System.currentTimeMillis();
+        showPasteChip();
     }
 
     @Override
     public void onFinishInputView(boolean finishingInput) {
         super.onFinishInputView(finishingInput);
         clearSuggestions();
+        if (ai != null) ai.cancel();
         hideTray();
     }
 
@@ -210,17 +280,53 @@ public class AurebeshIME extends InputMethodService
         InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
         InputMethodSubtype subtype = imm != null ? imm.getCurrentInputMethodSubtype() : null;
         String locale = subtype != null ? subtype.getLocale() : Locale.getDefault().getLanguage();
-        lang = locale != null && locale.startsWith("en") ? "en" : "es";
+        lang = locale != null && locale.startsWith("en") ? "en" : locale != null && locale.startsWith("de") ? "de" : "es";
         view.setLanguage(lang);
         if (emojis != null) emojis.setLanguage(lang);
+        if (ai != null) ai.setLanguage(lang);
         boolean several = false;
         if (imm != null) {
             List<InputMethodSubtype> enabled = imm.getEnabledInputMethodSubtypeList(null, true);
             several = enabled != null && enabled.size() > 1;
         }
         view.setLanguageSwitch(several);
-        view.setSpaceLabel(several ? getString("en".equals(lang) ? R.string.lang_en : R.string.lang_es) : null);
+        view.setSpaceLabel(several ? getString("en".equals(lang) ? R.string.lang_en : "de".equals(lang) ? R.string.lang_de : R.string.lang_es) : null);
         loadDictionary();
+        loadBigrams();
+    }
+
+    /** Tabla de bigramas del idioma (siguiente palabra y contexto), cargada en segundo plano. */
+    private void loadBigrams() {
+        final String l = lang;
+        bigrams = null;
+        worker.execute(new Runnable() {
+            @Override public void run() {
+                try {
+                    final Bigrams b = Bigrams.get(AurebeshIME.this, l);
+                    main.post(new Runnable() {
+                        @Override public void run() { if (l.equals(lang)) bigrams = b; }
+                    });
+                } catch (RuntimeException ignored) {
+                    // sin bigramas no hay prediccion; el resto sigue igual
+                }
+            }
+        });
+    }
+
+    /** Palabra completa anterior a la que se escribe (para contexto y prediccion); "<s>" al inicio de frase. */
+    private String previousWord(InputConnection ic, String current) {
+        CharSequence before = ic.getTextBeforeCursor(80, 0);
+        if (before == null) return null;
+        String s = before.toString();
+        if (current != null) s = s.substring(0, Math.max(0, s.length() - current.length()));
+        int end = s.length();
+        while (end > 0 && s.charAt(end - 1) == ' ') end--;
+        if (end == 0) return "<s>";
+        char c = s.charAt(end - 1);
+        if (".!?\n".indexOf(c) >= 0) return "<s>";
+        int i = end;
+        while (i > 0 && (Character.isLetter(s.charAt(i - 1)) || s.charAt(i - 1) == '\'')) i--;
+        return i == end ? null : s.substring(i, end).toLowerCase(Locale.ROOT);
     }
 
     /** Carga el diccionario del idioma actual en segundo plano (una vez por idioma). */
@@ -307,6 +413,11 @@ public class AurebeshIME extends InputMethodService
 
     /** Pide las sugerencias de la palabra actual al hilo de trabajo; el resultado llega por showResult. */
     private void updateSuggestions(InputConnection ic) {
+        if (glideAnchor != null) {                       // chips del deslizado: siguen mientras el texto no cambie
+            CharSequence before = ic.getTextBeforeCursor(60, 0);
+            if (before != null && before.toString().equals(glideAnchor)) return;
+            clearGlide();
+        }
         if (!autocorrect || !suggestionsAllowed || dict == null) {
             clearSuggestions();
             return;
@@ -314,6 +425,13 @@ public class AurebeshIME extends InputMethodService
         String word = currentWord(ic);
         if (word == null || word.isEmpty()) {
             clearSuggestions();
+            if (word != null && bigrams != null && fresh == null) {          // siguiente palabra prevista
+                String prev = previousWord(ic, "");
+                if (prev != null) {
+                    List<String> next = bigrams.next(prev, 3);
+                    if (!next.isEmpty()) view.setSuggestions(next, null);
+                }
+            }
             return;
         }
         if (word.equals(lastWord)) return;              // ya pedidas
@@ -343,6 +461,23 @@ public class AurebeshIME extends InputMethodService
     private void showResult(String word, Dictionary.Result r) {
         computedWord = word;
         pendingCorrection = r.correction;
+        if (bigrams != null && !r.known && r.suggestions.size() > 1) {   // contexto: candidato que mejor sigue a la anterior
+            InputConnection ic = getCurrentInputConnection();
+            String prev = ic != null ? previousWord(ic, word) : null;
+            if (prev != null) {
+                String best = r.correction;
+                double bestBonus = best != null ? bigrams.bonus(prev, best) : 0;
+                for (String s : r.suggestions) {
+                    double b = bigrams.bonus(prev, s);
+                    if (b > bestBonus + 1.0) { best = s; bestBonus = b; }
+                }
+                if (best != null && !best.equals(pendingCorrection)) {
+                    pendingCorrection = best;
+                    r.suggestions.remove(best);
+                    r.suggestions.add(0, best);
+                }
+            }
+        }
         List<String> chips = new ArrayList<>();
         if (!r.known && !r.suggestions.isEmpty()) chips.add("\"" + word + "\"");   // conservar lo escrito
         for (String s : r.suggestions) {
@@ -358,7 +493,63 @@ public class AurebeshIME extends InputMethodService
         computedWord = null;
         pendingCorrection = null;
         suggestSeq++;
+        clearGlide();
         if (view != null) view.setSuggestions(null, null);
+    }
+
+    // ------------------------------------------------------------------ escritura deslizando
+
+    /** El deslizado solo con la opcion activa y en campos normales de texto (no contrasenas ni campos sin sugerencias). */
+    private void updateGlide() {
+        if (view != null) view.setGlideEnabled(Prefs.glide(this) && suggestionsAllowed && !privateField);
+    }
+
+    private void clearGlide() {
+        glideWord = null;
+        glideAlts = null;
+        glideAnchor = null;
+        glideAutoSpace = false;
+    }
+
+    /** Pone chips propios del deslizado y recuerda el texto previo al cursor para quitarlos cuando cambie. */
+    private void showGlideChips(InputConnection ic, List<String> chips, String highlight) {
+        lastWord = null;
+        computedWord = null;
+        pendingCorrection = null;
+        suggestSeq++;
+        CharSequence before = ic.getTextBeforeCursor(60, 0);
+        glideAnchor = before == null ? "" : before.toString();
+        view.setSuggestions(chips.isEmpty() ? null : chips, highlight);
+    }
+
+    /**
+     * Palabra reconocida al deslizar: cierra la palabra que se estuviera escribiendo a toques (con su
+     * correccion), separa con espacio si hace falta y escribe la palabra mas un espacio. Las alternativas van
+     * a la barra; un chip la sustituye y retroceso justo despues la borra entera.
+     */
+    @Override
+    public void onGlide(String best, List<String> alternatives) {
+        InputConnection ic = getCurrentInputConnection();
+        if (ic == null || view == null || best == null || best.isEmpty()) return;
+        ic.beginBatchEdit();
+        String cur = currentWord(ic);
+        if (cur != null && !cur.isEmpty()) {
+            if (!applyCorrection(ic, " ")) ic.commitText(" ", 1);
+        } else {
+            CharSequence before = ic.getTextBeforeCursor(1, 0);
+            if (before != null && before.length() == 1 && endsSentence(before.charAt(0))) ic.commitText(" ", 1);
+        }
+        ic.commitText(best + " ", 1);
+        ic.endBatchEdit();
+        lastCorrection = null;
+        lastSpaceAt = 0;
+        if (fresh != null) clearPasteChip();
+        List<String> alts = new ArrayList<>();
+        if (alternatives != null) for (String a : alternatives) if (!a.equals(best) && !alts.contains(a)) alts.add(a);
+        glideWord = best;
+        glideAlts = alts;
+        glideAutoSpace = true;
+        showGlideChips(ic, alts, null);
     }
 
     private static String matchCase(String original, String replacement) {
@@ -437,9 +628,29 @@ public class AurebeshIME extends InputMethodService
             lastSpaceAt = 0;
         }
         if (!separator && fresh != null) clearPasteChip();
+        if (separator) rememberPair(ic);
+        if (glideWord != null) {                                          // la puntuacion absorbe el espacio del deslizado
+            if (glideAutoSpace && text.length() == 1 && GLIDE_PUNCTUATION.indexOf(text.charAt(0)) >= 0) {
+                CharSequence before = ic.getTextBeforeCursor(glideWord.length() + 1, 0);
+                if (before != null && before.toString().equals(glideWord + " ")) ic.deleteSurroundingText(1, 0);
+            }
+            clearGlide();
+        }
         if (separator && applyCorrection(ic, text)) return;
         if (!separator) lastCorrection = null;
         ic.commitText(text, 1);
+    }
+
+    /** Aprende (solo en el telefono) el par palabra anterior + palabra actual al cerrarla con un separador. */
+    private void rememberPair(InputConnection ic) {
+        if (!learn || bigrams == null) return;
+        String cur = currentWord(ic);
+        if (cur == null || cur.length() < 2 || looksLikeAcronym(cur)) return;
+        String prev = previousWord(ic, cur);
+        if (prev == null || "<s>".equals(prev)) return;
+        String w = pendingCorrection != null && lastWord != null && lastWord.equals(cur) && lastWord.equals(computedWord)
+                ? pendingCorrection.toLowerCase(Locale.ROOT) : cur.toLowerCase(Locale.ROOT);
+        bigrams.learn(this, prev, w);
     }
 
     @Override
@@ -451,6 +662,23 @@ public class AurebeshIME extends InputMethodService
         if (!TextUtils.isEmpty(sel)) {
             ic.commitText("", 1);
             return;
+        }
+        // Retroceso justo despues de deslizar: borra la palabra entera y ofrece elegir otra en la barra
+        if (glideWord != null) {
+            String w = glideWord;
+            List<String> alts = glideAlts;
+            CharSequence before = ic.getTextBeforeCursor(w.length() + 1, 0);
+            String s = before == null ? "" : before.toString();
+            int n = s.equals(w + " ") ? w.length() + 1 : s.endsWith(w) ? w.length() : 0;
+            clearGlide();
+            if (n > 0) {
+                ic.deleteSurroundingText(n, 0);
+                List<String> chips = new ArrayList<>();
+                chips.add(w);
+                if (alts != null) for (String a : alts) if (chips.size() < 3 && !chips.contains(a)) chips.add(a);
+                showGlideChips(ic, chips, null);
+                return;
+            }
         }
         // Retroceso justo despues de una autocorreccion: recupera la palabra original (y la aprende)
         if (lastCorrection != null) {
@@ -521,6 +749,24 @@ public class AurebeshIME extends InputMethodService
     public void onSuggestion(String word) {
         InputConnection ic = getCurrentInputConnection();
         if (ic == null) return;
+        if (glideWord != null && glideAutoSpace && !AurebeshKeyboardView.isEmoji(word) && !word.startsWith("\"")) {
+            CharSequence before = ic.getTextBeforeCursor(glideWord.length() + 1, 0);
+            if (before != null && before.toString().equals(glideWord + " ")) {   // chip tras deslizar: cambia la palabra
+                ic.beginBatchEdit();
+                ic.deleteSurroundingText(glideWord.length() + 1, 0);
+                ic.commitText(word + " ", 1);
+                ic.endBatchEdit();
+                List<String> alts = glideAlts == null ? new ArrayList<String>() : glideAlts;
+                int i = alts.indexOf(word);
+                if (i >= 0) alts.set(i, glideWord); else alts.add(glideWord);   // la anterior pasa a ser alternativa
+                glideWord = word;
+                lastCorrection = null;
+                lastSpaceAt = 0;
+                showGlideChips(ic, alts, null);
+                glideAlts = alts;
+                return;
+            }
+        }
         String cur = currentWord(ic);
         ic.beginBatchEdit();
         if (word.length() >= 2 && word.startsWith("\"") && word.endsWith("\"")) {
@@ -551,6 +797,7 @@ public class AurebeshIME extends InputMethodService
             case AurebeshKeyboardView.TOOL_EMOJI: openEmojis(); break;
             case AurebeshKeyboardView.TOOL_CLIPBOARD: openClipboard(); break;
             case AurebeshKeyboardView.TOOL_HAND: Prefs.toggleHand(this); break;      // el oyente de preferencias lo aplica
+            case AurebeshKeyboardView.TOOL_AI: openAi(); break;
             case AurebeshKeyboardView.TOOL_SETTINGS:
                 try {
                     startActivity(new Intent(this, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
@@ -576,6 +823,7 @@ public class AurebeshIME extends InputMethodService
         which.setLayoutParams(lp);
         if (tray != null) tray.setVisibility(tray == which ? View.VISIBLE : View.GONE);
         if (emojis != null) emojis.setVisibility(emojis == which ? View.VISIBLE : View.GONE);
+        if (ai != null) ai.setVisibility(ai == which ? View.VISIBLE : View.GONE);
         view.setVisibility(View.INVISIBLE);
     }
 
@@ -583,7 +831,90 @@ public class AurebeshIME extends InputMethodService
         if (view == null) return;
         if (tray != null) tray.setVisibility(View.GONE);
         if (emojis != null) emojis.setVisibility(View.GONE);
+        if (ai != null) ai.setVisibility(View.GONE);
         view.setVisibility(View.VISIBLE);
+    }
+
+    // ------------------------------------------------------------------ inteligencia
+
+    private void openAi() {
+        if (ai == null || privateField) return;
+        ai.show();
+        showTray(ai);
+    }
+
+    /** Texto completo del campo (o lo que haya antes y despues del cursor si la app no lo da entero). */
+    private CharSequence fieldText(InputConnection ic) {
+        ExtractedText et = ic.getExtractedText(new ExtractedTextRequest(), 0);
+        if (et != null && et.text != null) return et.text;
+        CharSequence b = ic.getTextBeforeCursor(8000, 0);
+        CharSequence a = ic.getTextAfterCursor(8000, 0);
+        return (b == null ? "" : b.toString()) + (a == null ? "" : a.toString());
+    }
+
+    @Override
+    public CharSequence currentText() {
+        InputConnection ic = getCurrentInputConnection();
+        return ic == null ? "" : fieldText(ic);
+    }
+
+    @Override
+    public CharSequence selectedText() {
+        InputConnection ic = getCurrentInputConnection();
+        return ic == null ? null : ic.getSelectedText(0);
+    }
+
+    @Override
+    public void replaceText(CharSequence t) {
+        InputConnection ic = getCurrentInputConnection();
+        if (ic == null || t == null) return;
+        ic.beginBatchEdit();
+        CharSequence sel = ic.getSelectedText(0);
+        if (TextUtils.isEmpty(sel)) {
+            ExtractedText et = ic.getExtractedText(new ExtractedTextRequest(), 0);
+            if (et != null && et.text != null && et.text.length() > 0) {
+                ic.setSelection(0, et.text.length());
+            } else {
+                CharSequence b = ic.getTextBeforeCursor(10000, 0);
+                CharSequence a = ic.getTextAfterCursor(10000, 0);
+                ic.deleteSurroundingText(b == null ? 0 : b.length(), a == null ? 0 : a.length());
+            }
+        }
+        ic.commitText(t, 1);
+        ic.endBatchEdit();
+        lastCorrection = null;
+        lastSpaceAt = 0;
+        clearSuggestions();
+    }
+
+    @Override
+    public void insertText(CharSequence t) {
+        InputConnection ic = getCurrentInputConnection();
+        if (ic == null || t == null) return;
+        CharSequence before = ic.getTextBeforeCursor(1, 0);
+        String prefix = before != null && before.length() == 1 && !Character.isWhitespace(before.charAt(0)) ? " " : "";
+        ic.commitText(prefix + t, 1);
+        lastCorrection = null;
+        lastSpaceAt = 0;
+        clearSuggestions();
+    }
+
+    @Override
+    public void copyText(CharSequence t) {
+        ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+        if (cm != null && t != null) cm.setPrimaryClip(ClipData.newPlainText("aurebesh", t));
+    }
+
+    @Override
+    public void closeTray() { hideTray(); }
+
+    @Override
+    public void openSettings() {
+        try {
+            startActivity(new Intent(this, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK).putExtra("section", "ai"));
+        } catch (RuntimeException ignored) {
+            // sin permiso para abrir la pantalla desde aqui
+        }
     }
 
     // ------------------------------------------------------------------ emojis

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="opt_glide">Deslizar para escribir</string>
+    <string name="opt_glide_sub">Desliza el dedo por las letras para escribir una palabra; las alternativas salen arriba</string>
+    <string name="opt_app_lang">Idioma de la app</string>
+    <string name="app_lang_system">Sistema</string>
+    <string name="app_lang_es">Español</string>
+    <string name="app_lang_en">English</string>
+    <string name="app_lang_de">Deutsch</string>
+    <string name="tool_ai">Inteligencia</string>
+    <string name="gesture_glide">Deslizar por las letras</string>
+    <string name="gesture_glide_result">Escribe la palabra; retroceso justo después la borra entera</string>
+    <string name="gesture_ai">✦ a la izquierda de la barra</string>
+    <string name="gesture_ai_result">Ortografía, estilo de escritura, resumir, viñetas, tabla y redactar, con un modelo local o tu propio servidor</string>
+</resources>

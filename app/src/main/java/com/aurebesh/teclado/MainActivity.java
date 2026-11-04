@@ -47,11 +47,17 @@ public final class MainActivity extends Activity {
     private EditText input;
     private AurebeshTextView translation;
     private AurebeshKeyboardView preview;
+    private View aiCard;
     private final java.util.List<View> themeItems = new java.util.ArrayList<>();
     private TextView soundCurrent;                       // "Actual: nombre" del sonido personalizado
 
     private static final int PICK_SOUND = 41;
     private static final long MAX_SOUND_BYTES = 2L * 1024 * 1024;
+
+    @Override
+    protected void attachBaseContext(Context base) {
+        super.attachBaseContext(AppLocale.wrap(base));   // idioma de la app elegido en ajustes
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -87,6 +93,7 @@ public final class MainActivity extends Activity {
         optionRow(appearance, R.string.opt_hints, R.string.opt_hints_sub, Prefs.HINTS, Prefs.hints(this));
         optionRow(appearance, R.string.opt_strip, R.string.opt_strip_sub, Prefs.STRIP, Prefs.strip(this));
         optionRow(appearance, R.string.opt_toolbar, R.string.opt_toolbar_sub, Prefs.TOOLBAR, Prefs.toolbar(this));
+        chipRow(appearance, R.string.opt_app_lang, Prefs.APP_LANG, AppLocale.CHOICES, APP_LANG_NAMES, Prefs.appLang(this));
         root.addView(appearance, block(0));
 
         section(root, R.string.typing);
@@ -95,6 +102,7 @@ public final class MainActivity extends Activity {
         optionRow(typing, R.string.opt_numbers, R.string.opt_numbers_sub, Prefs.NUMBERS, Prefs.numbers(this));
         chipRow(typing, R.string.opt_height, Prefs.HEIGHT, SIZES, SIZE_NAMES, Prefs.height(this));
         chipRow(typing, R.string.opt_hand, Prefs.HAND, HANDS, HAND_NAMES, Prefs.hand(this));
+        optionRow(typing, R.string.opt_glide, R.string.opt_glide_sub, Prefs.GLIDE, Prefs.glide(this));
         optionRow(typing, R.string.opt_autocorrect, R.string.opt_autocorrect_sub, Prefs.AUTOCORRECT, Prefs.autocorrect(this));
         optionRow(typing, R.string.opt_double_space, R.string.opt_double_space_sub, Prefs.DOUBLE_SPACE, Prefs.doubleSpace(this));
         optionRow(typing, R.string.opt_learn, R.string.opt_learn_sub, Prefs.LEARN, Prefs.learn(this));
@@ -103,6 +111,15 @@ public final class MainActivity extends Activity {
         customSoundRow(typing);
         optionRow(typing, R.string.opt_vibrate, 0, Prefs.VIBRATE, Prefs.vibrate(this));
         root.addView(typing, block(0));
+
+        // Portapapeles: capturas de pantalla recientes (permiso opcional de fotos)
+        typing.addView(dividerLine());
+        typing.addView(ScreenshotSettingsRow.build(this, ink, secondary, thumbOff, trackOff), block(0));
+
+        // Inteligencia: modelo local o servidor propio
+        section(root, R.string.ai_section);
+        aiCard = AiSettingsCard.build(this, ink, secondary, card, divider);
+        root.addView(aiCard, block(0));
 
         section(root, R.string.gestures);
         LinearLayout gestures = cardColumn();
@@ -115,6 +132,8 @@ public final class MainActivity extends Activity {
         gestureRow(gestures, R.string.gesture_picker, R.string.gesture_picker_result);
         gestureRow(gestures, R.string.gesture_emoji, R.string.gesture_emoji_result);
         gestureRow(gestures, R.string.gesture_clipboard, R.string.gesture_clipboard_result);
+        gestureRow(gestures, R.string.gesture_glide, R.string.gesture_glide_result);
+        gestureRow(gestures, R.string.gesture_ai, R.string.gesture_ai_result);
         gestureRow(gestures, R.string.gesture_gear, R.string.gesture_gear_result);
         root.addView(gestures, block(0));
 
@@ -133,12 +152,25 @@ public final class MainActivity extends Activity {
         root.addView(foot, block(28));
 
         setContentView(scroll);
+        if ("ai".equals(getIntent().getStringExtra("section")) && aiCard != null) {
+            final ScrollView sv = scroll;
+            sv.post(new Runnable() {
+                @Override public void run() { sv.smoothScrollTo(0, aiCard.getTop() - px(40)); }
+            });
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] perms, int[] results) {
+        super.onRequestPermissionsResult(requestCode, perms, results);
+        ScreenshotSettingsRow.onPermissionResult(this, requestCode, perms, results);
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         updateSetup();
+        ScreenshotSettingsRow.refresh(this);
     }
 
     @Override
@@ -213,6 +245,7 @@ public final class MainActivity extends Activity {
             @Override public void onHandSide(int mode) { Prefs.setHand(MainActivity.this, mode == 1 ? "left" : "right"); applyPreviewPrefs(); }
             @Override public void onPasteSuggestion() {}
             @Override public void onSuggestion(String word) { replaceSelection(word + " "); }
+            @Override public void onGlide(String best, java.util.List<String> alternatives) { replaceSelection(best + " "); }
             @Override public void onToolbar(int tool) {
                 // En la copia del teclado: un emoji de muestra o pegar el portapapeles
                 if (tool == AurebeshKeyboardView.TOOL_EMOJI) {
@@ -307,6 +340,7 @@ public final class MainActivity extends Activity {
                 Prefs.theme(this), Prefs.numbers(this), Prefs.sound(this), Prefs.heightScale(this));
         preview.setHandMode(Prefs.handMode(this));
         preview.setToolbar(Prefs.toolbar(this));
+        preview.setGlideEnabled(Prefs.glide(this));
     }
 
     /** Traduccion, barra y mayuscula automatica de la copia del teclado. */
@@ -346,6 +380,7 @@ public final class MainActivity extends Activity {
     private static final String[] SIZES = {"compact", "normal", "large", "xlarge"};
     private static final int[] SIZE_NAMES = {R.string.size_compact, R.string.size_normal, R.string.size_large, R.string.size_xlarge};
     private static final String[] HANDS = {"none", "left", "right"};
+    private static final int[] APP_LANG_NAMES = {R.string.app_lang_system, R.string.app_lang_es, R.string.app_lang_en, R.string.app_lang_de};
     private static final int[] HAND_NAMES = {R.string.hand_none, R.string.hand_left, R.string.hand_right};
 
     /** Fila de opciones excluyentes (chips); la copia del teclado cambia al instante. */
@@ -367,6 +402,7 @@ public final class MainActivity extends Activity {
             chip.setOnClickListener(new View.OnClickListener() {
                 @Override public void onClick(View v) {
                     Prefs.get(MainActivity.this).edit().putString(prefKey, id).apply();
+                    if (Prefs.APP_LANG.equals(prefKey)) { recreate(); return; }
                     for (TextView other : chips) {
                         other.setSelected(other == chip);
                         styleChip(other);
@@ -576,6 +612,7 @@ public final class MainActivity extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        AiSettingsCard.onActivityResult(this, requestCode, resultCode, data);
         if (requestCode != PICK_SOUND || resultCode != RESULT_OK || data == null || data.getData() == null) return;
         Uri uri = data.getData();
         java.io.File target = new java.io.File(getFilesDir(), KeySound.FILE);

@@ -92,6 +92,7 @@ public class ScreenshotTest {
             public void onSwitchKeyboard() {}
             public void onSwitchLanguage() {}
             public void onSuggestion(String w) { typed.append("[").append(w).append("]"); }
+            public void onGlide(String best, java.util.List<String> alts) { typed.append("<glide:").append(best).append(">"); }
             public void onToolbar(int t) { typed.append("<tool").append(t).append(">"); }
             public void onHandSide(int m) { typed.append("<side").append(m).append(">"); }
             public void onPasteSuggestion() { typed.append("<paste>"); }
@@ -192,7 +193,10 @@ public class ScreenshotTest {
         kb.setSuggestions(java.util.Arrays.asList("\"fuersa\"", "fuerza", "fuera"), "fuerza");
         save(render(kb), "sugerencias.png");
         typed.setLength(0);
-        tap(kb, 40 * dp, 20 * dp);
+        tap(kb, 28 * dp, 20 * dp);                     // boton de inteligencia a la izquierda
+        if (!typed.toString().equals("<tool5>")) throw new AssertionError("inteligencia: " + typed);
+        typed.setLength(0);
+        tap(kb, 76 * dp, 20 * dp);                     // primer chip, tras el boton
         if (!typed.toString().equals("[\"fuersa\"]")) throw new AssertionError("sugerencia: " + typed);
         kb.setSuggestions(null, null);
         kb.setSuggestionBar(false);
@@ -256,7 +260,7 @@ public class ScreenshotTest {
         // Chip "Pegar" con lo recien copiado: texto e imagen
         kb.setPasteSuggestion(null, "Que la Fuerza te acompañe, siempre", "Pegar");
         save(render(kb), "pegar_texto.png");
-        tap(kb, 60 * dp, 20 * dp);
+        tap(kb, 90 * dp, 20 * dp);
         if (!typed.toString().equals("<paste>")) throw new AssertionError("pegar: " + typed);
         typed.setLength(0);
         Bitmap thumb = Bitmap.createBitmap(120, 80, Bitmap.Config.ARGB_8888);
@@ -336,6 +340,40 @@ public class ScreenshotTest {
         if (!EmojiTray.search(app, "laugh", 10).contains("\uD83D\uDE02")) throw new AssertionError("buscar laugh: " + EmojiTray.search(app, "laugh", 10));
         System.out.println("EMOJI ok " + EmojiTray.search(app, "corazon", 6) + " " + EmojiTray.search(app, "piza", 4));
 
+        // Panel de inteligencia: sin modelo, acciones, tonos y redactor (con un archivo de modelo simulado)
+        final String[] field = {"hola, esto es un texto de prueva con algunos herrores de ortografia. lo escribo rapido sin tildes."};
+        AiTray.Host aiHost = new AiTray.Host() {
+            public CharSequence currentText() { return field[0]; }
+            public CharSequence selectedText() { return null; }
+            public void replaceText(CharSequence t) {}
+            public void insertText(CharSequence t) {}
+            public void copyText(CharSequence t) {}
+            public void closeTray() {}
+            public void openSettings() {}
+        };
+        AiTray aiTray = new AiTray(app);
+        aiTray.setHost(aiHost);
+        aiTray.setLanguage("es");
+        aiTray.applyTheme(Themes.ESTELAR);
+        aiTray.show();
+        if (aiTray.state() != AiTray.State.NO_MODEL) throw new AssertionError("ia sin modelo: " + aiTray.state());
+        save(renderExact(aiTray, trayH), "ia_sin_modelo.png");
+        File fakeModel = new File(AiModels.dir(app), AiModels.DEFAULT.file);
+        try (FileOutputStream f = new FileOutputStream(fakeModel)) { f.write("GGUF".getBytes("UTF-8")); }
+        AiModels.select(app, fakeModel.getName());
+        aiTray.show();
+        if (aiTray.state() != AiTray.State.IDLE) throw new AssertionError("ia acciones: " + aiTray.state());
+        save(renderExact(aiTray, trayH), "ia_acciones.png");
+        aiTray.applyTheme(Themes.DATAPAD);
+        aiTray.showTones();
+        save(renderExact(aiTray, trayH), "ia_tonos_datapad.png");
+        aiTray.applyTheme(Themes.NOCHE);
+        aiTray.showPrompt(true);
+        save(renderExact(aiTray, trayH), "ia_redactor_noche.png");
+        aiTray.release();
+        ShadowLooper.shadowMainLooper().idle();
+        System.out.println("IA ok");
+
         // Diccionarios integrados: una edicion, tildes, completado, contracciones inglesas
         Dictionary es = Dictionary.get(app, "es");
         check(es.suggest("holq").correction, "hola", "holq");
@@ -393,6 +431,9 @@ public class ScreenshotTest {
             if (!Glyphs.has(sym)) throw new AssertionError("sin glifo: " + sym);
         }
         System.out.println("TOKENS ok");
+
+        if (fakeModel.exists()) AiModels.delete(app, fakeModel.getName());
+        ShadowLooper.shadowMainLooper().idle();
 
         // Pantalla de la app en claro y en noche: pagina completa y primera pantalla (Samsung One UI 9.0)
         ShadowBuild.setManufacturer("samsung");

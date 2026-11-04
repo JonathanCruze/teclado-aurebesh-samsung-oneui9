@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Einstellung "Einfügen des letzten Screenshots vorschlagen" -->
+    <string name="shots_title">Einfügen des letzten Screenshots vorschlagen</string>
+    <string name="shots_sub">Öffnest du die Tastatur direkt nach einem Screenshot, erscheint er als Vorschlag. Benötigt die Fotoberechtigung; es wird nur der Ordner Screenshots gelesen und nichts verlässt das Telefon.</string>
+    <string name="shots_partial">Eingeschränkter Fotozugriff: wähle „Alle erlauben“, damit neue Screenshots erkannt werden.</string>
+    <string name="shots_denied">Fotoberechtigung verweigert. Aktiviere sie unter Einstellungen › Apps › Teclado Aurebesh › Berechtigungen.</string>
+</resources>

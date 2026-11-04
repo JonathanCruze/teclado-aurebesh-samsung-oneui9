@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Aurebesh-Tastatur</string>
+
+    <string name="tagline">Das Star-Wars-Alphabet auf deiner Tastatur. Was du tippst, wird in normalen Buchstaben gesendet, sodass es jeder lesen kann.</string>
+
+    <string name="step_1">Schritt 1 von 2</string>
+    <string name="step_2">Schritt 2 von 2</string>
+    <string name="setup_enable_title">Aktiviere Aurebesh in den Einstellungen des Telefons</string>
+    <string name="setup_enable_action">Tastatureinstellungen öffnen</string>
+    <string name="setup_select_title">Wähle Aurebesh als aktuelle Tastatur</string>
+    <string name="setup_select_action">Tastatur wählen</string>
+    <string name="setup_done_title">Aurebesh ist deine Tastatur</string>
+    <string name="setup_done_hint">Um zur Samsung-Tastatur zurückzukehren, halte die Leertaste gedrückt.</string>
+    <string name="setup_done_action">Tastatur wechseln</string>
+
+    <string name="try_title">Probier es aus</string>
+    <string name="try_hint">Schreib etwas</string>
+    <string name="real_title">Mit der Systemtastatur</string>
+    <string name="real_sub">Hier erscheint die in den Einstellungen gewählte Tastatur, um ein normales Feld und ein Passwortfeld auszuprobieren.</string>
+    <string name="real_text_hint">Normaler Text</string>
+    <string name="real_password_hint">Passwort</string>
+
+    <string name="appearance">Aussehen</string>
+    <string name="opt_theme">Design</string>
+    <string name="theme_estelar">Sternenlicht</string>
+    <string name="theme_noche">Nacht</string>
+    <string name="theme_datapad">Datapad</string>
+    <string name="theme_imperial">Imperial</string>
+    <string name="theme_arena">Sand</string>
+    <string name="opt_hints">Lateinische Buchstaben auf den Tasten</string>
+    <string name="opt_hints_sub">Praktisch, während du das Alphabet lernst</string>
+    <string name="opt_strip">Übersetzungsleiste</string>
+    <string name="opt_strip_sub">Zeigt über den Tasten, was du in Aurebesh schreibst</string>
+    <string name="opt_toolbar">Symbolleiste</string>
+    <string name="opt_toolbar_sub">😊 Emojis und 📋 Zwischenablage rechts neben den Vorschlägen</string>
+
+    <string name="typing">Eingabe</string>
+    <string name="opt_digraphs">Digraphen</string>
+    <string name="opt_digraphs_sub">Ein Zeichen für ch, sh, th, ae, eo, kh, ng und oo</string>
+    <string name="opt_numbers">Zahlenreihe</string>
+    <string name="opt_numbers_sub">Ohne sie ist die Tastatur niedriger und die Zahlen liegen auf langem Drücken von q…p</string>
+    <string name="opt_sound">Ton beim Tippen</string>
+    <string name="opt_height">Tastaturgröße</string>
+    <string name="size_compact">Kompakt</string>
+    <string name="size_normal">Normal</string>
+    <string name="size_large">Groß</string>
+    <string name="size_xlarge">Extragroß</string>
+    <string name="opt_hand">Einhandmodus</string>
+    <string name="hand_none">Aus</string>
+    <string name="hand_left">Links</string>
+    <string name="hand_right">Rechts</string>
+    <string name="opt_autocorrect">Autokorrektur</string>
+    <string name="opt_autocorrect_sub">Integrierte Wörterbücher für Spanisch, Englisch und Deutsch, ohne Internet: behebt ein oder zwei Fehler, ergänzt Akzente und vervollständigt Wörter. Die Rücktaste macht eine Korrektur rückgängig.</string>
+    <string name="opt_vibrate">Vibration beim Tippen</string>
+
+    <string name="gestures">Gesten</string>
+    <string name="gesture_accent">Vokal gedrückt halten</string>
+    <string name="gesture_accent_result">Akzentmenü: á à ä â…; wischen und loslassen</string>
+    <string name="gesture_enye">n gedrückt halten</string>
+    <string name="gesture_enye_result">ñ</string>
+    <string name="gesture_marks">, oder . gedrückt halten</string>
+    <string name="gesture_marks_result">! und ?  (in ?123 ergeben ? und ! bei langem Drücken ¿ und ¡)</string>
+    <string name="gesture_caps">Umschalttaste doppelt tippen</string>
+    <string name="gesture_caps_result">Feststelltaste</string>
+    <string name="gesture_symbols">"?123-Taste"</string>
+    <string name="gesture_symbols_result">Symbole wie bei der Samsung-Tastatur angeordnet; 1/2 öffnet die zweite Seite mit Digraphen, ¿ ¡ « » und mehr</string>
+    <string name="gesture_switch">Globus</string>
+    <string name="gesture_switch_result">Nächste Aurebesh-Sprache (erscheint, wenn mehrere aktiviert sind)</string>
+    <string name="gesture_picker">Leertaste gedrückt halten</string>
+    <string name="gesture_picker_result">Andere Tastatur wählen (Samsung usw.)</string>
+    <string name="gesture_emoji">😊 Emojis</string>
+    <string name="gesture_emoji_result">Emoji-Bereich nach Kategorien, mit zuletzt verwendeten; ABC kehrt zu den Buchstaben zurück</string>
+    <string name="gesture_clipboard">📋 Zwischenablage</string>
+    <string name="gesture_clipboard_result">Alles, was du kopiert hast; antippen zum Einfügen</string>
+
+    <string name="tool_emoji">Emojis</string>
+    <string name="tool_clipboard">Zwischenablage</string>
+    <string name="emoji_recent_title">Zuletzt verwendet</string>
+    <string name="emoji_recent_empty">Emojis, die du benutzt, erscheinen hier</string>
+    <string name="emoji_search_hint">Emoji suchen</string>
+    <string name="emoji_search_empty">Kein Emoji gefunden</string>
+    <string name="clip_only_number">Nur die Nummer</string>
+    <string name="clip_only_email">Nur die E-Mail-Adresse</string>
+    <string name="clip_only_link">Nur den Link</string>
+    <string name="clip_image">Bild</string>
+    <string name="clip_image_unsupported">Dieses Feld akzeptiert keine Bilder</string>
+    <string name="opt_custom_sound">Eigener Tastenton</string>
+    <string name="opt_custom_sound_sub">Eine kurze Audiodatei (etwa 3 s oder weniger); standardmäßig der Systemklick</string>
+    <string name="sound_choose">Ton auswählen…</string>
+    <string name="sound_default">Standard verwenden</string>
+    <string name="sound_current">Aktuell: %1$s</string>
+    <string name="sound_error">Diese Datei konnte nicht verwendet werden</string>
+    <string name="opt_learn">Neue Wörter lernen</string>
+    <string name="opt_learn_sub">Wörter, die du behältst, werden auf diesem Telefon gespeichert und beim nächsten Mal vorgeschlagen</string>
+    <string name="learn_clear">Gelernte Wörter vergessen</string>
+    <string name="learn_cleared">Gelernte Wörter vergessen</string>
+    <string name="opt_double_space">Punkt durch doppeltes Leerzeichen</string>
+    <string name="opt_double_space_sub">Tippe die Leertaste zweimal, um einen Satz zu beenden</string>
+    <string name="paste">Einfügen</string>
+    <string name="tool_hand">Einhandmodus</string>
+    <string name="tool_settings">Einstellungen</string>
+    <string name="gesture_gear">⚙ in ?123</string>
+    <string name="gesture_gear_result">Öffnet diese Einstellungen direkt aus der Tastatur</string>
+    <string name="clipboard_title">Zwischenablage</string>
+    <string name="clipboard_clear">Alles löschen</string>
+    <string name="clipboard_empty">Kopiere einen Text, und er erscheint hier. Tippe auf einen Eintrag, um ihn einzufügen.</string>
+
+    <string name="compat_title">Experimentell auf diesem Gerät</string>
+    <string name="compat_body">Die Aurebesh-Tastatur ist für Samsung-Galaxy-Telefone mit One UI 9.0 (Android 17) optimiert und getestet. Dieses Gerät: %1$s. Auf anderen Android-Versionen kann es zu Fehlern kommen.</string>
+    <string name="footer_compat_ok">Optimiert für Samsung One UI 9.0 · dieses Telefon: %1$s</string>
+    <string name="footer_compat_other">Optimiert für Samsung One UI 9.0 · dieses Telefon: %1$s (experimentell)</string>
+    <string name="credits">Aurebesh-Schrift © 2022 SilvinoR, SIL Open Font License 1.1. Wortlisten: FrequencyWords von Hermit Dave (MIT), auf Basis von OpenSubtitles. Star Wars und Aurebesh sind Marken von Lucasfilm Ltd.; Fanprojekt, nicht verbunden.</string>
+
+    <string name="footer">Version %1$s. Kein Internetzugriff. Nur der Verlauf der Zwischenablage und die Wörter, die du behalten möchtest, werden gespeichert, und zwar auf diesem Telefon.</string>
+</resources>

@@ -1,0 +1,24 @@
+Hola, ¿qué tal? Me llamo Íñigo y vivo en Logroño.
+El niño comió 3 manzanas y 12 peras a las 17:45 h.
+¡Qué bonito día! ☀️ Vamos a la playa 🏖️ con los amigos.
+La canción "Corazón partío" tiene 4.512.000 reproducciones.
+Mañana habrá reunión a las 9:30; tráete el portátil, por favor.
+Email: ana.garcía@ejemplo.com — teléfono +34 600 123 456.
+   espacios   múltiples    y tabulador\taquí\tsí
+Primera línea\nsegunda línea\n\ntercera tras línea vacía
+¿Cuánto cuesta? Cuesta 1 234,56 € (IVA incluido) o $1,299.99.
+El pingüino, el búho y el ñandú: ¡animales con diéresis, tilde y eñe!
+Don't worry, we'll fix it; it's 100% doable (I'm sure).
+Año 2024: Ñoño, ÑOÑO, ñoño… ¿¡Verdad!?
+Los emojis compuestos 👨‍👩‍👧‍👦 y las banderas 🇲🇽 🇪🇸 también cuentan.
+Fórmula: E = mc² y H₂O; pi ≈ 3,14159.
+Escríbeme cuando llegues, ¿vale? Un abrazo fuerte.
+Resumen en 2-3 frases: el mercado subió un 7,5 % en el tercer trimestre.
+Convierte en viñetas:\n- leche\n- pan\n- huevos
+| nombre | edad |\n|---|---|\n| Ana | 31 |
+¡¡¡URGENTE!!! Llámame YA... o escríbeme :) ;-) <3
+Él dijo: «No sé si podré ir», y se marchó.
+Código: if (x >= 10 && y != 0) { return x / y; }
+日本語のテキストと中文混合, también funciona 😅.
+Oración final sin punto y con espacio al final
+Tengo 25 años, mido 1,80 m y peso 72 kg.

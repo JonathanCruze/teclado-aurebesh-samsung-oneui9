@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Genera los diccionarios de autocorreccion del teclado:
-    app/src/main/res/raw/words_es.txt y words_en.txt (una palabra por linea, de mas a menos frecuente).
+    app/src/main/res/raw/words_es.txt, words_en.txt y words_de.txt (una palabra por linea, de mas a menos frecuente).
 
 Fuente: listas de frecuencia de hermitdave/FrequencyWords (licencia MIT, tools/dict/LICENSE-FrequencyWords.md),
 calculadas sobre los subtitulos de OpenSubtitles 2018 (corpus OPUS).
 
-Uso:  python3 tools/build_dictionaries.py [carpeta con es_50k.txt y en_50k.txt]
-      Sin carpeta, descarga las listas de GitHub.
+Uso:  python3 tools/build_dictionaries.py [carpeta con es_50k.txt, en_50k.txt y de_50k.txt] [idiomas...]
+      Sin carpeta, descarga las listas de GitHub. Sin idiomas, genera es, en y de.
 """
 import os
 import re
@@ -20,6 +20,8 @@ LIMIT = 40000
 RULES = {
     'es': (re.compile(r'^[a-záéíóúüñ]+$'), {'a', 'y', 'o', 'e', 'u'}),
     'en': (re.compile(r"^[a-z']+$"), {'a', 'i'}),
+    # Aleman: vocales con dieresis y eszett; la lista viene en minusculas (los sustantivos pierden la mayuscula).
+    'de': (re.compile(r'^[a-zäöüß]+$'), set()),
 }
 
 
@@ -57,6 +59,7 @@ def build(lang, folder):
 
 
 if __name__ == '__main__':
-    folder = sys.argv[1] if len(sys.argv) > 1 else None
-    for lang in ('es', 'en'):
+    args = sys.argv[1:]
+    folder = args.pop(0) if args and args[0] not in RULES else None
+    for lang in args or ('es', 'en', 'de'):
         build(lang, folder)

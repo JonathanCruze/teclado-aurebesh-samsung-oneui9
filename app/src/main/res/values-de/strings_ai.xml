@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Panel "Intelligenz" (Schreibassistent) -->
+    <string name="ai_title">Intelligenz</string>
+    <string name="ai_badge_local">Lokal · %1$s</string>
+    <string name="ai_badge_remote">Server · %1$s</string>
+    <string name="ai_badge_none">Kein Modell</string>
+    <string name="ai_source_selection">Text: die Auswahl · %1$d Zeichen</string>
+    <string name="ai_source_field">Text: das ganze Feld · %1$d Zeichen</string>
+    <string name="ai_source_empty">Das Feld ist leer · nur Verfassen</string>
+    <string name="ai_source_truncated">Nur die ersten %1$d Zeichen werden verwendet</string>
+    <string name="ai_no_model_body">Die KI arbeitet offline mit einem kleinen Modell auf dem Telefon (350 MB bis 650 MB). Lade es einmal herunter oder gib einen eigenen Server an.</string>
+    <string name="ai_open_settings">Modell wählen…</string>
+    <string name="ai_privacy_note">Dein Text verlässt das Telefon nie, es sei denn, du richtest einen Server ein.</string>
+    <string name="ai_disabled_field">In diesem Feld ist der Assistent nicht verfügbar (Adressen, E-Mails oder Passwörter).</string>
+
+    <!-- Aktionen und Tonarten -->
+    <string name="ai_action_fix">Rechtschreibung und Grammatik</string>
+    <string name="ai_action_style">Schreibstil</string>
+    <string name="ai_action_summary">Zusammenfassen</string>
+    <string name="ai_action_bullets">Aufzählung</string>
+    <string name="ai_action_table">Tabelle</string>
+    <string name="ai_action_compose">Verfassen</string>
+    <string name="ai_tone_original">Original, korrigiert</string>
+    <string name="ai_tone_formal">Formell</string>
+    <string name="ai_tone_respectful">Respektvoll</string>
+    <string name="ai_tone_friendly">Freundlich</string>
+    <string name="ai_tone_custom">Eigener Ton…</string>
+    <string name="ai_tone_custom_hint">Ton eingeben: z. B. sarkastisch, poetisch, wie ein Pirat…</string>
+    <string name="ai_compose_hint">Was soll ich schreiben?</string>
+    <string name="ai_compose_uses_context">Nutzt den Text des Felds als Kontext</string>
+    <string name="ai_compose_no_context">Ignoriert den Text des Felds</string>
+
+    <!-- Laufend und Ergebnis -->
+    <string name="ai_connecting">Verbinden…</string>
+    <string name="ai_loading_model">Modell wird geladen…</string>
+    <string name="ai_reading">Text wird gelesen…</string>
+    <string name="ai_writing">Schreiben… %1$d Wörter · %2$.1f Tok/s</string>
+    <string name="ai_cancel">Abbrechen</string>
+    <string name="ai_partial">Teilergebnis</string>
+    <string name="ai_replace">Ersetzen</string>
+    <string name="ai_insert">Einfügen</string>
+    <string name="ai_copy">Kopieren</string>
+    <string name="ai_retry">Erneut</string>
+    <string name="ai_copied">Kopiert</string>
+    <string name="ai_weak_result">Das Ergebnis sieht nicht richtig aus; versuche es noch einmal.</string>
+
+    <!-- Fehler -->
+    <string name="ai_err_timeout">Das hat zu lange gedauert. Versuche einen kürzeren Text oder ein kleineres Modell.</string>
+    <string name="ai_err_memory">Nicht genug Speicher für dieses Modell.</string>
+    <string name="ai_err_server">Server nicht erreichbar (%1$s).</string>
+    <string name="ai_err_model_bad">Diese Datei ist kein unterstütztes GGUF-Modell.</string>
+    <string name="ai_err_table">Aus diesem Text ließ sich keine Tabelle bilden.</string>
+    <string name="ai_err_no_model">Kein Modell installiert. Wähle eines in den Einstellungen.</string>
+
+    <!-- Einstellungen -->
+    <string name="ai_section">Intelligenz</string>
+    <string name="ai_engine">Engine</string>
+    <string name="ai_engine_local">Lokales Modell</string>
+    <string name="ai_engine_remote">Eigener Server</string>
+    <string name="ai_models_title">Lokales Modell</string>
+    <string name="ai_models_sub">Einmal herunterladen, danach offline. Offene Gewichte, Apache-2.0.</string>
+    <string name="ai_note_spanish">Am besten auf Spanisch</string>
+    <string name="ai_note_quality">Mehr Qualität, langsamer</string>
+    <string name="ai_note_newer">Neuer, langsamer</string>
+    <string name="ai_note_english">Nur Englisch</string>
+    <string name="ai_recommended">Empfohlen</string>
+    <string name="ai_imported_file">Importierte Datei</string>
+    <string name="ai_not_downloaded">Nicht heruntergeladen</string>
+    <string name="ai_ready">Bereit</string>
+    <string name="ai_in_use">In Verwendung</string>
+    <string name="ai_download">Herunterladen</string>
+    <string name="ai_downloading">Wird heruntergeladen %1$d %%</string>
+    <string name="ai_download_paused">Pausiert · Der Download wird dort fortgesetzt, wo er aufgehört hat</string>
+    <string name="ai_download_done">Modell heruntergeladen</string>
+    <string name="ai_cancel_download">Abbrechen</string>
+    <string name="ai_use">Verwenden</string>
+    <string name="ai_delete">Löschen</string>
+    <string name="ai_delete_confirm">%1$s (%2$s) löschen?</string>
+    <string name="ai_import">GGUF-Datei importieren…</string>
+    <string name="ai_imported">Modell importiert</string>
+    <string name="ai_import_failed">Die Datei konnte nicht importiert werden</string>
+    <string name="ai_no_space">Nicht genug freier Speicher (%1$s nötig)</string>
+    <string name="ai_download_failed">Download fehlgeschlagen</string>
+    <string name="ai_verify_failed">Die heruntergeladene Datei ist beschädigt</string>
+    <string name="ai_server_title">Eigener Server</string>
+    <string name="ai_server_sub">Ollama, LM Studio oder llama.cpp auf deinem Computer. OpenAI-kompatible API.</string>
+    <string name="ai_key_optional">API-Schlüssel (optional)</string>
+    <string name="ai_remote_model">Modellname</string>
+    <string name="ai_test">Verbindung testen</string>
+    <string name="ai_test_ok">Verbunden · %1$d Modelle</string>
+    <string name="ai_test_fail">Keine Verbindung: %1$s</string>
+    <string name="ai_remote_warning">Mit einem Server wird der verarbeitete Text an diese Adresse gesendet. Nutze nur eigene oder vertrauenswürdige Server.</string>
+    <string name="ai_privacy_footer">Alles wird auf deinem Telefon verarbeitet. Das Internet wird nur genutzt, um auf Wunsch ein Modell herunterzuladen oder für deinen eigenen Server. Es werden keine Daten gesammelt.</string>
+    <string name="ai_credits">Modelle: Qwen2.5 und Qwen3 (Alibaba, Apache-2.0), SmolLM2 (Hugging Face, Apache-2.0). GGUF-Format von ggml.</string>
+</resources>

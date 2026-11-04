@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="opt_glide">Wischen zum Schreiben</string>
+    <string name="opt_glide_sub">Mit dem Finger über die Buchstaben wischen, um ein Wort zu schreiben; Alternativen erscheinen oben</string>
+    <string name="opt_app_lang">App-Sprache</string>
+    <string name="app_lang_system">System</string>
+    <string name="app_lang_es">Español</string>
+    <string name="app_lang_en">English</string>
+    <string name="app_lang_de">Deutsch</string>
+    <string name="tool_ai">Intelligenz</string>
+    <string name="gesture_glide">Über die Buchstaben wischen</string>
+    <string name="gesture_glide_result">Schreibt das Wort; Rücktaste direkt danach löscht es ganz</string>
+    <string name="gesture_ai">✦ links in der Leiste</string>
+    <string name="gesture_ai_result">Rechtschreibung, Schreibstil, Zusammenfassung, Aufzählung, Tabelle und Verfassen, mit lokalem Modell oder eigenem Server</string>
+</resources>

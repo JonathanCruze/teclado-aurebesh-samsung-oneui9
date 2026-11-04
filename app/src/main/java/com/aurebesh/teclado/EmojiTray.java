@@ -238,6 +238,7 @@ final class EmojiTray extends LinearLayout {
             @Override public void onSwitchKeyboard() {}
             @Override public void onSwitchLanguage() {}
             @Override public void onSuggestion(String word) {}
+            @Override public void onGlide(String best, java.util.List<String> alternatives) {}
             @Override public void onToolbar(int tool) {}
         });
         miniKb.setVisibility(GONE);

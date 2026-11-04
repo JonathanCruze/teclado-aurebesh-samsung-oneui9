@@ -18,8 +18,8 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Diccionario de frecuencia por idioma (res/raw/words_es.txt y words_en.txt: una palabra por linea,
- * de mas a menos frecuente). Da autocorreccion a una edicion, restauracion de tildes y completado
+ * Diccionario de frecuencia por idioma (res/raw/words_es.txt, words_en.txt y words_de.txt: una palabra
+ * por linea, de mas a menos frecuente). Da autocorreccion a una edicion, restauracion de tildes y completado
  * de palabras. Todo ocurre en el telefono, sin internet.
  */
 final class Dictionary {
@@ -64,10 +64,25 @@ final class Dictionary {
     private static final Set<String> PHONETIC = new HashSet<>(Arrays.asList(
             "sz", "sc", "cz", "bv", "gj", "yi", "ck", "qk", "ks", "cq", "zs"));
 
-    /** Teclas vecinas en QWERTY: cambiar una letra por una contigua es el error mas probable. */
-    private static final Map<Character, String> NEIGHBORS = new HashMap<>();
-    static {
-        String[] rows = {"qwertyuiop", "asdfghjklñ", "zxcvbnm"};
+    /**
+     * Filas de letras de cada idioma, tal como las dibuja el teclado: QWERTY con ñ en espanol, QWERTY en
+     * ingles y QWERTZ con ü ö ä en aleman. De ellas salen las teclas vecinas de cada letra.
+     */
+    private static String[] rows(String lang) {
+        if ("de".equals(lang)) return new String[]{"qwertzuiopü", "asdfghjklöä", "yxcvbnm"};
+        if ("en".equals(lang)) return new String[]{"qwertyuiop", "asdfghjkl", "zxcvbnm"};
+        return new String[]{"qwertyuiop", "asdfghjklñ", "zxcvbnm"};
+    }
+
+    /** Teclas vecinas por idioma: cambiar una letra por una contigua es el error mas probable. */
+    private static final Map<String, Map<Character, String>> NEIGHBORS = new HashMap<>();
+
+    /** Letras vecinas de cada letra en la distribucion del idioma (se calcula una vez por idioma). */
+    private static synchronized Map<Character, String> neighbors(String lang) {
+        Map<Character, String> map = NEIGHBORS.get(lang);
+        if (map != null) return map;
+        map = new HashMap<>();
+        String[] rows = rows(lang);
         float[] offset = {0f, 0.5f, 1.5f};
         for (int r = 0; r < rows.length; r++) {
             for (int i = 0; i < rows[r].length(); i++) {
@@ -79,22 +94,32 @@ final class Dictionary {
                         if (Math.abs(j + offset[r2] - x) <= 1.01f) nb.append(rows[r2].charAt(j));
                     }
                 }
-                NEIGHBORS.put(rows[r].charAt(i), nb.toString());
+                map.put(rows[r].charAt(i), nb.toString());
             }
         }
+        NEIGHBORS.put(lang, map);
+        return map;
+    }
+
+    /** Idioma admitido ("es", "en" o "de"); cualquier otro valor se trata como espanol. */
+    private static String normalize(String lang) {
+        return "en".equals(lang) ? "en" : "de".equals(lang) ? "de" : "es";
     }
 
     final String lang;
     private final String alphabet;
+    private final Map<Character, String> neighbors;                      // teclas vecinas en la distribucion del idioma
+    private final boolean foldUmlaut;                                    // ü -> u al comparar (no en aleman: es letra propia)
     private final HashMap<String, Integer> rank = new HashMap<>();
     private final HashMap<String, String> accented = new HashMap<>();   // sin tildes -> forma con tildes mas frecuente
     private final String[] sorted;                                       // orden alfabetico, para completar
+    private final String[] byRank;                                       // por frecuencia (indice = rango), para el deslizado
     private final String[][] byLength = new String[MAX_LEN + 3][];        // palabras por longitud, en orden de frecuencia
     private volatile Set<String> personal = Collections.emptySet();      // palabras aprendidas del usuario
 
     /** Carga (o recupera de la cache) el diccionario de un idioma. Puede llamarse en segundo plano. */
     static synchronized Dictionary get(Context c, String lang) throws IOException {
-        String l = "en".equals(lang) ? "en" : "es";
+        String l = normalize(lang);
         Dictionary d = CACHE.get(l);
         if (d == null) {
             d = new Dictionary(c.getApplicationContext(), l);
@@ -105,13 +130,17 @@ final class Dictionary {
 
     /** Diccionario ya cargado, o null. */
     static synchronized Dictionary cached(String lang) {
-        return CACHE.get("en".equals(lang) ? "en" : "es");
+        return CACHE.get(normalize(lang));
     }
 
     private Dictionary(Context c, String lang) throws IOException {
         this.lang = lang;
-        alphabet = "en".equals(lang) ? "abcdefghijklmnopqrstuvwxyz" : "abcdefghijklmnopqrstuvwxyzñ";
-        int res = "en".equals(lang) ? R.raw.words_en : R.raw.words_es;
+        boolean de = "de".equals(lang);
+        alphabet = "en".equals(lang) ? "abcdefghijklmnopqrstuvwxyz"
+                : de ? "abcdefghijklmnopqrstuvwxyzäöüß" : "abcdefghijklmnopqrstuvwxyzñ";
+        neighbors = neighbors(lang);
+        foldUmlaut = !de;
+        int res = "en".equals(lang) ? R.raw.words_en : de ? R.raw.words_de : R.raw.words_es;
         List<String> all = new ArrayList<>(40000);
         BufferedReader r = new BufferedReader(new InputStreamReader(c.getResources().openRawResource(res), "UTF-8"));
         try {
@@ -121,13 +150,14 @@ final class Dictionary {
                 if (w.isEmpty() || rank.containsKey(w)) continue;
                 rank.put(w, all.size());
                 all.add(w);
-                String plain = deaccent(w);
+                String plain = fold(w);
                 if (!plain.equals(w) && !accented.containsKey(plain)) accented.put(plain, w);
             }
         } finally {
             r.close();
         }
-        sorted = all.toArray(new String[0]);
+        byRank = all.toArray(new String[0]);
+        sorted = byRank.clone();
         Arrays.sort(sorted);
         List<List<String>> buckets = new ArrayList<>();
         for (int i = 0; i < byLength.length; i++) buckets.add(new ArrayList<String>());
@@ -140,12 +170,24 @@ final class Dictionary {
         personal = words == null ? Collections.<String>emptySet() : new HashSet<>(words);
     }
 
-    /** Quita las tildes y la dieresis (la ñ se conserva: es una letra propia del teclado). */
+    /**
+     * Quita las tildes (á é í ó ú). La ñ y las letras alemanas ä ö ü ß se conservan: son letras propias
+     * del teclado, no una letra base con acento. Independiente del idioma.
+     */
     static String deaccent(String s) {
+        return strip(s, false);
+    }
+
+    /** Forma de comparacion de este diccionario: sin tildes y, salvo en aleman, con la ü plegada en u. */
+    private String fold(String s) {
+        return strip(s, foldUmlaut);
+    }
+
+    private static String strip(String s, boolean foldUmlaut) {
         StringBuilder b = null;
         for (int i = 0; i < s.length(); i++) {
             char ch = s.charAt(i);
-            char p = plain(ch);
+            char p = plain(ch, foldUmlaut);
             if (p != ch && b == null) {
                 b = new StringBuilder(s.length());
                 b.append(s, 0, i);
@@ -155,14 +197,14 @@ final class Dictionary {
         return b == null ? s : b.toString();
     }
 
-    private static char plain(char ch) {
+    private static char plain(char ch, boolean foldUmlaut) {
         switch (ch) {
             case 'á': return 'a';
             case 'é': return 'e';
             case 'í': return 'i';
             case 'ó': return 'o';
-            case 'ú':
-            case 'ü': return 'u';
+            case 'ú': return 'u';
+            case 'ü': return foldUmlaut ? 'u' : ch;
             default: return ch;
         }
     }
@@ -171,13 +213,33 @@ final class Dictionary {
 
     int size() { return sorted.length; }
 
+    // ---- acceso por rango (lo usa SwipeDecoder para construir su indice; no cambia nada de lo anterior)
+
+    /** Palabra con ese rango de frecuencia: 0 es la mas frecuente y {@link #size()} - 1 la ultima. */
+    String word(int rank) { return byRank[rank]; }
+
+    /** Rango de frecuencia de una palabra (tal cual aparece en la lista, con tildes), o -1 si no esta. */
+    int rankOf(String w) {
+        Integer r = rank.get(w);
+        return r == null ? -1 : r;
+    }
+
+    /** Palabras aprendidas del usuario (instantanea de solo lectura). */
+    Set<String> personal() { return personal; }
+
+    /** Contraccion inglesa para una forma sin apostrofo ("dont" -> "don't"), o null; en espanol siempre null. */
+    String contraction(String w) { return "en".equals(lang) ? CONTRACTIONS.get(w) : null; }
+
+    /** Palabras que nunca se proponen (ni como correccion ni como resultado del deslizado). */
+    static boolean noSuggest(String w) { return NO_SUGGEST.contains(w); }
+
     /**
      * Entrada del diccionario para una forma escrita: la misma palabra o, si su forma con tildes
      * es mucho mas frecuente (seis veces o mas), esa forma. Null si no hay nada parecido.
      */
     private String resolve(String v) {
         Integer own = rank.get(v);
-        String acc = accented.get(deaccent(v));
+        String acc = accented.get(fold(v));
         if (acc != null && !acc.equals(v)) {
             int ar = rank.get(acc);
             if (own == null || own >= 6 * (ar + 1)) return acc;
@@ -273,7 +335,7 @@ final class Dictionary {
         }
         for (int i = 0; i < n; i++) {
             char c = w.charAt(i);
-            String nb = NEIGHBORS.get(c);
+            String nb = neighbors.get(c);
             for (int a = 0; a < alphabet.length(); a++) {
                 char ch = alphabet.charAt(a);
                 if (ch == c) continue;
@@ -296,14 +358,14 @@ final class Dictionary {
      * distancia ponderada (los mismos costes que las variantes a una edicion) y corte temprano.
      */
     private void scan(String w, Map<String, Double> cand) {
-        String a = deaccent(w);
+        String a = fold(w);
         char first = a.charAt(0);
         int n = a.length();
         double[][] dp = new double[n + 1][n + 4];
         for (int len = Math.max(2, n - 2); len <= Math.min(byLength.length - 1, n + 2); len++) {
             for (String word : byLength[len]) {
-                if (plain(word.charAt(0)) != first) continue;
-                String b = deaccent(word);
+                if (plain(word.charAt(0), foldUmlaut) != first) continue;
+                String b = fold(word);
                 double cost = distance(a, b, ED2_CUTOFF, dp);
                 if (cost <= 0 || cost > ED2_CUTOFF) continue;
                 put(cand, word, score(word, cost));
@@ -311,8 +373,8 @@ final class Dictionary {
         }
     }
 
-    private static boolean close(char x, char y) {
-        String nb = NEIGHBORS.get(x);
+    private boolean close(char x, char y) {
+        String nb = neighbors.get(x);
         return (nb != null && nb.indexOf(y) >= 0) || PHONETIC.contains("" + x + y) || PHONETIC.contains("" + y + x);
     }
 
@@ -330,7 +392,7 @@ final class Dictionary {
      * Distancia de edicion ponderada entre lo escrito {@code a} y la palabra {@code b} (ambas sin tildes):
      * Damerau-Levenshtein con el coste de cada tipo de error. Devuelve MAX_VALUE si supera el corte.
      */
-    private static double distance(String a, String b, double cutoff, double[][] d) {
+    private double distance(String a, String b, double cutoff, double[][] d) {
         int n = a.length(), m = b.length();
         d[0][0] = 0;
         for (int j = 1; j <= m; j++) d[0][j] = d[0][j - 1] + insertCost(b, j - 1);

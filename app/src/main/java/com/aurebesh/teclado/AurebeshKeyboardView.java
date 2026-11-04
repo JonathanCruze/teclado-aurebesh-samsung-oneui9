@@ -11,15 +11,21 @@ import android.graphics.Typeface;
 import android.text.TextUtils;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.util.SparseArray;
 import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.View;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.ThreadFactory;
 
-/** Vista del teclado: distribucion, dibujo con temas y gestion del toque. */
+/** Vista del teclado: distribucion, dibujo con temas, gestion del toque y escritura deslizando el dedo. */
 public final class AurebeshKeyboardView extends View {
 
     interface Listener {
@@ -32,6 +38,11 @@ public final class AurebeshKeyboardView extends View {
         void onToolbar(int tool);       // icono de la barra de herramientas (TOOL_*)
         void onHandSide(int mode);      // flecha del modo a una mano: 1 izquierda, 2 derecha
         void onPasteSuggestion();       // chip "Pegar" de lo recien copiado
+        /**
+         * Palabra reconocida al deslizar el dedo por las letras (ya con mayusculas segun shift/bloqueo) y
+         * alternativas para la barra, de mejor a peor (puede estar vacia). Llega en el hilo principal.
+         */
+        void onGlide(String best, List<String> alternatives);
     }
 
     static final int CODE_TEXT = 0;
@@ -48,6 +59,7 @@ public final class AurebeshKeyboardView extends View {
     static final int TOOL_CLIPBOARD = 2;
     static final int TOOL_SETTINGS = 3;     // solo en la pagina ?123
     static final int TOOL_HAND = 4;         // modo a una mano (junto al portapapeles)
+    static final int TOOL_AI = 5;           // inteligencia, a la izquierda de la barra
     private static final int[] TOOLS_LETTERS = {TOOL_EMOJI, TOOL_CLIPBOARD, TOOL_HAND};
     private static final int[] TOOLS_SYMBOLS = {TOOL_EMOJI, TOOL_CLIPBOARD, TOOL_HAND, TOOL_SETTINGS};
 
@@ -110,7 +122,7 @@ public final class AurebeshKeyboardView extends View {
     private int popupIndex;
     private final RectF popupRect = new RectF();
     private float popupCell;
-    private String language = "es";        // "es": con tecla n~ y , -> ?; "en": sin tecla n~ y , -> !
+    private String language = "es";        // "es": con tecla n~ y , -> ?; "en": sin tecla n~ y , -> !; "de": QWERTZ con u" o" a" y , -> ;
     private String spaceLabel;             // nombre del idioma cuando hay mas de uno activo
     private boolean languageSwitch = false; // tecla del globo (solo con varios idiomas Aurebesh activos)
     private boolean suggestionBar = false;  // barra de sugerencias (autocorreccion)
@@ -122,6 +134,8 @@ public final class AurebeshKeyboardView extends View {
     private final RectF[] toolRects = new RectF[4];
     private final RectF sideRect = new RectF();     // flecha para cambiar de lado en modo a una mano
     private final RectF moreRect = new RectF();     // "..." que muestra los iconos sobre las sugerencias
+    private final RectF aiRect = new RectF();       // boton de inteligencia a la izquierda de la barra
+    private float stripLeft;                        // donde empiezan los chips (tras el boton de inteligencia)
     private boolean toolsOverChips = false;
     private final RectF pasteRect = new RectF();    // chip "Pegar" de lo recien copiado
     private Bitmap pasteThumb;
@@ -153,6 +167,40 @@ public final class AurebeshKeyboardView extends View {
     private boolean longPressFired;
     private Key repeatKey;
 
+    // ---- Escritura deslizando (glide). Constantes de ajuste del gesto y de la estela, en un solo sitio.
+    /** Distancia desde el punto inicial, en anchos de tecla, a la que un toque pasa a ser trazo. */
+    static final float GLIDE_SLOP_KEYS = 0.9f;
+    /** Velocidad minima (dp/ms) al cruzar esa distancia; mas despacio es deslizar a la tecla vecina. */
+    static final float GLIDE_MIN_SPEED = 0.10f;
+    /** Si no se cruza la distancia en este tiempo (ms) desde el toque, es un toque para siempre. */
+    static final long GLIDE_DETECT_WINDOW = 500;
+    /** Longitud minima del trazo al soltar, en anchos de tecla; menos se trata como toque. */
+    static final float GLIDE_MIN_LEN_KEYS = 1.2f;
+    /** Los puntos a menos de esta distancia (dp) del anterior guardado se descartan. */
+    static final float POINT_MIN_DIST_DP = 2f;
+    /** Puntos maximos guardados; al llegar se diezma por dos. */
+    static final int MAX_POINTS = 2048;
+    /** Tiempo (ms) que tarda en desvanecerse cada tramo de la estela, y su grosor maximo (dp). */
+    static final long TRAIL_MS = 600;
+    static final float TRAIL_WIDTH_DP = 6f;
+
+    private static final int GLIDE_NONE = 0, GLIDE_PENDING = 1, GLIDE_GLIDING = 2;
+    private boolean glideEnabled = false;
+    private boolean glideTrail = true;
+    private int glideState = GLIDE_NONE;
+    private int glidePointer = -1;
+    private Key glideDownKey;
+    private float glideDownX, glideDownY;
+    private long glideDownT;
+    private float[] strokeX = new float[256], strokeY = new float[256];
+    private long[] strokeT = new long[256];
+    private int strokeN = 0;
+    private final Paint trailPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint trailGlowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private volatile SwipeDecoder decoder;          // indice del idioma y la geometria actuales (se rehace si cambian)
+    private Future<?> glideTask;                    // ultima tarea de reconocimiento (para pruebas)
+    private static ExecutorService glideExecutor;
+
     public AurebeshKeyboardView(Context context) {
         super(context);
         dp = getResources().getDisplayMetrics().density;
@@ -169,6 +217,12 @@ public final class AurebeshKeyboardView extends View {
         glowPaint.setStrokeWidth(2.5f * dp);
         strokePaint.setStyle(Paint.Style.STROKE);
         strokePaint.setStrokeWidth(dp);
+        trailPaint.setStyle(Paint.Style.STROKE);
+        trailPaint.setStrokeCap(Paint.Cap.ROUND);
+        trailPaint.setStrokeJoin(Paint.Join.ROUND);
+        trailGlowPaint.setStyle(Paint.Style.STROKE);
+        trailGlowPaint.setStrokeCap(Paint.Cap.ROUND);
+        trailGlowPaint.setStrokeJoin(Paint.Join.ROUND);
         buildLayouts();
         current = letters;
         applyTheme();
@@ -219,6 +273,23 @@ public final class AurebeshKeyboardView extends View {
     /** Sin burbuja de vista previa (campos de contrasena). */
     void setPreviewEnabled(boolean on) { previewEnabled = on; }
 
+    /**
+     * Escritura deslizando el dedo por las letras (solo en la pagina de letras; los toques siguen igual).
+     * El reconocimiento corre en un hilo aparte y llega por {@link Listener#onGlide}.
+     */
+    public void setGlideEnabled(boolean on) {
+        glideEnabled = on;
+        if (!on && glideState == GLIDE_PENDING) resetGlide(true);
+    }
+
+    /** Estela del dedo mientras se desliza (por defecto si). */
+    public void setGlideTrail(boolean on) {
+        glideTrail = on;
+        invalidate();
+    }
+
+    boolean isGlideEnabled() { return glideEnabled; }
+
     /** Abre la pantalla ?123 (campos numericos y de telefono). */
     void showSymbols() {
         current = symbols;
@@ -238,9 +309,9 @@ public final class AurebeshKeyboardView extends View {
 
     void setEnterAction(int action) { enterAction = action; invalidate(); }
 
-    /** Distribucion por idioma ("es" o "en"); reconstruye las teclas si cambia. */
+    /** Distribucion por idioma ("es", "en" o "de"); reconstruye las teclas si cambia. */
     void setLanguage(String lang) {
-        String l = "en".equals(lang) ? "en" : "es";
+        String l = "en".equals(lang) ? "en" : "de".equals(lang) ? "de" : "es";
         if (l.equals(language)) return;
         language = l;
         List<List<Key>> was = current;
@@ -370,19 +441,38 @@ public final class AurebeshKeyboardView extends View {
         return nums;
     }
 
+    /** Tecla de letra del aleman: la vocal con diaeresis (o la eszett en la s) pasa a ser la primera alternativa. */
+    private static Key germanLetter(String c) {
+        Key k = letter(c);
+        String first = "s".equals(c) ? "\u00df" : "a".equals(c) ? "\u00e4" : "o".equals(c) ? "\u00f6" : "u".equals(c) ? "\u00fc" : null;
+        if (first == null) return k;
+        List<String> a = new ArrayList<>();
+        a.add(first);
+        if (k.alts != null) for (String x : k.alts) if (!x.equals(first)) a.add(x);
+        return new Key(c, c, c, a.toArray(new String[0]), CODE_TEXT, 1f);
+    }
+
+    /** Fila de letras del aleman (QWERTZ): las alternativas de a, o, u y s empiezan por ä, ö, ü y ß. */
+    private void germanRow(List<List<Key>> layout, String chars) {
+        List<Key> r = new ArrayList<>();
+        for (int i = 0; i < chars.length(); i++) r.add(germanLetter(String.valueOf(chars.charAt(i))));
+        layout.add(r);
+    }
+
     private void buildLayouts() {
+        boolean de = "de".equals(language);     // QWERTZ: qwertzuiopü / asdfghjklöä / yxcvbnm
         if (numberRow) letters.add(digitsRow());
-        lettersRow(letters, "qwertyuiop");
+        if (de) germanRow(letters, "qwertzuiop\u00fc"); else lettersRow(letters, "qwertyuiop");
         if (!numberRow) {                         // sin fila de numeros: q..p dan 1..0 en pulsacion larga
             List<Key> top = letters.get(0);
             for (int i = 0; i < 10 && i < top.size(); i++) top.set(i, top.get(i).withFirstAlt(String.valueOf((i + 1) % 10)));
         }
-        lettersRow(letters, "asdfghjkl");
+        if (de) germanRow(letters, "asdfghjkl\u00f6\u00e4"); else lettersRow(letters, "asdfghjkl");
         if ("es".equals(language)) letters.get(letters.size() - 1).add(new Key("ñ", "ñ", "ñ", null, CODE_TEXT, 1f));
         List<Key> r3 = new ArrayList<>();
         r3.add(special("", CODE_SHIFT, 1.5f));
-        String z = "zxcvbnm";
-        for (int i = 0; i < z.length(); i++) r3.add(letter(String.valueOf(z.charAt(i))));
+        String z = de ? "yxcvbnm" : "zxcvbnm";
+        for (int i = 0; i < z.length(); i++) r3.add(de ? germanLetter(String.valueOf(z.charAt(i))) : letter(String.valueOf(z.charAt(i))));
         r3.add(special("", CODE_DELETE, 1.5f));
         letters.add(r3);
         bottomRow(letters, "?123");
@@ -412,7 +502,7 @@ public final class AurebeshKeyboardView extends View {
     private void bottomRow(List<List<Key>> layout, String modeLabel) {
         List<Key> r = new ArrayList<>();
         r.add(special(modeLabel, CODE_MODE, 1.5f));
-        r.add(sym(",", 1f, "es".equals(language) ? "\u00bf" : "!"));
+        r.add(sym(",", 1f, "es".equals(language) ? "\u00bf" : "de".equals(language) ? ";" : "!"));
         float space = 5f;
         if (languageSwitch) { r.add(special("", CODE_GLOBE, 1f)); space -= 1f; }
         r.add(special("", CODE_SPACE, space));
@@ -521,11 +611,43 @@ public final class AurebeshKeyboardView extends View {
             }
         }
         drawSideSwitch(c);
+        if (glideTrail && strokeN > 1 && glideState != GLIDE_PENDING) drawTrail(c);
         for (int i = 0; i < pressed.size(); i++) {
             Key k = pressed.valueAt(i);
+            if (glideState == GLIDE_GLIDING && pressed.keyAt(i) == glidePointer) continue;   // sin burbuja al trazar
             if (previewEnabled && k != null && k.code == CODE_TEXT && k != popupKey) drawPreview(c, k);
         }
         if (popupKey != null) drawPopup(c);
+    }
+
+    /**
+     * Estela del trazo: un tramo por par de puntos, cada uno con la transparencia y el grosor de su edad
+     * (la cola se afina y se desvanece en TRAIL_MS). Con halo en los temas con brillo. Se vuelve a dibujar
+     * en cada fotograma mientras quede algun tramo visible.
+     */
+    private void drawTrail(Canvas c) {
+        long now = SystemClock.uptimeMillis();
+        int ink = theme.accent == theme.keyBg ? theme.glyph : theme.accent;
+        boolean any = false;
+        for (int i = strokeN - 1; i >= 1; i--) {
+            long age = now - strokeT[i];
+            if (age > TRAIL_MS) break;                       // los anteriores son mas viejos todavia
+            if (age < 0) age = 0;
+            float k = 1f - age / (float) TRAIL_MS;
+            int alpha = (int) (255 * k);
+            float width = TRAIL_WIDTH_DP * dp * (0.35f + 0.65f * k);
+            if (theme.glow != 0) {
+                trailGlowPaint.setColor((theme.glow & 0x00FFFFFF) | ((alpha / 3) << 24));
+                trailGlowPaint.setStrokeWidth(width * 2.2f);
+                c.drawLine(strokeX[i - 1], strokeY[i - 1], strokeX[i], strokeY[i], trailGlowPaint);
+            }
+            trailPaint.setColor((ink & 0x00FFFFFF) | (alpha << 24));
+            trailPaint.setStrokeWidth(width);
+            c.drawLine(strokeX[i - 1], strokeY[i - 1], strokeX[i], strokeY[i], trailPaint);
+            any = true;
+        }
+        if (any) postInvalidateOnAnimation();
+        else if (glideState == GLIDE_NONE) strokeN = 0;      // ya se desvanecio del todo
     }
 
     private void drawKeyFace(Canvas c, Key k, RectF r, boolean digitRow) {
@@ -815,16 +937,46 @@ public final class AurebeshKeyboardView extends View {
         boolean chips = !suggestions.isEmpty();
         moreRect.setEmpty();
         pasteRect.setEmpty();
+        aiRect.setEmpty();
+        stripLeft = toolbar ? drawAiButton(c) : 12 * dp;
         if (toolbar && (!chips || toolsOverChips)) right = drawToolbar(c);
         else if (toolbar) right = drawMore(c);
         if (chips) {
             drawSuggestions(c, h, top, right);
         } else {
-            float left = 12 * dp;
+            float left = stripLeft;
             if (hasPasteSuggestion()) left = drawPasteChip(c, right);
             if (showStrip) drawTranslation(c, h, top, left, right);
         }
         if (theme.keyStroke != 0) c.drawRect(0, stripHeight() - dp, getWidth(), stripHeight(), strokePaint);
+    }
+
+    /** Boton de inteligencia (estrella de cuatro puntas) a la izquierda de la barra. Devuelve donde empiezan los chips. */
+    private float drawAiButton(Canvas c) {
+        float cy = stripHeight() / 2f, cx = 6 * dp + 22 * dp;
+        aiRect.set(6 * dp, 0, 6 * dp + 44 * dp, stripHeight());
+        fill.setColor(toolPressed == 9 ? theme.pressed : theme.specialBg);
+        c.drawCircle(cx, cy, 16 * dp, fill);
+        if (theme.keyStroke != 0) c.drawCircle(cx, cy, 16 * dp, strokePaint);
+        fill.setColor(theme.icon);
+        star(c, cx - 1.5f * dp, cy + 1.5f * dp, 7.5f * dp);
+        star(c, cx + 5.5f * dp, cy - 5.5f * dp, 3.2f * dp);
+        return aiRect.right + 4 * dp;
+    }
+
+    private void star(Canvas c, float cx, float cy, float r) {
+        float k = r * 0.24f;
+        iconPath.reset();
+        iconPath.moveTo(cx, cy - r);
+        iconPath.lineTo(cx + k, cy - k);
+        iconPath.lineTo(cx + r, cy);
+        iconPath.lineTo(cx + k, cy + k);
+        iconPath.lineTo(cx, cy + r);
+        iconPath.lineTo(cx - k, cy + k);
+        iconPath.lineTo(cx - r, cy);
+        iconPath.lineTo(cx - k, cy - k);
+        iconPath.close();
+        c.drawPath(iconPath, fill);
     }
 
     /** Boton "..." a la derecha mientras hay sugerencias: muestra los iconos de la barra. */
@@ -841,7 +993,7 @@ public final class AurebeshKeyboardView extends View {
 
     /** Chip con lo recien copiado (miniatura o texto) y la palabra "Pegar". Devuelve su borde derecho. */
     private float drawPasteChip(Canvas c, float right) {
-        float h = stripHeight() - 10 * dp, top = 5 * dp, x = 8 * dp;
+        float h = stripHeight() - 10 * dp, top = 5 * dp, x = stripLeft;
         textPaint.setTextSize(13 * sp);
         textPaint.setTextAlign(Paint.Align.LEFT);
         textPaint.setTypeface(Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD));
@@ -961,7 +1113,7 @@ public final class AurebeshKeyboardView extends View {
 
     /** Sugerencias del corrector como chips, de izquierda a derecha hasta {@code right}; la que se aplicara sola va resaltada. */
     private void drawSuggestions(Canvas c, float h, float top, float right) {
-        float x = 8 * dp;
+        float x = stripLeft;
         for (int i = 0; i < suggestions.size(); i++) {
             String word = suggestions.get(i);
             boolean emoji = isEmoji(word);
@@ -1046,6 +1198,8 @@ public final class AurebeshKeyboardView extends View {
         switch (action) {
             case MotionEvent.ACTION_DOWN:
             case MotionEvent.ACTION_POINTER_DOWN: {
+                if (glideState == GLIDE_GLIDING) finishGlide();          // un segundo dedo cierra el trazo en curso
+                else if (glideState == GLIDE_PENDING) resetGlide(true);  // y el toque pendiente se suelta como toque normal
                 for (int i = pressed.size() - 1; i >= 0; i--) {
                     Key prev = pressed.valueAt(i);
                     if (prev != null && prev == popupKey) commitPopup();
@@ -1055,6 +1209,11 @@ public final class AurebeshKeyboardView extends View {
                 cancelTimers();
                 if (e.getY(idx) < stripHeight()) {                       // barra: sugerencias, pegar o iconos
                     float tx = e.getX(idx), ty = e.getY(idx);
+                    if (!aiRect.isEmpty() && aiRect.contains(tx, ty) && listener != null) {
+                        feedback(special("", CODE_SPACE, 1f));
+                        listener.onToolbar(TOOL_AI);
+                        return true;
+                    }
                     if (!pasteRect.isEmpty() && pasteRect.contains(tx, ty) && listener != null) {
                         feedback(special("", CODE_SPACE, 1f));
                         listener.onPasteSuggestion();
@@ -1100,6 +1259,16 @@ public final class AurebeshKeyboardView extends View {
                 } else {
                     startLongPress(k);
                 }
+                if (glideEnabled && glidePointer < 0 && glideKey(k)) {   // puede ser el principio de un trazo
+                    glideState = GLIDE_PENDING;
+                    glidePointer = id;
+                    glideDownKey = k;
+                    glideDownX = e.getX(idx);
+                    glideDownY = e.getY(idx);
+                    glideDownT = e.getEventTime();
+                    strokeN = 0;
+                    strokeAdd(glideDownX, glideDownY, glideDownT);
+                }
                 invalidate();
                 return true;
             }
@@ -1108,6 +1277,15 @@ public final class AurebeshKeyboardView extends View {
                     int pid = e.getPointerId(i);
                     Key old = pressed.get(pid);
                     if (old == null) continue;
+                    if (pid == glidePointer && glideState != GLIDE_NONE) {
+                        glideMove(e, i);                              // acumula puntos y decide toque o trazo
+                        if (glideState == GLIDE_GLIDING) {
+                            Key under = findKey(e.getX(i), e.getY(i));
+                            if (under != null && under != old) pressed.put(pid, under);   // resalta la tecla bajo el dedo
+                            postInvalidateOnAnimation();
+                            continue;
+                        }
+                    }
                     if (popupKey != null && old == popupKey) {       // deslizar por el menu
                         int ni = (int) Math.floor((e.getX(i) - popupRect.left) / popupCell);
                         ni = Math.max(0, Math.min(popupAlts.length - 1, ni));
@@ -1137,6 +1315,13 @@ public final class AurebeshKeyboardView extends View {
                     }
                     return true;
                 }
+                if (id == glidePointer && glideState == GLIDE_GLIDING) {
+                    strokeAdd(e.getX(idx), e.getY(idx), e.getEventTime());
+                    finishGlide();
+                    invalidate();
+                    return true;
+                }
+                if (id == glidePointer) resetGlide(true);            // pendiente: fue un toque normal
                 Key k = pressed.get(id);
                 pressed.remove(id);
                 if (k != null && k == popupKey) {
@@ -1154,6 +1339,7 @@ public final class AurebeshKeyboardView extends View {
             case MotionEvent.ACTION_CANCEL:
                 toolPressed = -1;
                 toolPointer = -1;
+                resetGlide(true);
                 pressed.clear();
                 closePopup();
                 cancelTimers();
@@ -1161,6 +1347,194 @@ public final class AurebeshKeyboardView extends View {
                 return true;
         }
         return super.onTouchEvent(e);
+    }
+
+    // ------------------------------------------------------------------ escritura deslizando
+
+    /** Solo las teclas de una letra de la pagina de letras pueden empezar o terminar un trazo. */
+    private boolean glideKey(Key k) {
+        return k != null && current == letters && k.code == CODE_TEXT && k.output != null
+                && k.output.length() == 1 && Character.isLetter(k.output.charAt(0));
+    }
+
+    private void strokeAdd(float x, float y, long t) {
+        if (strokeN > 0) {
+            float dx = x - strokeX[strokeN - 1], dy = y - strokeY[strokeN - 1], min = POINT_MIN_DIST_DP * dp;
+            if (dx * dx + dy * dy < min * min) return;
+        }
+        if (strokeN == strokeX.length) {
+            if (strokeN >= MAX_POINTS) {                          // diezmar por dos conservando los tiempos
+                int m = 0;
+                for (int i = 0; i < strokeN; i += 2) { strokeX[m] = strokeX[i]; strokeY[m] = strokeY[i]; strokeT[m] = strokeT[i]; m++; }
+                strokeN = m;
+            } else {
+                int cap = strokeX.length * 2;
+                strokeX = java.util.Arrays.copyOf(strokeX, cap);
+                strokeY = java.util.Arrays.copyOf(strokeY, cap);
+                strokeT = java.util.Arrays.copyOf(strokeT, cap);
+            }
+        }
+        strokeX[strokeN] = x; strokeY[strokeN] = y; strokeT[strokeN] = t;
+        strokeN++;
+    }
+
+    /** Puntos del movimiento (con el historial del evento) y paso de PENDIENTE a TRAZO o a toque. */
+    private void glideMove(MotionEvent e, int i) {
+        int h = e.getHistorySize();
+        for (int j = 0; j < h; j++) strokeAdd(e.getHistoricalX(i, j), e.getHistoricalY(i, j), e.getHistoricalEventTime(j));
+        float x = e.getX(i), y = e.getY(i);
+        long t = e.getEventTime();
+        strokeAdd(x, y, t);
+        if (glideState != GLIDE_PENDING) return;
+        if (popupKey != null || longPressFired) { resetGlide(true); return; }   // ya se abrio el menu de alternativas
+        float dx = x - glideDownX, dy = y - glideDownY;
+        float dist = (float) Math.sqrt(dx * dx + dy * dy);
+        long dt = Math.max(1, t - glideDownT);
+        if (dist > GLIDE_SLOP_KEYS * glideDownKey.rect.width() && dist / dt > GLIDE_MIN_SPEED * dp) {
+            glideState = GLIDE_GLIDING;
+            handler.removeCallbacks(longPressRunnable);          // sin menu de alternativas mientras se traza
+            longPressKey = null;
+            longPressFired = false;
+        } else if (dt > GLIDE_DETECT_WINDOW) {
+            resetGlide(true);                                    // toque (y deslizar a la vecina, como siempre)
+        }
+    }
+
+    private void resetGlide(boolean clearStroke) {
+        glideState = GLIDE_NONE;
+        glidePointer = -1;
+        glideDownKey = null;
+        if (clearStroke) strokeN = 0;
+    }
+
+    /**
+     * Fin del trazo: recorta los puntos finales fuera de las letras (acabar en el espacio es habitual),
+     * cancela si acaba en borrar, trata como toque los trazos demasiado cortos y manda el resto al
+     * reconocedor en segundo plano. La estela sigue en pantalla hasta desvanecerse.
+     */
+    private void finishGlide() {
+        int id = glidePointer;
+        Key downKey = glideDownKey;
+        pressed.remove(id);
+        resetGlide(false);
+        cancelTimers();
+        int n = strokeN;
+        Key last = n > 0 ? findKey(strokeX[n - 1], strokeY[n - 1]) : null;
+        if (downKey == null || n < 2 || (last != null && last.code == CODE_DELETE)) return;
+        while (n > 2 && !glideKey(findKey(strokeX[n - 1], strokeY[n - 1]))) n--;
+        float len = 0;
+        for (int i = 1; i < n; i++) {
+            float dx = strokeX[i] - strokeX[i - 1], dy = strokeY[i] - strokeY[i - 1];
+            len += (float) Math.sqrt(dx * dx + dy * dy);
+        }
+        if (len < GLIDE_MIN_LEN_KEYS * downKey.rect.width()) {   // un tiron corto: toque en la tecla inicial
+            strokeN = 0;
+            release(downKey);
+            return;
+        }
+        int caseMode = capsLock ? 2 : shift ? 1 : 0;
+        if (shift && !capsLock) { shift = false; autoShifted = false; }
+        SwipeDecoder.Geometry geo = glideGeometry();
+        if (geo == null || listener == null) return;
+        final float[] x = java.util.Arrays.copyOf(strokeX, n), y = java.util.Arrays.copyOf(strokeY, n);
+        final long[] t = java.util.Arrays.copyOf(strokeT, n);
+        glideTask = glideExecutor().submit(new GlideJob(getContext().getApplicationContext(), language, geo, x, y, t, caseMode));
+    }
+
+    /** Reconocimiento en el hilo de trabajo: carga el diccionario, (re)construye el indice si hace falta y decodifica. */
+    private final class GlideJob implements Runnable {
+        private final Context ctx;
+        private final String lang;
+        private final SwipeDecoder.Geometry geo;
+        private final float[] x, y;
+        private final long[] t;
+        private final int caseMode;
+
+        GlideJob(Context ctx, String lang, SwipeDecoder.Geometry geo, float[] x, float[] y, long[] t, int caseMode) {
+            this.ctx = ctx; this.lang = lang; this.geo = geo; this.x = x; this.y = y; this.t = t; this.caseMode = caseMode;
+        }
+
+        @Override public void run() {
+            List<String> words;
+            try {
+                Dictionary d = Dictionary.get(ctx, lang);
+                SwipeDecoder dec = decoder;
+                if (dec == null || !dec.matches(d, geo)) {
+                    dec = new SwipeDecoder(d, geo);
+                    decoder = dec;
+                }
+                words = dec.decode(x, y, t, x.length);
+            } catch (Exception ex) {
+                words = Collections.emptyList();            // sin diccionario no hay deslizado; el teclado sigue
+            }
+            final List<String> result = words;
+            handler.post(new Runnable() {
+                @Override public void run() { deliverGlide(result, caseMode); }
+            });
+        }
+    }
+
+    private void deliverGlide(List<String> words, int caseMode) {
+        if (words.isEmpty()) {
+            if (vibrate) performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);   // nada reconocido
+            return;
+        }
+        if (listener == null) return;
+        List<String> cased = new ArrayList<>(words.size());
+        for (String w : words) cased.add(applyCase(w, caseMode));
+        listener.onGlide(cased.get(0), new ArrayList<>(cased.subList(1, cased.size())));
+    }
+
+    /** 0 tal cual, 1 inicial mayuscula (shift), 2 todo mayusculas (bloqueo). */
+    private static String applyCase(String w, int caseMode) {
+        if (caseMode == 2) return w.toUpperCase(java.util.Locale.ROOT);
+        if (caseMode == 1 && !w.isEmpty()) return w.substring(0, 1).toUpperCase(java.util.Locale.ROOT) + w.substring(1);
+        return w;
+    }
+
+    private static synchronized ExecutorService glideExecutor() {
+        if (glideExecutor == null) {
+            glideExecutor = Executors.newSingleThreadExecutor(new ThreadFactory() {
+                @Override public Thread newThread(Runnable r) {
+                    Thread t = new Thread(r, "glide");
+                    t.setDaemon(true);
+                    return t;
+                }
+            });
+        }
+        return glideExecutor;
+    }
+
+    /** Ultima tarea de reconocimiento enviada (para pruebas: esperar a que termine). */
+    Future<?> lastGlideTask() { return glideTask; }
+
+    /**
+     * Instantanea de las teclas de letras (sin la fila de numeros ni la inferior) con sus centros en px y el
+     * ancho y alto de una tecla, para el reconocedor; null si la vista aun no tiene medidas.
+     */
+    SwipeDecoder.Geometry glideGeometry() {
+        if (getWidth() == 0 || letters.isEmpty()) return null;
+        List<Key> ks = new ArrayList<>();
+        float keyW = 0, keyH = 0;
+        for (int ri = 0; ri < letters.size() - 1; ri++) {
+            if (isDigitRow(letters, ri)) continue;
+            if (keyH == 0) keyH = rowHeight(letters, ri);
+            for (Key k : letters.get(ri)) {
+                if (k.code != CODE_TEXT || k.output == null || k.output.length() != 1 || !Character.isLetter(k.output.charAt(0))) continue;
+                ks.add(k);
+                if (keyW == 0 && k.weight == 1f) keyW = k.rect.width();
+            }
+        }
+        if (ks.isEmpty() || keyW <= 0) return null;
+        char[] letter = new char[ks.size()];
+        float[] cx = new float[ks.size()], cy = new float[ks.size()];
+        for (int i = 0; i < ks.size(); i++) {
+            Key k = ks.get(i);
+            letter[i] = k.output.charAt(0);
+            cx[i] = k.rect.centerX();
+            cy[i] = k.rect.centerY();
+        }
+        return new SwipeDecoder.Geometry(letter, cx, cy, keyW, keyH);
     }
 
     private boolean shiftActive() { return shift || capsLock; }
@@ -1210,6 +1584,7 @@ public final class AurebeshKeyboardView extends View {
                 longPressFired = true;
                 feedback(k);
                 openPopup(k);
+                if (glideState == GLIDE_PENDING) resetGlide(true);   // con el menu abierto ya no hay trazo
             }
             invalidate();
         }
@@ -1253,6 +1628,7 @@ public final class AurebeshKeyboardView extends View {
         super.onDetachedFromWindow();
         cancelTimers();
         closePopup();
+        resetGlide(true);
         pressed.clear();
     }
 }
