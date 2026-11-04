@@ -27,6 +27,7 @@ final class Prefs {
     static final String APP_LANG = "app_lang";     // idioma de la app: "system", "es", "en", "de"
     static final String GLIDE = "glide";           // deslizar para escribir
     static final String SCREENSHOTS = "screenshots"; // sugerir capturas de pantalla recientes
+    static final String SPLIT = "split_keyboard";   // teclado dividido: "auto", "on", "off"
     private static final String LEGACY_DARK = "dark_theme";
 
     static SharedPreferences get(Context c) {
@@ -72,6 +73,14 @@ final class Prefs {
     }
     static String appLang(Context c) { return get(c).getString(APP_LANG, "system"); }
     static boolean glide(Context c) { return get(c).getBoolean(GLIDE, true); }
+    static String splitPref(Context c) { return get(c).getString(SPLIT, "auto"); }
+    static int splitMode(Context c) {
+        switch (splitPref(c)) {
+            case "on": return 1;
+            case "off": return 2;
+            default: return 0;
+        }
+    }
     static boolean screenshots(Context c) { return get(c).getBoolean(SCREENSHOTS, false); }
     static boolean strip(Context c) { return get(c).getBoolean(STRIP, false); }
     static boolean toolbar(Context c) { return get(c).getBoolean(TOOLBAR, true); }

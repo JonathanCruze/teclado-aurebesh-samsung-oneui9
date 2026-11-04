@@ -12,4 +12,8 @@
     <string name="gesture_glide_result">Writes the word; backspace right after removes it whole</string>
     <string name="gesture_ai">✦ at the left of the bar</string>
     <string name="gesture_ai_result">Spelling, writing style, summary, bullets, table and compose, with a local model or your own server</string>
+    <string name="opt_split">Split keyboard</string>
+    <string name="split_auto">Automatic (unfolded screen)</string>
+    <string name="split_on">Always</string>
+    <string name="split_off">Never</string>
 </resources>

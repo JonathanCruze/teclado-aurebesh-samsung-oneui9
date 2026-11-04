@@ -12,4 +12,8 @@
     <string name="gesture_glide_result">Escribe la palabra; retroceso justo después la borra entera</string>
     <string name="gesture_ai">✦ a la izquierda de la barra</string>
     <string name="gesture_ai_result">Ortografía, estilo de escritura, resumir, viñetas, tabla y redactar, con un modelo local o tu propio servidor</string>
+    <string name="opt_split">Teclado dividido</string>
+    <string name="split_auto">Automático (pantalla desplegada)</string>
+    <string name="split_on">Siempre</string>
+    <string name="split_off">Nunca</string>
 </resources>

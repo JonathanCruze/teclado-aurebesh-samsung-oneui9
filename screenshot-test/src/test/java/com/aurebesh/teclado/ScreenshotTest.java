@@ -246,6 +246,31 @@ public class ScreenshotTest {
         typed.setLength(0);
         kb.setHandMode(0);
 
+        // Teclado dividido (Fold desplegado): dos mitades con hueco y dos espacios; se teclea igual
+        kb.setSplitMode(1);
+        save(render(kb), "dividido.png");
+        int spaces = 0;
+        for (String o : new String[]{"q", "t", "y", "p", "a", "g", "h", "z", "v", "b", "m"}) if (kb.keyFor(o) == null) throw new AssertionError("dividido sin " + o);
+        if (kb.keyFor("t").rect.right > kb.keyFor("y").rect.left - 60 * dp) throw new AssertionError("hueco central");
+        typed.setLength(0);
+        for (String ch : new String[]{"h", "o", "l", "a"}) { AurebeshKeyboardView.Key k = kb.keyFor(ch); tap(kb, k.rect.centerX(), k.rect.centerY()); }
+        if (!typed.toString().equals("hola")) throw new AssertionError("dividido teclea: " + typed);
+        typed.setLength(0);
+        AurebeshKeyboardView wide = new AurebeshKeyboardView(app);
+        wide.applyPrefs(false, false, false, true, Themes.NOCHE.id);
+        wide.setEnterAction(4);
+        wide.setSplitMode(1);
+        wide.measure(View.MeasureSpec.makeMeasureSpec(2176, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+        wide.layout(0, 0, 2176, wide.getMeasuredHeight());
+        Bitmap wb = Bitmap.createBitmap(2176, wide.getMeasuredHeight(), Bitmap.Config.ARGB_8888);
+        wide.draw(new Canvas(wb));
+        save(wb, "dividido_fold.png");
+        kb.setSplitMode(2);
+        render(kb);
+        if (kb.isSplit()) throw new AssertionError("dividido apagado");
+        kb.setSplitMode(0);
+        render(kb);
+
         // Chips de emoji en la barra de sugerencias; los iconos se esconden tras "..." mientras hay chips
         kb.setSuggestions(java.util.Arrays.asList("perro", "perros", "\uD83D\uDC36", "\uD83D\uDC15"), null);
         save(render(kb), "sugerencias_emoji.png");

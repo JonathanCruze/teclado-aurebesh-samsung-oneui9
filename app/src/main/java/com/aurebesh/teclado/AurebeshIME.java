@@ -187,6 +187,7 @@ public class AurebeshIME extends InputMethodService
             view.setToolbar(Prefs.toolbar(this));
             view.setSuggestionBar(autocorrect);
             view.setHandMode(Prefs.handMode(this));
+            view.setSplitMode(Prefs.splitMode(this));
             if (!autocorrect) clearSuggestions();
             updateGlide();
         }

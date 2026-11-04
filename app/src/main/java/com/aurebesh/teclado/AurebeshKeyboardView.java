@@ -49,6 +49,7 @@ public final class AurebeshKeyboardView extends View {
     static final int CODE_SHIFT = -1;
     static final int CODE_MODE = -2;
     static final int CODE_PAGE = -3;      // 1/2 <-> 2/2 en la pagina de signos
+    static final int CODE_GAP = -10;      // hueco central del teclado dividido (no se dibuja ni se toca)
     static final int CODE_ENTER = -4;
     static final int CODE_DELETE = -5;
     static final int CODE_SPACE = -6;
@@ -127,6 +128,8 @@ public final class AurebeshKeyboardView extends View {
     private boolean languageSwitch = false; // tecla del globo (solo con varios idiomas Aurebesh activos)
     private boolean suggestionBar = false;  // barra de sugerencias (autocorreccion)
     private int handMode = 0;               // 0 normal, 1 izquierda, 2 derecha
+    private int splitMode = 0;              // teclado dividido: 0 automatico (pantalla ancha), 1 siempre, 2 nunca
+    private boolean split = false;          // estado actual del dividido (dos mitades con hueco, como en los Fold)
     private final List<String> suggestions = new ArrayList<>();
     private final List<RectF> suggestionRects = new ArrayList<>();
     private String highlighted;             // sugerencia que se aplicara sola (resaltada)
@@ -367,10 +370,30 @@ public final class AurebeshKeyboardView extends View {
         invalidate();
     }
 
+    /** Teclado dividido en dos mitades (Galaxy Fold desplegado): 0 automatico, 1 siempre, 2 nunca. */
+    void setSplitMode(int mode) {
+        if (splitMode == mode) return;
+        splitMode = mode;
+        if (!updateSplit()) { requestLayout(); invalidate(); }
+    }
+
+    boolean isSplit() { return split; }
+
+    /** Recalcula si toca dividir (modo, ancho de pantalla, una mano) y reconstruye las filas si cambia. */
+    private boolean updateSplit() {
+        boolean wide = getResources().getConfiguration().smallestScreenWidthDp >= 600;
+        boolean s = handMode == 0 && (splitMode == 1 || (splitMode == 0 && wide));
+        if (s == split) return false;
+        split = s;
+        rebuildLayouts();
+        return true;
+    }
+
     /** Modo a una mano: 0 normal, 1 izquierda, 2 derecha. */
     void setHandMode(int mode) {
         if (handMode == mode) return;
         handMode = mode;
+        if (updateSplit()) return;
         requestLayout();
         invalidate();
     }
@@ -505,7 +528,13 @@ public final class AurebeshKeyboardView extends View {
         r.add(sym(",", 1f, "es".equals(language) ? "\u00bf" : "de".equals(language) ? ";" : "!"));
         float space = 5f;
         if (languageSwitch) { r.add(special("", CODE_GLOBE, 1f)); space -= 1f; }
-        r.add(special("", CODE_SPACE, space));
+        if (split) {                                       // dos mitades: espacio a cada lado del hueco
+            r.add(special("", CODE_SPACE, space - 2.5f));
+            r.add(special("", CODE_GAP, 0f));
+            r.add(special("", CODE_SPACE, 2.5f));
+        } else {
+            r.add(special("", CODE_SPACE, space));
+        }
         r.add(sym(".", 1f, "?"));
         r.add(special("", CODE_ENTER, 1.5f));
         layout.add(r);
@@ -545,6 +574,7 @@ public final class AurebeshKeyboardView extends View {
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        updateSplit();
         int w = MeasureSpec.getSize(widthMeasureSpec);
         setMeasuredDimension(w, (int) (stripHeight() + keysHeight() + 6 * dp));
     }
@@ -558,6 +588,7 @@ public final class AurebeshKeyboardView extends View {
     }
 
     private void layoutKeys(List<List<Key>> layout) {
+        if (split) { layoutKeysSplit(layout); return; }
         float full = getWidth();
         float w = handMode == 0 ? full : full * 0.78f;        // a una mano: 78 % del ancho
         float offset = handMode == 2 ? full - w : 0;
@@ -579,6 +610,48 @@ public final class AurebeshKeyboardView extends View {
         }
     }
 
+    /**
+     * Teclado dividido: cada fila se parte en dos mitades (la izquierda pegada al borde izquierdo y la
+     * derecha al derecho) con un hueco central para escribir con los pulgares en un Fold desplegado.
+     * Las filas con una tecla CODE_GAP se parten ahi; el resto por la mitad (5 | 5 en las de diez).
+     */
+    private void layoutKeysSplit(List<List<Key>> layout) {
+        float full = getWidth();
+        float pad = 4 * dp;
+        float halfW = (full - 2 * pad) * 0.36f;
+        float y = stripHeight();
+        for (int ri = 0; ri < layout.size(); ri++) {
+            List<Key> row = layout.get(ri);
+            float rh = rowHeight(layout, ri);
+            int cut = -1;
+            for (int i = 0; i < row.size(); i++) if (row.get(i).code == CODE_GAP) cut = i;
+            int leftEnd = cut >= 0 ? cut : (row.size() + 1) / 2;
+            float totalL = 0, totalR = 0;
+            for (int i = 0; i < row.size(); i++) {
+                Key k = row.get(i);
+                if (k.code == CODE_GAP) { k.rect.setEmpty(); continue; }
+                if (i < leftEnd) totalL += k.weight; else totalR += k.weight;
+            }
+            float unitL = halfW / Math.max(5f, totalL);
+            float unitR = halfW / Math.max(5f, totalR);
+            float xl = pad, xr = full - pad - halfW;
+            for (int i = 0; i < row.size(); i++) {
+                Key k = row.get(i);
+                if (k.code == CODE_GAP) continue;
+                if (i < leftEnd) {
+                    float kw = unitL * k.weight;
+                    k.rect.set(xl, y, xl + kw, y + rh);
+                    xl += kw;
+                } else {
+                    float kw = unitR * k.weight;
+                    k.rect.set(xr, y, xr + kw, y + rh);
+                    xr += kw;
+                }
+            }
+            y += rh;
+        }
+    }
+
     // ------------------------------------------------------------------ dibujo
 
     @Override
@@ -588,6 +661,7 @@ public final class AurebeshKeyboardView extends View {
         float radius = theme.radiusDp * dp;
         for (int ri = 0; ri < current.size(); ri++) {
             for (Key k : current.get(ri)) {
+                if (k.code == CODE_GAP) continue;
                 tmp.set(k.rect.left + inset, k.rect.top + inset, k.rect.right - inset, k.rect.bottom - inset);
                 boolean isPressed = pressed.indexOfValue(k) >= 0 || k == repeatKey;
                 boolean function = k.code != CODE_TEXT && k.code != CODE_SPACE;
@@ -1180,6 +1254,7 @@ public final class AurebeshKeyboardView extends View {
         float bestDist = Float.MAX_VALUE;
         for (List<Key> row : current) {
             for (Key k : row) {
+                if (k.code == CODE_GAP || k.rect.isEmpty()) continue;
                 if (k.rect.contains(x, y)) return k;
                 float dx = Math.max(0, Math.max(k.rect.left - x, x - k.rect.right));
                 float dy = Math.max(0, Math.max(k.rect.top - y, y - k.rect.bottom));

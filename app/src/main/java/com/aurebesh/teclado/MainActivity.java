@@ -102,6 +102,7 @@ public final class MainActivity extends Activity {
         optionRow(typing, R.string.opt_numbers, R.string.opt_numbers_sub, Prefs.NUMBERS, Prefs.numbers(this));
         chipRow(typing, R.string.opt_height, Prefs.HEIGHT, SIZES, SIZE_NAMES, Prefs.height(this));
         chipRow(typing, R.string.opt_hand, Prefs.HAND, HANDS, HAND_NAMES, Prefs.hand(this));
+        chipRow(typing, R.string.opt_split, Prefs.SPLIT, SPLITS, SPLIT_NAMES, Prefs.splitPref(this));
         optionRow(typing, R.string.opt_glide, R.string.opt_glide_sub, Prefs.GLIDE, Prefs.glide(this));
         optionRow(typing, R.string.opt_autocorrect, R.string.opt_autocorrect_sub, Prefs.AUTOCORRECT, Prefs.autocorrect(this));
         optionRow(typing, R.string.opt_double_space, R.string.opt_double_space_sub, Prefs.DOUBLE_SPACE, Prefs.doubleSpace(this));
@@ -339,6 +340,7 @@ public final class MainActivity extends Activity {
         preview.applyPrefs(Prefs.hints(this), Prefs.vibrate(this), Prefs.strip(this), Prefs.digraphs(this),
                 Prefs.theme(this), Prefs.numbers(this), Prefs.sound(this), Prefs.heightScale(this));
         preview.setHandMode(Prefs.handMode(this));
+        preview.setSplitMode(Prefs.splitMode(this));
         preview.setToolbar(Prefs.toolbar(this));
         preview.setGlideEnabled(Prefs.glide(this));
     }
@@ -380,6 +382,8 @@ public final class MainActivity extends Activity {
     private static final String[] SIZES = {"compact", "normal", "large", "xlarge"};
     private static final int[] SIZE_NAMES = {R.string.size_compact, R.string.size_normal, R.string.size_large, R.string.size_xlarge};
     private static final String[] HANDS = {"none", "left", "right"};
+    private static final String[] SPLITS = {"auto", "on", "off"};
+    private static final int[] SPLIT_NAMES = {R.string.split_auto, R.string.split_on, R.string.split_off};
     private static final int[] APP_LANG_NAMES = {R.string.app_lang_system, R.string.app_lang_es, R.string.app_lang_en, R.string.app_lang_de};
     private static final int[] HAND_NAMES = {R.string.hand_none, R.string.hand_left, R.string.hand_right};
 
