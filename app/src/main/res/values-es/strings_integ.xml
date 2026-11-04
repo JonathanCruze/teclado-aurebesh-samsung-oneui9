@@ -31,4 +31,23 @@
     <string name="fold_body">En un Galaxy Z Fold desplegado el teclado se parte en dos mitades con las teclas en el mismo sitio que Samsung Keyboard, para escribir con los dos pulgares. En un teléfono normal o en un Galaxy Z Flip no cambia nada: déjalo en "Al desplegar".</string>
     <string name="fold_detected_wide">Esta pantalla es ancha (%1$d dp): aquí el teclado se divide</string>
     <string name="fold_detected_phone">Esta pantalla es de teléfono (%1$d dp): aquí el teclado no se divide</string>
+
+    <!-- Secciones colapsables de ajustes: accesos rapidos y resumen de una linea -->
+    <string name="nav_go">Ir a</string>
+    <string name="sum_try">Escribe con la copia del teclado; abajo, campos con el teclado del sistema</string>
+    <string name="sum_hints">letras latinas</string>
+    <string name="sum_toolbar">barra de herramientas</string>
+    <string name="sum_strip">barra de traducción</string>
+    <string name="sum_glide">deslizar</string>
+    <string name="sum_autocorrect">autocorrección</string>
+    <string name="sum_learn">aprende palabras</string>
+    <string name="sum_sound">sonido</string>
+    <string name="sum_vibrate">vibración</string>
+    <string name="sum_hand">una mano: %1$s</string>
+    <string name="sum_wide">pantalla ancha</string>
+    <string name="sum_phone">pantalla de teléfono</string>
+    <string name="sum_ai_ready">En este teléfono · %1$s listo</string>
+    <string name="sum_ai_none">En este teléfono · todavía sin modelo descargado</string>
+    <string name="sum_ai_remote">Servidor propio · %1$s</string>
+    <string name="sum_gestures">%1$d gestos y atajos</string>
 </resources>

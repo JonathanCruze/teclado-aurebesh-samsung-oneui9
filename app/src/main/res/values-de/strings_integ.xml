@@ -31,4 +31,23 @@
     <string name="fold_body">Auf einem aufgeklappten Galaxy Z Fold teilt sich die Tastatur in zwei Hälften mit denselben Tastenpositionen wie die Samsung-Tastatur, zum Tippen mit beiden Daumen. Auf einem normalen Telefon oder einem Galaxy Z Flip ändert sich nichts: lass es auf „Aufgeklappt“.</string>
     <string name="fold_detected_wide">Dieser Bildschirm ist breit (%1$d dp): hier teilt sich die Tastatur</string>
     <string name="fold_detected_phone">Dieser Bildschirm hat Telefongröße (%1$d dp): hier teilt sich die Tastatur nicht</string>
+
+    <!-- Einklappbare Einstellungsbereiche: Schnellzugriff und einzeilige Zusammenfassung -->
+    <string name="nav_go">Gehe zu</string>
+    <string name="sum_try">Tippe mit der Tastaturkopie; darunter Felder mit der Systemtastatur</string>
+    <string name="sum_hints">lateinische Buchstaben</string>
+    <string name="sum_toolbar">Werkzeugleiste</string>
+    <string name="sum_strip">Übersetzungsleiste</string>
+    <string name="sum_glide">Wischen</string>
+    <string name="sum_autocorrect">Autokorrektur</string>
+    <string name="sum_learn">lernt Wörter</string>
+    <string name="sum_sound">Ton</string>
+    <string name="sum_vibrate">Vibration</string>
+    <string name="sum_hand">eine Hand: %1$s</string>
+    <string name="sum_wide">breiter Bildschirm</string>
+    <string name="sum_phone">Telefonbildschirm</string>
+    <string name="sum_ai_ready">Auf diesem Telefon · %1$s bereit</string>
+    <string name="sum_ai_none">Auf diesem Telefon · noch kein Modell heruntergeladen</string>
+    <string name="sum_ai_remote">Eigener Server · %1$s</string>
+    <string name="sum_gestures">%1$d Gesten und Kurzbefehle</string>
 </resources>

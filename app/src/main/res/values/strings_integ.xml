@@ -31,4 +31,23 @@
     <string name="fold_body">On an unfolded Galaxy Z Fold the keyboard splits into two halves with the same key positions as Samsung Keyboard, to type with both thumbs. On a regular phone or a Galaxy Z Flip nothing changes: leave it on "When unfolded".</string>
     <string name="fold_detected_wide">This screen is wide (%1$d dp): the keyboard splits here</string>
     <string name="fold_detected_phone">This screen is phone-sized (%1$d dp): the keyboard doesn\'t split here</string>
+
+    <!-- Collapsible settings sections: quick navigation and one-line summaries -->
+    <string name="nav_go">Go to</string>
+    <string name="sum_try">Type with the keyboard copy; below, fields that use the system keyboard</string>
+    <string name="sum_hints">Latin letters</string>
+    <string name="sum_toolbar">toolbar</string>
+    <string name="sum_strip">translation bar</string>
+    <string name="sum_glide">glide</string>
+    <string name="sum_autocorrect">autocorrect</string>
+    <string name="sum_learn">learns words</string>
+    <string name="sum_sound">sound</string>
+    <string name="sum_vibrate">vibration</string>
+    <string name="sum_hand">one hand: %1$s</string>
+    <string name="sum_wide">wide screen</string>
+    <string name="sum_phone">phone screen</string>
+    <string name="sum_ai_ready">On this phone · %1$s ready</string>
+    <string name="sum_ai_none">On this phone · no model downloaded yet</string>
+    <string name="sum_ai_remote">Your own server · %1$s</string>
+    <string name="sum_gestures">%1$d gestures and shortcuts</string>
 </resources>

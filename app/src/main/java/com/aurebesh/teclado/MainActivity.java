@@ -44,6 +44,29 @@ public final class MainActivity extends Activity {
 
     private TextView topStatus;                          // estado del teclado bajo el boton de arriba
     private Button keyboardButton;                       // "Elegir teclado" / "Activar el teclado"
+    private ScrollView scroll;
+
+    /** Seccion colapsable: tarjeta con cabecera (titulo, resumen, flecha) y cuerpo que se muestra u oculta. */
+    private static final class Section {
+        final String key;
+        final LinearLayout outer, body;
+        final TextView summary, chevron;
+        Section(String key, LinearLayout outer, LinearLayout body, TextView summary, TextView chevron) {
+            this.key = key; this.outer = outer; this.body = body; this.summary = summary; this.chevron = chevron;
+        }
+        boolean open() { return body.getVisibility() == View.VISIBLE; }
+    }
+    private final java.util.LinkedHashMap<String, Section> sections = new java.util.LinkedHashMap<>();
+    private static final String[] SECTION_KEYS = {"try", "appearance", "typing", "fold", "ai", "gestures"};
+    private static final int[] SECTION_TITLES = {R.string.try_title, R.string.appearance, R.string.typing,
+            R.string.fold_section, R.string.ai_section, R.string.gestures};
+    private final android.content.SharedPreferences.OnSharedPreferenceChangeListener summaryListener =
+            new android.content.SharedPreferences.OnSharedPreferenceChangeListener() {
+                @Override public void onSharedPreferenceChanged(android.content.SharedPreferences p, String key) {
+                    if (key == null || key.startsWith("sec_")) return;
+                    updateSummaries();
+                }
+            };
     private EditText input;
     private AurebeshTextView translation;
     private AurebeshKeyboardView preview;
@@ -72,7 +95,7 @@ public final class MainActivity extends Activity {
         trackOff = getColor(R.color.switch_track_off);
         medium = Typeface.create("sans-serif-medium", Typeface.NORMAL);
 
-        ScrollView scroll = new ScrollView(this);
+        scroll = new ScrollView(this);
         scroll.setBackgroundColor(surface);
         scroll.setVerticalScrollBarEnabled(false);
         LinearLayout root = column();
@@ -81,22 +104,21 @@ public final class MainActivity extends Activity {
 
         buildHeader(root);
         buildTop(root);
+        buildNav(root);
         buildCompat(root);
 
-        section(root, R.string.try_title);
-        buildTry(root);
-        buildRealFields(root);
+        // Cada seccion es una tarjeta colapsable con resumen; solo "Pruebalo" empieza abierta
+        LinearLayout tryBody = section(root, "try", R.string.try_title);
+        buildTry(tryBody);
+        buildRealFields(tryBody);
 
-        section(root, R.string.appearance);
-        LinearLayout appearance = cardColumn();
+        LinearLayout appearance = section(root, "appearance", R.string.appearance);
         themeRow(appearance);
         optionRow(appearance, R.string.opt_hints, R.string.opt_hints_sub, Prefs.HINTS, Prefs.hints(this));
         optionRow(appearance, R.string.opt_strip, R.string.opt_strip_sub, Prefs.STRIP, Prefs.strip(this));
         optionRow(appearance, R.string.opt_toolbar, R.string.opt_toolbar_sub, Prefs.TOOLBAR, Prefs.toolbar(this));
-        root.addView(appearance, block(0));
 
-        section(root, R.string.typing);
-        LinearLayout typing = cardColumn();
+        LinearLayout typing = section(root, "typing", R.string.typing);
         optionRow(typing, R.string.opt_digraphs, R.string.opt_digraphs_sub, Prefs.DIGRAPHS, Prefs.digraphs(this));
         optionRow(typing, R.string.opt_numbers, R.string.opt_numbers_sub, Prefs.NUMBERS, Prefs.numbers(this));
         chipRow(typing, R.string.opt_height, Prefs.HEIGHT, SIZES, SIZE_NAMES, Prefs.height(this));
@@ -109,15 +131,12 @@ public final class MainActivity extends Activity {
         optionRow(typing, R.string.opt_sound, 0, Prefs.SOUND, Prefs.sound(this));
         customSoundRow(typing);
         optionRow(typing, R.string.opt_vibrate, 0, Prefs.VIBRATE, Prefs.vibrate(this));
-        root.addView(typing, block(0));
-
         // Portapapeles: capturas de pantalla recientes (permiso opcional de fotos)
         typing.addView(dividerLine());
         typing.addView(ScreenshotSettingsRow.build(this, ink, secondary, thumbOff, trackOff), block(0));
 
         // Plegables: teclado dividido como el de Samsung en un Fold desplegado; en telefonos y Flip no cambia nada
-        section(root, R.string.fold_section);
-        LinearLayout fold = cardColumn();
+        LinearLayout fold = section(root, "fold", R.string.fold_section);
         LinearLayout foldText = column();
         foldText.setPadding(px(18), px(14), px(18), px(4));
         foldText.addView(text(getString(R.string.fold_title), 16, ink, false), block(0));
@@ -127,15 +146,13 @@ public final class MainActivity extends Activity {
                 13, secondary, true), block(8));
         fold.addView(foldText, block(0));
         chipRow(fold, R.string.opt_split, Prefs.SPLIT, SPLITS, SPLIT_NAMES, Prefs.splitPref(this));
-        root.addView(fold, block(0));
 
         // Inteligencia: modelo local o servidor propio
-        section(root, R.string.ai_section);
+        LinearLayout aiBody = section(root, "ai", R.string.ai_section);
         aiCard = AiSettingsCard.build(this, ink, secondary, card, divider);
-        root.addView(aiCard, block(0));
+        aiBody.addView(aiCard, block(0));
 
-        section(root, R.string.gestures);
-        LinearLayout gestures = cardColumn();
+        LinearLayout gestures = section(root, "gestures", R.string.gestures);
         gestureRow(gestures, R.string.gesture_accent, R.string.gesture_accent_result);
         gestureRow(gestures, R.string.gesture_enye, R.string.gesture_enye_result);
         gestureRow(gestures, R.string.gesture_marks, R.string.gesture_marks_result);
@@ -148,7 +165,8 @@ public final class MainActivity extends Activity {
         gestureRow(gestures, R.string.gesture_glide, R.string.gesture_glide_result);
         gestureRow(gestures, R.string.gesture_ai, R.string.gesture_ai_result);
         gestureRow(gestures, R.string.gesture_gear, R.string.gesture_gear_result);
-        root.addView(gestures, block(0));
+        updateSummaries();
+        Prefs.get(this).registerOnSharedPreferenceChangeListener(summaryListener);
 
         LinearLayout foot = column();
         foot.setGravity(Gravity.CENTER_HORIZONTAL);
@@ -165,12 +183,16 @@ public final class MainActivity extends Activity {
         root.addView(foot, block(28));
 
         setContentView(scroll);
-        if ("ai".equals(getIntent().getStringExtra("section")) && aiCard != null) {
-            final ScrollView sv = scroll;
-            sv.post(new Runnable() {
-                @Override public void run() { sv.smoothScrollTo(0, aiCard.getTop() - px(40)); }
-            });
+        if ("ai".equals(getIntent().getStringExtra("section"))) {   // desde el engrane del teclado: Inteligencia abierta
+            Section ai = sections.get("ai");
+            if (ai != null) setOpen(ai, true, true);
         }
+    }
+
+    @Override
+    protected void onDestroy() {
+        Prefs.get(this).unregisterOnSharedPreferenceChangeListener(summaryListener);
+        super.onDestroy();
     }
 
     @Override
@@ -258,7 +280,7 @@ public final class MainActivity extends Activity {
     }
 
     private void buildTry(LinearLayout root) {
-        LinearLayout c = cardColumn();
+        LinearLayout c = column();
         c.setClipToOutline(true);
 
         input = new EditText(this);
@@ -425,7 +447,7 @@ public final class MainActivity extends Activity {
 
     /** Fila de opciones excluyentes (chips); la copia del teclado cambia al instante. */
     private void chipRow(LinearLayout parent, int title, final String prefKey, final String[] ids, int[] names, String current) {
-        if (parent.getChildCount() > 0) parent.addView(dividerLine());
+        separator(parent);
         LinearLayout col = column();
         col.setPadding(px(18), px(14), px(18), px(16));
         col.addView(text(getString(title), 16, ink, false), block(0));
@@ -469,7 +491,8 @@ public final class MainActivity extends Activity {
 
     /** Campos que usan el teclado del sistema (el elegido en Ajustes): texto normal y contrasena. */
     private void buildRealFields(LinearLayout root) {
-        LinearLayout c = cardColumn();
+        root.addView(dividerLine());
+        LinearLayout c = column();
         c.setPadding(0, px(14), 0, px(4));
         TextView title = text(getString(R.string.real_title), 16, ink, false);
         title.setPadding(px(18), 0, px(18), 0);
@@ -487,7 +510,7 @@ public final class MainActivity extends Activity {
                 InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
         password.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_DONE);
         c.addView(password, block(0));
-        root.addView(c, block(12));
+        root.addView(c, block(0));
     }
 
     private EditText realField(int hint, int inputType) {
@@ -540,7 +563,7 @@ public final class MainActivity extends Activity {
     }
 
     private void optionRow(LinearLayout parent, int label, int sub, final String key, boolean value) {
-        if (parent.getChildCount() > 0) parent.addView(dividerLine());
+        separator(parent);
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
@@ -578,7 +601,7 @@ public final class MainActivity extends Activity {
     }
 
     private void gestureRow(LinearLayout parent, int gesture, int result) {
-        if (parent.getChildCount() > 0) parent.addView(dividerLine());
+        separator(parent);
         LinearLayout col = column();
         col.setPadding(px(18), px(12), px(18), px(12));
         col.addView(text(getString(gesture), 16, ink, false), block(0));
@@ -599,7 +622,7 @@ public final class MainActivity extends Activity {
 
     /** Fila "Sonido personalizado": elegir un audio corto del telefono o volver al clic del sistema. */
     private void customSoundRow(LinearLayout parent) {
-        if (parent.getChildCount() > 0) parent.addView(dividerLine());
+        separator(parent);
         LinearLayout col = column();
         col.setPadding(px(18), px(14), px(18), px(16));
         col.addView(text(getString(R.string.opt_custom_sound), 16, ink, false), block(0));
@@ -712,7 +735,7 @@ public final class MainActivity extends Activity {
 
     /** Boton "Olvidar palabras aprendidas". */
     private void learnClearRow(LinearLayout parent) {
-        if (parent.getChildCount() > 0) parent.addView(dividerLine());
+        separator(parent);
         LinearLayout col = column();
         col.setPadding(px(18), px(12), px(18), px(16));
         TextView clear = chipButton(R.string.learn_clear, new View.OnClickListener() {
@@ -751,10 +774,140 @@ public final class MainActivity extends Activity {
         return p;
     }
 
-    private void section(LinearLayout root, int title) {
-        LinearLayout.LayoutParams p = block(28);
-        p.bottomMargin = px(10);
-        root.addView(text(getString(title), 17, ink, true), p);
+    /**
+     * Seccion colapsable: tarjeta con cabecera pulsable (titulo, resumen de una linea y flecha) y un cuerpo
+     * al que el llamante anade sus filas. El estado abierto/cerrado se recuerda por seccion; al principio
+     * solo "Pruebalo" esta abierta. Devuelve el cuerpo.
+     */
+    private LinearLayout section(LinearLayout root, final String key, int titleRes) {
+        LinearLayout outer = cardColumn();
+        LinearLayout header = new LinearLayout(this);
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        header.setPadding(px(18), px(16), px(12), px(16));
+        header.setBackground(ripple(0));
+        LinearLayout col = column();
+        col.addView(text(getString(titleRes), 17, ink, true), block(0));
+        TextView summary = text("", 13, secondary, false);
+        summary.setMaxLines(1);
+        summary.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        col.addView(summary, block(2));
+        header.addView(col, new LinearLayout.LayoutParams(0, WRAP, 1f));
+        TextView chevron = text("\u25BE", 20, secondary, false);   // ▾ cerrado, ▴ abierto
+        chevron.setPadding(px(12), 0, px(6), 0);
+        header.addView(chevron, new LinearLayout.LayoutParams(WRAP, WRAP));
+        LinearLayout body = column();
+        body.addView(dividerLine());
+        outer.addView(header, block(0));
+        outer.addView(body, block(0));
+        final Section sec = new Section(key, outer, body, summary, chevron);
+        sections.put(key, sec);
+        boolean open = Prefs.get(this).getBoolean("sec_" + key, "try".equals(key));
+        body.setVisibility(open ? View.VISIBLE : View.GONE);
+        chevron.setText(open ? "\u25B4" : "\u25BE");
+        header.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                if (sec.outer.getLayoutTransition() == null) sec.outer.setLayoutTransition(new android.animation.LayoutTransition());
+                setOpen(sec, !sec.open(), false);
+            }
+        });
+        root.addView(outer, block(16));
+        return body;
+    }
+
+    /** Abre o cierra una seccion (y lo recuerda); con scroll, la lleva arriba de la pantalla. */
+    private void setOpen(final Section sec, boolean open, boolean scrollTo) {
+        sec.body.setVisibility(open ? View.VISIBLE : View.GONE);
+        sec.chevron.setText(open ? "\u25B4" : "\u25BE");
+        Prefs.get(this).edit().putBoolean("sec_" + sec.key, open).apply();
+        if (scrollTo && scroll != null) {
+            scroll.post(new Runnable() {
+                @Override public void run() { scroll.smoothScrollTo(0, Math.max(0, sec.outer.getTop() - px(12))); }
+            });
+        }
+    }
+
+    /** Fila "Ir a" con un chip por seccion: la abre y la lleva arriba, sin recorrer toda la pantalla. */
+    private void buildNav(LinearLayout root) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        TextView label = text(getString(R.string.nav_go), 13, secondary, true);
+        label.setPadding(px(4), 0, px(10), 0);
+        row.addView(label, new LinearLayout.LayoutParams(WRAP, WRAP));
+        for (int i = 0; i < SECTION_KEYS.length; i++) {
+            final String key = SECTION_KEYS[i];
+            TextView chip = text(getString(SECTION_TITLES[i]), 13, ink, true);
+            chip.setPadding(px(12), px(7), px(12), px(7));
+            chip.setSelected(false);
+            styleChip(chip);
+            chip.setOnClickListener(new View.OnClickListener() {
+                @Override public void onClick(View v) {
+                    Section sec = sections.get(key);
+                    if (sec != null) setOpen(sec, true, true);
+                }
+            });
+            LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(WRAP, WRAP);
+            cp.leftMargin = px(i == 0 ? 0 : 6);
+            row.addView(chip, cp);
+        }
+        android.widget.HorizontalScrollView hs = new android.widget.HorizontalScrollView(this);
+        hs.setHorizontalScrollBarEnabled(false);
+        hs.addView(row, new ViewGroup.LayoutParams(WRAP, WRAP));
+        root.addView(hs, block(14));
+    }
+
+    /** Resumen de una linea bajo el titulo de cada seccion, con los valores actuales. */
+    private void updateSummaries() {
+        Section s;
+        if ((s = sections.get("try")) != null) s.summary.setText(R.string.sum_try);
+        if ((s = sections.get("appearance")) != null) {
+            java.util.List<String> parts = new java.util.ArrayList<>();
+            Themes.Theme t = Themes.byId(Prefs.theme(this));
+            parts.add(getString(t.name));
+            if (Prefs.hints(this)) parts.add(getString(R.string.sum_hints));
+            if (Prefs.toolbar(this)) parts.add(getString(R.string.sum_toolbar));
+            if (Prefs.strip(this)) parts.add(getString(R.string.sum_strip));
+            s.summary.setText(join(parts));
+        }
+        if ((s = sections.get("typing")) != null) {
+            java.util.List<String> parts = new java.util.ArrayList<>();
+            parts.add(getString(nameOf(SIZES, SIZE_NAMES, Prefs.height(this))));
+            if (Prefs.glide(this)) parts.add(getString(R.string.sum_glide));
+            if (Prefs.autocorrect(this)) parts.add(getString(R.string.sum_autocorrect));
+            if (Prefs.learn(this)) parts.add(getString(R.string.sum_learn));
+            if (Prefs.sound(this)) parts.add(getString(R.string.sum_sound));
+            if (Prefs.vibrate(this)) parts.add(getString(R.string.sum_vibrate));
+            if (!"none".equals(Prefs.hand(this))) parts.add(getString(R.string.sum_hand, getString(nameOf(HANDS, HAND_NAMES, Prefs.hand(this)))));
+            s.summary.setText(join(parts));
+        }
+        if ((s = sections.get("fold")) != null) {
+            java.util.List<String> parts = new java.util.ArrayList<>();
+            parts.add(getString(nameOf(SPLITS, SPLIT_NAMES, Prefs.splitPref(this))));
+            parts.add(getString(DeviceInfo.wideScreen(this) ? R.string.sum_wide : R.string.sum_phone));
+            s.summary.setText(join(parts));
+        }
+        if ((s = sections.get("ai")) != null) {
+            String name = AiModels.engineShortName(this);
+            if (AiModels.remote(this)) s.summary.setText(getString(R.string.sum_ai_remote, name == null ? "—" : name));
+            else if (name != null) s.summary.setText(getString(R.string.sum_ai_ready, name));
+            else s.summary.setText(R.string.sum_ai_none);
+        }
+        if ((s = sections.get("gestures")) != null) s.summary.setText(getString(R.string.sum_gestures, 12));
+    }
+
+    private static int nameOf(String[] ids, int[] names, String id) {
+        for (int i = 0; i < ids.length; i++) if (ids[i].equals(id)) return names[i];
+        return names[0];
+    }
+
+    private static String join(java.util.List<String> parts) {
+        StringBuilder b = new StringBuilder();
+        for (String p : parts) {
+            if (b.length() > 0) b.append(" \u00b7 ");
+            b.append(p);
+        }
+        return b.toString();
     }
 
     private TextView text(String s, int sp, int color, boolean bold) {
@@ -767,8 +920,15 @@ public final class MainActivity extends Activity {
         return t;
     }
 
+    /** Linea entre filas, salvo si la fila anterior ya es una linea (p. ej. la que sigue a la cabecera de la seccion). */
+    private void separator(LinearLayout parent) {
+        int n = parent.getChildCount();
+        if (n > 0 && !"divider".equals(parent.getChildAt(n - 1).getTag())) parent.addView(dividerLine());
+    }
+
     private View dividerLine() {
         View v = new View(this);
+        v.setTag("divider");
         v.setBackgroundColor(divider);
         LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(MATCH, Math.max(1, px(1)));
         p.leftMargin = px(18);

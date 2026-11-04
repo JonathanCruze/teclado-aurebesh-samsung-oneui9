@@ -55,6 +55,9 @@ Para actualizar, descarga el nuevo APK e instálalo encima: conserva tus ajustes
   y una guía de qué modelo elegir según el Galaxy.
 - **Arriba de la app**: los tres idiomas (Español, English, Deutsch) como iconos que cambian a la vez el idioma de la app y del
   teclado, y el botón para activar o elegir el teclado con el estado debajo.
+- **Ajustes con secciones colapsables**: Pruébalo, Apariencia, Escritura, Plegables, Inteligencia y Gestos son tarjetas que se
+  abren y cierran (se recuerda cuáles), con un resumen de una línea de sus valores actuales (tema, tamaño, modelo listo…) y una
+  fila "Ir a" arriba que abre la sección y la lleva a la vista; desde el engrane del teclado se abre directamente Inteligencia.
 - **Sección Plegables**: el teclado dividido tiene su propio apartado con explicación (en un teléfono normal o un Z Flip no cambia
   nada) y la detección de la pantalla actual; sigue pudiendo desactivarse ("Nunca"), como en Samsung Keyboard.
 - **Teclado dividido con la geometría de Samsung Keyboard** en el Fold desplegado: dos cajas de 5,5 teclas pegadas a los bordes,
