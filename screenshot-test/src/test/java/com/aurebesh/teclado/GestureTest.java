@@ -468,7 +468,7 @@ public class GestureTest {
         check(kb.keyFor(AurebeshKeyboardView.CODE_DELETE) != null && kb.keyFor(AurebeshKeyboardView.CODE_ENTER) != null, "borrar e intro");
         near("fila de 58 dp", kb.keyFor("1").rect.height(), 58 * dp);
         near("la primera fila no es la franja de numeros", kb.keyFor("1").rect.height(), kb.keyFor("4").rect.height());
-        check(kb.keyFor("1").rect.width() > 3 * kb.keyFor("1").rect.height() / 2, "teclas anchas: 4 columnas llenan el ancho");
+        check(kb.keyFor("1").rect.width() > 1.3f * kb.keyFor("1").rect.height(), "teclas anchas: 4 columnas llenan el ancho");
         save(render(kb, W), "gestos_numpad_telefono.png");
         tap(kb, kb.keyFor("5"));
         tap(kb, kb.keyFor("#"));

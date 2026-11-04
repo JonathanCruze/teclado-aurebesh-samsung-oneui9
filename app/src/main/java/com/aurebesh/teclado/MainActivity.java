@@ -485,8 +485,12 @@ public final class MainActivity extends Activity {
         customSoundRow(touch);
         volumeSlider = sliderRow(touch, R.string.aj_volume, R.string.aj_volume_sub, 0, 100, Prefs.soundVolume(this), PCT,
                 new SliderListener() {
-                    @Override public void onLive(int value) {}   // KeySound aun suena a un nivel fijo; el IME lo aplicara al guardar
+                    @Override public void onLive(int value) {
+                        KeySound.get(MainActivity.this).setVolume(value);   // se oye una muestra al nivel elegido
+                        KeySound.get(MainActivity.this).play(0);
+                    }
                     @Override public void onSave(int value) {
+                        KeySound.get(MainActivity.this).setVolume(value);
                         Prefs.get(MainActivity.this).edit().putInt(Prefs.SOUND_VOLUME, value).apply();
                     }
                 });
@@ -578,6 +582,7 @@ public final class MainActivity extends Activity {
         preview.setSplitMode(Prefs.splitMode(this));
         preview.setSplitBox(Prefs.splitBox(this));
         preview.setToolbar(Prefs.toolbar(this));
+        preview.setSuggestionBar(Prefs.autocorrect(this));   // como el IME: con predictivo la cinta se reserva aunque no haya barra
         preview.setGlideEnabled(Prefs.glide(this));
         preview.setPreviewEnabled(Prefs.preview(this));
         preview.setSpaceSlide(spaceSlideMode());

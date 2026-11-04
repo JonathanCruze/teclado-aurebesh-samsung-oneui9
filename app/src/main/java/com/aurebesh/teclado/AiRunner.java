@@ -29,25 +29,31 @@ import java.util.regex.Pattern;
  * mientras vive el teclado) o al servidor del usuario, entrega los trozos al hilo principal
  * mientras se generan y limpia la salida (vallas de codigo, comillas, preambulos tipo "Aqui tienes").
  * Las peticiones van en serie por un unico hilo; una nueva cancela la anterior.
+ *
+ * <p>El oyente ({@link Callback}) se puede cambiar en marcha con {@link #attach}/{@link #detach}: el servicio
+ * comparte un unico runner entre las vistas que va rehaciendo (giro, modo noche, idioma de la app), y el panel
+ * nuevo retoma la generacion en curso con su fase y texto acumulados; si termino sin nadie escuchando, el final
+ * queda guardado y se entrega al siguiente que se enganche.
  */
 final class AiRunner {
 
     /** Acciones del panel. */
     enum Action {
         FIX, STYLE_ORIGINAL, STYLE_FORMAL, STYLE_RESPECTFUL, STYLE_FRIENDLY, STYLE_CUSTOM,
-        SUMMARY, BULLETS, TABLE, COMPOSE;
+        SUMMARY, BULLETS, TABLE, COMPOSE, TRANSLATE;
 
         boolean isStyle() { return this == STYLE_ORIGINAL || this == STYLE_FORMAL || this == STYLE_RESPECTFUL
                 || this == STYLE_FRIENDLY || this == STYLE_CUSTOM; }
-        boolean isRewrite() { return this == FIX || isStyle(); }
+        boolean isRewrite() { return this == FIX || isStyle() || this == TRANSLATE; }
     }
 
-    /** Peticion: accion, texto fuente y, segun la accion, tono o encargo del Redactor. */
+    /** Peticion: accion, texto fuente y, segun la accion, tono, encargo del Redactor o idioma destino. */
     static final class Request {
         final Action action;
         final String source;      // texto del campo o la seleccion (puede ser vacio)
         String tone;              // STYLE_CUSTOM
         String prompt;            // COMPOSE
+        String target;            // TRANSLATE: "es", "en", "de" u otro idioma escrito por el usuario
         String lang = "es";       // idioma del teclado: "es", "en" o "de"
         boolean useContext = true; // COMPOSE: usar el texto del campo como contexto
         int retries = 0;          // cada reintento sube la temperatura
@@ -59,7 +65,7 @@ final class AiRunner {
 
         Request copyForRetry() {
             Request r = new Request(action, source);
-            r.tone = tone; r.prompt = prompt; r.lang = lang; r.useContext = useContext;
+            r.tone = tone; r.prompt = prompt; r.target = target; r.lang = lang; r.useContext = useContext;
             r.retries = retries + 1;
             return r;
         }
@@ -98,9 +104,87 @@ final class AiRunner {
     private String engineFile;
     private final Object engineLock = new Object();
 
+    // Oyente actual y memoria de la generacion para reengancharlo; solo se tocan en el hilo principal
+    private static final int END_NONE = 0, END_DONE = 1, END_CANCELLED = 2, END_ERROR = 3;
+    private Callback listener;
+    private Request request;            // peticion en curso (o la ultima lanzada)
+    private CharSequence lastPhase;     // ultima fase avisada
+    private String lastPiece;           // ultimo texto acumulado avisado
+    private int lastTokens;
+    private long lastElapsed;
+    private int ending = END_NONE;      // final que nadie recibio (no habia oyente)
+    private String endText;
+    private boolean endWeak;
+    private CharSequence endError;
+
     AiRunner(Context c) { app = c.getApplicationContext(); }
 
     boolean isBusy() { return busy; }
+
+    // ------------------------------------------------------------------ oyente
+
+    /**
+     * Engancha (o sustituye) al oyente. Si hay una generacion en vuelo le repite al momento la ultima fase y el
+     * texto acumulado, y seguira recibiendo las piezas y el final; si la generacion termino sin que nadie
+     * escuchara, le entrega ese final ahora. Devuelve true si habia algo que retomar. Hilo principal.
+     */
+    boolean attach(Callback cb) {
+        listener = cb;
+        if (cb == null) return false;
+        if (busy) {
+            if (lastPhase != null) cb.onPhase(lastPhase);
+            if (lastPiece != null) cb.onPiece(lastPiece, lastTokens, lastElapsed);
+            return true;
+        }
+        int kind = ending;
+        ending = END_NONE;
+        if (kind == END_DONE) cb.onDone(endText, endWeak);
+        else if (kind == END_CANCELLED) cb.onCancelled(endText);
+        else if (kind == END_ERROR) cb.onError(endError);
+        return kind != END_NONE;
+    }
+
+    /**
+     * Suelta al oyente si sigue siendo este (la vista se rehace): la generacion continua sin avisos y su final
+     * espera al siguiente {@link #attach}. Un oyente que ya fue sustituido no toca nada. Hilo principal.
+     */
+    void detach(Callback cb) {
+        if (listener == cb) listener = null;
+    }
+
+    /** Hay quien escucha ahora mismo. */
+    boolean hasListener() { return listener != null; }
+
+    /** Hay una generacion en vuelo, o un final sin entregar que recogera el siguiente oyente. */
+    boolean hasPending() { return busy || ending != END_NONE; }
+
+    /** Peticion en curso o ultima lanzada (null si nunca hubo). */
+    Request request() { return request; }
+
+    private void emitPhase(CharSequence label) {
+        lastPhase = label;
+        if (listener != null) listener.onPhase(label);
+    }
+
+    private void emitPiece(String soFar, int tokens, long elapsedMs) {
+        lastPiece = soFar; lastTokens = tokens; lastElapsed = elapsedMs;
+        if (listener != null) listener.onPiece(soFar, tokens, elapsedMs);
+    }
+
+    private void emitDone(String text, boolean weak) {
+        if (listener != null) { listener.onDone(text, weak); return; }
+        ending = END_DONE; endText = text; endWeak = weak;
+    }
+
+    private void emitCancelled(String partial) {
+        if (listener != null) { listener.onCancelled(partial); return; }
+        ending = END_CANCELLED; endText = partial;
+    }
+
+    private void emitError(CharSequence message) {
+        if (listener != null) { listener.onError(message); return; }
+        ending = END_ERROR; endError = message;
+    }
 
     /** Hay motor disponible segun las preferencias actuales. */
     boolean available() { return AiModels.available(app); }
@@ -153,13 +237,18 @@ final class AiRunner {
 
     // ------------------------------------------------------------------ ejecucion
 
-    /** Lanza la peticion; cancela la anterior si seguia en marcha. */
+    /** Lanza la peticion con {@code cb} como oyente; cancela la anterior si seguia en marcha. Hilo principal. */
     void run(final Request req, final Callback cb) {
         cancel();
         final int id = seq.incrementAndGet();
         final AtomicBoolean flag = new AtomicBoolean(false);
         cancelled = flag;
         busy = true;
+        listener = cb;
+        request = req;
+        lastPhase = null;
+        lastPiece = null;
+        ending = END_NONE;
         final boolean useRemote = isRemote();
         final Runnable watchdog = new Runnable() {
             @Override public void run() {
@@ -168,7 +257,7 @@ final class AiRunner {
                 AiRemote r = remote;
                 if (r != null) r.cancel();
                 busy = false;
-                cb.onError(app.getString(R.string.ai_err_timeout));
+                emitError(app.getString(R.string.ai_err_timeout));
             }
         };
         main.postDelayed(watchdog, useRemote ? REMOTE_TOTAL_MS : LOCAL_TOTAL_MS);
@@ -178,21 +267,23 @@ final class AiRunner {
                     android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_DEFAULT);
                 } catch (Throwable ignored) {
                 }
-                work(req, cb, id, flag, useRemote, watchdog);
+                work(req, id, flag, useRemote, watchdog);
             }
         });
     }
 
     private boolean current(int id, AtomicBoolean flag) { return seq.get() == id && !flag.get(); }
 
-    private void work(final Request req, final Callback cb, final int id, final AtomicBoolean flag,
+    private void work(final Request req, final int id, final AtomicBoolean flag,
                       boolean useRemote, final Runnable watchdog) {
         final StringBuilder raw = new StringBuilder();
         final long start = System.currentTimeMillis();
         final int[] tokens = {0};
         final long[] lastPost = {0};
         final boolean[] firstToken = {false};
-        String textLang = req.action == Action.COMPOSE ? req.lang : detectLanguage(req.source, req.lang);
+        // Idioma del mensaje: el del teclado (Redactor), el del destino (Traducir) o el detectado en el texto
+        String textLang = req.action == Action.COMPOSE ? req.lang
+                : req.action == Action.TRANSLATE ? promptLang(req) : detectLanguage(req.source, req.lang);
         String source = truncate(req.source, useRemote ? REMOTE_MAX_CHARS : LOCAL_MAX_CHARS);
         List<ChatMessage> messages = messages(req, source, textLang);
         LlmEngine.Options o = options(req.action, source.length(), req.retries);
@@ -201,7 +292,7 @@ final class AiRunner {
                 if (!current(id, flag) || firstToken[0]) return;
                 flag.set(true);
                 busy = false;
-                cb.onError(app.getString(R.string.ai_err_timeout));
+                emitError(app.getString(R.string.ai_err_timeout));
             }
         };
         LlmEngine.TokenListener listener = new LlmEngine.TokenListener() {
@@ -221,7 +312,7 @@ final class AiRunner {
                     final int t = tokens[0];
                     final long e = now - start;
                     main.post(new Runnable() {
-                        @Override public void run() { if (current(id, flag)) cb.onPiece(s, t, e); }
+                        @Override public void run() { if (current(id, flag)) emitPiece(s, t, e); }
                     });
                 }
                 return true;
@@ -231,7 +322,7 @@ final class AiRunner {
         CharSequence error = null;
         try {
             if (useRemote) {
-                phase(cb, id, flag, app.getString(R.string.ai_connecting));
+                phase(id, flag, app.getString(R.string.ai_connecting));
                 AiRemote r = new AiRemote();
                 remote = r;
                 try {
@@ -241,10 +332,10 @@ final class AiRunner {
                     remote = null;
                 }
             } else {
-                LlmEngine e = ensureEngine(cb, id, flag);
+                LlmEngine e = ensureEngine(id, flag);
                 if (e == null) return;              // ya se aviso del error o se cancelo
-                if (!current(id, flag)) { finishCancelled(cb, id, raw, req, watchdog); return; }
-                phase(cb, id, flag, app.getString(R.string.ai_reading));
+                if (!current(id, flag)) { finishCancelled(id, raw, req, watchdog); return; }
+                phase(id, flag, app.getString(R.string.ai_reading));
                 main.postDelayed(firstWatch, LOCAL_FIRST_MS);
                 if (e.architecture() != null && e.architecture().toLowerCase(Locale.ROOT).contains("qwen3")) {
                     messages = noThink(messages);
@@ -267,7 +358,7 @@ final class AiRunner {
             main.removeCallbacks(firstWatch);
         }
         if (seq.get() != id) return;                // otra peticion tomo el relevo
-        if (flag.get()) { finishCancelled(cb, id, raw, req, watchdog); return; }
+        if (flag.get()) { finishCancelled(id, raw, req, watchdog); return; }
         final String text = result != null && result.length() >= raw.length() ? result : raw.toString();
         final CharSequence err = error;
         main.post(new Runnable() {
@@ -275,43 +366,43 @@ final class AiRunner {
                 main.removeCallbacks(watchdog);
                 if (seq.get() != id) return;
                 busy = false;
-                if (err != null) { cb.onError(err); return; }
+                if (err != null) { emitError(err); return; }
                 Cleaned c = cleanChecked(req.action, text, req.source);
-                if (c.errorRes != 0) { cb.onError(app.getString(c.errorRes)); return; }
-                cb.onDone(c.text, c.weak);
+                if (c.errorRes != 0) { emitError(app.getString(c.errorRes)); return; }
+                emitDone(c.text, c.weak);
             }
         });
     }
 
-    private void finishCancelled(final Callback cb, final int id, StringBuilder raw, Request req, final Runnable watchdog) {
+    private void finishCancelled(final int id, StringBuilder raw, Request req, final Runnable watchdog) {
         final String partial = clean(req.action, raw.toString(), req.source);
         main.post(new Runnable() {
             @Override public void run() {
                 main.removeCallbacks(watchdog);
                 if (seq.get() != id) return;
                 busy = false;
-                cb.onCancelled(partial);
+                emitCancelled(partial);
             }
         });
     }
 
-    private void phase(final Callback cb, final int id, final AtomicBoolean flag, final CharSequence label) {
+    private void phase(final int id, final AtomicBoolean flag, final CharSequence label) {
         main.post(new Runnable() {
-            @Override public void run() { if (current(id, flag)) cb.onPhase(label); }
+            @Override public void run() { if (current(id, flag)) emitPhase(label); }
         });
     }
 
     /** Carga el motor si hace falta (o si cambio el modelo elegido). Devuelve null tras avisar del error. */
-    private LlmEngine ensureEngine(final Callback cb, final int id, final AtomicBoolean flag) {
+    private LlmEngine ensureEngine(final int id, final AtomicBoolean flag) {
         File f = AiModels.selected(app);
         if (f == null) {
-            fail(cb, id, flag, app.getString(R.string.ai_err_no_model));
+            fail(id, flag, app.getString(R.string.ai_err_no_model));
             return null;
         }
         synchronized (engineLock) {
             if (engine != null && f.getAbsolutePath().equals(engineFile)) return engine;
             closeEngine();
-            phase(cb, id, flag, app.getString(R.string.ai_loading_model));
+            phase(id, flag, app.getString(R.string.ai_loading_model));
             try {
                 int cpus = Runtime.getRuntime().availableProcessors();
                 int threads = Math.max(1, Math.min(4, cpus / 2));
@@ -320,11 +411,11 @@ final class AiRunner {
                 return engine;
             } catch (IOException e) {
                 boolean mapFail = e.getMessage() != null && e.getMessage().startsWith("MAPFAIL");
-                fail(cb, id, flag, mapFail ? app.getString(R.string.ai_err_memory) : badModel(e));
+                fail(id, flag, mapFail ? app.getString(R.string.ai_err_memory) : badModel(e));
             } catch (OutOfMemoryError e) {
-                fail(cb, id, flag, app.getString(R.string.ai_err_memory));
+                fail(id, flag, app.getString(R.string.ai_err_memory));
             } catch (RuntimeException e) {
-                fail(cb, id, flag, badModel(e));
+                fail(id, flag, badModel(e));
             }
             return null;
         }
@@ -346,13 +437,13 @@ final class AiRunner {
         return t.getClass().getSimpleName() + (m == null || m.isEmpty() ? "" : ": " + m);
     }
 
-    private void fail(final Callback cb, final int id, final AtomicBoolean flag, final CharSequence msg) {
+    private void fail(final int id, final AtomicBoolean flag, final CharSequence msg) {
         main.post(new Runnable() {
             @Override public void run() {
                 if (seq.get() != id) return;
                 flag.set(true);
                 busy = false;
-                cb.onError(msg);
+                emitError(msg);
             }
         });
     }
@@ -431,10 +522,37 @@ final class AiRunner {
                 + "sin comillas, sin títulos ni notas. Conservas el idioma del texto original.";
     }
 
+    /** Traducir: el mismo papel sin la regla de conservar el idioma del original. */
+    static String translatorPrompt(String lang) {
+        if ("en".equals(lang)) return "You are a translator. Reply only with the translation: no explanations, no greetings, "
+                + "no quotes, no titles or notes.";
+        if ("de".equals(lang)) return "Du bist ein Übersetzer. Antworte nur mit der Übersetzung: ohne Erklärungen, ohne "
+                + "Begrüßung, ohne Anführungszeichen, ohne Titel oder Anmerkungen.";
+        return "Eres un traductor. Respondes únicamente con la traducción: sin explicaciones, sin saludos, sin comillas, "
+                + "sin títulos ni notas.";
+    }
+
+    /** Codigo del idioma destino si es uno de los tres de la interfaz ("es", "en", "de"); null si es otro o no hay. */
+    static String targetCode(String target) {
+        if (target == null) return null;
+        String t = target.trim().toLowerCase(Locale.ROOT);
+        return "es".equals(t) || "en".equals(t) || "de".equals(t) ? t : null;
+    }
+
+    /**
+     * Idioma en que se escribe el mensaje de Traducir: el del destino cuando es uno de los tres (un modelo pequeno
+     * responde mejor en el idioma en que se le habla); para otro idioma, el del teclado.
+     */
+    static String promptLang(Request req) {
+        String code = targetCode(req.target);
+        if (code != null) return code;
+        return "en".equals(req.lang) ? "en" : "de".equals(req.lang) ? "de" : "es";
+    }
+
     /** Mensajes (system + user) para la peticion; el texto fuente va al final, sin comillas. */
     static List<ChatMessage> messages(Request req, String source, String textLang) {
         List<ChatMessage> out = new ArrayList<>(2);
-        out.add(new ChatMessage("system", systemPrompt(textLang)));
+        out.add(new ChatMessage("system", req.action == Action.TRANSLATE ? translatorPrompt(textLang) : systemPrompt(textLang)));
         out.add(new ChatMessage("user", userPrompt(req, source, textLang)));
         return out;
     }
@@ -492,6 +610,21 @@ final class AiRunner {
                         + "Gib nur die Zusammenfassung zurück."
                         : "Resume el siguiente texto en " + n + " frase(s) como máximo, en el mismo idioma. Devuelve solo "
                         + "el resumen.") + tail;
+            }
+            case TRANSLATE: {
+                String code = targetCode(req.target);
+                String other = sanitize(req.target, 40);
+                if (code == null && other.isEmpty()) code = promptLang(req);
+                String into = en ? ("es".equals(code) ? "Spanish" : "en".equals(code) ? "English" : "de".equals(code) ? "German" : other)
+                        : de ? ("es".equals(code) ? "ins Spanische" : "en".equals(code) ? "ins Englische"
+                        : "de".equals(code) ? "ins Deutsche" : "in die Sprache „" + other + "“")
+                        : ("es".equals(code) ? "español" : "en".equals(code) ? "inglés" : "de".equals(code) ? "alemán" : other);
+                return (en ? "Translate the following text into " + into + ". Keep the meaning, the tone and the line breaks. "
+                        + "Return only the translation, with no explanations."
+                        : de ? "Übersetze den folgenden Text " + into + ". Behalte Bedeutung, Ton und Zeilenumbrüche bei. "
+                        + "Gib nur die Übersetzung zurück, ohne Erklärungen."
+                        : "Traduce el siguiente texto al " + into + ". Mantén el significado, el tono y los saltos de línea. "
+                        + "Devuelve solo la traducción, sin explicaciones.") + tail;
             }
             case BULLETS:
                 return (en ? "Turn the following text into a bulleted list. Each bullet starts with \"• \" and holds one idea "
@@ -566,6 +699,11 @@ final class AiRunner {
                 o.temperature = 0.15f; o.repeatPenalty = 1.05f;
                 o.maxTokens = Math.min((int) Math.ceil(srcTokens * 1.8) + 40, 400);
                 break;
+            case TRANSLATE:
+                // Otro idioma puede ocupar bastantes mas tokens que el original (aleman, idiomas sin espacios)
+                o.temperature = 0.20f; o.repeatPenalty = 1.05f;
+                o.maxTokens = Math.min((int) Math.ceil(srcTokens * 1.8) + 32, 500);
+                break;
             case COMPOSE:
             default:
                 o.temperature = 0.70f; o.topP = 0.95f; o.repeatPenalty = 1.15f; o.maxTokens = 220;
@@ -585,12 +723,18 @@ final class AiRunner {
         Cleaned(String text, boolean weak, int errorRes) { this.text = text; this.weak = weak; this.errorRes = errorRes; }
     }
 
+    // (?u): mayusculas con acentos y dieresis ("Übersetzung:", "Traducción:") tambien cuentan
     private static final Pattern LABEL_LINE = Pattern.compile(
-            "(?i)^(texto|text|resultado|result|resumen|summary|tabla|table|lista|list|aquí (está|tienes)|here (is|are)|hier (ist|sind)|"
-            + "corrected|corregido|korrigiert|zusammenfassung|tabelle|sure|claro|por supuesto|certainly|of course|respuesta|answer|antwort)[^\\n]{0,60}:$");
+            "(?iu)^(texto|text|resultado|result|resumen|summary|tabla|table|lista|list|aquí (está|tienes)|here (is|are)|hier (ist|sind)|"
+            + "corrected|corregido|korrigiert|zusammenfassung|tabelle|sure|claro|por supuesto|certainly|of course|respuesta|answer|antwort|"
+            + "traducci[oó]n|translation|translated|übersetzung|übersetzt)[^\\n]{0,60}:$");
     private static final Pattern INLINE_PREFIX = Pattern.compile(
-            "(?i)^(texto corregido|corrected text|texto reescrito|rewritten text|resumen|summary|zusammenfassung|korrigierter text|"
-            + "tabla|table|tabelle|respuesta|answer|antwort)\\s*:\\s*");
+            "(?iu)^((texto corregido|corrected text|texto reescrito|rewritten text|resumen|summary|zusammenfassung|korrigierter text|"
+            + "tabla|table|tabelle|respuesta|answer|antwort)|"
+            + "(traducci[oó]n|translation|texto traducido|translated text|übersetzung|übersetzter text)( [^:\\n]{1,25})?)\\s*:\\s*");
+    /** Parrafo final de aclaracion que un traductor suele colar ("Nota: ...", "(Note: ...)"). */
+    private static final Pattern TRAILING_NOTE = Pattern.compile(
+            "(?isu)^[(\\[]?(nota|note|notes|hinweis|anmerkung|translation note|nota de traducción)\\b.*");
     private static final Pattern THINK = Pattern.compile("(?s)<think>.*?(</think>|$)");
 
     /** Limpieza general sin comprobaciones (para resultados parciales). */
@@ -617,6 +761,11 @@ final class AiRunner {
         }
         Matcher pm = INLINE_PREFIX.matcher(s);
         if (pm.find()) s = s.substring(pm.end()).trim();
+        // 3b. Traducir: fuera el parrafo final de aclaracion, si lo hay (antes de mirar las comillas exteriores)
+        if (a == Action.TRANSLATE) {
+            int cut = s.lastIndexOf("\n\n");
+            if (cut > 0 && TRAILING_NOTE.matcher(s.substring(cut + 2).trim()).matches()) s = s.substring(0, cut).trim();
+        }
         // 4. Comillas exteriores (si el original no venia entrecomillado)
         s = s.trim();
         if (!quoted(source) && s.length() >= 2) {
@@ -684,10 +833,11 @@ final class AiRunner {
                 if (s.isEmpty()) errorRes = R.string.ai_weak_result;
                 break;
             default: {
-                // Ortografia y tonos: longitud comparada con el original
+                // Ortografia, tonos y traduccion: longitud comparada con el original
                 int src = source == null ? 0 : source.trim().length();
                 if (s.isEmpty()) errorRes = R.string.ai_weak_result;
                 else if (src > 0 && (s.length() > 3 * src + 20 || (a == Action.FIX && s.length() < 0.3 * src))) weak = true;
+                else if (a == Action.TRANSLATE && src > 0 && s.trim().equalsIgnoreCase(source.trim())) weak = true;   // no tradujo nada
                 // 7. Espacio o salto final igual que el original
                 if (source != null && !source.isEmpty() && errorRes == 0) {
                     String trail = trailingWs(source);

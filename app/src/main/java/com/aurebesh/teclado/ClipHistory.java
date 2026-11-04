@@ -1,6 +1,7 @@
 package com.aurebesh.teclado;
 
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
@@ -23,14 +24,18 @@ import java.util.regex.Pattern;
 
 /**
  * Historial del portapapeles: textos e imagenes copiados, del mas reciente al mas antiguo.
- * La lista se guarda en las preferencias de la app (JSON) y las imagenes como archivos en
- * files/clips/, solo en este telefono. Tambien localiza telefonos, correos y enlaces dentro
- * de un texto para poder pegar solo esa parte.
+ * La lista se guarda como JSON en su propio archivo de preferencias ({@link #FILE}; la primera vez se
+ * muda desde el principal) y las imagenes como archivos en files/clips/, solo en este telefono.
+ * Todo leer-modificar-guardar va bajo el cerrojo de la clase: el IME anade textos desde el hilo
+ * principal y el vigilante de capturas anade imagenes desde otro. Tambien localiza telefonos,
+ * correos y enlaces dentro de un texto para poder pegar solo esa parte.
  */
 final class ClipHistory {
     private ClipHistory() {}
 
     static final String KEY = "clips";
+    /** Archivo de preferencias propio: asi el historial no pasa por el oyente de ajustes del teclado. */
+    static final String FILE = "aurebesh_clips";
     static final int MAX = 20;
     static final int MAX_IMAGES = 10;
     static final String DIR = "clips";
@@ -75,10 +80,29 @@ final class ClipHistory {
         return new File(c.getFilesDir(), DIR);
     }
 
+    /**
+     * Preferencias del historial. Si el archivo propio aun no tiene la clave y el principal ("aurebesh") si,
+     * la copia una sola vez y la quita del principal (instalaciones anteriores a 1.10).
+     */
+    static SharedPreferences prefs(Context c) {
+        SharedPreferences own = c.getSharedPreferences(FILE, Context.MODE_PRIVATE);
+        if (!own.contains(KEY)) {
+            synchronized (ClipHistory.class) {
+                SharedPreferences main = Prefs.get(c);
+                String old = own.contains(KEY) ? null : main.getString(KEY, null);
+                if (old != null) {
+                    own.edit().putString(KEY, old).commit();   // primero el nuevo; si falla, el viejo sigue ahi
+                    main.edit().remove(KEY).apply();
+                }
+            }
+        }
+        return own;
+    }
+
     /** Elementos guardados, del mas reciente al mas antiguo; las imagenes cuyo archivo ya no existe se omiten. */
     static List<Entry> items(Context c) {
         List<Entry> out = new ArrayList<>();
-        String raw = Prefs.get(c).getString(KEY, null);
+        String raw = prefs(c).getString(KEY, null);
         if (raw == null || raw.isEmpty()) return out;
         try {
             JSONArray a = new JSONArray(raw);
@@ -111,12 +135,14 @@ final class ClipHistory {
         String s = text.toString();
         if (s.trim().isEmpty()) return;
         if (s.length() > MAX_LENGTH) s = s.substring(0, MAX_LENGTH);
-        List<Entry> l = items(c);
         Entry e = new Entry(Entry.TEXT, s, null, null);
-        l.remove(e);
-        l.add(0, e);
-        trim(l);
-        save(c, l);
+        synchronized (ClipHistory.class) {
+            List<Entry> l = items(c);
+            l.remove(e);
+            l.add(0, e);
+            trim(l);
+            save(c, l);
+        }
     }
 
     /**
@@ -157,29 +183,36 @@ final class ClipHistory {
             closeQuietly(os);
         }
         Entry e = new Entry(Entry.IMAGE, null, out.getAbsolutePath(), mime);
-        List<Entry> l = items(c);
-        l.add(0, e);
-        trim(l);
-        save(c, l);
+        synchronized (ClipHistory.class) {                 // la copia va fuera del cerrojo; la lista, dentro
+            if (!out.isFile()) return null;                // clear() vacio la carpeta mientras se copiaba
+            List<Entry> l = items(c);
+            l.add(0, e);
+            trim(l);
+            save(c, l);
+        }
         return e;
     }
 
     /** Quita el elemento (y borra su archivo si es una imagen). */
     static void remove(Context c, Entry e) {
         if (e == null) return;
-        List<Entry> l = items(c);
-        if (l.remove(e)) save(c, l);
-        if (e.isImage()) deleteFile(e);
+        synchronized (ClipHistory.class) {
+            List<Entry> l = items(c);
+            if (l.remove(e)) save(c, l);
+            if (e.isImage()) deleteFile(e);
+        }
     }
 
     /** Vacia el historial y borra todas las imagenes guardadas. */
     static void clear(Context c) {
-        File[] files = dir(c).listFiles();
-        if (files != null) for (File f : files) f.delete();
-        save(c, new ArrayList<Entry>());
+        synchronized (ClipHistory.class) {
+            File[] files = dir(c).listFiles();
+            if (files != null) for (File f : files) f.delete();
+            save(c, new ArrayList<Entry>());
+        }
     }
 
-    /** Deja como mucho MAX elementos y MAX_IMAGES imagenes, borrando los archivos sobrantes. */
+    /** Deja como mucho MAX elementos y MAX_IMAGES imagenes, borrando los archivos sobrantes (con el cerrojo tomado). */
     private static void trim(List<Entry> l) {
         int images = 0;
         for (Iterator<Entry> it = l.iterator(); it.hasNext(); ) {
@@ -202,6 +235,7 @@ final class ClipHistory {
         if (f != null) f.delete();
     }
 
+    /** Guarda la lista en el archivo propio (con el cerrojo tomado). */
     private static void save(Context c, List<Entry> l) {
         JSONArray a = new JSONArray();
         try {
@@ -219,7 +253,7 @@ final class ClipHistory {
         } catch (JSONException ignored) {
             // no deberia ocurrir con claves fijas
         }
-        Prefs.get(c).edit().putString(KEY, a.toString()).apply();
+        prefs(c).edit().putString(KEY, a.toString()).apply();
     }
 
     private static String extensionFor(String mime) {

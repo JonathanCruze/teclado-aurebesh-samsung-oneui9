@@ -26,13 +26,15 @@ import java.util.Locale;
 
 /**
  * Panel "Inteligencia": asistente de escritura al estilo de Samsung Keyboard que sustituye a las
- * teclas. Estados: sin modelo (explicacion y boton a ajustes), acciones (3 + 2 + 1: ortografia,
- * estilo, resumir / vinetas, tabla / redactor), submenu de tonos, entrada de texto con teclado
- * reducido (tono personalizado y Redactor), generacion en curso con el texto en directo y
- * Cancelar, y resultado con Reemplazar / Insertar / Copiar / Reintentar.
+ * teclas. Estados: sin modelo (explicacion y boton a ajustes), acciones (3 + 3 + 1: ortografia,
+ * estilo, resumir / vinetas, tabla, traducir / redactor), submenus de tonos y de idioma destino,
+ * entrada de texto con teclado reducido (tono personalizado, otro idioma y Redactor), generacion en
+ * curso con el texto en directo y Cancelar, y resultado con Reemplazar / Insertar / Copiar / Reintentar.
  *
  * <p>El panel lee el texto del campo a traves de {@link Host} al abrirse y al lanzar cada accion;
- * nunca lo guarda. El trabajo lo hace {@link AiRunner} (modelo local o servidor del usuario).
+ * nunca lo guarda. El trabajo lo hace {@link AiRunner} (modelo local o servidor del usuario). Con el
+ * runner compartido del servicio, un panel nuevo (la vista se rehace al girar, cambiar de tema o de
+ * idioma) se engancha a la generacion que hubiera en vuelo y la muestra como si la hubiera lanzado el.
  */
 final class AiTray extends LinearLayout {
 
@@ -47,12 +49,14 @@ final class AiTray extends LinearLayout {
         void openSettings();                 // abre la pantalla de ajustes (seccion IA)
     }
 
-    enum State { NO_MODEL, DISABLED_FIELD, IDLE, TONES, PROMPT, RUNNING, RESULT, ERROR }
-    private enum PromptKind { TONE, COMPOSE }
+    enum State { NO_MODEL, DISABLED_FIELD, IDLE, TONES, TARGETS, PROMPT, RUNNING, RESULT, ERROR }
+    private enum PromptKind { TONE, TARGET, COMPOSE }
 
     private static final int MATCH = ViewGroup.LayoutParams.MATCH_PARENT;
     private static final int WRAP = ViewGroup.LayoutParams.WRAP_CONTENT;
-    private static final int PROMPT_MAX = 300, TONE_MAX = 60;
+    private static final int PROMPT_MAX = 300, TONE_MAX = 60, TARGET_MAX = 40;
+    /** Preferencia: ultimo idioma destino escrito a mano en Traducir (como AiModels.LAST_TONE para los tonos). */
+    private static final String LAST_TARGET = "ai_last_target";
 
     private final float dp;
     private final Typeface medium = Typeface.create("sans-serif-medium", Typeface.NORMAL);
@@ -75,6 +79,8 @@ final class AiTray extends LinearLayout {
     private boolean useContext = true;
     private final StringBuilder query = new StringBuilder();
     private boolean userScrolled;
+    private boolean attached;        // este panel es el oyente del runner
+    private boolean unseen;          // el resultado (o error) llego con el panel oculto: show() lo conserva
 
     // Cabecera
     private final LinearLayout header;
@@ -90,7 +96,7 @@ final class AiTray extends LinearLayout {
     private final LinearLayout grid;
     private final List<Card> cards = new ArrayList<>();
     private final AbcKey gridAbc;
-    private final ScrollView tonesScroll;
+    private final ScrollView tonesScroll;          // tonos de Estilo o idiomas de Traducir
     private final LinearLayout tones;
     private final List<TextView> toneChips = new ArrayList<>();
     private final LinearLayout runView;
@@ -213,7 +219,7 @@ final class AiTray extends LinearLayout {
         disabledView.setText(R.string.ai_disabled_field);
         content.addView(disabledView, new FrameLayout.LayoutParams(MATCH, MATCH));
 
-        // Acciones: 3 + 2 + (abc + 1)
+        // Acciones: 3 + 3 + (abc + 1)
         gridScroll = scroll(c);
         grid = column(c);
         grid.setPadding(px(6), px(2), px(6), px(6));
@@ -225,6 +231,7 @@ final class AiTray extends LinearLayout {
         LinearLayout row2 = row(c);
         row2.addView(card(c, "•", R.string.ai_action_bullets, AiRunner.Action.BULLETS), cell(1f));
         row2.addView(card(c, "▦", R.string.ai_action_table, AiRunner.Action.TABLE), cell(1f));
+        row2.addView(card(c, "⇄", R.string.ai2_action_translate, AiRunner.Action.TRANSLATE), cell(1f));
         grid.addView(row2, new LinearLayout.LayoutParams(MATCH, WRAP));
         LinearLayout row3 = row(c);
         gridAbc = new AbcKey(c);
@@ -236,7 +243,7 @@ final class AiTray extends LinearLayout {
         gridScroll.addView(grid, new ViewGroup.LayoutParams(MATCH, WRAP));
         content.addView(gridScroll, new FrameLayout.LayoutParams(MATCH, MATCH));
 
-        // Tonos
+        // Tonos (Estilo) e idiomas destino (Traducir): misma lista, se rellena al abrir cada submenu
         tonesScroll = scroll(c);
         tones = column(c);
         tones.setPadding(px(10), px(2), px(10), px(16));
@@ -330,7 +337,7 @@ final class AiTray extends LinearLayout {
         miniKb.setListener(new AurebeshKeyboardView.Listener() {
             @Override public void onText(String text) {
                 if ("\n".equals(text)) { go(); return; }
-                int max = promptKind == PromptKind.TONE ? TONE_MAX : PROMPT_MAX;
+                int max = promptKind == PromptKind.TONE ? TONE_MAX : promptKind == PromptKind.TARGET ? TARGET_MAX : PROMPT_MAX;
                 if (query.length() + text.length() > max) return;
                 query.append(text);
                 styleQuery();
@@ -400,6 +407,7 @@ final class AiTray extends LinearLayout {
         buildTones();
         applyTheme(theme);
         enter(State.IDLE);
+        attachRunner();                 // si el runner compartido tenia algo en vuelo, el panel lo retoma
     }
 
     // ------------------------------------------------------------------ API para el servicio
@@ -422,7 +430,8 @@ final class AiTray extends LinearLayout {
     /** El campo actual admite el asistente (false en direcciones, correos, contrasenas). */
     void setFieldAllowed(boolean allowed) {
         fieldAllowed = allowed;
-        if (!allowed && (state == State.IDLE || state == State.TONES || state == State.PROMPT || state == State.NO_MODEL)) {
+        if (!allowed && (state == State.IDLE || state == State.TONES || state == State.TARGETS || state == State.PROMPT
+                || state == State.NO_MODEL)) {
             enter(State.DISABLED_FIELD);
         }
     }
@@ -430,7 +439,11 @@ final class AiTray extends LinearLayout {
     /** Abre el panel: lee el texto del campo y muestra las acciones (o el aviso de sin modelo). */
     void show() {
         refreshBadge();
-        if (runner.isBusy() && state == State.RUNNING) return;      // sigue generando: se muestra tal cual
+        if (attached && runner.isBusy() && state == State.RUNNING) return;      // sigue generando: se muestra tal cual
+        if (unseen && (state == State.RESULT || state == State.ERROR)) {        // termino con el panel oculto
+            unseen = false;
+            return;
+        }
         readSource();
         result = null;
         if (!fieldAllowed) enter(State.DISABLED_FIELD);
@@ -438,16 +451,63 @@ final class AiTray extends LinearLayout {
         else enter(State.IDLE);
     }
 
-    /** Para la generacion en curso; el panel vuelve a las acciones (o muestra el resultado parcial). */
+    /**
+     * Para la generacion en curso; el panel vuelve a las acciones (o muestra el resultado parcial). Un panel
+     * ya desenganchado ({@link #detach}) no toca la generacion, que es del panel nuevo.
+     */
     void cancel() {
-        if (runner.isBusy()) runner.cancel();
+        if (attached && runner.isBusy()) runner.cancel();
         else if (state == State.RUNNING) enter(State.IDLE);
     }
 
-    boolean isBusy() { return runner.isBusy(); }
+    /** Este panel sigue una generacion en curso. */
+    boolean isBusy() { return attached && runner.isBusy(); }
+
+    /**
+     * Suelta el runner compartido sin cancelar nada: cuando la vista se rehace, la generacion en curso (o su
+     * resultado, si termina mientras tanto) la recoge el panel siguiente. Se llama solo tambien al salir de la
+     * ventana. Con runner propio no hace falta.
+     */
+    void detach() {
+        if (!attached) return;
+        attached = false;
+        runner.detach(callback);
+    }
 
     /** Libera el modelo y el hilo de trabajo (al destruir el servicio). */
     void release() { if (ownsRunner) runner.release(); }
+
+    /**
+     * Se engancha al runner. Si tenia una generacion en vuelo (o un final que nadie recibio), el panel pasa a
+     * "escribiendo" con la peticion original y recibe lo acumulado, las piezas y el final.
+     */
+    private void attachRunner() {
+        if (attached) return;
+        attached = true;
+        if (runner.hasPending()) {
+            lastRequest = runner.request();
+            source = lastRequest == null ? "" : lastRequest.source;
+            result = null;
+            userScrolled = false;
+            output.setText("");
+            phase.setText(runner.isRemote() ? R.string.ai_connecting : R.string.ai_loading_model);
+            refreshBadge();
+            enter(State.RUNNING);
+        }
+        runner.attach(callback);
+        // Lo que llego antes de que nadie pudiera verlo se conserva hasta que el usuario abra el panel
+        if (state == State.RESULT || state == State.ERROR) unseen = true;
+    }
+
+    @Override protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        if (!ownsRunner && !attached && !runner.hasListener()) attachRunner();
+    }
+
+    @Override protected void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+        if (!ownsRunner) detach();      // la vista se rehace: la generacion sigue y la retoma el panel nuevo
+    }
 
     /** Descarga el modelo de memoria sin cerrar el panel (memoria baja, teclado oculto). */
     void unloadModel() { runner.unloadModel(); }
@@ -500,7 +560,7 @@ final class AiTray extends LinearLayout {
         noModelScroll.setVisibility(s == State.NO_MODEL ? VISIBLE : GONE);
         disabledView.setVisibility(s == State.DISABLED_FIELD ? VISIBLE : GONE);
         gridScroll.setVisibility(s == State.IDLE ? VISIBLE : GONE);
-        tonesScroll.setVisibility(s == State.TONES ? VISIBLE : GONE);
+        tonesScroll.setVisibility(s == State.TONES || s == State.TARGETS ? VISIBLE : GONE);
         runView.setVisibility(s == State.RUNNING || s == State.RESULT ? VISIBLE : GONE);
         errorView.setVisibility(s == State.ERROR ? VISIBLE : GONE);
         bottom.setVisibility(s == State.IDLE || prompt ? GONE : VISIBLE);
@@ -511,8 +571,9 @@ final class AiTray extends LinearLayout {
         insertKey.setVisibility(res ? VISIBLE : GONE);
         copyKey.setVisibility(res ? VISIBLE : GONE);
         retryKey.setVisibility(res || s == State.ERROR ? VISIBLE : GONE);
-        back.setBack(s == State.TONES);
-        title.setText(s == State.TONES ? R.string.ai_action_style : R.string.ai_title);
+        back.setBack(s == State.TONES || s == State.TARGETS);
+        title.setText(s == State.TONES ? R.string.ai_action_style
+                : s == State.TARGETS ? R.string.ai2_action_translate : R.string.ai_title);
         if (s == State.IDLE) {
             // Sin texto en el campo solo tiene sentido el Redactor
             boolean hasText = !source.trim().isEmpty();
@@ -528,10 +589,12 @@ final class AiTray extends LinearLayout {
     private void onBack() {
         switch (state) {
             case TONES:
+            case TARGETS:
                 enter(State.IDLE);
                 break;
             case PROMPT:
-                enter(promptKind == PromptKind.TONE ? State.TONES : State.IDLE);
+                enter(promptKind == PromptKind.TONE ? State.TONES
+                        : promptKind == PromptKind.TARGET ? State.TARGETS : State.IDLE);
                 break;
             case RUNNING:
                 runner.cancel();
@@ -561,24 +624,36 @@ final class AiTray extends LinearLayout {
         enter(State.TONES);
     }
 
+    /** Abre el submenu de idiomas destino de "Traducir". */
+    void showTargets() {
+        buildTargets();
+        enter(State.TARGETS);
+    }
+
     /** Abre la entrada de texto con el teclado reducido: Redactor (compose) o tono personalizado. */
     void showPrompt(boolean compose) { openPrompt(compose ? PromptKind.COMPOSE : PromptKind.TONE); }
+
+    /** Abre la entrada de texto para escribir otro idioma destino de Traducir. */
+    void showTargetPrompt() { openPrompt(PromptKind.TARGET); }
 
     private void openPrompt(PromptKind kind) {
         promptKind = kind;
         query.setLength(0);
         useContext = true;
-        promptIcon.setText(kind == PromptKind.TONE ? "✎" : "✧");
+        promptIcon.setText(kind == PromptKind.TONE ? "✎" : kind == PromptKind.TARGET ? "⇄" : "✧");
         enter(State.PROMPT);
     }
 
-    /** Intro en el teclado reducido: lanza el tono personalizado o el Redactor. */
+    /** Intro en el teclado reducido: lanza el tono personalizado, la traduccion a otro idioma o el Redactor. */
     private void go() {
         String q = query.toString().trim();
         if (q.isEmpty()) return;
         if (promptKind == PromptKind.TONE) {
             Prefs.get(getContext()).edit().putString(AiModels.LAST_TONE, q).apply();
             run(AiRunner.Action.STYLE_CUSTOM, q, null);
+        } else if (promptKind == PromptKind.TARGET) {
+            Prefs.get(getContext()).edit().putString(LAST_TARGET, q).apply();
+            translate(q);
         } else {
             run(AiRunner.Action.COMPOSE, null, q);
         }
@@ -588,12 +663,18 @@ final class AiTray extends LinearLayout {
      * Lanza una accion directamente (lee antes el texto del campo). {@code tone} solo para
      * STYLE_CUSTOM y {@code prompt} solo para COMPOSE; el resto admite null.
      */
-    void run(AiRunner.Action a, String tone, String prompt) {
+    void run(AiRunner.Action a, String tone, String prompt) { run(a, tone, prompt, null); }
+
+    /** Traduce el texto del campo a {@code target}: "es", "en", "de" u otro idioma tal como lo escribio el usuario. */
+    void translate(String target) { run(AiRunner.Action.TRANSLATE, null, null, target); }
+
+    private void run(AiRunner.Action a, String tone, String prompt, String target) {
         readSource();
         if (!runner.available()) { enter(State.NO_MODEL); return; }
         AiRunner.Request r = new AiRunner.Request(a, source);
         r.tone = tone;
         r.prompt = prompt;
+        r.target = target;
         r.lang = lang;
         r.useContext = useContext;
         launch(r);
@@ -633,6 +714,7 @@ final class AiTray extends LinearLayout {
             String label = actionName(lastRequest) + " · " + runner.engineLabel();
             if (weak) label = getContext().getString(R.string.ai_weak_result);
             phase.setText(label);
+            unseen = getVisibility() != VISIBLE;
             enter(State.RESULT);
             outScroll.scrollTo(0, 0);
         }
@@ -641,13 +723,16 @@ final class AiTray extends LinearLayout {
                 result = partialText;
                 output.setText(partialText);
                 phase.setText(R.string.ai_partial);
+                unseen = getVisibility() != VISIBLE;
                 enter(State.RESULT);
             } else {
+                unseen = false;
                 enter(State.IDLE);
             }
         }
         @Override public void onError(CharSequence message) {
             errorText.setText(message);
+            unseen = getVisibility() != VISIBLE;
             enter(State.ERROR);
         }
     };
@@ -671,8 +756,18 @@ final class AiTray extends LinearLayout {
             case SUMMARY: return getContext().getString(R.string.ai_action_summary);
             case BULLETS: return getContext().getString(R.string.ai_action_bullets);
             case TABLE: return getContext().getString(R.string.ai_action_table);
+            case TRANSLATE: return getContext().getString(R.string.ai2_action_translate) + " · " + targetLabel(r.target);
             default: return getContext().getString(R.string.ai_action_compose);
         }
+    }
+
+    /** Etiqueta del idioma destino: el nombre propio para es/en/de, o lo que escribio el usuario. */
+    private String targetLabel(String target) {
+        String code = AiRunner.targetCode(target);
+        if ("es".equals(code)) return getContext().getString(R.string.ai2_target_es);
+        if ("en".equals(code)) return getContext().getString(R.string.ai2_target_en);
+        if ("de".equals(code)) return getContext().getString(R.string.ai2_target_de);
+        return target == null ? "" : target.trim();
     }
 
     // ------------------------------------------------------------------ tonos
@@ -690,6 +785,42 @@ final class AiTray extends LinearLayout {
     }
 
     private void addTone(int labelRes, final AiRunner.Action action, final String customTone) {
+        addChip(labelRes != 0 ? getContext().getString(labelRes) : "✎ " + customTone, new OnClickListener() {
+            @Override public void onClick(View v) {
+                tap(v);
+                if (action == null) openPrompt(PromptKind.TONE);
+                else run(action, customTone, null);
+            }
+        });
+    }
+
+    // ------------------------------------------------------------------ idiomas destino (Traducir)
+
+    /** Mismo patron que los tonos: los tres idiomas de la interfaz, el ultimo escrito a mano y "Otro…". */
+    private void buildTargets() {
+        tones.removeAllViews();
+        toneChips.clear();
+        addTarget(R.string.ai2_target_es, "es");
+        addTarget(R.string.ai2_target_en, "en");
+        addTarget(R.string.ai2_target_de, "de");
+        String last = Prefs.get(getContext()).getString(LAST_TARGET, null);
+        if (last != null && !last.trim().isEmpty() && AiRunner.targetCode(last) == null) addTarget(0, last.trim());
+        addTarget(R.string.ai2_target_other, null);
+    }
+
+    /** {@code target} null abre la entrada de texto; sin {@code labelRes} es un idioma escrito por el usuario. */
+    private void addTarget(int labelRes, final String target) {
+        addChip(labelRes != 0 ? getContext().getString(labelRes) : "⇄ " + target, new OnClickListener() {
+            @Override public void onClick(View v) {
+                tap(v);
+                if (target == null) openPrompt(PromptKind.TARGET);
+                else translate(target);
+            }
+        });
+    }
+
+    /** Fila de la lista de tonos / idiomas. */
+    private void addChip(CharSequence label, OnClickListener l) {
         TextView t = new TextView(getContext());
         t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
         t.setTypeface(medium);
@@ -697,14 +828,8 @@ final class AiTray extends LinearLayout {
         t.setMaxLines(1);
         t.setEllipsize(TextUtils.TruncateAt.END);
         t.setPadding(px(14), 0, px(14), 0);
-        t.setText(labelRes != 0 ? getContext().getString(labelRes) : "✎ " + customTone);
-        t.setOnClickListener(new OnClickListener() {
-            @Override public void onClick(View v) {
-                tap(v);
-                if (action == null) openPrompt(PromptKind.TONE);
-                else run(action, customTone, null);
-            }
-        });
+        t.setText(label);
+        t.setOnClickListener(l);
         styleChip(t);
         LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(MATCH, px(34));
         p.topMargin = px(2);
@@ -751,6 +876,7 @@ final class AiTray extends LinearLayout {
                     tap(v);
                     if (Card.this.action == null) showTones();
                     else if (Card.this.action == AiRunner.Action.COMPOSE) openPrompt(PromptKind.COMPOSE);
+                    else if (Card.this.action == AiRunner.Action.TRANSLATE) showTargets();
                     else run(Card.this.action, null, null);
                 }
             });
@@ -785,7 +911,8 @@ final class AiTray extends LinearLayout {
 
     private void styleQuery() {
         if (query.length() == 0) {
-            queryView.setText(promptKind == PromptKind.TONE ? R.string.ai_tone_custom_hint : R.string.ai_compose_hint);
+            queryView.setText(promptKind == PromptKind.TONE ? R.string.ai_tone_custom_hint
+                    : promptKind == PromptKind.TARGET ? R.string.ai2_target_hint : R.string.ai_compose_hint);
             queryView.setTextColor(theme.hint);
         } else {
             queryView.setText(query + "|");
@@ -821,7 +948,7 @@ final class AiTray extends LinearLayout {
     }
 
     private void tap(View v) {
-        if (vibrate) v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+        if (vibrate) Haptics.tap(v);               // respeta el interruptor y el nivel de vibracion
     }
 
     private static LinearLayout column(Context c) {

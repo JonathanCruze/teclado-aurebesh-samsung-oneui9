@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Panel "Intelligenz": Aktion Übersetzen (die Zielsprachen-Chips folgen dem Muster der Tonarten) -->
+    <string name="ai2_action_translate">Übersetzen</string>
+    <string name="ai2_target_other">Andere…</string>
+    <string name="ai2_target_hint">Sprache eingeben: z. B. Französisch, Italienisch, Japanisch…</string>
+</resources>

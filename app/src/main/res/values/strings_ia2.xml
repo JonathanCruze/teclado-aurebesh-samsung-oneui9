@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Panel "Intelligence": Translate action (target language chips reuse the tone pattern) -->
+    <string name="ai2_action_translate">Translate</string>
+    <string name="ai2_target_es" translatable="false">Español</string>
+    <string name="ai2_target_en" translatable="false">English</string>
+    <string name="ai2_target_de" translatable="false">Deutsch</string>
+    <string name="ai2_target_other">Other…</string>
+    <string name="ai2_target_hint">Type the language: e.g. French, Italian, Japanese…</string>
+</resources>

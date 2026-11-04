@@ -165,6 +165,7 @@ public class AurebeshIME extends InputMethodService
 
     @Override
     public void onDestroy() {
+        Bigrams.flush(this);
         Prefs.get(this).unregisterOnSharedPreferenceChangeListener(prefsListener);
         ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
         if (cm != null) cm.removePrimaryClipChangedListener(clipListener);
@@ -205,7 +206,7 @@ public class AurebeshIME extends InputMethodService
 
     @Override
     public View onCreateInputView() {
-        if (ai != null && ai.isBusy()) ai.cancel();          // la vista se rehace (giro, modo noche): el motor compartido sigue cargado
+        if (ai != null) ai.detach();                         // la vista se rehace (giro, modo noche): el motor compartido sigue cargado y la generacion en curso pasa al panel nuevo
         if (ui == null) ui = AppLocale.wrap(this);
         if (runner == null) runner = new AiRunner(this);
         root = new FrameLayout(ui);
@@ -255,7 +256,7 @@ public class AurebeshIME extends InputMethodService
             if (!autocorrect) clearSuggestions();
             updateGlide();
         }
-        // TODO: KeySound.get(this).setVolume(Prefs.soundVolume(this)) cuando KeySound tenga volumen (hoy suena a un nivel fijo)
+        KeySound.get(this).setVolume(Prefs.soundVolume(this));
         if (tray != null) tray.applyTheme(theme);
         if (emojis != null) {
             emojis.setFeedback(Prefs.vibrate(this), Prefs.sound(this));
@@ -366,6 +367,7 @@ public class AurebeshIME extends InputMethodService
     @Override
     public void onFinishInputView(boolean finishingInput) {
         super.onFinishInputView(finishingInput);
+        Bigrams.flush(this);                       // parejas aprendidas (escritura diferida) a disco
         clearSuggestions();
         if (ai != null) ai.cancel();
         hideTray();
@@ -1192,6 +1194,7 @@ public class AurebeshIME extends InputMethodService
             case AurebeshKeyboardView.TOOL_CLIPBOARD: openClipboard(); break;
             case AurebeshKeyboardView.TOOL_HAND: Prefs.toggleHand(this); break;      // el oyente de preferencias lo aplica
             case AurebeshKeyboardView.TOOL_AI: openAi(); break;
+            case AurebeshKeyboardView.TOOL_RESIZE: view.setResizeMode(!view.isResizeMode()); break;   // tiradores de alto y margen
             case AurebeshKeyboardView.TOOL_SETTINGS:
                 try {
                     startActivity(new Intent(this, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));

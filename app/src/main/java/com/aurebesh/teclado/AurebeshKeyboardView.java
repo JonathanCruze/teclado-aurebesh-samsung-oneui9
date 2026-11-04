@@ -79,7 +79,7 @@ public final class AurebeshKeyboardView extends View {
     static final int TOOL_HAND = 4;         // modo a una mano (junto al portapapeles)
     static final int TOOL_AI = 5;           // inteligencia, a la izquierda de la barra
     private static final int[] TOOLS_LETTERS = {TOOL_EMOJI, TOOL_CLIPBOARD, TOOL_HAND};
-    private static final int[] TOOLS_SYMBOLS = {TOOL_EMOJI, TOOL_CLIPBOARD, TOOL_HAND, TOOL_SETTINGS};
+    private static final int[] TOOLS_SYMBOLS = {TOOL_EMOJI, TOOL_CLIPBOARD, TOOL_HAND, TOOL_RESIZE, TOOL_SETTINGS};
 
     static final class Key {
         final String output;
@@ -177,7 +177,8 @@ public final class AurebeshKeyboardView extends View {
     private final List<String> suggestionWords = new ArrayList<>();   // palabra de cada chip dibujado (puede saltarse alguno)
     private String highlighted;             // sugerencia que se aplicara sola (resaltada)
     private boolean toolbar = true;         // iconos sobre las teclas cuando no hay sugerencias
-    private final RectF[] toolRects = new RectF[4];
+    private final RectF[] toolRects = new RectF[5];
+    private final RectF hideRect = new RectF();     // boton ∨ de la banda inferior (margen >= 24 dp)
     private final RectF sideRect = new RectF();     // flecha para cambiar de lado en modo a una mano
     private final RectF moreRect = new RectF();     // "..." que muestra los iconos sobre las sugerencias
     private final RectF aiRect = new RectF();       // boton de inteligencia a la izquierda de la barra
@@ -269,6 +270,7 @@ public final class AurebeshKeyboardView extends View {
         trailGlowPaint.setStyle(Paint.Style.STROKE);
         trailGlowPaint.setStrokeCap(Paint.Cap.ROUND);
         trailGlowPaint.setStrokeJoin(Paint.Join.ROUND);
+        compact = heightClass() == 0;      // pantalla muy baja: sin fila de numeros desde el principio
         buildLayouts();
         current = letters;
         applyTheme();
@@ -363,10 +365,79 @@ public final class AurebeshKeyboardView extends View {
 
     boolean isNumpad() { return current == numpad && !numpad.isEmpty(); }
 
-    /** Modo de ajuste de tamano y posicion con tiradores (TOOL_RESIZE); al terminar llama a onResize. */
-    void setResizeMode(boolean on) { resizeMode = on; invalidate(); }
+    /**
+     * Modo de ajuste de tamano y posicion con tiradores (TOOL_RESIZE): velo sobre las teclas, marco con un
+     * tirador arriba (alto, 70-140 %) y otro abajo (margen inferior, 0-40 dp) y botones Listo y Restablecer.
+     * Listo llama a onResize y sale; apagarlo desde fuera (o al desaparecer la vista) devuelve lo que habia al entrar.
+     */
+    void setResizeMode(boolean on) {
+        if (resizeMode == on) return;
+        resizeMode = on;
+        resizeDrag = 0;
+        resizePointer = -1;
+        resizePressed = 0;
+        if (on) {                                   // nada a medias al entrar: ni menu, ni repeticion, ni trazo
+            closePopup();
+            cancelTimers();
+            pressed.clear();
+            resetGlide(true);
+            toolPressed = -1;
+            toolPointer = -1;
+            resizeEntryScale = heightScale;
+            resizeEntryPad = bottomPad;
+        } else {
+            clearResizeRects();
+            if (heightScale != resizeEntryScale || bottomPad != resizeEntryPad) {
+                heightScale = resizeEntryScale;
+                bottomPad = resizeEntryPad;
+                requestLayout();
+            }
+        }
+        invalidate();
+    }
     boolean isResizeMode() { return resizeMode; }
     private boolean resizeMode = false;
+    private int resizeDrag = 0;                 // 0 nada, 1 tirador superior (alto), 2 tirador inferior (margen)
+    private int resizePointer = -1;             // dedo que arrastra o que tiene pulsado un boton
+    private int resizePressed = 0;              // 1 Listo, 2 Restablecer (pulsado)
+    private float resizeDragY0;                 // y en pantalla donde empezo el arrastre
+    private float resizeLastY;                  // y en pantalla de la ultima aplicacion (se aplica cada ~4 dp)
+    private float resizeScale0, resizePad0;     // alto y margen al empezar el arrastre
+    private float resizeEntryScale = 1f, resizeEntryPad = 0f;   // alto y margen al entrar (se restauran si se cancela)
+    private final RectF resizeTopRect = new RectF(), resizeBottomRect = new RectF();
+    private final RectF resizeDoneRect = new RectF(), resizeResetRect = new RectF();
+    private final int[] screenLoc = new int[2];
+
+    /** Alto actual en % (70-140), derivado de heightScale. */
+    int heightPct() { return Math.round(heightScale * 100f); }
+
+    /** Alto en % (70-140); equivale al heightScale de applyPrefs, que se sigue aceptando. */
+    void setHeightPct(int pct) {
+        float s = Math.max(70, Math.min(140, pct)) / 100f;
+        if (s == heightScale) return;
+        heightScale = s;
+        requestLayout();
+        invalidate();
+    }
+
+    /** Margen inferior actual en dp enteros (0-40). */
+    int bottomDp() { return Math.round(bottomPad / dp); }
+
+    /** Zonas del modo de ajuste (para pruebas): tirador superior o inferior; vacias fuera del modo o sin dibujar. */
+    RectF resizeHandleRect(boolean top) { return new RectF(top ? resizeTopRect : resizeBottomRect); }
+
+    /** Botones del modo de ajuste (para pruebas): Listo o Restablecer; vacios fuera del modo o sin dibujar. */
+    RectF resizeButtonRect(boolean done) { return new RectF(done ? resizeDoneRect : resizeResetRect); }
+
+    /** Boton ∨ de la banda inferior (para pruebas); vacio si el margen no llega a 24 dp o aun no se dibujo. */
+    RectF hideButtonRect() { return new RectF(hideRect); }
+
+    private void clearResizeRects() {
+        resizeTopRect.setEmpty();
+        resizeBottomRect.setEmpty();
+        resizeDoneRect.setEmpty();
+        resizeResetRect.setEmpty();
+    }
 
     /**
      * Escritura deslizando el dedo por las letras (solo en la pagina de letras; los toques siguen igual).
@@ -466,9 +537,14 @@ public final class AurebeshKeyboardView extends View {
 
     boolean isSplit() { return split; }
 
-    /** Recalcula si toca dividir (modo, ancho de pantalla, una mano) y reconstruye las filas si cambia. */
+    /**
+     * Recalcula si toca dividir y reconstruye las filas si cambia. "Automatico" divide solo con un ancho menor de
+     * 600 dp o mas y un ancho actual por debajo de 1000 dp (Fold desplegado si; tableta apaisada o DeX, donde
+     * las mitades quedarian demasiado lejos, no); "siempre" divide en cualquier parte; a una mano nunca.
+     */
     private boolean updateSplit() {
-        boolean wide = getResources().getConfiguration().smallestScreenWidthDp >= 600;
+        Configuration cfg = getResources().getConfiguration();
+        boolean wide = cfg.smallestScreenWidthDp >= 600 && cfg.screenWidthDp < 1000;
         boolean s = handMode == 0 && (splitMode == 1 || (splitMode == 0 && wide));
         if (s == split) return false;
         split = s;
@@ -576,9 +652,9 @@ public final class AurebeshKeyboardView extends View {
 
     private void buildLayouts() {
         boolean de = "de".equals(language);     // QWERTZ: qwertzuiopü / asdfghjklöä / yxcvbnm
-        if (numberRow) letters.add(digitsRow());
+        if (numbersShown()) letters.add(digitsRow());
         if (de) germanRow(letters, "qwertzuiop\u00fc"); else lettersRow(letters, "qwertyuiop");
-        if (!numberRow) {                         // sin fila de numeros: q..p dan 1..0 en pulsacion larga
+        if (!numbersShown()) {                    // sin fila de numeros: q..p dan 1..0 en pulsacion larga
             List<Key> top = letters.get(0);
             for (int i = 0; i < 10 && i < top.size(); i++) top.set(i, top.get(i).withFirstAlt(String.valueOf((i + 1) % 10)));
         }
@@ -694,9 +770,40 @@ public final class AurebeshKeyboardView extends View {
 
     // ------------------------------------------------------------------ medidas
 
-    private float stripHeight() { return toolbar || showStrip || suggestionBar ? 40 * dp : 4 * dp; }
+    /** Cinta de 40 dp (32 en pantallas muy bajas), o 4 dp de aire cuando no hay barra ni iconos. */
+    private float stripHeight() {
+        if (!(toolbar || showStrip || suggestionBar)) return 4 * dp;
+        return (heightClass() == 0 ? 32 : 40) * dp;
+    }
+
+    /** Radio de los botones redondos de la cinta: 16 dp, algo menos en la cinta de 32 dp. */
+    private float toolRadius() { return Math.min(16 * dp, stripHeight() / 2f - 2 * dp); }
+
+    /**
+     * Clase de alto de la pantalla real (Configuration.screenHeightDp): 0 muy baja (menos de 420 dp: tapa del
+     * Z Flip, telefono apaisado con barra), 1 baja (menos de 560 dp: telefono apaisado), 2 normal.
+     */
+    private int heightClass() {
+        int hdp = getResources().getConfiguration().screenHeightDp;
+        if (hdp <= 0) return 2;                     // sin dato: lo normal
+        return hdp < 420 ? 0 : hdp < 560 ? 1 : 2;
+    }
+
+    /** Fila de numeros efectiva: la preferencia, salvo en pantallas muy bajas, donde se oculta aunque este activada. */
+    private boolean numbersShown() { return numberRow && !compact; }
+    private boolean compact = false;            // clase 0: filas de 34/28 dp, cinta de 32 dp y sin fila de numeros
+
+    /** Sigue la clase de alto (giro, tapa del plegable) y reconstruye las filas si cambia la fila de numeros efectiva. */
+    private boolean updateCompact() {
+        boolean c = heightClass() == 0;
+        if (c == compact) return false;
+        compact = c;
+        rebuildLayouts();
+        return true;
+    }
+
     private boolean isDigitRow(List<List<Key>> layout, int ri) {
-        return ri == 0 && layout != numpad && (numberRow || layout == symbols || layout == symbols2);
+        return ri == 0 && layout != numpad && (numbersShown() || layout == symbols || layout == symbols2);
     }
 
     /** Ancho de la caja de teclas: todo el ancho, o en modo a una mano el 78 % sin pasar de 400 dp (Fold, tabletas). */
@@ -708,24 +815,39 @@ public final class AurebeshKeyboardView extends View {
     /** Donde empieza la caja de teclas (y la cinta, que la acompana): pegada a la derecha en modo a una mano derecha. */
     private float handOffset() { return handMode == 2 ? getWidth() - handWidth() : 0; }
 
-    /** En apaisado las filas son mas bajas para no tapar media pantalla. */
-    private float rowHeight(List<List<Key>> layout, int ri) {
-        boolean land = getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
-        if (land) return (isDigitRow(layout, ri) ? 30 : 38) * dp * Math.min(heightScale, 1f);
-        return (isDigitRow(layout, ri) ? 46 : 58) * dp * heightScale;
+    /**
+     * Alto de fila por clase de alto de la pantalla: 58/46 dp (filas / fila de numeros) con el alto elegido
+     * entero en pantallas normales; 38/30 dp en las bajas y 34/28 dp en las muy bajas, donde el alto elegido
+     * solo reduce (nunca amplia) para no tapar media pantalla.
+     */
+    private float rowHeight(List<List<Key>> layout, int ri) { return rowHeight(layout, ri, heightScale); }
+
+    private float rowHeight(List<List<Key>> layout, int ri, float scale) {
+        int hc = heightClass();
+        boolean digits = isDigitRow(layout, ri);
+        if (hc == 0) return (digits ? 28 : 34) * dp * Math.min(scale, 1f);
+        if (hc == 1) return (digits ? 30 : 38) * dp * Math.min(scale, 1f);
+        return (digits ? 46 : 58) * dp * scale;
     }
 
-    private float keysHeight() {
+    private float keysHeight() { return keysHeight(heightScale); }
+
+    /** Alto de las filas del teclado actual con ese alto elegido (1 = 100 %). */
+    private float keysHeight(float scale) {
         float h = 0;
-        for (int i = 0; i < current.size(); i++) h += rowHeight(current, i);
+        for (int i = 0; i < current.size(); i++) h += rowHeight(current, i, scale);
         return h;
     }
 
+    /** Banda bajo la ultima fila: el margen inferior elegido, nunca menos de 6 dp. */
+    private float bottomBand() { return Math.max(6 * dp, bottomPad); }
+
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        updateCompact();
         updateSplit();
         int w = MeasureSpec.getSize(widthMeasureSpec);
-        setMeasuredDimension(w, (int) (stripHeight() + keysHeight() + 6 * dp));
+        setMeasuredDimension(w, (int) (stripHeight() + keysHeight() + bottomBand()));
     }
 
     @Override
@@ -760,8 +882,8 @@ public final class AurebeshKeyboardView extends View {
             float rh = rowHeight(layout, ri);
             float total = 0;
             for (Key k : row) total += k.weight;
-            float unit = (w - 2 * pad) / Math.max(10f, total);
-            float x = offset + pad + ((w - 2 * pad) - unit * total) / 2f;
+            float unit = Math.min((w - 2 * pad) / Math.max(10f, total), 72 * dp);   // tope de 72 dp (tabletas, DeX)
+            float x = offset + pad + ((w - 2 * pad) - unit * total) / 2f;           // bloque centrado
             for (Key k : row) {
                 float kw = unit * k.weight;
                 k.rect.set(x, y, x + kw, y + rh);
@@ -773,7 +895,8 @@ public final class AurebeshKeyboardView extends View {
 
     /**
      * Teclado dividido con la misma geometria que Samsung Keyboard en un Galaxy Z Fold desplegado:
-     * cada mitad es una caja de 5,5 teclas (el 38 % del ancho) pegada a su borde; la fila q-t / y-p se
+     * cada mitad es una caja de 5,5 teclas (el 37,5 % del ancho por defecto, ajustable con setSplitBox y con
+     * un tope de 64 dp por tecla) pegada a su borde; la fila q-t / y-p se
      * apoya en el borde exterior, la fila central (a-g / h-ñ) se corre media tecla hacia el hueco, y en
      * la tercera fila mayusculas y borrar (1,5 teclas) ocupan los bordes con z-v bajo s-f y b-m bajo j-l.
      * Las filas con una tecla CODE_GAP se parten ahi; el resto donde la suma de anchos llega a la mitad.
@@ -781,11 +904,12 @@ public final class AurebeshKeyboardView extends View {
     private void layoutKeysSplit(List<List<Key>> layout) {
         float full = getWidth();
         float pad = keyMargin();
-        float box = full * 0.375f;                  // sobre el ancho completo: el margen se come hueco, no teclas
-        float unit = box / 5.5f;
-        float x0 = pad, x1 = full - pad - box;
+        float box = full * splitBox;                // sobre el ancho completo: el margen se come hueco, no teclas
+        float unit = Math.min(box / 5.5f, 64 * dp); // tope de 64 dp por tecla (tabletas, DeX)
+        float boxW = unit * 5.5f;                   // ancho real de cada mitad; con el tope, menor que la caja
+        float x0 = pad, x1 = full - pad - boxW;
         float y = stripHeight();
-        int homeRow = layout == letters ? (numberRow ? 2 : 1) : -1;
+        int homeRow = layout == letters ? (numbersShown() ? 2 : 1) : -1;
         for (int ri = 0; ri < layout.size(); ri++) {
             List<Key> row = layout.get(ri);
             float rh = rowHeight(layout, ri);
@@ -811,11 +935,11 @@ public final class AurebeshKeyboardView extends View {
                 if (k.code == CODE_GAP) { k.rect.setEmpty(); continue; }
                 if (i < leftEnd) totalL += k.weight; else totalR += k.weight;
             }
-            float unitL = totalL > 0 ? Math.min(unit, box / totalL) : unit;
-            float unitR = totalR > 0 ? Math.min(unit, box / totalR) : unit;
+            float unitL = totalL > 0 ? Math.min(unit, boxW / totalL) : unit;
+            float unitR = totalR > 0 ? Math.min(unit, boxW / totalR) : unit;
             boolean home = ri == homeRow;
-            float xl = home ? x0 + box - unitL * totalL : x0;          // central: pegada al hueco; resto: al borde
-            float xr = home ? x1 : x1 + box - unitR * totalR;
+            float xl = home ? x0 + boxW - unitL * totalL : x0;         // central: pegada al hueco; resto: al borde
+            float xr = home ? x1 : x1 + boxW - unitR * totalR;
             for (int i = 0; i < row.size(); i++) {
                 Key k = row.get(i);
                 if (k.code == CODE_GAP) continue;
@@ -899,6 +1023,7 @@ public final class AurebeshKeyboardView extends View {
             }
         }
         drawSideSwitch(c);
+        drawHideButton(c);
         if (glideTrail && strokeN > 1 && glideState != GLIDE_PENDING) drawTrail(c);
         for (int i = 0; i < pressed.size(); i++) {
             Key k = pressed.valueAt(i);
@@ -906,6 +1031,7 @@ public final class AurebeshKeyboardView extends View {
             if (previewEnabled && k != null && k.code == CODE_TEXT && k != popupKey) drawPreview(c, k);
         }
         if (popupKey != null) drawPopup(c);
+        if (resizeMode) drawResize(c);
     }
 
     /**
@@ -1336,8 +1462,8 @@ public final class AurebeshKeyboardView extends View {
         float cy = stripHeight() / 2f, cx = off + 6 * dp + 22 * dp;
         aiRect.set(off + 6 * dp, 0, off + 6 * dp + 44 * dp, stripHeight());
         fill.setColor(toolPressed == 9 ? theme.pressed : theme.specialBg);
-        c.drawCircle(cx, cy, 16 * dp, fill);
-        if (theme.keyStroke != 0) c.drawCircle(cx, cy, 16 * dp, strokePaint);
+        c.drawCircle(cx, cy, toolRadius(), fill);
+        if (theme.keyStroke != 0) c.drawCircle(cx, cy, toolRadius(), strokePaint);
         fill.setColor(theme.icon);
         star(c, cx - 1.5f * dp, cy + 1.5f * dp, 7.5f * dp);
         star(c, cx + 5.5f * dp, cy - 5.5f * dp, 3.2f * dp);
@@ -1365,8 +1491,8 @@ public final class AurebeshKeyboardView extends View {
         float cy = stripHeight() / 2f, cx = off + hw - 6 * dp - 22 * dp;
         moreRect.set(off + hw - 50 * dp, 0, off + hw, stripHeight());
         fill.setColor(theme.specialBg);
-        c.drawCircle(cx, cy, 16 * dp, fill);
-        if (theme.keyStroke != 0) c.drawCircle(cx, cy, 16 * dp, strokePaint);
+        c.drawCircle(cx, cy, toolRadius(), fill);
+        if (theme.keyStroke != 0) c.drawCircle(cx, cy, toolRadius(), strokePaint);
         fill.setColor(theme.icon);
         for (int i = -1; i <= 1; i++) c.drawCircle(cx + i * 5 * dp, cy, 1.8f * dp, fill);
         return moreRect.left - 4 * dp;
@@ -1432,13 +1558,14 @@ public final class AurebeshKeyboardView extends View {
             float cx = x + cell / 2f;
             boolean active = ids[i] == TOOL_HAND && handMode != 0;
             fill.setColor(toolPressed == i ? theme.pressed : active ? theme.accent : theme.specialBg);
-            c.drawCircle(cx, cy, 16 * dp, fill);
-            if (theme.keyStroke != 0 && !active) c.drawCircle(cx, cy, 16 * dp, strokePaint);
+            c.drawCircle(cx, cy, toolRadius(), fill);
+            if (theme.keyStroke != 0 && !active) c.drawCircle(cx, cy, toolRadius(), strokePaint);
             if (active) iconPaint.setColor(theme.onAccent);
             switch (ids[i]) {
                 case TOOL_EMOJI: drawSmiley(c, cx, cy); break;
                 case TOOL_CLIPBOARD: drawPaste(c, cx, cy); break;
                 case TOOL_HAND: drawHand(c, cx, cy, active); break;
+                case TOOL_RESIZE: drawResizeIcon(c, cx, cy); break;
                 default: drawGear(c, cx, cy); break;
             }
             if (active) iconPaint.setColor(theme.icon);
@@ -1491,6 +1618,90 @@ public final class AurebeshKeyboardView extends View {
         c.drawCircle(cx, cy, 5.2f * dp, iconPaint);
         fill.setColor(theme.icon);
         c.drawCircle(cx, cy, 2.1f * dp, fill);
+    }
+
+    /** Tamano y posicion: flecha vertical de dos puntas entre dos topes. */
+    private void drawResizeIcon(Canvas c, float cx, float cy) {
+        iconPaint.setStrokeWidth(2.2f * dp);
+        float s = 8 * dp, a = 3 * dp, w = 6 * dp;
+        c.drawLine(cx - w, cy - s, cx + w, cy - s, iconPaint);                   // tope superior
+        c.drawLine(cx - w, cy + s, cx + w, cy + s, iconPaint);                   // tope inferior
+        float y0 = cy - s + 3 * dp, y1 = cy + s - 3 * dp;
+        c.drawLine(cx, y0, cx, y1, iconPaint);                                   // asta
+        c.drawLine(cx, y0, cx - a, y0 + a, iconPaint);                           // punta de arriba
+        c.drawLine(cx, y0, cx + a, y0 + a, iconPaint);
+        c.drawLine(cx, y1, cx - a, y1 - a, iconPaint);                           // punta de abajo
+        c.drawLine(cx, y1, cx + a, y1 - a, iconPaint);
+    }
+
+    /**
+     * Boton ∨ de ocultar el teclado: a la izquierda de la banda inferior (alineado con el boton de
+     * inteligencia), con el estilo de los iconos de la cinta, solo cuando el margen llega a 24 dp. El centro y
+     * la derecha de la banda quedan libres.
+     */
+    private void drawHideButton(Canvas c) {
+        hideRect.setEmpty();
+        if (bottomPad < 24 * dp || current.isEmpty()) return;
+        float top = stripHeight() + keysHeight(), band = bottomBand(), off = handOffset();
+        float cy = top + band / 2f, cx = off + 6 * dp + 22 * dp;
+        float r = Math.min(16 * dp, band / 2f - 2 * dp);
+        hideRect.set(off + 6 * dp, top, off + 6 * dp + 44 * dp, top + band);
+        fill.setColor(theme.specialBg);
+        c.drawCircle(cx, cy, r, fill);
+        if (theme.keyStroke != 0) c.drawCircle(cx, cy, r, strokePaint);
+        iconPaint.setStrokeWidth(2.4f * dp);
+        float s = 5 * dp;
+        c.drawLine(cx - s, cy - s * 0.5f, cx, cy + s * 0.5f, iconPaint);
+        c.drawLine(cx, cy + s * 0.5f, cx + s, cy - s * 0.5f, iconPaint);
+    }
+
+    /**
+     * Modo de ajuste: velo del color del fondo sobre teclas y banda, marco alrededor de las teclas con una
+     * pastilla arriba (tirador del alto) y otra abajo (tirador del margen, sin salirse de la vista), el valor
+     * actual y los botones Restablecer y Listo en el centro. Las zonas de toque se guardan para onTouchEvent.
+     */
+    private void drawResize(Canvas c) {
+        float top = stripHeight(), bottom = top + keysHeight(), h = getHeight();
+        float left = handOffset() + keyMargin(), right = handOffset() + handWidth() - keyMargin();
+        if (split) { left = keyMargin(); right = getWidth() - keyMargin(); }
+        int ink = theme.accent == theme.keyBg ? theme.glyph : theme.accent;
+        fill.setColor((theme.bg & 0x00FFFFFF) | 0xB3000000);
+        c.drawRect(0, top, getWidth(), h, fill);
+        iconPaint.setColor(ink);
+        iconPaint.setStrokeWidth(2 * dp);
+        tmp.set(left, top + dp, right, bottom - dp);
+        c.drawRoundRect(tmp, 6 * dp, 6 * dp, iconPaint);
+        float pw = 64 * dp, ph = 8 * dp, cx = (left + right) / 2f;
+        float cyTop = top + ph / 2f + dp, cyBottom = Math.min(bottom, h - ph / 2f - 2 * dp);
+        fill.setColor(ink);
+        tmp.set(cx - pw / 2f, cyTop - ph / 2f, cx + pw / 2f, cyTop + ph / 2f);
+        c.drawRoundRect(tmp, ph / 2f, ph / 2f, fill);
+        tmp.set(cx - pw / 2f, cyBottom - ph / 2f, cx + pw / 2f, cyBottom + ph / 2f);
+        c.drawRoundRect(tmp, ph / 2f, ph / 2f, fill);
+        float grab = 24 * dp;                                     // zona de agarre generosa a ambos lados del borde
+        resizeTopRect.set(left, Math.max(0, cyTop - grab), right, cyTop + grab);
+        resizeBottomRect.set(left, cyBottom - grab, right, Math.min(h, cyBottom + grab));
+        float bw = Math.min(140 * dp, (right - left - 24 * dp) / 2f), bh = 40 * dp, gap = 12 * dp;
+        float cy = (top + bottom) / 2f + 8 * dp;
+        resizeResetRect.set(cx - gap / 2f - bw, cy - bh / 2f, cx - gap / 2f, cy + bh / 2f);
+        resizeDoneRect.set(cx + gap / 2f, cy - bh / 2f, cx + gap / 2f + bw, cy + bh / 2f);
+        textPaint.setTextSize(14 * sp);
+        textPaint.setColor(theme.glyph);
+        c.drawText(heightPct() + " % \u00b7 " + bottomDp() + " dp", cx, cy - bh / 2f - 12 * dp, textPaint);
+        drawResizeButton(c, resizeResetRect, getContext().getString(R.string.resize_reset), false, resizePressed == 2, ink);
+        drawResizeButton(c, resizeDoneRect, getContext().getString(R.string.resize_done), true, resizePressed == 1, ink);
+        textPaint.setColor(theme.glyph);
+        iconPaint.setColor(theme.icon);
+    }
+
+    /** Pastilla con texto latino: Listo relleno del acento, Restablecer como una tecla de funcion. */
+    private void drawResizeButton(Canvas c, RectF r, String label, boolean primary, boolean held, int ink) {
+        fill.setColor(held ? theme.pressed : primary ? ink : theme.specialBg);
+        c.drawRoundRect(r, r.height() / 2f, r.height() / 2f, fill);
+        if (theme.keyStroke != 0 && !primary) c.drawRoundRect(r, r.height() / 2f, r.height() / 2f, strokePaint);
+        textPaint.setTextSize(14 * sp);
+        textPaint.setColor(primary && !held ? theme.onAccent : theme.glyph);
+        c.drawText(label, r.centerX(), r.centerY() + 5 * dp, textPaint);
     }
 
     /** Sugerencias del corrector como chips, de izquierda a derecha hasta {@code right}; la que se aplicara sola va resaltada. */
@@ -1643,6 +1854,7 @@ public final class AurebeshKeyboardView extends View {
 
     @Override
     public boolean onTouchEvent(MotionEvent e) {
+        if (resizeMode) return resizeTouch(e);                           // en el modo de ajuste nada escribe
         int action = e.getActionMasked();
         int idx = e.getActionIndex();
         int id = e.getPointerId(idx);
@@ -1695,6 +1907,11 @@ public final class AurebeshKeyboardView extends View {
                             return true;
                         }
                     }
+                    return true;
+                }
+                if (!hideRect.isEmpty() && hideRect.contains(e.getX(idx), e.getY(idx))) {   // ∨: ocultar el teclado
+                    feedback(special("", CODE_SPACE, 1f));
+                    if (listener != null) listener.onHide();
                     return true;
                 }
                 if (!sideRect.isEmpty() && sideRect.contains(e.getX(idx), e.getY(idx))) {   // cambiar de lado
@@ -1781,8 +1998,9 @@ public final class AurebeshKeyboardView extends View {
                     toolPointer = -1;
                     invalidate();
                     int[] ids = tools();
-                    if (toolRects[t] != null && t < ids.length && toolRects[t].contains(e.getX(idx), e.getY(idx)) && listener != null) {
-                        listener.onToolbar(ids[t]);
+                    if (toolRects[t] != null && t < ids.length && toolRects[t].contains(e.getX(idx), e.getY(idx))) {
+                        if (listener != null) listener.onToolbar(ids[t]);
+                        if (ids[t] == TOOL_RESIZE && !resizeMode) setResizeMode(true);   // si el oyente no lo abrio, lo abre la vista
                     }
                     return true;
                 }
@@ -2109,6 +2327,108 @@ public final class AurebeshKeyboardView extends View {
         }
     }
 
+    /**
+     * Toque en el modo de ajuste: un dedo cada vez; bajar sobre un tirador empieza a arrastrar (el superior
+     * cambia el alto, el inferior el margen), bajar y soltar sobre un boton lo acciona. Ninguna tecla responde.
+     */
+    private boolean resizeTouch(MotionEvent e) {
+        int action = e.getActionMasked();
+        int idx = e.getActionIndex();
+        int id = e.getPointerId(idx);
+        float x = e.getX(idx), y = e.getY(idx);
+        switch (action) {
+            case MotionEvent.ACTION_DOWN:
+            case MotionEvent.ACTION_POINTER_DOWN:
+                if (resizePointer >= 0) return true;
+                resizePointer = id;
+                resizePressed = 0;
+                resizeDrag = 0;
+                if (resizeDoneRect.contains(x, y)) resizePressed = 1;
+                else if (resizeResetRect.contains(x, y)) resizePressed = 2;
+                else if (resizeTopRect.contains(x, y)) resizeDrag = 1;
+                else if (resizeBottomRect.contains(x, y)) resizeDrag = 2;
+                if (resizePressed != 0 || resizeDrag != 0) haptic(H_PRESS);
+                resizeDragY0 = resizeLastY = screenY(e, idx);
+                resizeScale0 = heightScale;
+                resizePad0 = bottomPad;
+                invalidate();
+                return true;
+            case MotionEvent.ACTION_MOVE: {
+                int i = e.findPointerIndex(resizePointer);
+                if (i < 0 || resizeDrag == 0) return true;
+                float sy = screenY(e, i);
+                if (Math.abs(sy - resizeLastY) < 4 * dp) return true;     // se aplica (y se vuelve a medir) cada ~4 dp
+                resizeLastY = sy;
+                applyResizeDrag(sy - resizeDragY0);
+                return true;
+            }
+            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_POINTER_UP:
+                if (id != resizePointer) return true;
+                resizePointer = -1;
+                if (resizeDrag != 0) {
+                    applyResizeDrag(screenY(e, idx) - resizeDragY0);      // valor exacto al soltar
+                    resizeDrag = 0;
+                } else if (resizePressed == 1 && resizeDoneRect.contains(x, y)) {
+                    finishResize();
+                } else if (resizePressed == 2 && resizeResetRect.contains(x, y)) {
+                    haptic(H_CONFIRM);
+                    heightScale = 1f;
+                    bottomPad = 0f;
+                    requestLayout();
+                }
+                resizePressed = 0;
+                invalidate();
+                return true;
+            case MotionEvent.ACTION_CANCEL:
+                resizePointer = -1;
+                resizeDrag = 0;
+                resizePressed = 0;
+                invalidate();
+                return true;
+        }
+        return true;
+    }
+
+    /** Coordenada y en pantalla: estable aunque la vista cambie de alto durante el arrastre (su borde superior se mueve). */
+    private float screenY(MotionEvent e, int i) {
+        getLocationOnScreen(screenLoc);
+        return e.getY(i) + screenLoc[1];
+    }
+
+    /**
+     * Aplica el arrastre (dy en px, negativo hacia arriba): el tirador superior cambia el alto en % del alto de
+     * las filas al 100 % (en pantallas bajas no pasa del 100 %, que es lo que se ve); el inferior, el margen en dp.
+     */
+    private void applyResizeDrag(float dy) {
+        if (resizeDrag == 1) {
+            float base = keysHeight(1f);
+            if (base <= 0) return;
+            int maxPct = heightClass() == 2 ? 140 : 100;
+            int pct = Math.round((resizeScale0 * base - dy) / base * 100f);
+            pct = Math.max(70, Math.min(maxPct, pct));
+            if (pct != heightPct()) { heightScale = pct / 100f; requestLayout(); }
+        } else if (resizeDrag == 2) {
+            int m = Math.round((resizePad0 - dy) / dp);
+            m = Math.max(0, Math.min(40, m));
+            if (m != bottomDp()) { bottomPad = m * dp; requestLayout(); }
+        }
+        invalidate();
+    }
+
+    /** Listo: se comunican el alto y el margen elegidos (que se quedan) y se sale del modo de ajuste. */
+    private void finishResize() {
+        haptic(H_CONFIRM);
+        int pct = heightPct(), m = bottomDp();
+        resizeMode = false;
+        resizeDrag = 0;
+        resizePointer = -1;
+        resizePressed = 0;
+        clearResizeRects();
+        if (listener != null) listener.onResize(pct, m);
+        invalidate();
+    }
+
     private void release(Key k) {
         if (listener == null) return;
         switch (k.code) {
@@ -2252,6 +2572,7 @@ public final class AurebeshKeyboardView extends View {
     @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
+        if (resizeMode) setResizeMode(false);       // sin Listo no se guarda nada
         cancelTimers();
         closePopup();
         resetGlide(true);

@@ -26,7 +26,8 @@ import java.util.List;
 /**
  * Bandeja que sustituye a las teclas dentro de la ventana del teclado: el historial del
  * portapapeles (textos e imagenes). Tocar pega; bajo un texto con telefono, correo o enlace
- * aparecen chips para pegar solo esa parte; la x borra y "Borrar todo" vacia.
+ * aparecen chips para pegar solo esa parte; la x borra y "Borrar todo" vacia. Cada toque responde con
+ * {@link Haptics#tap}, que obedece a "Vibracion al pulsar" y al nivel elegido.
  */
 final class KeyboardTray extends LinearLayout {
 
@@ -83,6 +84,7 @@ final class KeyboardTray extends LinearLayout {
         clear.setPadding(px(12), px(8), px(12), px(8));
         clear.setOnClickListener(new OnClickListener() {
             @Override public void onClick(View v) {
+                Haptics.tap(v);
                 if (host != null) host.onTrayClear();
             }
         });
@@ -91,6 +93,7 @@ final class KeyboardTray extends LinearLayout {
         close = new CloseButton(c);
         close.setOnClickListener(new OnClickListener() {
             @Override public void onClick(View v) {
+                Haptics.tap(v);
                 if (host != null) host.onTrayClose();
             }
         });
@@ -171,6 +174,7 @@ final class KeyboardTray extends LinearLayout {
         r.setClickable(true);
         r.setOnClickListener(new OnClickListener() {
             @Override public void onClick(View v) {
+                Haptics.tap(v);
                 if (host != null) host.onTrayPick(entry, pick);
             }
         });
@@ -188,6 +192,7 @@ final class KeyboardTray extends LinearLayout {
         del.setBackground(ripple(0x00000000, theme.pressed, px(20)));
         del.setOnClickListener(new OnClickListener() {
             @Override public void onClick(View v) {
+                Haptics.tap(v);
                 items.remove(entry);
                 list.removeView(row);
                 if (items.isEmpty()) {
@@ -265,6 +270,7 @@ final class KeyboardTray extends LinearLayout {
         t.setClickable(true);
         t.setOnClickListener(new OnClickListener() {
             @Override public void onClick(View v) {
+                Haptics.tap(v);
                 if (host != null) host.onTrayPick(entry, piece);
             }
         });

@@ -74,6 +74,14 @@ public class SettingsTest {
 
     private static boolean hasText(MainActivity a, String s) { return textView(a, s) != null; }
 
+    /** Algun TextView cuyo texto contiene {@code s} (subtitulos compuestos de varias lineas). */
+    private static boolean textContains(MainActivity a, String s) {
+        for (View v : all(a)) {
+            if (v instanceof TextView && ((TextView) v).getText().toString().contains(s)) return true;
+        }
+        return false;
+    }
+
     private static View byDescription(MainActivity a, String description) {
         for (View v : all(a)) {
             if (v.getContentDescription() != null && description.equals(v.getContentDescription().toString())) return v;
@@ -96,9 +104,11 @@ public class SettingsTest {
 
     @Test
     public void phoneHasNoFoldSectionButKeepsSplitRowInDesign() {
+        Prefs.ui(app).edit().putBoolean("sec_design", true).apply();   // Diseno abierta: solo asi se ve su contenido
         MainActivity a = create();
         assertFalse("en un telefono no hay seccion Plegables", hasText(a, a.getString(R.string.fold_section)));
         assertTrue("el dividido va dentro de Diseno", hasText(a, a.getString(R.string.opt_split)));
+        assertTrue("con la linea de deteccion de la pantalla", textContains(a, a.getString(R.string.fold_detected_phone, 411)));
         // "Ancho de las mitades" solo se ve con el dividido en Siempre
         TextView width = textView(a, a.getString(R.string.aj_split_width));
         assertNotNull(width);
@@ -115,7 +125,7 @@ public class SettingsTest {
         assertTrue(DeviceInfo.wideScreen(a));
         assertTrue(hasText(a, a.getString(R.string.fold_section)));
         assertTrue(hasText(a, a.getString(R.string.aj_split_width)));
-        assertTrue(hasText(a, a.getString(R.string.fold_detected_wide, 800)));
+        assertTrue(textContains(a, a.getString(R.string.fold_detected_wide, 800)));   // va en el subtitulo de la fila de dividido
     }
 
     /** Visible en si misma y en todos sus ancestros (ocultar la fila oculta su titulo). */
@@ -129,9 +139,14 @@ public class SettingsTest {
     @Test
     public void sectionStateLivesInUiPrefsNotKeyboardPrefs() {
         MainActivity a = create();
-        TextView title = textView(a, a.getString(R.string.aj_sec_design));
-        assertNotNull(title);
-        View header = (View) title.getParent().getParent();   // titulo -> columna -> cabecera pulsable
+        View header = null;
+        for (View v : all(a)) {                                // el primer "Diseno" es el chip de "Ir a"; la cabecera cuelga de una fila pulsable
+            if (!(v instanceof TextView) || !a.getString(R.string.aj_sec_design).equals(((TextView) v).getText().toString())) continue;
+            if (!(v.getParent() instanceof View) || !(v.getParent().getParent() instanceof View)) continue;
+            View h = (View) v.getParent().getParent();
+            if (h.hasOnClickListeners()) { header = h; break; }
+        }
+        assertNotNull(header);
         header.performClick();
         assertTrue(Prefs.ui(app).getBoolean("sec_design", false));
         assertFalse("las claves sec_* no deben despertar al teclado", Prefs.get(app).contains("sec_design"));

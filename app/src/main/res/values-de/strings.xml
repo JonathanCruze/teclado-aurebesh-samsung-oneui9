@@ -33,7 +33,7 @@
     <string name="opt_strip">Übersetzungsleiste</string>
     <string name="opt_strip_sub">Zeigt über den Tasten, was du in Aurebesh schreibst</string>
     <string name="opt_toolbar">Symbolleiste</string>
-    <string name="opt_toolbar_sub">Reihe über den Tasten mit ✦ Intelligenz, 😊 Emojis, 📋 Zwischenablage und Einhandmodus; ohne sie ist die Tastatur niedriger (⚙ Einstellungen bleibt in ?123)</string>
+    <string name="opt_toolbar_sub">Fügt über den Tasten eine Reihe mit ✦ Intelligenz, 😊 Emojis, 📋 Zwischenablage und Einhandmodus hinzu, in ?123 auch ⚙ Einstellungen; ohne sie ist die Tastatur niedriger</string>
 
     <string name="typing">Eingabe</string>
     <string name="opt_digraphs">Digraphen</string>
@@ -46,7 +46,7 @@
     <string name="hand_left">Links</string>
     <string name="hand_right">Rechts</string>
     <string name="opt_autocorrect">Textvorschläge</string>
-    <string name="opt_autocorrect_sub">Bis zu drei Vorschläge über den Tasten beim Tippen, aus den integrierten Wörterbüchern für Spanisch, Englisch und Deutsch, ohne Internet; der markierte behebt Tippfehler und Akzente</string>
+    <string name="opt_autocorrect_sub">Bis zu drei Wörter über den Tasten beim Tippen, aus den integrierten Wörterbüchern für Spanisch, Englisch und Deutsch, ohne Internet; tippe eines an, um es zu übernehmen; das markierte ist die Korrektur von Tippfehlern und Akzenten</string>
     <string name="opt_vibrate">Vibration beim Tippen</string>
 
     <string name="gestures">Gesten</string>

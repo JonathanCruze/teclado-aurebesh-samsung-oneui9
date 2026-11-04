@@ -80,10 +80,12 @@ public class PredictionTest {
         assertTrue("las de la tabla siguen detras", after.contains("gracias"));
         // la pareja aprendida bonifica mas que cualquiera de la tabla y queda en las preferencias privadas
         assertTrue(es.bonus("muchas", "naves") >= es.bonus("muchas", "gracias"));
-        String stored = Prefs.get(app).getString(Bigrams.PREF_KEY, "");
+        Bigrams.flush(app);
+        String stored = Bigrams.store(app).getString(Bigrams.PREF_KEY, "");
         assertTrue(stored, stored.contains("muchas naves 1"));
         es.learn(app, "muchas", "naves");
-        assertTrue(Prefs.get(app).getString(Bigrams.PREF_KEY, "").contains("muchas naves 2"));
+        Bigrams.flush(app);
+        assertTrue(Bigrams.store(app).getString(Bigrams.PREF_KEY, "").contains("muchas naves 2"));
         // la misma pareja la ve la tabla de otro idioma (las aprendidas son del usuario, no del idioma)
         assertEquals("naves", Bigrams.get(app, "en").next("muchas", 1).get(0));
 

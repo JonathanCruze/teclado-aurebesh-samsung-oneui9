@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Modo de ajuste de tamano y posicion del teclado (icono de la cinta de ?123): botones dibujados sobre el velo -->
+    <string name="resize_done">Fertig</string>
+    <string name="resize_reset">Zurücksetzen</string>
+</resources>

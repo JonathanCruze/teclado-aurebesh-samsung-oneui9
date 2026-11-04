@@ -9,7 +9,8 @@ import java.io.File;
 
 /**
  * Sonido de las teclas: el clic del sistema o, si el usuario eligio uno, un archivo corto
- * copiado a files/keysound que se reproduce con SoundPool (baja latencia).
+ * copiado a files/keysound que se reproduce con SoundPool (baja latencia). El volumen va de 0
+ * (silencio) a 100 (el maximo del efecto) y se aplica a los dos.
  */
 final class KeySound {
 
@@ -21,6 +22,7 @@ final class KeySound {
     private SoundPool pool;
     private int soundId = 0;
     private boolean loaded = false;
+    private int volume = 100;      // 0-100 (preferencia "volumen del sonido")
 
     private KeySound(Context c) {
         app = c.getApplicationContext();
@@ -63,24 +65,34 @@ final class KeySound {
         }
     }
 
+    /** Volumen de las teclas, 0-100 (fuera de ese rango se recorta); con 0 no suena nada. */
+    synchronized void setVolume(int percent) { volume = Math.max(0, Math.min(100, percent)); }
+
+    /** Volumen actual, 0-100. */
+    synchronized int volume() { return volume; }
+
     /** Hay un sonido personalizado listo para sonar. */
     synchronized boolean hasCustom() {
         return pool != null && soundId > 0 && loaded;
     }
 
     /**
-     * Suena la tecla: el sonido personalizado si esta cargado; si no, el efecto del sistema
-     * segun la tecla (codigos CODE_DELETE, CODE_ENTER y CODE_SPACE de AurebeshKeyboardView).
+     * Suena la tecla al volumen elegido (volumen / 100): el sonido personalizado si esta cargado; si no, el
+     * efecto del sistema segun la tecla (codigos CODE_DELETE, CODE_ENTER y CODE_SPACE de AurebeshKeyboardView).
+     * Con volumen 0 no suena nada.
      */
     void play(int keyCode) {
         try {
             SoundPool p;
             int id;
+            float vol;
             synchronized (this) {
+                vol = volume / 100f;
+                if (vol <= 0f) return;
                 p = pool;
                 id = soundId;
                 if (p != null && id > 0 && loaded) {
-                    p.play(id, 0.7f, 0.7f, 1, 0, 1f);
+                    p.play(id, vol, vol, 1, 0, 1f);
                     return;
                 }
             }
@@ -90,7 +102,7 @@ final class KeySound {
                     : keyCode == -4 ? AudioManager.FX_KEYPRESS_RETURN
                     : keyCode == -6 ? AudioManager.FX_KEYPRESS_SPACEBAR
                     : AudioManager.FX_KEYPRESS_STANDARD;
-            audio.playSoundEffect(fx, 0.5f);
+            audio.playSoundEffect(fx, vol);
         } catch (RuntimeException ignored) {
             // el sonido nunca debe tumbar el teclado
         }

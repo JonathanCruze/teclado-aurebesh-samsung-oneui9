@@ -15,7 +15,6 @@ import android.os.Looper;
 import android.text.TextUtils;
 import android.util.TypedValue;
 import android.view.Gravity;
-import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
@@ -46,6 +45,9 @@ import java.util.Locale;
  * distinguir mayusculas ni tildes: primero palabras exactas del nombre, luego palabras clave
  * exactas, luego por prefijo y por ultimo aproximadas (una letra de diferencia). Con varias
  * palabras, todas deben coincidir.
+ *
+ * La respuesta haptica de la lupa, las pestanas, las celdas y las teclas inferiores pasa por {@link Haptics},
+ * que obedece a "Vibracion al pulsar" y al nivel elegido; el teclado reducido lleva la suya propia.
  */
 final class EmojiTray extends LinearLayout {
 
@@ -132,7 +134,7 @@ final class EmojiTray extends LinearLayout {
         searchButton.setContentDescription("search");
         searchButton.setOnClickListener(new OnClickListener() {
             @Override public void onClick(View v) {
-                v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+                Haptics.tap(v);
                 openSearch("");
             }
         });
@@ -148,7 +150,7 @@ final class EmojiTray extends LinearLayout {
             t.setContentDescription(GROUPS[i]);
             t.setOnClickListener(new OnClickListener() {
                 @Override public void onClick(View v) {
-                    v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+                    Haptics.tap(v);
                     if (groupStart[g] >= 0) list.setSelection(groupStart[g]);
                     highlight(g);
                 }
@@ -203,7 +205,7 @@ final class EmojiTray extends LinearLayout {
         searchClose = tab(c, "×");
         searchClose.setOnClickListener(new OnClickListener() {
             @Override public void onClick(View v) {
-                v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+                Haptics.tap(v);
                 closeSearch();
             }
         });
@@ -259,11 +261,17 @@ final class EmojiTray extends LinearLayout {
         miniKb.setLanguage(lang);
     }
 
-    /** Vibracion y sonido del teclado reducido de la busqueda. */
+    /**
+     * Vibracion y sonido del teclado reducido de la busqueda. El nivel de vibracion y el retardo de pulsacion
+     * larga se leen de las preferencias para que responda igual que el teclado principal; el resto de la
+     * bandeja pasa por {@link Haptics}, que las lee en cada toque.
+     */
     void setFeedback(boolean vibrate, boolean sound) {
         this.vibrate = vibrate;
         this.sound = sound;
         miniKb.applyPrefs(false, vibrate, false, true, theme.id, false, sound, 0.8f);
+        miniKb.setHaptics(Prefs.vibrationLevel(getContext()));
+        miniKb.setLongPressMs(Prefs.longPressMs(getContext()));
     }
 
     /** Colores del tema del teclado. */
@@ -639,7 +647,7 @@ final class EmojiTray extends LinearLayout {
                 t.setIncludeFontPadding(false);
                 t.setOnClickListener(new OnClickListener() {
                     @Override public void onClick(View v) {
-                        v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+                        Haptics.tap(v);
                         if (host != null) host.onEmoji(((TextView) v).getText().toString());
                     }
                 });
@@ -680,6 +688,7 @@ final class EmojiTray extends LinearLayout {
         private final Runnable repeat = new Runnable() {
             @Override public void run() {
                 if (!down || host == null) return;
+                Haptics.tick(KeyView.this);
                 host.onEmojiDelete();
                 handler.postDelayed(this, 60);
             }
@@ -739,7 +748,7 @@ final class EmojiTray extends LinearLayout {
             switch (e.getActionMasked()) {
                 case MotionEvent.ACTION_DOWN:
                     down = true;
-                    performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+                    Haptics.tap(this);
                     if (kind == DELETE && host != null) {
                         host.onEmojiDelete();
                         handler.postDelayed(repeat, 420);

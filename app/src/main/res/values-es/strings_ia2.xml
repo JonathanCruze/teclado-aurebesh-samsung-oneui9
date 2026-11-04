@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Panel "Inteligencia": accion Traducir (los chips de idioma destino reutilizan el patron de tonos) -->
+    <string name="ai2_action_translate">Traducir</string>
+    <string name="ai2_target_other">Otro…</string>
+    <string name="ai2_target_hint">Escribe el idioma: p. ej. francés, italiano, japonés…</string>
+</resources>

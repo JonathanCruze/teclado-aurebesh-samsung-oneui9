@@ -3,6 +3,7 @@
 
     <!-- Internet: solo para la descarga del modelo de IA que el usuario inicia o para su propio servidor. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.VIBRATE" />
     <!-- Fotos (opcional, se pide al activar "Sugerir capturas"): detectar capturas de pantalla recientes. -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />

@@ -33,7 +33,7 @@
     <string name="opt_strip">Barra de traducción</string>
     <string name="opt_strip_sub">Muestra lo escrito en Aurebesh sobre las teclas</string>
     <string name="opt_toolbar">Barra de herramientas</string>
-    <string name="opt_toolbar_sub">Fila sobre las teclas con ✦ inteligencia, 😊 emojis, 📋 portapapeles y modo a una mano; sin ella el teclado es más bajo (⚙ ajustes sigue en ?123)</string>
+    <string name="opt_toolbar_sub">Añade una fila sobre las teclas con ✦ inteligencia, 😊 emojis, 📋 portapapeles y modo a una mano, y ⚙ ajustes en ?123; sin ella el teclado es más bajo</string>
 
     <string name="typing">Escritura</string>
     <string name="opt_digraphs">Dígrafos</string>
@@ -46,7 +46,7 @@
     <string name="hand_left">Izquierda</string>
     <string name="hand_right">Derecha</string>
     <string name="opt_autocorrect">Texto predictivo</string>
-    <string name="opt_autocorrect_sub">Hasta tres sugerencias sobre las teclas mientras escribes, con los diccionarios integrados de español, inglés y alemán, sin internet; la resaltada corrige erratas y tildes</string>
+    <string name="opt_autocorrect_sub">Hasta tres palabras sobre las teclas mientras escribes, con los diccionarios integrados de español, inglés y alemán y sin internet; toca una para usarla, y la resaltada es la corrección de erratas y tildes</string>
     <string name="opt_vibrate">Vibración al pulsar</string>
 
     <string name="gestures">Gestos</string>

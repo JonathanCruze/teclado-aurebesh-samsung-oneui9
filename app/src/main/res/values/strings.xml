@@ -41,7 +41,7 @@
     <string name="opt_strip">Translation bar</string>
     <string name="opt_strip_sub">Shows what you type in Aurebesh above the keys</string>
     <string name="opt_toolbar">Toolbar</string>
-    <string name="opt_toolbar_sub">Row above the keys with ✦ intelligence, 😊 emoji, 📋 clipboard and one-handed mode; without it the keyboard is shorter (⚙ settings stays in ?123)</string>
+    <string name="opt_toolbar_sub">Adds a row above the keys with ✦ intelligence, 😊 emoji, 📋 clipboard and one-handed mode, and ⚙ settings in ?123; without it the keyboard is shorter</string>
 
     <string name="typing">Typing</string>
     <string name="opt_digraphs">Digraphs</string>
@@ -54,7 +54,7 @@
     <string name="hand_left">Left</string>
     <string name="hand_right">Right</string>
     <string name="opt_autocorrect">Predictive text</string>
-    <string name="opt_autocorrect_sub">Up to three suggestions above the keys as you type, from the built-in Spanish, English and German dictionaries, no internet; the highlighted one fixes typos and accents</string>
+    <string name="opt_autocorrect_sub">Up to three words above the keys as you type, from the built-in Spanish, English and German dictionaries, no internet; tap one to use it, and the highlighted one is the correction for typos and accents</string>
     <string name="opt_vibrate">Vibrate on keypress</string>
 
     <string name="gestures">Gestures</string>
