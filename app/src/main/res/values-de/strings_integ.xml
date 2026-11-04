@@ -16,4 +16,19 @@
     <string name="split_auto">Aufgeklappt</string>
     <string name="split_on">Immer</string>
     <string name="split_off">Nie</string>
+
+    <!-- Oben in der App: Sprache von App und Tastatur, Tastatur-Schaltflaeche -->
+    <string name="top_lang_title">Sprache der App und der Tastatur</string>
+    <string name="top_lang_hint">Die Tastatur wechselt ebenfalls zu dieser Sprache. Die Globus-Taste wechselt weiterhin zwischen den aktivierten Sprachen.</string>
+    <string name="top_keyboard_choose">Tastatur wählen</string>
+    <string name="top_keyboard_enable">Tastatur aktivieren</string>
+    <string name="top_status_done">✓ Aurebesh ist deine aktuelle Tastatur</string>
+    <string name="top_status_enable">Schritt 1 von 2 · Aktiviere Aurebesh in den Einstellungen des Telefons und komm dann hierher zurück</string>
+    <string name="top_status_choose">Schritt 2 von 2 · Wähle Aurebesh als aktuelle Tastatur</string>
+    <!-- Faltbare -->
+    <string name="fold_section">Faltbare · Galaxy Z Fold</string>
+    <string name="fold_title">Geteilte Tastatur im aufgeklappten Zustand</string>
+    <string name="fold_body">Auf einem aufgeklappten Galaxy Z Fold teilt sich die Tastatur in zwei Hälften mit denselben Tastenpositionen wie die Samsung-Tastatur, zum Tippen mit beiden Daumen. Auf einem normalen Telefon oder einem Galaxy Z Flip ändert sich nichts: lass es auf „Aufgeklappt“.</string>
+    <string name="fold_detected_wide">Dieser Bildschirm ist breit (%1$d dp): hier teilt sich die Tastatur</string>
+    <string name="fold_detected_phone">Dieser Bildschirm hat Telefongröße (%1$d dp): hier teilt sich die Tastatur nicht</string>
 </resources>

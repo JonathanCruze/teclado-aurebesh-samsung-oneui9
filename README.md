@@ -12,12 +12,12 @@
 
 <p align="center">
   <a href="https://github.com/JonathanCruze/teclado-aurebesh-samsung-oneui9/raw/main/releases/TecladoAurebesh.apk">
-    <img src="https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20%20DESCARGAR%20APK%20%E2%80%94%20Teclado%20Aurebesh%201.9-1B2838?style=for-the-badge&logoColor=white&labelColor=1B2838&color=7FD3F0" alt="Descargar APK">
+    <img src="https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20%20DESCARGAR%20APK%20%E2%80%94%20Teclado%20Aurebesh%201.9.1-1B2838?style=for-the-badge&logoColor=white&labelColor=1B2838&color=7FD3F0" alt="Descargar APK">
   </a>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/versi%C3%B3n-1.9-7FD3F0?style=flat-square" alt="versión 1.9">
+  <img src="https://img.shields.io/badge/versi%C3%B3n-1.9.1-7FD3F0?style=flat-square" alt="versión 1.9.1">
   <img src="https://img.shields.io/badge/Android-8.0%2B-3DDC84?style=flat-square" alt="Android 8+">
   <img src="https://img.shields.io/badge/Samsung-One%20UI%209.0-1428A0?style=flat-square" alt="Samsung One UI 9.0">
   <img src="https://img.shields.io/badge/sin%20anuncios-%E2%9C%93-2E7D32?style=flat-square" alt="sin anuncios">
@@ -38,10 +38,28 @@
    es un archivo de ~1,4 MB firmado por este proyecto.
 2. **Abre el archivo** desde la barra de notificaciones o desde *Mis archivos › Descargas*. Si Android dice que no permite instalar
    apps desconocidas, toca **Ajustes** en ese aviso y activa *Permitir de esta fuente* para el navegador; vuelve atrás y toca **Instalar**.
-3. **Abre Teclado Aurebesh** y sigue los dos pasos de la pantalla: *Activar en Ajustes* y *Elegir como teclado actual*.
-   Para volver al teclado de Samsung en cualquier momento, mantén pulsada la barra espaciadora.
+3. **Abre Teclado Aurebesh**: arriba del todo están los tres idiomas (cambian la app y el teclado a la vez) y el botón
+   **Activar el teclado** / **Elegir teclado**; debajo dice en qué paso vas. Para volver al teclado de Samsung en cualquier
+   momento, mantén pulsada la barra espaciadora.
 
 Para actualizar, descarga el nuevo APK e instálalo encima: conserva tus ajustes.
+
+### Novedades de la 1.9.1
+- **Arreglado: "Este archivo no es un modelo GGUF admitido"** al usar un modelo descargado. El tokenizador compilaba sus expresiones
+  regulares con una bandera de Java que Android no admite (`UNICODE_CHARACTER_CLASS`); funcionaba en las pruebas de escritorio y
+  fallaba en el teléfono. Ahora las clases de espacios se escriben explícitamente y la prueba del tokenizador comprueba que no se
+  use ninguna bandera ajena a Android. Si algo vuelve a fallar, el panel ✦ muestra el motivo concreto en vez del mensaje genérico.
+- **Botón Probar** junto a cada modelo instalado: carga el modelo, escribe una frase y muestra tokens/s y el tiempo de carga (o el error).
+- **Ajustes › Inteligencia más claro**: "Dónde se ejecuta la IA" con dos opciones explicadas (en este teléfono / tu propio servidor),
+  el único paso necesario ("Toca Descargar junto a un modelo"), la recomendación para tu teléfono (familia Galaxy y RAM detectadas)
+  y una guía de qué modelo elegir según el Galaxy.
+- **Arriba de la app**: los tres idiomas (Español, English, Deutsch) como iconos que cambian a la vez el idioma de la app y del
+  teclado, y el botón para activar o elegir el teclado con el estado debajo.
+- **Sección Plegables**: el teclado dividido tiene su propio apartado con explicación (en un teléfono normal o un Z Flip no cambia
+  nada) y la detección de la pantalla actual; sigue pudiendo desactivarse ("Nunca"), como en Samsung Keyboard.
+- **Teclado dividido con la geometría de Samsung Keyboard** en el Fold desplegado: dos cajas de 5,5 teclas pegadas a los bordes,
+  fila central corrida media tecla hacia el hueco, z-v bajo s-f y b-m bajo j-l, mayúsculas y borrar de 1,5 teclas en los bordes,
+  `?123 , espacio | espacio . intro`.
 
 ---
 
@@ -59,7 +77,7 @@ Para actualizar, descarga el nuevo APK e instálalo encima: conserva tus ajustes
     <td align="center"><img src="screenshots/ia_acciones.png" alt="Panel de inteligencia"><br><b>✦ Inteligencia</b><br>Ortografía, estilo con tonos, resumir, viñetas, tabla y redactor, con un modelo en tu teléfono o tu propio servidor.</td>
   </tr>
   <tr>
-    <td align="center"><img src="screenshots/dividido_fold.png" alt="Teclado dividido"><br><b>Dividido para Galaxy Fold</b><br>Dos mitades con hueco central y dos espacios al desplegar la pantalla; también por opción.</td>
+    <td align="center"><img src="screenshots/dividido_fold.png" alt="Teclado dividido"><br><b>Dividido para Galaxy Fold</b><br>Al desplegar, dos mitades con la misma geometría que Samsung Keyboard (filas escalonadas, dos espacios); se puede desactivar.</td>
     <td align="center"><img src="screenshots/simbolos_estelar.png" alt="Signos como Samsung"><br><b>?123 como Samsung Keyboard</b><br>Misma distribución de signos; la página 2/2 añade dígrafos Aurebesh, ¿ ¡ « » y más símbolos.</td>
     <td align="center"><img src="screenshots/tema_datapad.png" alt="Tema Datapad"><br><b>Cinco temas</b><br>Estelar, Noche, Datapad, Imperial y Arena; la app sigue el modo claro u oscuro del teléfono.</td>
   </tr>
@@ -72,7 +90,8 @@ Para actualizar, descarga el nuevo APK e instálalo encima: conserva tus ajustes
   solo en el teléfono).
 - **Tres idiomas de teclado**: español (ñ, ¿ ¡), inglés y alemán (QWERTZ con ü ö ä y ß en pulsación larga), cada uno con su
   diccionario y sus bigramas. El globo alterna entre los activos.
-- **Idioma de la app**: Sistema, Español, English o Deutsch, para los menús del teclado y la pantalla de ajustes.
+- **Idioma de la app y del teclado**: Español, English o Deutsch desde los iconos de arriba de la app; cambian los menús y la
+  distribución del teclado a la vez (el globo sigue rotando entre los idiomas activados).
 - **Modo a una mano** (con flecha para cambiar de lado), **sonido de tecla personalizado**, **tamaño del teclado** en cuatro
   niveles, letra latina opcional en las teclas para aprender el alfabeto, barra de traducción, punto con doble espacio.
 - Burbuja al pulsar con el glifo grande y la letra latina; `¿` y `¡` tienen glifo propio (el de `?` y `!` girado 180°).
@@ -95,15 +114,23 @@ a partir de un prompt. El resultado se puede reemplazar, insertar, copiar o rein
   llama.cpp en tu ordenador). Solo recibe el texto que eliges procesar.
 - **Velocidad, con honestidad.** En un teléfono el modelo local genera unos pocos tokens por segundo: reescribir un párrafo puede
   tardar entre 20 y 60 segundos; el texto va apareciendo y se puede cancelar.
+- **Qué modelo para qué Galaxy.** La app detecta la familia Galaxy y la RAM y recomienda un modelo; como guía: con 12 GB o más
+  (Galaxy S26 Ultra, S26+, S26, S25 Ultra, S25+, S25, Z Fold 8/7/6, Z Flip 8/7/6) cualquiera de la lista, Q8_0 o Qwen3 0.6B si
+  prefieres calidad; con 8 GB (S24, S23, A56, A55) Qwen2.5 0.5B Q4_0; con 6 GB o menos (A3x, A2x, A1x) Q4_0 va lento, SmolLM2 360M
+  (solo inglés) o un servidor propio.
+- **Botón Probar.** Junto a cada modelo instalado: carga el modelo, escribe una frase y muestra tokens/s y el tiempo de carga, o el
+  motivo exacto del fallo.
 - **Estado de verificación.** El motor se comprobó numéricamente en el entorno de desarrollo contra una implementación de referencia
-  (numpy) y con los vocabularios reales de llama.cpp, incluidos los formatos Q4_0, Q8_0, Q4_K y Q6_K. Todavía no se ha ejecutado con
-  un modelo real en un teléfono: trátalo como experimental.
+  (numpy) y con los vocabularios reales de llama.cpp, incluidos los formatos Q4_0, Q8_0, Q4_K y Q6_K. En la 1.9 la primera prueba
+  en un Galaxy real falló al cargar el modelo por una bandera de expresiones regulares que Android no admite; está corregido en la
+  1.9.1 y la prueba del tokenizador lo vigila. Sigue sin haberse medido la velocidad con un modelo real en un teléfono: trátalo como
+  experimental.
 - Galaxy AI (el de Samsung Keyboard) es exclusivo de Samsung y no se puede integrar; sigue disponible en el menú de selección de texto
   de Android mientras usas este teclado.
 
 ## Frente a Samsung Keyboard
 
-| Función | Samsung Keyboard | Teclado Aurebesh 1.9 |
+| Función | Samsung Keyboard | Teclado Aurebesh 1.9.1 |
 |---|---|---|
 | Galaxy AI / Inteligencia avanzada | Sí | Inteligencia local (modelo en el teléfono) o servidor propio |
 | Deslizar para escribir | Sí | Sí, con estela y alternativas |
@@ -287,7 +314,8 @@ Después, `python3 promo/make_promo.py` compone las imágenes promocionales. Nec
   Lucasfilm, Disney, Samsung, Alibaba ni Hugging Face.
 
 ## Limitaciones conocidas
-- El modelo de inteligencia local es lento (unos pocos tokens por segundo) y aún no se ha probado con un modelo real en un teléfono.
+- El modelo de inteligencia local es lento (unos pocos tokens por segundo); la carga en un Galaxy real se arregló en la 1.9.1 y la
+  velocidad real está por medir (el botón Probar de Ajustes la muestra).
 - Sin teclado flotante; sin dictado por voz; Galaxy AI es exclusivo de Samsung Keyboard.
 - Sin soporte de TalkBack en el teclado (la vista es un `Canvas` sin nodos de accesibilidad).
 - La precisión del deslizado se midió con trayectorias sintéticas; en el teléfono puede requerir ajuste de constantes.

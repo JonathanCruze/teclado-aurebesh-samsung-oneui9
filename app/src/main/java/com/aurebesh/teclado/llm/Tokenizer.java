@@ -26,12 +26,25 @@ final class Tokenizer {
     static final int TYPE_NORMAL = 1, TYPE_UNKNOWN = 2, TYPE_CONTROL = 3, TYPE_USER_DEFINED = 4,
             TYPE_UNUSED = 5, TYPE_BYTE = 6;
 
+    /**
+     * Espacio en blanco Unicode (propiedad White_Space, la misma que usa llama.cpp para \s): controles
+     * U+0009-U+000D, U+0085 y los separadores \p{Z}. Se escribe explicitamente porque la bandera
+     * UNICODE_CHARACTER_CLASS de java.util.regex no existe en Android (su motor, ICU, la rechaza).
+     */
+    private static final String WS_IN = "\\t\\n\\x0B\\f\\r\\x{85}\\p{Z}";
+    private static final String WS = "[" + WS_IN + "]";
+    private static final String NWS = "[^" + WS_IN + "]";
+    /** [^\s\p{L}\p{N}]: ni espacio, ni letra, ni numero. */
+    private static final String NOT_WS_L_N = "[^" + WS_IN + "\\p{L}\\p{N}]";
     private static final String RX_CONTRACTIONS = "(?:'[sS]|'[tT]|'[rR][eE]|'[vV][eE]|'[mM]|'[lL][lL]|'[dD])";
     private static final String RX_LLAMA3 = RX_CONTRACTIONS
-            + "|[^\\r\\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}{1,3}| ?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+";
+            + "|[^\\r\\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}{1,3}| ?" + NOT_WS_L_N + "+[\\r\\n]*|" + WS + "*[\\r\\n]+|"
+            + WS + "+(?!" + NWS + ")|" + WS + "+";
     private static final String RX_QWEN2 = RX_CONTRACTIONS
-            + "|[^\\r\\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}| ?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+";
-    private static final String RX_GPT2 = "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)";
+            + "|[^\\r\\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}| ?" + NOT_WS_L_N + "+[\\r\\n]*|" + WS + "*[\\r\\n]+|"
+            + WS + "+(?!" + NWS + ")|" + WS + "+";
+    private static final String RX_GPT2 = "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?" + NOT_WS_L_N + "+|"
+            + WS + "+(?!" + NWS + ")";
     private static final String RX_DIGIT = "\\p{N}";
 
     /** Tabla byte → caracter de GPT-2 (unicode_byte_to_utf8_map) y su inversa. */
@@ -148,7 +161,7 @@ final class Tokenizer {
     }
 
     private static Pattern[] patternsFor(String pre) {
-        int flags = Pattern.UNICODE_CHARACTER_CLASS;
+        int flags = 0;      // sin banderas: Android solo admite un subconjunto y \p{L}/\p{N} ya son Unicode
         if (isLlama3Pre(pre)) return new Pattern[]{Pattern.compile(RX_LLAMA3, flags)};
         switch (pre) {
             case "qwen2": case "stablelm2": case "deepseek-r1-qwen":
@@ -162,6 +175,11 @@ final class Tokenizer {
 
     int vocabSize() {
         return tokens.length;
+    }
+
+    /** Patrones del pre-tokenizador (para comprobar en las pruebas que no usan banderas ajenas a Android). */
+    Pattern[] patterns() {
+        return prePatterns.clone();
     }
 
     int idOf(String text) {

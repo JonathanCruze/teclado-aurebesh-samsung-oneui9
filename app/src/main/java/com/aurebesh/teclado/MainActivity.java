@@ -42,8 +42,8 @@ public final class MainActivity extends Activity {
     private int surface, card, ink, secondary, divider, thumbOff, trackOff;
     private Typeface medium;
 
-    private TextView setupStep, setupTitle, setupHint;
-    private Button setupButton;
+    private TextView topStatus;                          // estado del teclado bajo el boton de arriba
+    private Button keyboardButton;                       // "Elegir teclado" / "Activar el teclado"
     private EditText input;
     private AurebeshTextView translation;
     private AurebeshKeyboardView preview;
@@ -80,8 +80,8 @@ public final class MainActivity extends Activity {
         scroll.addView(root, new ViewGroup.LayoutParams(MATCH, WRAP));
 
         buildHeader(root);
+        buildTop(root);
         buildCompat(root);
-        buildSetup(root);
 
         section(root, R.string.try_title);
         buildTry(root);
@@ -93,7 +93,6 @@ public final class MainActivity extends Activity {
         optionRow(appearance, R.string.opt_hints, R.string.opt_hints_sub, Prefs.HINTS, Prefs.hints(this));
         optionRow(appearance, R.string.opt_strip, R.string.opt_strip_sub, Prefs.STRIP, Prefs.strip(this));
         optionRow(appearance, R.string.opt_toolbar, R.string.opt_toolbar_sub, Prefs.TOOLBAR, Prefs.toolbar(this));
-        chipRow(appearance, R.string.opt_app_lang, Prefs.APP_LANG, AppLocale.CHOICES, APP_LANG_NAMES, Prefs.appLang(this));
         root.addView(appearance, block(0));
 
         section(root, R.string.typing);
@@ -102,7 +101,6 @@ public final class MainActivity extends Activity {
         optionRow(typing, R.string.opt_numbers, R.string.opt_numbers_sub, Prefs.NUMBERS, Prefs.numbers(this));
         chipRow(typing, R.string.opt_height, Prefs.HEIGHT, SIZES, SIZE_NAMES, Prefs.height(this));
         chipRow(typing, R.string.opt_hand, Prefs.HAND, HANDS, HAND_NAMES, Prefs.hand(this));
-        chipRow(typing, R.string.opt_split, Prefs.SPLIT, SPLITS, SPLIT_NAMES, Prefs.splitPref(this));
         optionRow(typing, R.string.opt_glide, R.string.opt_glide_sub, Prefs.GLIDE, Prefs.glide(this));
         optionRow(typing, R.string.opt_autocorrect, R.string.opt_autocorrect_sub, Prefs.AUTOCORRECT, Prefs.autocorrect(this));
         optionRow(typing, R.string.opt_double_space, R.string.opt_double_space_sub, Prefs.DOUBLE_SPACE, Prefs.doubleSpace(this));
@@ -116,6 +114,20 @@ public final class MainActivity extends Activity {
         // Portapapeles: capturas de pantalla recientes (permiso opcional de fotos)
         typing.addView(dividerLine());
         typing.addView(ScreenshotSettingsRow.build(this, ink, secondary, thumbOff, trackOff), block(0));
+
+        // Plegables: teclado dividido como el de Samsung en un Fold desplegado; en telefonos y Flip no cambia nada
+        section(root, R.string.fold_section);
+        LinearLayout fold = cardColumn();
+        LinearLayout foldText = column();
+        foldText.setPadding(px(18), px(14), px(18), px(4));
+        foldText.addView(text(getString(R.string.fold_title), 16, ink, false), block(0));
+        foldText.addView(text(getString(R.string.fold_body), 13, secondary, false), block(4));
+        int sw = DeviceInfo.smallestWidthDp(this);
+        foldText.addView(text(getString(DeviceInfo.wideScreen(this) ? R.string.fold_detected_wide : R.string.fold_detected_phone, sw),
+                13, secondary, true), block(8));
+        fold.addView(foldText, block(0));
+        chipRow(fold, R.string.opt_split, Prefs.SPLIT, SPLITS, SPLIT_NAMES, Prefs.splitPref(this));
+        root.addView(fold, block(0));
 
         // Inteligencia: modelo local o servidor propio
         section(root, R.string.ai_section);
@@ -200,17 +212,48 @@ public final class MainActivity extends Activity {
         root.addView(c, block(20));
     }
 
-    private void buildSetup(LinearLayout root) {
+    /**
+     * Lo primero de la app: los tres idiomas (cambian a la vez la app y el teclado) y el boton para
+     * elegir el teclado, con el estado de la activacion debajo.
+     */
+    private void buildTop(LinearLayout root) {
         LinearLayout c = cardColumn();
         c.setPadding(px(20), px(18), px(20), px(20));
-        setupStep = text("", 13, secondary, true);
-        setupTitle = text("", 17, ink, true);
-        setupHint = text("", 14, secondary, false);
-        setupButton = button();
-        c.addView(setupStep, block(0));
-        c.addView(setupTitle, block(4));
-        c.addView(setupHint, block(6));
-        c.addView(setupButton, block(16));
+        c.addView(text(getString(R.string.top_lang_title), 13, secondary, true), block(0));
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        String current = AppLocale.current(this);
+        for (int i = 0; i < TOP_LANGS.length; i++) {
+            final String id = TOP_LANGS[i];
+            boolean selected = id.equals(current);
+            LinearLayout item = column();
+            item.setGravity(Gravity.CENTER_HORIZONTAL);
+            TextView icon = text(id.toUpperCase(java.util.Locale.ROOT), 18, selected ? card : ink, true);
+            icon.setGravity(Gravity.CENTER);
+            GradientDrawable bg = new GradientDrawable();
+            bg.setShape(GradientDrawable.OVAL);
+            bg.setColor(selected ? ink : divider);
+            icon.setBackground(bg);
+            item.addView(icon, new LinearLayout.LayoutParams(px(56), px(56)));
+            TextView name = text(getString(TOP_LANG_NAMES[i]), 13, ink, selected);
+            name.setGravity(Gravity.CENTER_HORIZONTAL);
+            item.addView(name, block(6));
+            item.setBackground(ripple(0));
+            item.setPadding(0, px(6), 0, px(6));
+            item.setOnClickListener(new View.OnClickListener() {
+                @Override public void onClick(View v) {
+                    Prefs.setLanguage(MainActivity.this, id);   // app y teclado a la vez
+                    recreate();
+                }
+            });
+            row.addView(item, new LinearLayout.LayoutParams(0, WRAP, 1f));
+        }
+        c.addView(row, block(10));
+        c.addView(text(getString(R.string.top_lang_hint), 12, secondary, false), block(4));
+        keyboardButton = button();
+        c.addView(keyboardButton, block(16));
+        topStatus = text("", 13, secondary, false);
+        c.addView(topStatus, block(8));
         root.addView(c, block(24));
     }
 
@@ -291,6 +334,7 @@ public final class MainActivity extends Activity {
     // ------------------------------------------------------------------ estado
 
     private void updateSetup() {
+        if (keyboardButton == null) return;
         boolean enabled = false;
         InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
         for (InputMethodInfo info : imm.getEnabledInputMethodList()) {
@@ -300,29 +344,20 @@ public final class MainActivity extends Activity {
         boolean selected = current != null && current.startsWith(getPackageName() + "/");
 
         if (selected) {
-            setupStep.setVisibility(View.GONE);
-            setupTitle.setText("✓  " + getString(R.string.setup_done_title));
-            setupHint.setText(R.string.setup_done_hint);
-            setupHint.setVisibility(View.VISIBLE);
-            styleButton(setupButton, false);
-            setupButton.setText(R.string.setup_done_action);
-            setupButton.setOnClickListener(showPicker);
+            topStatus.setText(R.string.top_status_done);
+            styleButton(keyboardButton, false);
+            keyboardButton.setText(R.string.top_keyboard_choose);
+            keyboardButton.setOnClickListener(showPicker);
         } else if (enabled) {
-            setupStep.setVisibility(View.VISIBLE);
-            setupStep.setText(R.string.step_2);
-            setupTitle.setText(R.string.setup_select_title);
-            setupHint.setVisibility(View.GONE);
-            styleButton(setupButton, true);
-            setupButton.setText(R.string.setup_select_action);
-            setupButton.setOnClickListener(showPicker);
+            topStatus.setText(R.string.top_status_choose);
+            styleButton(keyboardButton, true);
+            keyboardButton.setText(R.string.top_keyboard_choose);
+            keyboardButton.setOnClickListener(showPicker);
         } else {
-            setupStep.setVisibility(View.VISIBLE);
-            setupStep.setText(R.string.step_1);
-            setupTitle.setText(R.string.setup_enable_title);
-            setupHint.setVisibility(View.GONE);
-            styleButton(setupButton, true);
-            setupButton.setText(R.string.setup_enable_action);
-            setupButton.setOnClickListener(new View.OnClickListener() {
+            topStatus.setText(R.string.top_status_enable);
+            styleButton(keyboardButton, true);
+            keyboardButton.setText(R.string.top_keyboard_enable);
+            keyboardButton.setOnClickListener(new View.OnClickListener() {
                 @Override public void onClick(View v) {
                     startActivity(new Intent(Settings.ACTION_INPUT_METHOD_SETTINGS));
                 }
@@ -384,7 +419,8 @@ public final class MainActivity extends Activity {
     private static final String[] HANDS = {"none", "left", "right"};
     private static final String[] SPLITS = {"auto", "on", "off"};
     private static final int[] SPLIT_NAMES = {R.string.split_auto, R.string.split_on, R.string.split_off};
-    private static final int[] APP_LANG_NAMES = {R.string.app_lang_system, R.string.app_lang_es, R.string.app_lang_en, R.string.app_lang_de};
+    private static final String[] TOP_LANGS = {"es", "en", "de"};
+    private static final int[] TOP_LANG_NAMES = {R.string.app_lang_es, R.string.app_lang_en, R.string.app_lang_de};
     private static final int[] HAND_NAMES = {R.string.hand_none, R.string.hand_left, R.string.hand_right};
 
     /** Fila de opciones excluyentes (chips); la copia del teclado cambia al instante. */

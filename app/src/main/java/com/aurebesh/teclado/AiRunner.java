@@ -254,7 +254,7 @@ final class AiRunner {
         } catch (IOException ex) {
             if (!flag.get()) {
                 String m = ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage();
-                error = useRemote ? app.getString(R.string.ai_err_server, m) : app.getString(R.string.ai_err_model_bad);
+                error = useRemote ? app.getString(R.string.ai_err_server, m) : badModel(ex);
             }
         } catch (OutOfMemoryError oom) {
             closeEngine();
@@ -262,7 +262,7 @@ final class AiRunner {
         } catch (RuntimeException ex) {
             if (!flag.get()) error = useRemote
                     ? app.getString(R.string.ai_err_server, ex.getClass().getSimpleName())
-                    : app.getString(R.string.ai_err_model_bad);
+                    : badModel(ex);
         } finally {
             main.removeCallbacks(firstWatch);
         }
@@ -320,12 +320,30 @@ final class AiRunner {
                 return engine;
             } catch (IOException e) {
                 boolean mapFail = e.getMessage() != null && e.getMessage().startsWith("MAPFAIL");
-                fail(cb, id, flag, app.getString(mapFail ? R.string.ai_err_memory : R.string.ai_err_model_bad));
+                fail(cb, id, flag, mapFail ? app.getString(R.string.ai_err_memory) : badModel(e));
             } catch (OutOfMemoryError e) {
                 fail(cb, id, flag, app.getString(R.string.ai_err_memory));
+            } catch (RuntimeException e) {
+                fail(cb, id, flag, badModel(e));
             }
             return null;
         }
+    }
+
+    /**
+     * "Este archivo no es un modelo GGUF admitido" mas el motivo concreto (el mensaje del motor o, si
+     * fue un error de programacion, la clase y el mensaje): asi el usuario puede contarlo tal cual.
+     */
+    private CharSequence badModel(Throwable t) {
+        return app.getString(R.string.ai_err_model_bad) + "\n" + describe(t);
+    }
+
+    /** Motivo legible de un fallo: mensaje del motor, o clase + mensaje si no lo trae. */
+    static String describe(Throwable t) {
+        if (t == null) return "";
+        String m = t.getMessage();
+        if (t instanceof IOException && m != null && !m.isEmpty()) return m;
+        return t.getClass().getSimpleName() + (m == null || m.isEmpty() ? "" : ": " + m);
     }
 
     private void fail(final Callback cb, final int id, final AtomicBoolean flag, final CharSequence msg) {

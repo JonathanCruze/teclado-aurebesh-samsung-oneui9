@@ -28,6 +28,7 @@ final class Prefs {
     static final String GLIDE = "glide";           // deslizar para escribir
     static final String SCREENSHOTS = "screenshots"; // sugerir capturas de pantalla recientes
     static final String SPLIT = "split_keyboard";   // teclado dividido: "auto", "on", "off"
+    static final String KEYBOARD_LANG = "keyboard_lang"; // idioma del teclado elegido en la app ("es"/"en"/"de"); vacio = el subtipo activo
     private static final String LEGACY_DARK = "dark_theme";
 
     static SharedPreferences get(Context c) {
@@ -72,6 +73,16 @@ final class Prefs {
         }
     }
     static String appLang(Context c) { return get(c).getString(APP_LANG, "system"); }
+    /** Idioma del teclado fijado desde la app, o null para seguir el subtipo activo del sistema. */
+    static String keyboardLang(Context c) {
+        String l = get(c).getString(KEYBOARD_LANG, "");
+        return "es".equals(l) || "en".equals(l) || "de".equals(l) ? l : null;
+    }
+    /** Fija a la vez el idioma de la app y el del teclado (iconos de la parte superior de la app). */
+    static void setLanguage(Context c, String lang) {
+        get(c).edit().putString(APP_LANG, lang).putString(KEYBOARD_LANG, lang).apply();
+    }
+    static void clearKeyboardLang(Context c) { get(c).edit().remove(KEYBOARD_LANG).apply(); }
     static boolean glide(Context c) { return get(c).getBoolean(GLIDE, true); }
     static String splitPref(Context c) { return get(c).getString(SPLIT, "auto"); }
     static int splitMode(Context c) {

@@ -16,4 +16,19 @@
     <string name="split_auto">Al desplegar</string>
     <string name="split_on">Siempre</string>
     <string name="split_off">Nunca</string>
+
+    <!-- Parte superior de la app: idioma de la app y del teclado, boton del teclado -->
+    <string name="top_lang_title">Idioma de la app y del teclado</string>
+    <string name="top_lang_hint">El teclado también cambia a este idioma. La tecla del globo sigue rotando entre los idiomas que tengas activados.</string>
+    <string name="top_keyboard_choose">Elegir teclado</string>
+    <string name="top_keyboard_enable">Activar el teclado</string>
+    <string name="top_status_done">✓ Aurebesh es tu teclado actual</string>
+    <string name="top_status_enable">Paso 1 de 2 · Activa Aurebesh en los ajustes del teléfono y vuelve aquí</string>
+    <string name="top_status_choose">Paso 2 de 2 · Elige Aurebesh como teclado actual</string>
+    <!-- Plegables -->
+    <string name="fold_section">Plegables · Galaxy Z Fold</string>
+    <string name="fold_title">Teclado dividido al desplegar</string>
+    <string name="fold_body">En un Galaxy Z Fold desplegado el teclado se parte en dos mitades con las teclas en el mismo sitio que Samsung Keyboard, para escribir con los dos pulgares. En un teléfono normal o en un Galaxy Z Flip no cambia nada: déjalo en "Al desplegar".</string>
+    <string name="fold_detected_wide">Esta pantalla es ancha (%1$d dp): aquí el teclado se divide</string>
+    <string name="fold_detected_phone">Esta pantalla es de teléfono (%1$d dp): aquí el teclado no se divide</string>
 </resources>

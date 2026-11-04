@@ -89,6 +89,25 @@ final class AiModels {
 
     static final Preset DEFAULT = PRESETS[0];
 
+    /** Gama del telefono por RAM: 0 alta (12 GB o mas), 1 media (8 GB), 2 baja (6 GB o menos). */
+    static int tier(Context c) {
+        float g = DeviceInfo.totalRamGb(c);
+        if (g <= 0f) return 1;
+        if (g >= 10.5f) return 0;
+        if (g >= 7f) return 1;
+        return 2;
+    }
+
+    /** Modelo recomendado: Q4_0 en todas las gamas (el mas rapido en este motor); en gama alta cabe tambien Q8_0. */
+    static Preset recommended(Context c) {
+        return DEFAULT;
+    }
+
+    /** Alternativa de mas calidad que se sugiere solo en gama alta, o null. */
+    static Preset qualityOption(Context c) {
+        return tier(c) == 0 ? PRESETS[1] : null;
+    }
+
     /** Fila de la lista de modelos: un predefinido (instalado o no) o un archivo importado. */
     static final class Entry {
         final Preset preset;      // null si es un archivo importado

@@ -55,10 +55,10 @@
 
     <!-- Einstellungen -->
     <string name="ai_section">Intelligenz</string>
-    <string name="ai_engine">Engine</string>
-    <string name="ai_engine_local">Lokales Modell</string>
+    <string name="ai_engine">Wo die KI läuft</string>
+    <string name="ai_engine_local">Auf diesem Telefon</string>
     <string name="ai_engine_remote">Eigener Server</string>
-    <string name="ai_models_title">Lokales Modell</string>
+    <string name="ai_models_title">Modelle für dieses Telefon</string>
     <string name="ai_models_sub">Einmal herunterladen, danach offline. Offene Gewichte, Apache-2.0.</string>
     <string name="ai_note_spanish">Am besten auf Spanisch</string>
     <string name="ai_note_quality">Mehr Qualität, langsamer</string>
@@ -93,4 +93,22 @@
     <string name="ai_remote_warning">Mit einem Server wird der verarbeitete Text an diese Adresse gesendet. Nutze nur eigene oder vertrauenswürdige Server.</string>
     <string name="ai_privacy_footer">Alles wird auf deinem Telefon verarbeitet. Das Internet wird nur genutzt, um auf Wunsch ein Modell herunterzuladen oder für deinen eigenen Server. Es werden keine Daten gesammelt.</string>
     <string name="ai_credits">Modelle: Qwen2.5 und Qwen3 (Alibaba, Apache-2.0), SmolLM2 (Hugging Face, Apache-2.0). GGUF-Format von ggml.</string>
+
+    <!-- Einstellungen: klarere Engine-Wahl, Geraeteempfehlung und Modelltest -->
+    <string name="ai_engine_local_sub">Ein kleines Modell auf dem Telefon. Einmal unten herunterladen; danach funktioniert es offline.</string>
+    <string name="ai_engine_remote_sub">Ollama, LM Studio oder llama.cpp auf deinem Computer, über dein WLAN.</string>
+    <string name="ai_models_step">Tippe neben einem Modell auf Herunterladen. Das ist der einzige Schritt.</string>
+    <string name="ai_models_ready">Bereit: drücke ✦ links in der Tastaturleiste.</string>
+    <string name="ai_reco_device">Dein Telefon: %1$s · %2$d GB RAM → empfohlen: %3$s</string>
+    <string name="ai_reco_device_noram">Dein Telefon: %1$s → empfohlen: %2$s</string>
+    <string name="ai_reco_quality">Mit 12 GB oder mehr kannst du auch %1$s verwenden (mehr Qualität, langsamer).</string>
+    <string name="ai_reco_low">Mit 6 GB oder weniger dauern Antworten länger; ein Server auf deinem Computer ist schneller.</string>
+    <string name="ai_guide_title">Welches Modell für welches Galaxy</string>
+    <string name="ai_guide_high">12 GB oder mehr · Galaxy S26 Ultra, S26+, S26, S25 Ultra, S25+, S25, Z Fold 8, Z Fold 7, Z Fold 6, Z Flip 8, Z Flip 7, Z Flip 6: Qwen2.5 0.5B Q4_0 (schnell) oder Q8_0 / Qwen3 0.6B (mehr Qualität).</string>
+    <string name="ai_guide_mid">8 GB · Galaxy S24, S23, A56, A55: Qwen2.5 0.5B Q4_0.</string>
+    <string name="ai_guide_low">6 GB oder weniger · Galaxy A3x, A2x, A1x: Qwen2.5 0.5B Q4_0 funktioniert, ist aber langsam; SmolLM2 360M (nur Englisch) oder dein eigener Server.</string>
+    <string name="ai_test_model">Testen</string>
+    <string name="ai_testing_model">Teste… Modell wird geladen und ein Satz geschrieben</string>
+    <string name="ai_test_model_ok">✓ Funktioniert · %1$.1f Token/s · geladen in %2$d s</string>
+    <string name="ai_test_model_fail">✗ Funktioniert nicht: %1$s</string>
 </resources>

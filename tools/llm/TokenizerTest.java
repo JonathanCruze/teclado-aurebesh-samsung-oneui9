@@ -29,6 +29,17 @@ public final class TokenizerTest {
         Tokenizer tk = new Tokenizer(g);
         System.out.println("== " + vocab.getName() + ": pre=" + tk.pre + " tokens=" + tk.vocabSize()
                 + " add_bos=" + tk.addBos + " ignore_merges=" + tk.ignoreMerges + " eog=" + tk.eog);
+        // Android (ICU) solo admite estas banderas de java.util.regex; UNICODE_CHARACTER_CLASS lanza
+        // IllegalArgumentException("Unsupported flags: 256") en el telefono aunque funcione en el JVM.
+        int androidFlags = java.util.regex.Pattern.CASE_INSENSITIVE | java.util.regex.Pattern.COMMENTS
+                | java.util.regex.Pattern.DOTALL | java.util.regex.Pattern.LITERAL | java.util.regex.Pattern.MULTILINE
+                | java.util.regex.Pattern.UNICODE_CASE | java.util.regex.Pattern.UNIX_LINES;
+        for (java.util.regex.Pattern p : tk.patterns()) {
+            if ((p.flags() & ~androidFlags) != 0) {
+                System.out.println("FALLO: patron con banderas no admitidas en Android: " + p.flags() + " " + p.pattern());
+                failures++;
+            }
+        }
 
         List<String> sentences = new ArrayList<>();
         for (String line : readLines(new File(args[1]))) {

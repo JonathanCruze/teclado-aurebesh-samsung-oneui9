@@ -99,6 +99,12 @@ public class AurebeshIME extends InputMethodService
                         if (view != null) setInputView(onCreateInputView());
                         return;
                     }
+                    if (Prefs.KEYBOARD_LANG.equals(key)) {            // idioma del teclado elegido en la app
+                        subtypeSwitchTried = null;
+                        applyLanguage();
+                        refresh();
+                        return;
+                    }
                     if (Prefs.LEARNED.equals(key)) {
                         if (dict != null) dict.setPersonal(Prefs.learnedWords(AurebeshIME.this));
                         return;
@@ -285,18 +291,40 @@ public class AurebeshIME extends InputMethodService
     @Override
     public void onCurrentInputMethodSubtypeChanged(InputMethodSubtype newSubtype) {
         super.onCurrentInputMethodSubtypeChanged(newSubtype);
+        // El globo (o el sistema) cambio de subtipo: si contradice el idioma fijado desde la app, manda el subtipo
+        String fixed = Prefs.keyboardLang(this);
+        if (fixed != null && newSubtype != null && !fixed.equals(langOf(newSubtype.getLocale()))) {
+            Prefs.clearKeyboardLang(this);
+        }
         applyLanguage();
         refresh();
     }
 
-    /** Distribucion segun el subtipo activo; el globo solo cuando hay varios idiomas Aurebesh activos. */
+    /** "es", "en" o "de" a partir de la locale de un subtipo. */
+    private static String langOf(String locale) {
+        return locale != null && locale.startsWith("en") ? "en" : locale != null && locale.startsWith("de") ? "de" : "es";
+    }
+
+    /** Idioma para el que ya se intento cambiar el subtipo (para no insistir si el sistema no lo permite). */
+    private String subtypeSwitchTried;
+
+    /**
+     * Distribucion segun el idioma fijado desde la app (iconos de arriba) o, si no hay, el subtipo activo;
+     * el globo solo cuando hay varios idiomas Aurebesh activos.
+     */
     @SuppressWarnings("deprecation")
     private void applyLanguage() {
         if (view == null) return;
         InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
         InputMethodSubtype subtype = imm != null ? imm.getCurrentInputMethodSubtype() : null;
         String locale = subtype != null ? subtype.getLocale() : Locale.getDefault().getLanguage();
-        lang = locale != null && locale.startsWith("en") ? "en" : locale != null && locale.startsWith("de") ? "de" : "es";
+        String fromSubtype = langOf(locale);
+        String fixed = Prefs.keyboardLang(this);
+        if (fixed != null && !fixed.equals(fromSubtype) && !fixed.equals(subtypeSwitchTried)) {
+            subtypeSwitchTried = fixed;
+            switchSubtypeTo(imm, fixed);          // que el sistema muestre el mismo idioma (si lo permite)
+        }
+        lang = fixed != null ? fixed : fromSubtype;
         view.setLanguage(lang);
         if (emojis != null) emojis.setLanguage(lang);
         if (ai != null) ai.setLanguage(lang);
@@ -309,6 +337,25 @@ public class AurebeshIME extends InputMethodService
         view.setSpaceLabel(several ? getString("en".equals(lang) ? R.string.lang_en : "de".equals(lang) ? R.string.lang_de : R.string.lang_es) : null);
         loadDictionary();
         loadBigrams();
+    }
+
+    /** Cambia el subtipo de este teclado al del idioma dado (API 28+); si no se puede, no pasa nada. */
+    private void switchSubtypeTo(InputMethodManager imm, String lang) {
+        if (imm == null || Build.VERSION.SDK_INT < 28) return;
+        try {
+            for (android.view.inputmethod.InputMethodInfo info : imm.getInputMethodList()) {
+                if (!getPackageName().equals(info.getPackageName())) continue;
+                for (int i = 0; i < info.getSubtypeCount(); i++) {
+                    InputMethodSubtype st = info.getSubtypeAt(i);
+                    if (lang.equals(langOf(st.getLocale()))) {
+                        switchInputMethod(info.getId(), st);
+                        return;
+                    }
+                }
+            }
+        } catch (RuntimeException ignored) {
+            // el sistema no lo permitio: el teclado usa igualmente el idioma fijado
+        }
     }
 
     /** Tabla de bigramas del idioma (siguiente palabra y contexto), cargada en segundo plano. */

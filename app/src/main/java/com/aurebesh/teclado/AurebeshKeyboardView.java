@@ -531,10 +531,10 @@ public final class AurebeshKeyboardView extends View {
         r.add(sym(",", 1f, "es".equals(language) ? "\u00bf" : "de".equals(language) ? ";" : "!"));
         float space = 5f;
         if (languageSwitch) { r.add(special("", CODE_GLOBE, 1f)); space -= 1f; }
-        if (split) {                                       // dos mitades: espacio a cada lado del hueco
-            r.add(special("", CODE_SPACE, space - 2.5f));
+        if (split) {                                       // dos mitades de 5,5 unidades, como Samsung Keyboard en el Fold
+            r.add(special("", CODE_SPACE, space - 2f));    // ?123 (1,5) + , (1) [+ globo (1)] + espacio = 5,5
             r.add(special("", CODE_GAP, 0f));
-            r.add(special("", CODE_SPACE, 2.5f));
+            r.add(special("", CODE_SPACE, 3f));            // espacio (3) + . (1) + intro (1,5) = 5,5
         } else {
             r.add(special("", CODE_SPACE, space));
         }
@@ -615,30 +615,50 @@ public final class AurebeshKeyboardView extends View {
     }
 
     /**
-     * Teclado dividido: cada fila se parte en dos mitades (la izquierda pegada al borde izquierdo y la
-     * derecha al derecho) con un hueco central para escribir con los pulgares en un Fold desplegado.
-     * Las filas con una tecla CODE_GAP se parten ahi; el resto por la mitad (5 | 5 en las de diez).
+     * Teclado dividido con la misma geometria que Samsung Keyboard en un Galaxy Z Fold desplegado:
+     * cada mitad es una caja de 5,5 teclas (el 38 % del ancho) pegada a su borde; la fila q-t / y-p se
+     * apoya en el borde exterior, la fila central (a-g / h-ñ) se corre media tecla hacia el hueco, y en
+     * la tercera fila mayusculas y borrar (1,5 teclas) ocupan los bordes con z-v bajo s-f y b-m bajo j-l.
+     * Las filas con una tecla CODE_GAP se parten ahi; el resto donde la suma de anchos llega a la mitad.
      */
     private void layoutKeysSplit(List<List<Key>> layout) {
         float full = getWidth();
         float pad = 4 * dp;
-        float halfW = (full - 2 * pad) * 0.36f;
+        float box = (full - 2 * pad) * 0.38f;
+        float unit = box / 5.5f;
+        float x0 = pad, x1 = full - pad - box;
         float y = stripHeight();
+        int homeRow = layout == letters ? (numberRow ? 2 : 1) : -1;
         for (int ri = 0; ri < layout.size(); ri++) {
             List<Key> row = layout.get(ri);
             float rh = rowHeight(layout, ri);
+            float total = 0;
             int cut = -1;
-            for (int i = 0; i < row.size(); i++) if (row.get(i).code == CODE_GAP) cut = i;
-            int leftEnd = cut >= 0 ? cut : (row.size() + 1) / 2;
+            for (int i = 0; i < row.size(); i++) {
+                if (row.get(i).code == CODE_GAP) cut = i; else total += row.get(i).weight;
+            }
+            int leftEnd;
+            if (cut >= 0) {
+                leftEnd = cut;
+            } else {                                        // corte donde la suma de anchos llega a la mitad
+                float acc = 0;
+                leftEnd = row.size();
+                for (int i = 0; i < row.size(); i++) {
+                    acc += row.get(i).weight;
+                    if (acc >= total / 2f - 0.01f) { leftEnd = i + 1; break; }
+                }
+            }
             float totalL = 0, totalR = 0;
             for (int i = 0; i < row.size(); i++) {
                 Key k = row.get(i);
                 if (k.code == CODE_GAP) { k.rect.setEmpty(); continue; }
                 if (i < leftEnd) totalL += k.weight; else totalR += k.weight;
             }
-            float unitL = halfW / Math.max(5f, totalL);
-            float unitR = halfW / Math.max(5f, totalR);
-            float xl = pad, xr = full - pad - halfW;
+            float unitL = totalL > 0 ? Math.min(unit, box / totalL) : unit;
+            float unitR = totalR > 0 ? Math.min(unit, box / totalR) : unit;
+            boolean home = ri == homeRow;
+            float xl = home ? x0 + box - unitL * totalL : x0;          // central: pegada al hueco; resto: al borde
+            float xr = home ? x1 : x1 + box - unitR * totalR;
             for (int i = 0; i < row.size(); i++) {
                 Key k = row.get(i);
                 if (k.code == CODE_GAP) continue;

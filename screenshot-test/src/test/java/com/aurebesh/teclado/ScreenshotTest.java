@@ -252,6 +252,20 @@ public class ScreenshotTest {
         int spaces = 0;
         for (String o : new String[]{"q", "t", "y", "p", "a", "g", "h", "z", "v", "b", "m"}) if (kb.keyFor(o) == null) throw new AssertionError("dividido sin " + o);
         if (kb.keyFor("t").rect.right > kb.keyFor("y").rect.left - 60 * dp) throw new AssertionError("hueco central");
+        // Geometria de Samsung Keyboard en el Fold: a-g media tecla hacia el hueco, h-ñ media tecla hacia el hueco,
+        // z bajo s, b bajo j, mayusculas pegada al borde izquierdo y borrar al derecho (1,5 teclas)
+        float u = kb.keyFor("q").rect.width();
+        assertNear("a escalonada", kb.keyFor("a").rect.left, kb.keyFor("q").rect.left + u / 2);
+        assertNear("h escalonada", kb.keyFor("h").rect.left, kb.keyFor("y").rect.left - u / 2);
+        assertNear("z bajo s", kb.keyFor("z").rect.left, kb.keyFor("s").rect.left);
+        assertNear("b bajo j", kb.keyFor("b").rect.left, kb.keyFor("j").rect.left);
+        assertNear("mayusculas al borde", kb.keyFor(AurebeshKeyboardView.CODE_SHIFT).rect.left, kb.keyFor("q").rect.left);
+        assertNear("mayusculas 1,5", kb.keyFor(AurebeshKeyboardView.CODE_SHIFT).rect.width(), 1.5f * u);
+        assertNear("borrar al borde", kb.keyFor(AurebeshKeyboardView.CODE_DELETE).rect.right, kb.keyFor("p").rect.right);
+        assertNear("ñ bajo el hueco", kb.keyFor("ñ").rect.right, kb.keyFor("p").rect.right - u / 2);
+        assertNear("intro al borde", kb.keyFor(AurebeshKeyboardView.CODE_ENTER).rect.right, kb.keyFor("p").rect.right);
+        assertNear("?123 al borde", kb.keyFor(AurebeshKeyboardView.CODE_MODE).rect.left, kb.keyFor("q").rect.left);
+        if (kb.keyFor(".").rect.left < kb.keyFor("y").rect.left) throw new AssertionError("punto en la mitad derecha");
         typed.setLength(0);
         for (String ch : new String[]{"h", "o", "l", "a"}) { AurebeshKeyboardView.Key k = kb.keyFor(ch); tap(kb, k.rect.centerX(), k.rect.centerY()); }
         if (!typed.toString().equals("hola")) throw new AssertionError("dividido teclea: " + typed);
@@ -515,5 +529,9 @@ public class ScreenshotTest {
         Bitmap b = Bitmap.createBitmap(W, full, Bitmap.Config.ARGB_8888);
         root.draw(new Canvas(b));
         return b;
+    }
+
+    private static void assertNear(String what, float actual, float expected) {
+        if (Math.abs(actual - expected) > 2.5f) throw new AssertionError(what + ": " + actual + " vs " + expected);
     }
 }

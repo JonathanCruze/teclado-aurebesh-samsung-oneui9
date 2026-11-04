@@ -90,7 +90,8 @@ final class AiSettingsCard {
         private final Typeface medium = Typeface.create("sans-serif-medium", Typeface.NORMAL);
         private final Handler main = new Handler(Looper.getMainLooper());
 
-        private final TextView localChip, remoteChip;
+        private final android.widget.RadioButton localRadio, remoteRadio;
+        private final TextView stepLine;                 // "Toca Descargar..." / "Listo: pulsa ✦"
         private final LinearLayout models;
         private final TextView importRow;
         private final ProgressBar importBar;
@@ -109,28 +110,20 @@ final class AiSettingsCard {
             bg.setCornerRadius(px(16));
             setBackground(bg);
 
-            // Motor
+            // Donde se ejecuta la IA: dos filas con boton de radio, titulo y explicacion (antes eran dos
+            // chips que parecian el nombre de un modelo)
             LinearLayout mode = new LinearLayout(a);
             mode.setOrientation(VERTICAL);
-            mode.setPadding(px(18), px(14), px(18), px(12));
+            mode.setPadding(px(18), px(14), px(18), px(8));
             mode.addView(text(a.getString(R.string.ai_engine), 15, ink, true), new LinearLayout.LayoutParams(MATCH, WRAP));
-            localChip = chip(R.string.ai_engine_local, new OnClickListener() {
+            localRadio = new android.widget.RadioButton(a);
+            remoteRadio = new android.widget.RadioButton(a);
+            mode.addView(radioRow(localRadio, R.string.ai_engine_local, R.string.ai_engine_local_sub, new OnClickListener() {
                 @Override public void onClick(View v) { AiModels.setMode(a, AiModels.MODE_LOCAL); refresh(); }
-            });
-            remoteChip = chip(R.string.ai_engine_remote, new OnClickListener() {
+            }), new LinearLayout.LayoutParams(MATCH, WRAP));
+            mode.addView(radioRow(remoteRadio, R.string.ai_engine_remote, R.string.ai_engine_remote_sub, new OnClickListener() {
                 @Override public void onClick(View v) { switchToRemote(); }
-            });
-            localChip.setGravity(Gravity.CENTER);
-            remoteChip.setGravity(Gravity.CENTER);
-            LinearLayout chips = new LinearLayout(a);
-            chips.setOrientation(HORIZONTAL);
-            chips.addView(localChip, new LinearLayout.LayoutParams(0, WRAP, 1f));
-            LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(0, WRAP, 1f);
-            rp.leftMargin = px(8);
-            chips.addView(remoteChip, rp);
-            LinearLayout.LayoutParams cl = new LinearLayout.LayoutParams(MATCH, WRAP);
-            cl.topMargin = px(10);
-            mode.addView(chips, cl);
+            }), new LinearLayout.LayoutParams(MATCH, WRAP));
             addView(mode, new LinearLayout.LayoutParams(MATCH, WRAP));
             addView(dividerLine(), new LinearLayout.LayoutParams(MATCH, Math.max(1, px(1))));
 
@@ -140,6 +133,33 @@ final class AiSettingsCard {
             head.setPadding(px(18), px(12), px(18), px(4));
             head.addView(text(a.getString(R.string.ai_models_title), 15, ink, true), new LinearLayout.LayoutParams(MATCH, WRAP));
             head.addView(text(a.getString(R.string.ai_models_sub), 13, secondary, false), new LinearLayout.LayoutParams(MATCH, WRAP));
+            stepLine = text("", 13, ink, true);
+            LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(MATCH, WRAP);
+            sp.topMargin = px(6);
+            head.addView(stepLine, sp);
+            // Recomendacion para este telefono (familia Galaxy y RAM) y guia por modelos de Galaxy
+            AiModels.Preset reco = AiModels.recommended(a);
+            int ram = DeviceInfo.ramGbLabel(a);
+            String recoText = ram > 0
+                    ? a.getString(R.string.ai_reco_device, DeviceInfo.family(), ram, reco.name)
+                    : a.getString(R.string.ai_reco_device_noram, DeviceInfo.family(), reco.name);
+            LinearLayout.LayoutParams rp0 = new LinearLayout.LayoutParams(MATCH, WRAP);
+            rp0.topMargin = px(8);
+            head.addView(text(recoText, 13, ink, false), rp0);
+            AiModels.Preset quality = AiModels.qualityOption(a);
+            if (quality != null) {
+                head.addView(text(a.getString(R.string.ai_reco_quality, quality.name), 13, secondary, false), new LinearLayout.LayoutParams(MATCH, WRAP));
+            } else if (AiModels.tier(a) == 2) {
+                head.addView(text(a.getString(R.string.ai_reco_low), 13, secondary, false), new LinearLayout.LayoutParams(MATCH, WRAP));
+            }
+            LinearLayout.LayoutParams gp = new LinearLayout.LayoutParams(MATCH, WRAP);
+            gp.topMargin = px(10);
+            head.addView(text(a.getString(R.string.ai_guide_title), 13, ink, true), gp);
+            for (int res : new int[]{R.string.ai_guide_high, R.string.ai_guide_mid, R.string.ai_guide_low}) {
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(MATCH, WRAP);
+                lp.topMargin = px(2);
+                head.addView(text("\u2022 " + a.getString(res), 12, secondary, false), lp);
+            }
             addView(head, new LinearLayout.LayoutParams(MATCH, WRAP));
             models = new LinearLayout(a);
             models.setOrientation(VERTICAL);
@@ -223,9 +243,10 @@ final class AiSettingsCard {
         /** Vuelve a leer preferencias y archivos y reconstruye la lista de modelos. */
         void refresh() {
             boolean remote = AiModels.remote(a);
-            styleChip(localChip, !remote);
-            styleChip(remoteChip, remote);
+            localRadio.setChecked(!remote);
+            remoteRadio.setChecked(remote);
             server.setAlpha(remote ? 1f : 0.55f);
+            stepLine.setText(AiModels.localAvailable(a) ? R.string.ai_models_ready : R.string.ai_models_step);
             filling = true;
             setIfDifferent(url, AiModels.remoteUrl(a));
             setIfDifferent(key, AiModels.remoteKey(a));
@@ -365,6 +386,11 @@ final class AiSettingsCard {
                         });
                         buttons.addView(use, buttonParams());
                     }
+                    Button test = button(R.string.ai_test_model, false);
+                    test.setOnClickListener(new OnClickListener() {
+                        @Override public void onClick(View v) { testModel(); }
+                    });
+                    buttons.addView(test, buttonParams());
                     Button del = button(R.string.ai_delete, false);
                     del.setOnClickListener(new OnClickListener() {
                         @Override public void onClick(View v) { confirmDelete(); }
@@ -407,6 +433,57 @@ final class AiSettingsCard {
                 state.setText(a.getString(R.string.ai_downloading, pct));
             }
 
+            /**
+             * Carga el modelo en un hilo y escribe una frase corta: muestra tokens/s y el tiempo de carga,
+             * o el motivo exacto del fallo (lo mismo que veria el panel ✦ del teclado).
+             */
+            private void testModel() {
+                final File f = new File(AiModels.dir(a), entry.file);
+                state.setText(R.string.ai_testing_model);
+                for (int i = 0; i < buttons.getChildCount(); i++) buttons.getChildAt(i).setEnabled(false);
+                Thread t = new Thread(new Runnable() {
+                    @Override public void run() {
+                        String msg;
+                        com.aurebesh.teclado.llm.LlmEngine e = null;
+                        try {
+                            long t0 = System.currentTimeMillis();
+                            int cpus = Runtime.getRuntime().availableProcessors();
+                            e = com.aurebesh.teclado.llm.LlmEngine.load(f, Math.max(1, Math.min(4, cpus / 2)));
+                            long loadMs = System.currentTimeMillis() - t0;
+                            List<com.aurebesh.teclado.llm.ChatMessage> msgs = new java.util.ArrayList<>();
+                            msgs.add(new com.aurebesh.teclado.llm.ChatMessage("user", "Di hola en una frase corta."));
+                            com.aurebesh.teclado.llm.LlmEngine.Options o = new com.aurebesh.teclado.llm.LlmEngine.Options();
+                            o.maxTokens = 12;
+                            o.temperature = 0f;
+                            final int[] count = {0};
+                            long t1 = System.currentTimeMillis();
+                            e.generate(msgs, o, new com.aurebesh.teclado.llm.LlmEngine.TokenListener() {
+                                @Override public boolean onToken(String piece) { count[0]++; return true; }
+                            });
+                            double secs = Math.max(0.001, (System.currentTimeMillis() - t1) / 1000.0);
+                            msg = a.getString(R.string.ai_test_model_ok, count[0] / secs, Math.round(loadMs / 1000.0));
+                        } catch (IOException ex) {
+                            msg = a.getString(R.string.ai_test_model_fail, AiRunner.describe(ex));
+                        } catch (OutOfMemoryError oom) {
+                            msg = a.getString(R.string.ai_test_model_fail, a.getString(R.string.ai_err_memory));
+                        } catch (RuntimeException ex) {
+                            msg = a.getString(R.string.ai_test_model_fail, AiRunner.describe(ex));
+                        } finally {
+                            if (e != null) try { e.close(); } catch (RuntimeException ignored) { }
+                        }
+                        final String m = msg;
+                        main.post(new Runnable() {
+                            @Override public void run() {
+                                state.setText(m);
+                                for (int i = 0; i < buttons.getChildCount(); i++) buttons.getChildAt(i).setEnabled(true);
+                            }
+                        });
+                    }
+                }, "ai-model-test");
+                t.setDaemon(true);
+                t.start();
+            }
+
             private void confirmDelete() {
                 new AlertDialog.Builder(a)
                         .setMessage(a.getString(R.string.ai_delete_confirm, entry.name, AiModels.sizeLabel(entry.size)))
@@ -445,19 +522,26 @@ final class AiSettingsCard {
             return t;
         }
 
-        private TextView chip(int label, OnClickListener l) {
-            TextView t = text(a.getString(label), 13, ink, true);
-            t.setPadding(px(12), px(6), px(12), px(6));
-            t.setOnClickListener(l);
-            return t;
-        }
-
-        private void styleChip(TextView t, boolean selected) {
-            GradientDrawable bg = new GradientDrawable();
-            bg.setColor(selected ? ink : divider);
-            bg.setCornerRadius(px(14));
-            t.setBackground(bg);
-            t.setTextColor(selected ? card : ink);
+        /** Fila con boton de radio + titulo + explicacion; toda la fila es pulsable. */
+        private LinearLayout radioRow(final android.widget.RadioButton radio, int title, int sub, final OnClickListener l) {
+            LinearLayout row = new LinearLayout(a);
+            row.setOrientation(HORIZONTAL);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setPadding(0, px(8), 0, px(8));
+            row.setBackground(ripple(0));
+            radio.setClickable(false);
+            radio.setFocusable(false);
+            radio.setButtonTintList(ColorStateList.valueOf(ink));
+            row.addView(radio, new LinearLayout.LayoutParams(WRAP, WRAP));
+            LinearLayout col = new LinearLayout(a);
+            col.setOrientation(VERTICAL);
+            col.addView(text(a.getString(title), 15, ink, true), new LinearLayout.LayoutParams(MATCH, WRAP));
+            col.addView(text(a.getString(sub), 13, secondary, false), new LinearLayout.LayoutParams(MATCH, WRAP));
+            LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(0, WRAP, 1f);
+            cp.leftMargin = px(6);
+            row.addView(col, cp);
+            row.setOnClickListener(l);
+            return row;
         }
 
         private EditText field(String hint, int inputType) {
