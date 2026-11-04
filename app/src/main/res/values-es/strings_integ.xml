@@ -39,7 +39,7 @@
     <string name="sum_toolbar">barra de herramientas</string>
     <string name="sum_strip">barra de traducción</string>
     <string name="sum_glide">deslizar</string>
-    <string name="sum_autocorrect">autocorrección</string>
+    <string name="sum_autocorrect">predictivo</string>
     <string name="sum_learn">aprende palabras</string>
     <string name="sum_sound">sonido</string>
     <string name="sum_vibrate">vibración</string>

@@ -9,9 +9,12 @@ import android.graphics.Path;
 import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.text.TextUtils;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
 import android.util.SparseArray;
 import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
@@ -58,6 +61,7 @@ public final class AurebeshKeyboardView extends View {
     static final int CODE_MODE = -2;
     static final int CODE_PAGE = -3;      // 1/2 <-> 2/2 en la pagina de signos
     static final int CODE_GAP = -10;      // hueco central del teclado dividido (no se dibuja ni se toca)
+    static final int CODE_CANCELLED = -11; // marcador: el dedo se alejo de las teclas (o del menu); al soltar no se escribe nada
     static final int TOOL_RESIZE = 6;     // icono "Tamano y posicion" (modo de ajuste con tiradores), en la cinta de ?123
     /** Deslizar sobre el espacio: nada, mover el cursor o cambiar de idioma. */
     static final int SPACE_NONE = 0, SPACE_CURSOR = 1, SPACE_LANG = 2;
@@ -99,6 +103,14 @@ public final class AurebeshKeyboardView extends View {
         }
     }
 
+    /** Tecla ficticia que sustituye a la pulsada cuando el dedo se aleja: al soltar no se escribe nada. */
+    private static final Key CANCELLED = new Key(null, null, "", null, CODE_CANCELLED, 0f);
+
+    /** Tipos de respuesta haptica de {@link #haptic(int)}. */
+    private static final int H_PRESS = 0, H_LONG = 1, H_TICK = 2, H_CONFIRM = 3, H_REJECT = 4;
+    /** Constantes de HapticFeedbackConstants que faltan en android.jar antiguos: KEYBOARD_PRESS (27), CONFIRM y REJECT (30). */
+    private static final int HFC_KEYBOARD_PRESS = 3, HFC_CONFIRM = 16, HFC_REJECT = 17;
+
     /** Alternativas de cada letra (acentos y variantes); la n~ y la c con cedilla incluidas. */
     private static final java.util.Map<String, String[]> LETTER_ALTS = new java.util.HashMap<>();
     static {
@@ -115,12 +127,27 @@ public final class AurebeshKeyboardView extends View {
     private final List<List<Key>> letters = new ArrayList<>();
     private final List<List<Key>> symbols = new ArrayList<>();    // signos 1/2 (como Samsung Keyboard)
     private final List<List<Key>> symbols2 = new ArrayList<>();   // signos 2/2: digrafos, ¿ ¡ « » y mas simbolos
+    private final List<List<Key>> numpad = new ArrayList<>();     // teclado numerico 3x4 (numero, decimal, con signo o telefono)
     private List<List<Key>> current;
 
     private boolean shift = false;
     private boolean capsLock = false;
     private long lastShiftTap = 0;
     private boolean autoShifted = false;
+    private int shiftPointer = -1;          // dedo que mantiene pulsada la tecla de mayusculas (shift sostenido)
+    private boolean shiftHeldTyped = false; // se escribio alguna letra mientras se mantenia: al soltar no conmuta
+
+    // Deslizar sobre la barra espaciadora (mover el cursor o cambiar de idioma)
+    private float spaceDownX;               // x donde se poso el dedo en el espacio
+    private int spaceSteps;                 // pasos de cursor ya enviados en este gesto (negativo = izquierda)
+    private boolean spaceDragged;           // hubo gesto: al soltar no se escribe el espacio
+    private boolean spaceLangFired;         // ya se cambio de idioma en este gesto
+    private long spaceFlashAt;              // instante del cambio de idioma (destello de los chevrones)
+    private int spaceFlashDir;              // sentido del gesto que cambio de idioma: -1 izquierda, 1 derecha
+
+    // Teclado numerico: variante pedida por el campo
+    private boolean numpadPhone, numpadDecimal, numpadSigned;
+    private int repeatCount;                // repeticiones de borrar en la pulsacion actual (acelera y pasa a palabras)
 
     private boolean showHints = false;
     private boolean vibrate = true;
@@ -136,7 +163,9 @@ public final class AurebeshKeyboardView extends View {
     private int popupIndex;
     private final RectF popupRect = new RectF();
     private float popupCell;
-    private String language = "es";        // "es": con tecla n~ y , -> ?; "en": sin tecla n~ y , -> !; "de": QWERTZ con u" o" a" y , -> ;
+    private float popupCellH;               // alto de cada fila del menu
+    private int popupCols = 1, popupRows = 1; // si no caben en el ancho, dos filas; la fila 0 es la de abajo (pegada al dedo)
+    private String language = "es";       // "es": con tecla n~ y , -> ?; "en": sin tecla n~ y , -> !; "de": QWERTZ con u" o" a" y , -> ;
     private String spaceLabel;             // nombre del idioma cuando hay mas de uno activo
     private boolean languageSwitch = false; // tecla del globo (solo con varios idiomas Aurebesh activos)
     private boolean suggestionBar = false;  // barra de sugerencias (autocorreccion)
@@ -272,13 +301,7 @@ public final class AurebeshKeyboardView extends View {
         applyTheme();
         if (numberRow != numbers) {
             numberRow = numbers;
-            List<List<Key>> was = current;
-            letters.clear();
-            symbols.clear();
-            symbols2.clear();
-            buildLayouts();
-            current = was == symbols ? symbols : was == symbols2 ? symbols2 : letters;
-            requestLayout();
+            rebuildLayouts();
         }
         if (showStrip != strip) {
             showStrip = strip;
@@ -316,9 +339,29 @@ public final class AurebeshKeyboardView extends View {
     void setFieldVariant(int variant) { if (fieldVariant != variant) { fieldVariant = variant; rebuildLayouts(); } }
     private int fieldVariant = FIELD_NONE;
 
-    /** Teclado numerico 3x4 con glifos Aurebesh para campos de numero, telefono y PIN. */
-    void showNumpad(boolean phone, boolean decimal, boolean signed) { showSymbols(); }
-    boolean isNumpad() { return false; }
+    /**
+     * Teclado numerico 3x4 con glifos Aurebesh para campos de numero, telefono y PIN (el IME lo abre en
+     * onStartInputView en vez de showSymbols). {@code phone}: + * # y pausa; {@code decimal}: separador
+     * decimal del idioma; {@code signed}: teclas − y +. Sin deslizado, sin dividir y con la cinta de ?123.
+     */
+    void showNumpad(boolean phone, boolean decimal, boolean signed) {
+        numpadPhone = phone;
+        numpadDecimal = decimal;
+        numpadSigned = signed;
+        numpad.clear();
+        buildNumpad();
+        current = numpad;
+        capsLock = false;
+        shift = false;
+        closePopup();
+        cancelTimers();
+        pressed.clear();
+        resetGlide(true);
+        requestLayout();
+        invalidate();
+    }
+
+    boolean isNumpad() { return current == numpad && !numpad.isEmpty(); }
 
     /** Modo de ajuste de tamano y posicion con tiradores (TOOL_RESIZE); al terminar llama a onResize. */
     void setResizeMode(boolean on) { resizeMode = on; invalidate(); }
@@ -367,14 +410,7 @@ public final class AurebeshKeyboardView extends View {
         String l = "en".equals(lang) ? "en" : "de".equals(lang) ? "de" : "es";
         if (l.equals(language)) return;
         language = l;
-        List<List<Key>> was = current;
-        letters.clear();
-        symbols.clear();
-        symbols2.clear();
-        buildLayouts();
-        current = was == symbols ? symbols : was == symbols2 ? symbols2 : letters;
-        requestLayout();
-        invalidate();
+        rebuildLayouts();
         warmGlide();
     }
 
@@ -449,13 +485,18 @@ public final class AurebeshKeyboardView extends View {
         invalidate();
     }
 
+    /** Reconstruye todas las distribuciones (idioma, fila de numeros, globo, dividido, campo) conservando la pagina actual. */
     private void rebuildLayouts() {
         List<List<Key>> was = current;
+        boolean numpadWas = isNumpad();
         letters.clear();
         symbols.clear();
         symbols2.clear();
+        numpad.clear();
         buildLayouts();
-        current = was == symbols ? symbols : was == symbols2 ? symbols2 : letters;
+        if (numpadWas) buildNumpad();
+        current = numpadWas ? numpad : was == symbols ? symbols : was == symbols2 ? symbols2 : letters;
+        closePopup();
         requestLayout();
         invalidate();
     }
@@ -480,7 +521,7 @@ public final class AurebeshKeyboardView extends View {
     }
 
     void setAutoShift(boolean on) {
-        if (capsLock) return;
+        if (capsLock || shiftPointer >= 0) return;     // con mayusculas sostenida manda el dedo, no el texto
         if (on) { shift = true; autoShifted = true; }
         else if (autoShifted) { shift = false; autoShifted = false; }
         invalidate();
@@ -573,22 +614,70 @@ public final class AurebeshKeyboardView extends View {
         bottomRow(symbols2, "abc");
     }
 
+    /** Alternativas del punto al mantenerlo: la puntuacion completa del idioma (la primera es la que sale al soltar sin mover). */
+    private String[] dotAlts() {
+        if ("es".equals(language)) return new String[]{"?", "\u00bf", "!", "\u00a1", ":", ";", "-", "\"", "'", "@"};
+        if ("de".equals(language)) return new String[]{"?", "!", ":", ";", "-", "\"", "'", "@"};
+        return new String[]{"?", "!", ",", ":", ";", "-", "\"", "'", "@"};
+    }
+
+    /** Alternativas de la coma: en espanol los signos de apertura; en ingles !; en aleman ;. */
+    private String[] commaAlts() {
+        if ("es".equals(language)) return new String[]{"\u00bf", "\u00a1", ";", ":"};
+        if ("de".equals(language)) return new String[]{";"};
+        return new String[]{"!"};
+    }
+
+    /**
+     * Fila inferior: ?123/abc, coma, [globo], espacio, punto e intro. En campos de correo la coma pasa a ser @
+     * y aparece una tecla .com (1,5 unidades) a costa del espacio; en direcciones web, / y .com.
+     */
     private void bottomRow(List<List<Key>> layout, String modeLabel) {
         List<Key> r = new ArrayList<>();
         r.add(special(modeLabel, CODE_MODE, 1.5f));
-        r.add(sym(",", 1f, "es".equals(language) ? "\u00bf" : "de".equals(language) ? ";" : "!"));
+        String open = "es".equals(language) ? "\u00bf" : "!";
+        if (fieldVariant == FIELD_EMAIL) r.add(sym("@", 1f, ",", open));
+        else if (fieldVariant == FIELD_URL) r.add(sym("/", 1f, ",", "-", "_"));
+        else r.add(sym(",", 1f, commaAlts()));
+        Key dotCom = fieldVariant == FIELD_NONE ? null
+                : new Key(".com", null, ".com", new String[]{".es", ".mx", ".org", ".net"}, CODE_TEXT, 1.5f);
         float space = 5f;
         if (languageSwitch) { r.add(special("", CODE_GLOBE, 1f)); space -= 1f; }
         if (split) {                                       // dos mitades de 5,5 unidades, como Samsung Keyboard en el Fold
             r.add(special("", CODE_SPACE, space - 2f));    // ?123 (1,5) + , (1) [+ globo (1)] + espacio = 5,5
             r.add(special("", CODE_GAP, 0f));
-            r.add(special("", CODE_SPACE, 3f));            // espacio (3) + . (1) + intro (1,5) = 5,5
+            r.add(special("", CODE_SPACE, dotCom != null ? 1.5f : 3f));   // espacio (3) [o 1,5 + .com] + . (1) + intro (1,5) = 5,5
         } else {
-            r.add(special("", CODE_SPACE, space));
+            r.add(special("", CODE_SPACE, dotCom != null ? space - 1.5f : space));
         }
-        r.add(sym(".", 1f, "?"));
+        if (dotCom != null) r.add(dotCom);
+        r.add(sym(".", 1f, dotAlts()));
         r.add(special("", CODE_ENTER, 1.5f));
         layout.add(r);
+    }
+
+    /**
+     * Teclado numerico, 4 columnas x 4 filas con los digitos en glifos Aurebesh grandes. Numero:
+     * 1 2 3 / 4 5 6 / 7 8 9 / [separador] 0 borrar, y una columna derecha con \u2212 y + (campos con signo) e
+     * intro alto. Telefono: * 0 # en la ultima fila y a la derecha borrar, +, pausa (,) e intro. Las celdas
+     * sin tecla llevan CODE_GAP; {@link #layoutNumpad} coloca las teclas y estira intro sobre las celdas vacias.
+     */
+    private void buildNumpad() {
+        boolean en = "en".equals(language);
+        if (numpadPhone) {
+            String pause = getContext().getString(R.string.numpad_pause);
+            row(numpad, sym("1", 1f), sym("2", 1f), sym("3", 1f), special("", CODE_DELETE, 1f));
+            row(numpad, sym("4", 1f), sym("5", 1f), sym("6", 1f), sym("+", 1f));
+            row(numpad, sym("7", 1f), sym("8", 1f), sym("9", 1f), new Key(",", null, pause, new String[]{";"}, CODE_TEXT, 1f));
+            row(numpad, sym("*", 1f), sym("0", 1f), sym("#", 1f), special("", CODE_ENTER, 1f));
+            return;
+        }
+        Key sep = !numpadDecimal ? special("", CODE_GAP, 1f)
+                : en ? sym(".", 1f, ",") : sym(",", 1f, ".");
+        row(numpad, sym("1", 1f), sym("2", 1f), sym("3", 1f), numpadSigned ? sym("-", 1f, "\u2212") : special("", CODE_GAP, 1f));
+        row(numpad, sym("4", 1f), sym("5", 1f), sym("6", 1f), numpadSigned ? sym("+", 1f) : special("", CODE_GAP, 1f));
+        row(numpad, sym("7", 1f), sym("8", 1f), sym("9", 1f), special("", CODE_ENTER, 1f));
+        row(numpad, sep, sym("0", 1f), special("", CODE_DELETE, 1f), special("", CODE_GAP, 1f));
     }
 
     /** Tecla de funcion del teclado actual con ese codigo (para pruebas). */
@@ -607,8 +696,17 @@ public final class AurebeshKeyboardView extends View {
 
     private float stripHeight() { return toolbar || showStrip || suggestionBar ? 40 * dp : 4 * dp; }
     private boolean isDigitRow(List<List<Key>> layout, int ri) {
-        return ri == 0 && (numberRow || layout == symbols || layout == symbols2);
+        return ri == 0 && layout != numpad && (numberRow || layout == symbols || layout == symbols2);
     }
+
+    /** Ancho de la caja de teclas: todo el ancho, o en modo a una mano el 78 % sin pasar de 400 dp (Fold, tabletas). */
+    private float handWidth() {
+        float full = getWidth();
+        return handMode == 0 ? full : Math.min(full * 0.78f, 400 * dp);
+    }
+
+    /** Donde empieza la caja de teclas (y la cinta, que la acompana): pegada a la derecha en modo a una mano derecha. */
+    private float handOffset() { return handMode == 2 ? getWidth() - handWidth() : 0; }
 
     /** En apaisado las filas son mas bajas para no tapar media pantalla. */
     private float rowHeight(List<List<Key>> layout, int ri) {
@@ -636,6 +734,7 @@ public final class AurebeshKeyboardView extends View {
         layoutKeys(letters);
         layoutKeys(symbols);
         layoutKeys(symbols2);
+        if (!numpad.isEmpty()) layoutNumpad();
         warmGlide();
     }
 
@@ -652,9 +751,8 @@ public final class AurebeshKeyboardView extends View {
 
     private void layoutKeys(List<List<Key>> layout) {
         if (split) { layoutKeysSplit(layout); return; }
-        float full = getWidth();
-        float w = handMode == 0 ? full : full * 0.78f;        // a una mano: 78 % del ancho
-        float offset = handMode == 2 ? full - w : 0;
+        float w = handWidth();                                // a una mano: 78 % del ancho (maximo 400 dp)
+        float offset = handOffset();
         float pad = keyMargin();
         float y = stripHeight();
         for (int ri = 0; ri < layout.size(); ri++) {
@@ -732,6 +830,39 @@ public final class AurebeshKeyboardView extends View {
                 }
             }
             y += rh;
+        }
+    }
+
+    /**
+     * Teclado numerico: rejilla de 4 columnas que llena el ancho util (unidad maxima de 120 dp, centrada),
+     * nunca dividida; intro se estira hacia abajo sobre las celdas vacias (CODE_GAP) de su columna.
+     */
+    private void layoutNumpad() {
+        float w = handWidth(), off = handOffset(), pad = keyMargin();
+        int cols = 0;
+        for (List<Key> row : numpad) cols = Math.max(cols, row.size());
+        if (cols == 0) return;
+        float unit = Math.min((w - 2 * pad) / cols, 120 * dp);
+        float x0 = off + pad + ((w - 2 * pad) - unit * cols) / 2f;
+        float[] top = new float[numpad.size() + 1];
+        top[0] = stripHeight();
+        for (int ri = 0; ri < numpad.size(); ri++) {
+            top[ri + 1] = top[ri] + rowHeight(numpad, ri);
+            List<Key> row = numpad.get(ri);
+            for (int ci = 0; ci < row.size(); ci++) {
+                Key k = row.get(ci);
+                if (k.code == CODE_GAP) k.rect.setEmpty();
+                else k.rect.set(x0 + ci * unit, top[ri], x0 + (ci + 1) * unit, top[ri + 1]);
+            }
+        }
+        for (int ri = 0; ri < numpad.size(); ri++) {
+            List<Key> row = numpad.get(ri);
+            for (int ci = 0; ci < row.size(); ci++) {
+                if (row.get(ci).code != CODE_ENTER) continue;
+                int rj = ri + 1;
+                while (rj < numpad.size() && ci < numpad.get(rj).size() && numpad.get(rj).get(ci).code == CODE_GAP) rj++;
+                row.get(ci).rect.bottom = top[rj];
+            }
         }
     }
 
@@ -813,7 +944,7 @@ public final class AurebeshKeyboardView extends View {
         switch (k.code) {
             case CODE_TEXT:
                 if (k.glyph != null) {
-                    float h = r.height() * (digitRow ? 0.44f : 0.50f);
+                    float h = r.height() * (digitRow ? 0.44f : current == numpad ? 0.58f : 0.50f);   // numerico: digitos grandes
                     if (theme.glow != 0) Glyphs.drawCentered(c, k.glyph, cx, cy, h, r.width() * 0.74f, glowPaint);
                     Glyphs.drawCentered(c, k.glyph, cx, cy, h, r.width() * 0.74f, glyphPaint);
                     if (showHints) {
@@ -823,6 +954,8 @@ public final class AurebeshKeyboardView extends View {
                         c.drawText(hint, r.left + 4 * dp, r.top + 10 * dp, hintPaint);
                         hintPaint.setTextAlign(Paint.Align.RIGHT);
                     }
+                } else if (k.label.length() > 1) {
+                    drawMiniWord(c, k.label, cx, cy, 10 * dp);    // ".com" o "Pausa": palabra en Aurebesh pequeño, como ?123
                 } else {
                     textPaint.setTextSize(19 * dp);
                     c.drawText(k.label, cx, cy + 7 * dp, textPaint);
@@ -864,8 +997,35 @@ public final class AurebeshKeyboardView extends View {
                     c.drawText(spaceLabel, cx, cy + 4 * dp, hintPaint);
                     hintPaint.setTextAlign(Paint.Align.RIGHT);
                 }
+                if (spaceSlide != SPACE_NONE) drawSpaceChevrons(c, r, cy);
                 break;
         }
+    }
+
+    /**
+     * Chevrones tenues ‹ › en los extremos del espacio cuando deslizar sobre el hace algo (en cada mitad del
+     * dividido tambien). Tras cambiar de idioma con el gesto, el chevron de ese lado destella en el color de
+     * acento durante 350 ms.
+     */
+    private void drawSpaceChevrons(Canvas c, RectF r, float cy) {
+        if (r.width() < 60 * dp) return;
+        long age = SystemClock.uptimeMillis() - spaceFlashAt;
+        boolean flashing = spaceFlashAt != 0 && age >= 0 && age < 350;
+        hintPaint.setTextSize(13 * sp);
+        hintPaint.setTextAlign(Paint.Align.CENTER);
+        int base = hintPaint.getColor();
+        int faint = (base & 0x00FFFFFF) | 0x66000000;
+        for (int side = -1; side <= 1; side += 2) {
+            boolean lit = flashing && side == spaceFlashDir;
+            int color = lit ? theme.accent == theme.keyBg ? theme.glyph : theme.accent : faint;
+            if (lit) color = (color & 0x00FFFFFF) | (((int) (255 * (1f - age / 350f))) << 24);
+            hintPaint.setColor(color);
+            float x = side < 0 ? r.left + 10 * dp : r.right - 10 * dp;
+            c.drawText(side < 0 ? "‹" : "›", x, cy + 5 * dp, hintPaint);
+        }
+        hintPaint.setColor(base);
+        hintPaint.setTextAlign(Paint.Align.RIGHT);
+        if (flashing) postInvalidateOnAnimation();
     }
 
     private void drawMiniWord(Canvas c, String word, float cx, float cy, float h) {
@@ -995,12 +1155,17 @@ public final class AurebeshKeyboardView extends View {
         fill.setColor(theme.preview);
         c.drawRoundRect(popupRect, r, r, fill);
         if (theme.keyStroke != 0) c.drawRoundRect(popupRect, r, r, strokePaint);
+        if (popupRows > 1) {                                        // separacion entre las dos filas
+            float yy = popupRect.bottom - popupCellH;
+            c.drawLine(popupRect.left + 8 * dp, yy, popupRect.right - 8 * dp, yy, strokePaint);
+        }
         for (int i = 0; i < popupAlts.length; i++) {
-            float left = popupRect.left + i * popupCell;
-            float cx = left + popupCell / 2f, cy = popupRect.centerY();
+            RectF cell = popupCellRect(i);
+            float left = cell.left;
+            float cx = cell.centerX(), cy = cell.centerY();
             boolean sel = i == popupIndex;
             if (sel) {
-                tmp.set(left + 3 * dp, popupRect.top + 3 * dp, left + popupCell - 3 * dp, popupRect.bottom - 3 * dp);
+                tmp.set(left + 3 * dp, cell.top + 3 * dp, left + popupCell - 3 * dp, cell.bottom - 3 * dp);
                 fill.setColor(theme.accent);
                 c.drawRoundRect(tmp, 8 * dp, 8 * dp, fill);
             }
@@ -1008,31 +1173,80 @@ public final class AurebeshKeyboardView extends View {
             String shown = shiftActive() && current == letters ? a.toUpperCase() : a;
             if (Glyphs.has(a)) {
                 glyphPaint.setColor(sel ? theme.onAccent : theme.previewText);
-                Glyphs.drawCentered(c, a, cx, cy - 6 * dp, popupRect.height() * 0.42f, popupCell * 0.7f, glyphPaint);
+                Glyphs.drawCentered(c, a, cx, cy - 6 * dp, popupCellH * 0.42f, popupCell * 0.7f, glyphPaint);
                 glyphPaint.setColor(theme.glyph);
                 textPaint.setColor(sel ? theme.onAccent : theme.previewLatin);
                 textPaint.setTextSize(10 * sp);
-                c.drawText(shown, cx, popupRect.bottom - 7 * dp, textPaint);
+                c.drawText(shown, cx, cell.bottom - 7 * dp, textPaint);
             } else {
                 textPaint.setColor(sel ? theme.onAccent : theme.previewText);
-                textPaint.setTextSize(22 * dp);
+                textPaint.setTextSize(a.length() > 2 ? 15 * dp : 22 * dp);
                 c.drawText(shown, cx, cy + 8 * dp, textPaint);
             }
             textPaint.setColor(theme.glyph);
         }
     }
 
+    /** Teclas de una sola letra (la n~ incluida): su menu termina con la propia letra para poder volver a ella. */
+    private static boolean singleLetter(Key k) {
+        return k != null && k.code == CODE_TEXT && k.output != null && k.output.length() == 1 && Character.isLetter(k.output.charAt(0));
+    }
+
+    /**
+     * Abre el menu de alternativas sobre la tecla. En las letras la propia letra va de ultima celda. Si las
+     * celdas no caben en el ancho se reparten en dos filas de ceil(n/2); la fila 0 es la de abajo (pegada al
+     * dedo) y la celda i esta en la fila i / columnas, columna i % columnas.
+     */
     private void openPopup(Key k) {
         popupKey = k;
-        popupAlts = k.alts;
+        String[] alts = k.alts;
+        if (singleLetter(k) && current == letters) {
+            boolean dup = false;
+            for (String a : alts) dup |= a.equals(k.output);
+            if (!dup) {
+                alts = java.util.Arrays.copyOf(alts, alts.length + 1);
+                alts[alts.length - 1] = k.output;
+            }
+        }
+        popupAlts = alts;
         popupIndex = 0;
+        int n = alts.length;
+        float avail = getWidth() - 4 * dp;
         popupCell = Math.max(k.rect.width(), 46 * dp);
-        float h = 64 * dp;
-        float total = popupCell * popupAlts.length;
+        popupCols = n;
+        popupRows = 1;
+        if (popupCell * n > avail) {
+            popupRows = 2;
+            popupCols = (n + 1) / 2;
+            popupCell = Math.min(popupCell, avail / popupCols);
+        }
+        popupCellH = 64 * dp;
+        float h = popupCellH * popupRows;
+        float total = popupCell * popupCols;
         float left = k.rect.centerX() - popupCell / 2f;              // la primera opcion, sobre la tecla
         left = Math.max(2 * dp, Math.min(getWidth() - total - 2 * dp, left));
-        popupRect.set(left, Math.max(0, k.rect.top - h - 2 * dp), left + total, Math.max(0, k.rect.top - h - 2 * dp) + h);
+        float top = Math.max(0, k.rect.top - h - 2 * dp);
+        popupRect.set(left, top, left + total, top + h);
         invalidate();
+    }
+
+    /** Celda del menu bajo el punto (x, y): la columna por x y, con dos filas, la fila por y (fuera del menu, la mas cercana). */
+    private int popupIndexAt(float x, float y) {
+        int col = (int) Math.floor((x - popupRect.left) / popupCell);
+        col = Math.max(0, Math.min(popupCols - 1, col));
+        int row = 0;
+        if (popupRows > 1) {
+            row = (int) Math.floor((popupRect.bottom - y) / popupCellH);
+            row = Math.max(0, Math.min(popupRows - 1, row));
+        }
+        return Math.min(popupAlts.length - 1, row * popupCols + col);
+    }
+
+    /** El dedo se fue del menu: por debajo de la tecla y media fila mas, o mas de una tecla a los lados. */
+    private boolean popupAbandoned(float x, float y) {
+        float keyW = popupKey.rect.width();
+        return y > popupKey.rect.bottom + popupKey.rect.height() / 2f
+                || x < popupRect.left - keyW || x > popupRect.right + keyW;
     }
 
     private void commitPopup() {
@@ -1040,7 +1254,8 @@ public final class AurebeshKeyboardView extends View {
         String out = popupAlts[popupIndex];
         if (shiftActive() && current == letters) out = out.toUpperCase();
         if (listener != null) listener.onText(out);
-        if (shift && !capsLock) { shift = false; autoShifted = false; }
+        if (shiftPointer >= 0) shiftHeldTyped = true;
+        else if (shift && !capsLock) { shift = false; autoShifted = false; }
         closePopup();
     }
 
@@ -1052,9 +1267,14 @@ public final class AurebeshKeyboardView extends View {
     /** Celda i del menu abierto (para pruebas). */
     RectF popupCellRect(int i) {
         if (popupKey == null) return null;
-        float left = popupRect.left + i * popupCell;
-        return new RectF(left, popupRect.top, left + popupCell, popupRect.bottom);
+        int row = i / popupCols, col = i % popupCols;
+        float left = popupRect.left + col * popupCell;
+        float bottom = popupRect.bottom - row * popupCellH;
+        return new RectF(left, bottom - popupCellH, left + popupCell, bottom);
     }
+
+    /** Opciones del menu abierto, en el orden de las celdas (para pruebas); null si no hay menu. */
+    String[] popupOptions() { return popupAlts == null ? null : popupAlts.clone(); }
 
     private void drawPreview(Canvas c, Key k) {
         float w = Math.max(k.rect.width() * 1.3f, 56 * dp);
@@ -1091,7 +1311,7 @@ public final class AurebeshKeyboardView extends View {
         suggestionRects.clear();
         suggestionWords.clear();
         for (int i = 0; i < toolRects.length; i++) toolRects[i] = null;
-        float full = getWidth(), hw = handMode == 0 ? full : full * 0.78f, off = handMode == 2 ? full - hw : 0;
+        float hw = handWidth(), off = handOffset();            // la cinta acompana a la caja de teclas
         float right = off + hw - 12 * dp;
         boolean chips = !suggestions.isEmpty();
         moreRect.setEmpty();
@@ -1112,7 +1332,7 @@ public final class AurebeshKeyboardView extends View {
 
     /** Boton de inteligencia (estrella de cuatro puntas) a la izquierda de la barra. Devuelve donde empiezan los chips. */
     private float drawAiButton(Canvas c) {
-        float off = handMode == 2 ? getWidth() * 0.22f : 0;    // modo a una mano derecha: la barra acompana a las teclas
+        float off = handOffset();                                // modo a una mano derecha: la barra acompana a las teclas
         float cy = stripHeight() / 2f, cx = off + 6 * dp + 22 * dp;
         aiRect.set(off + 6 * dp, 0, off + 6 * dp + 44 * dp, stripHeight());
         fill.setColor(toolPressed == 9 ? theme.pressed : theme.specialBg);
@@ -1141,7 +1361,7 @@ public final class AurebeshKeyboardView extends View {
 
     /** Boton "..." a la derecha mientras hay sugerencias: muestra los iconos de la barra. */
     private float drawMore(Canvas c) {
-        float full = getWidth(), hw = handMode == 0 ? full : full * 0.78f, off = handMode == 2 ? full - hw : 0;
+        float hw = handWidth(), off = handOffset();
         float cy = stripHeight() / 2f, cx = off + hw - 6 * dp - 22 * dp;
         moreRect.set(off + hw - 50 * dp, 0, off + hw, stripHeight());
         fill.setColor(theme.specialBg);
@@ -1202,7 +1422,7 @@ public final class AurebeshKeyboardView extends View {
     /** Iconos redondos a la derecha: emojis, portapapeles, una mano y, en ?123, ajustes. Devuelve el limite izquierdo. */
     private float drawToolbar(Canvas c) {
         int[] ids = tools();
-        float full = getWidth(), hw = handMode == 0 ? full : full * 0.78f, off = handMode == 2 ? full - hw : 0;
+        float hw = handWidth(), off = handOffset();
         float cell = 44 * dp, cy = stripHeight() / 2f;
         float x = off + hw - 6 * dp - cell * ids.length;
         float left = x;
@@ -1243,7 +1463,7 @@ public final class AurebeshKeyboardView extends View {
     private void drawSideSwitch(Canvas c) {
         sideRect.setEmpty();
         if (handMode == 0 || current.isEmpty()) return;
-        float full = getWidth(), w = full * 0.78f, pad = keyMargin();
+        float full = getWidth(), w = handWidth(), pad = keyMargin();
         float marginLeft = handMode == 2 ? 0 : w - pad, marginRight = handMode == 2 ? full - w + pad : full;
         float cx = (marginLeft + marginRight) / 2f, cy = stripHeight() + keysHeight() / 2f;
         float r = 20 * dp;
@@ -1393,6 +1613,34 @@ public final class AurebeshKeyboardView extends View {
         return bestDist < tol * tol ? best : null;
     }
 
+    /** El punto esta sobre la cinta o a mas de 24 dp de la zona de teclas: el toque se cancela al pasar por ahi. */
+    private boolean farFromKeys(float x, float y) {
+        if (y < stripHeight()) return true;
+        float left = Float.MAX_VALUE, right = -Float.MAX_VALUE, top = Float.MAX_VALUE, bottom = -Float.MAX_VALUE;
+        for (List<Key> row : current) {
+            for (Key k : row) {
+                if (k.code == CODE_GAP || k.rect.isEmpty()) continue;
+                left = Math.min(left, k.rect.left); right = Math.max(right, k.rect.right);
+                top = Math.min(top, k.rect.top); bottom = Math.max(bottom, k.rect.bottom);
+            }
+        }
+        if (left > right) return false;
+        float m = 24 * dp;
+        return x < left - m || x > right + m || y < top - m || y > bottom + m;
+    }
+
+    /**
+     * El dedo se alejo de las teclas (o del menu de alternativas): la tecla pulsada pasa a ser el marcador
+     * CANCELLED, se paran los temporizadores y vibra el rechazo; al soltar no se escribe nada.
+     */
+    private void cancelPointer(int pid) {
+        pressed.put(pid, CANCELLED);
+        if (pid == glidePointer) resetGlide(true);
+        cancelTimers();
+        haptic(H_REJECT);
+        invalidate();
+    }
+
     @Override
     public boolean onTouchEvent(MotionEvent e) {
         int action = e.getActionMasked();
@@ -1405,8 +1653,11 @@ public final class AurebeshKeyboardView extends View {
                 else if (glideState == GLIDE_PENDING) resetGlide(true);  // y el toque pendiente se suelta como toque normal
                 for (int i = pressed.size() - 1; i >= 0; i--) {
                     Key prev = pressed.valueAt(i);
+                    if (prev != null && prev.code == CODE_SHIFT && pressed.keyAt(i) == shiftPointer) continue;   // mayusculas sostenida
                     if (prev != null && prev == popupKey) commitPopup();
-                    else if (prev != null && prev.code != CODE_DELETE && !(prev == longPressKey && longPressFired)) release(prev);
+                    else if (prev != null && prev.code != CODE_DELETE && prev.code != CODE_CANCELLED
+                            && !(prev.code == CODE_SPACE && spaceDragged)
+                            && !(prev == longPressKey && longPressFired)) release(prev);
                     pressed.removeAt(i);
                 }
                 cancelTimers();
@@ -1456,6 +1707,13 @@ public final class AurebeshKeyboardView extends View {
                 if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(true);
                 pressed.put(id, k);
                 feedback(k);
+                if (k.code == CODE_SHIFT) { shiftPointer = id; shiftHeldTyped = false; }
+                if (k.code == CODE_SPACE) {
+                    spaceDownX = e.getX(idx);
+                    spaceSteps = 0;
+                    spaceDragged = false;
+                    spaceLangFired = false;
+                }
                 if (k.code == CODE_DELETE) {
                     if (listener != null) listener.onDelete();
                     startRepeat(k);
@@ -1489,15 +1747,25 @@ public final class AurebeshKeyboardView extends View {
                             continue;
                         }
                     }
+                    float x = e.getX(i), y = e.getY(i);
                     if (popupKey != null && old == popupKey) {       // deslizar por el menu
-                        int ni = (int) Math.floor((e.getX(i) - popupRect.left) / popupCell);
-                        ni = Math.max(0, Math.min(popupAlts.length - 1, ni));
-                        if (ni != popupIndex) { popupIndex = ni; invalidate(); }
+                        if (popupAbandoned(x, y)) {                   // alejarse lo cierra sin escribir nada
+                            closePopup();
+                            cancelPointer(pid);
+                            continue;
+                        }
+                        int ni = popupIndexAt(x, y);
+                        if (ni != popupIndex) { popupIndex = ni; haptic(H_TICK); invalidate(); }
                         continue;
                     }
-                    if (old.code == CODE_DELETE || old.code == CODE_SPACE) continue;
-                    Key k = findKey(e.getX(i), e.getY(i));
-                    if (k != null && k != old && !longPressFired) {
+                    if (old.code == CODE_CANCELLED || old.code == CODE_DELETE) continue;
+                    if (old.code == CODE_SPACE) { spaceMove(pid, x); continue; }
+                    Key k = findKey(x, y);
+                    if (k == null) {
+                        if (farFromKeys(x, y)) cancelPointer(pid);    // soltar fuera no escribe
+                        continue;
+                    }
+                    if (k != old && !longPressFired) {
                         pressed.put(pid, k);
                         startLongPress(k);
                         invalidate();
@@ -1527,21 +1795,40 @@ public final class AurebeshKeyboardView extends View {
                 if (id == glidePointer) resetGlide(true);            // pendiente: fue un toque normal
                 Key k = pressed.get(id);
                 pressed.remove(id);
+                boolean fromShift = id == shiftPointer;
                 if (k != null && k == popupKey) {
                     commitPopup();
                     cancelTimers();
+                    if (fromShift) { shiftPointer = -1; shiftHeldTyped = false; }
                     invalidate();
                     return true;
                 }
-                boolean consumed = k != null && k == longPressKey && longPressFired;
+                boolean consumed = k != null && ((k == longPressKey && longPressFired) || k.code == CODE_CANCELLED
+                        || (k.code == CODE_SPACE && spaceDragged));
                 cancelTimers();
-                if (k != null && !consumed && k.code != CODE_DELETE) release(k);
+                if (fromShift && k != null && k.code == CODE_SHIFT) {
+                    // Soltar mayusculas: si se escribio algo mientras se mantenia, se apaga sin conmutar (ni bloquear)
+                    shiftPointer = -1;
+                    if (shiftHeldTyped) { shift = false; autoShifted = false; shiftHeldTyped = false; lastShiftTap = 0; }
+                    else release(k);
+                } else if (fromShift) {
+                    // Deslizar desde mayusculas hasta una letra: esa letra en mayuscula, una sola
+                    if (k != null && !consumed && k.code != CODE_DELETE) release(k);
+                    shiftPointer = -1;
+                    shiftHeldTyped = false;
+                    if (shift && !capsLock) { shift = false; autoShifted = false; }
+                } else if (k != null && !consumed && k.code != CODE_DELETE) {
+                    release(k);
+                }
                 invalidate();
                 return true;
             }
             case MotionEvent.ACTION_CANCEL:
                 toolPressed = -1;
                 toolPointer = -1;
+                shiftPointer = -1;
+                shiftHeldTyped = false;
+                spaceDragged = false;
                 resetGlide(true);
                 pressed.clear();
                 closePopup();
@@ -1637,7 +1924,7 @@ public final class AurebeshKeyboardView extends View {
             release(tapKey);
             return;
         }
-        int caseMode = capsLock ? 2 : shift ? 1 : 0;
+        int caseMode = capsLock ? 2 : shift || shiftPointer >= 0 ? 1 : 0;
         if (shift && !capsLock) { shift = false; autoShifted = false; }
         SwipeDecoder.Geometry geo = glideGeometry();
         if (geo == null || listener == null) return;
@@ -1716,7 +2003,7 @@ public final class AurebeshKeyboardView extends View {
                 invalidate();
                 return;
             }
-            if (vibrate) performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);   // nada reconocido
+            haptic(H_REJECT);                                     // nada reconocido
             return;
         }
         if (listener == null) return;
@@ -1777,7 +2064,50 @@ public final class AurebeshKeyboardView extends View {
         return new SwipeDecoder.Geometry(letter, cx, cy, keyW, keyH);
     }
 
-    private boolean shiftActive() { return shift || capsLock; }
+    /** Mayusculas activa: pulsada, bloqueada o sostenida con otro dedo. */
+    private boolean shiftActive() { return shift || capsLock || shiftPointer >= 0; }
+
+    /**
+     * Deslizar sobre la barra espaciadora. SPACE_CURSOR: un paso de cursor por cada 12 dp (seleccion si
+     * mayusculas esta activa), con tic haptico; SPACE_LANG: pasada una tecla de ancho cambia de idioma una
+     * vez por gesto. En ambos casos se cancela la pulsacion larga y al soltar no se escribe el espacio.
+     */
+    private void spaceMove(int pid, float x) {
+        Key space = pressed.get(pid);
+        if (space == null || spaceSlide == SPACE_NONE) return;
+        float dx = x - spaceDownX;
+        if (spaceSlide == SPACE_CURSOR) {
+            int steps = (int) (dx / (12 * dp));
+            if (steps == spaceSteps) return;
+            if (!spaceDragged) {
+                spaceDragged = true;
+                handler.removeCallbacks(longPressRunnable);
+                longPressKey = null;
+                longPressFired = false;
+            }
+            int dir = steps > spaceSteps ? 1 : -1;
+            boolean select = shiftActive();
+            while (spaceSteps != steps) {
+                spaceSteps += dir;
+                if (listener != null) listener.onCursorMove(dir, select);
+            }
+            haptic(H_TICK);
+            return;
+        }
+        float unit = space.weight > 0 ? space.rect.width() / space.weight : space.rect.width();   // una tecla de ancho
+        if (!spaceLangFired && Math.abs(dx) > unit) {
+            spaceLangFired = true;
+            spaceDragged = true;
+            handler.removeCallbacks(longPressRunnable);
+            longPressKey = null;
+            longPressFired = false;
+            spaceFlashAt = SystemClock.uptimeMillis();
+            spaceFlashDir = dx > 0 ? 1 : -1;
+            haptic(H_CONFIRM);
+            if (listener != null) listener.onSwitchLanguage();
+            invalidate();
+        }
+    }
 
     private void release(Key k) {
         if (listener == null) return;
@@ -1785,7 +2115,8 @@ public final class AurebeshKeyboardView extends View {
             case CODE_TEXT: {
                 String out = shiftActive() && current == letters ? k.output.toUpperCase() : k.output;
                 listener.onText(out);
-                if (shift && !capsLock) { shift = false; autoShifted = false; }
+                if (shiftPointer >= 0) shiftHeldTyped = true;           // sostenida: sigue en mayusculas hasta soltarla
+                else if (shift && !capsLock) { shift = false; autoShifted = false; }
                 break;
             }
             case CODE_SPACE: listener.onText(" "); break;
@@ -1794,7 +2125,7 @@ public final class AurebeshKeyboardView extends View {
             case CODE_SHIFT: {
                 long now = System.currentTimeMillis();
                 if (capsLock) { capsLock = false; shift = false; }
-                else if (now - lastShiftTap < 350) { capsLock = true; shift = true; }
+                else if (now - lastShiftTap < 350) { capsLock = true; shift = true; haptic(H_CONFIRM); }
                 else shift = !shift;
                 autoShifted = false;
                 lastShiftTap = now;
@@ -1817,12 +2148,13 @@ public final class AurebeshKeyboardView extends View {
             Key k = longPressKey;
             if (k == null || listener == null) return;
             if (k.code == CODE_SPACE) {
+                if (spaceDragged) return;                              // ya es un gesto de cursor o de idioma
                 longPressFired = true;
-                feedback(k);
+                haptic(H_LONG);
                 listener.onSwitchKeyboard();
             } else if (k.code == CODE_TEXT && k.alts != null) {
                 longPressFired = true;
-                feedback(k);
+                haptic(H_LONG);
                 openPopup(k);
                 if (glideState == GLIDE_PENDING) resetGlide(true);   // con el menu abierto ya no hay trazo
             }
@@ -1830,11 +2162,22 @@ public final class AurebeshKeyboardView extends View {
         }
     };
 
+    /**
+     * Borrar mantenido, con aceleracion: cada 60 ms las primeras 12 repeticiones, luego cada 35 ms y, a
+     * partir de la 30 (unos 2 s), una palabra entera cada 150 ms con un tic haptico.
+     */
     private final Runnable repeatRunnable = new Runnable() {
         @Override public void run() {
             if (repeatKey == null || listener == null) return;
-            listener.onDelete();
-            handler.postDelayed(this, 60);
+            repeatCount++;
+            if (repeatCount >= 30) {
+                listener.onDeleteWord();
+                haptic(H_TICK);
+                handler.postDelayed(this, 150);
+            } else {
+                listener.onDelete();
+                handler.postDelayed(this, repeatCount < 12 ? 60 : 35);
+            }
         }
     };
 
@@ -1842,12 +2185,13 @@ public final class AurebeshKeyboardView extends View {
         handler.removeCallbacks(longPressRunnable);
         longPressKey = k;
         longPressFired = false;
-        handler.postDelayed(longPressRunnable, k.code == CODE_SPACE ? 600 : 380);
+        handler.postDelayed(longPressRunnable, k.code == CODE_SPACE ? longPressMs + 220 : longPressMs);
     }
 
     private void startRepeat(Key k) {
         repeatKey = k;
-        handler.postDelayed(repeatRunnable, 420);
+        repeatCount = 0;
+        handler.postDelayed(repeatRunnable, longPressMs + 40);
     }
 
     private void cancelTimers() {
@@ -1858,9 +2202,51 @@ public final class AurebeshKeyboardView extends View {
         repeatKey = null;
     }
 
+    /** Respuesta al pulsar una tecla: vibracion de pulsacion y clic. */
     private void feedback(Key k) {
-        if (vibrate) performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+        haptic(H_PRESS);
         if (sound) KeySound.get(getContext()).play(k.code);   // clic del sistema o sonido personalizado
+    }
+
+    /**
+     * Respuesta haptica por tipo (H_PRESS, H_LONG, H_TICK, H_CONFIRM, H_REJECT), siempre que la vibracion
+     * este activada. Con nivel 0 se usa la del sistema (performHapticFeedback); con niveles 1-3 la pulsacion y
+     * el tic son un pulso propio del vibrador (6/10/16 ms a 70/150/255) y el resto sigue siendo del sistema.
+     */
+    private void haptic(int kind) {
+        if (!vibrate) return;
+        if (hapticsLevel > 0 && (kind == H_PRESS || kind == H_TICK)) {
+            int ms = hapticsLevel == 1 ? 6 : hapticsLevel == 2 ? 10 : 16;
+            int amp = hapticsLevel == 1 ? 70 : hapticsLevel == 2 ? 150 : 255;
+            if (vibrateOneShot(ms, amp)) return;
+        }
+        int sdk = Build.VERSION.SDK_INT;
+        int c;
+        switch (kind) {
+            case H_LONG: c = HapticFeedbackConstants.LONG_PRESS; break;
+            case H_TICK: c = HapticFeedbackConstants.CLOCK_TICK; break;
+            case H_CONFIRM: c = sdk >= 30 ? HFC_CONFIRM : HapticFeedbackConstants.LONG_PRESS; break;
+            case H_REJECT: c = sdk >= 30 ? HFC_REJECT : HapticFeedbackConstants.KEYBOARD_TAP; break;
+            default: c = sdk >= 27 ? HFC_KEYBOARD_PRESS : HapticFeedbackConstants.KEYBOARD_TAP;
+        }
+        performHapticFeedback(c);
+    }
+
+    /** Pulso del vibrador; false si no hay vibrador o no se pudo (sin permiso), para caer en la respuesta del sistema. */
+    private boolean vibrateOneShot(int ms, int amplitude) {
+        try {
+            Vibrator v = (Vibrator) getContext().getSystemService(Context.VIBRATOR_SERVICE);
+            if (v == null || !v.hasVibrator()) return false;
+            if (Build.VERSION.SDK_INT >= 26) {
+                int amp = v.hasAmplitudeControl() ? amplitude : VibrationEffect.DEFAULT_AMPLITUDE;
+                v.vibrate(VibrationEffect.createOneShot(ms, amp));
+            } else {
+                v.vibrate(ms);
+            }
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     @Override
@@ -1870,5 +2256,8 @@ public final class AurebeshKeyboardView extends View {
         closePopup();
         resetGlide(true);
         pressed.clear();
+        shiftPointer = -1;
+        shiftHeldTyped = false;
+        spaceDragged = false;
     }
 }

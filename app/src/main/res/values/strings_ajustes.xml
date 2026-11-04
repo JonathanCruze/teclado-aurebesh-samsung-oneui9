@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Pantalla de ajustes (1.10): secciones como One UI. Cada subtitulo dice que cambia, no donde esta. -->
+    <string name="aj_sec_design">Style and layout</string>
+    <string name="aj_sec_size">Size and position</string>
+    <string name="aj_sec_smart">Smart typing</string>
+    <string name="aj_sec_touch">Touch and feedback</string>
+    <string name="aj_sec_clipboard">Clipboard</string>
+    <string name="aj_sec_help">Help and gestures</string>
+
+    <!-- Diseno -->
+    <string name="aj_theme_auto">Automatic</string>
+    <string name="aj_theme_auto_hint">Automatic follows the phone\'s dark mode: Stellar by day, Night at night</string>
+    <string name="aj_mode">Keyboard mode</string>
+    <string name="aj_mode_sub">One-handed shrinks the keys toward one thumb; the arrow next to them moves it to the other side</string>
+    <string name="aj_mode_standard">Standard</string>
+    <string name="aj_mode_left">One hand, left</string>
+    <string name="aj_mode_right">One hand, right</string>
+    <string name="aj_split_sub">Two halves with the keys where Samsung Keyboard puts them, to type with both thumbs</string>
+    <string name="aj_split_width">Width of the halves</string>
+    <string name="aj_split_width_sub">Narrow leaves more room in the middle; wide makes the keys bigger</string>
+    <string name="aj_split_narrow">Narrow</string>
+    <string name="aj_split_normal">Normal</string>
+    <string name="aj_split_wide">Wide</string>
+
+    <!-- Tamano y posicion -->
+    <string name="aj_height">Keyboard height</string>
+    <string name="aj_height_sub">The key rows grow or shrink; the width stays the same</string>
+    <string name="aj_bottom">Bottom margin</string>
+    <string name="aj_bottom_sub">Space under the last row so you don\'t reach the edge; from 24 dp a ∨ button to hide the keyboard appears there</string>
+    <string name="aj_size_from_keyboard">You can also adjust it from the keyboard: ?123 › size icon</string>
+    <string name="aj_size_screen_inner">Now adjusting: inner screen (%1$d dp). The cover screen keeps its own height, margin and one-handed mode.</string>
+    <string name="aj_size_screen_cover">Now adjusting: cover screen. The inner screen keeps its own height, margin and one-handed mode.</string>
+
+    <!-- Escritura inteligente -->
+    <string name="aj_auto_replace">Auto replace</string>
+    <string name="aj_auto_replace_sub">Space or punctuation swaps the word for the highlighted suggestion; backspace brings back what you typed</string>
+    <string name="aj_auto_caps">Auto capitalization</string>
+    <string name="aj_auto_caps_sub">Capital letter at the start of every sentence</string>
+    <string name="aj_learned_row">Learned words · %1$d</string>
+    <string name="aj_learned_sub">See, add or remove the words the keyboard keeps</string>
+    <string name="aj_learned_title">Learned words</string>
+    <string name="aj_learned_empty">No learned words yet. The ones you keep from the suggestion bar show up here.</string>
+    <string name="aj_learned_add_hint">New word</string>
+    <string name="aj_add">Add</string>
+    <string name="aj_remove">Remove %1$s</string>
+    <string name="aj_forget_all">Forget all</string>
+    <string name="aj_forget_confirm">Forget all learned words and word pairs? Suggestions go back to the built-in dictionaries only.</string>
+    <string name="aj_shortcuts_row">Text shortcuts · %1$d</string>
+    <string name="aj_shortcuts_sub">A short key plus a space inserts a longer text, e.g. brb → be right back</string>
+    <string name="aj_shortcuts_title">Text shortcuts</string>
+    <string name="aj_shortcuts_empty">No shortcuts yet</string>
+    <string name="aj_shortcut_key_hint">Key (letters only)</string>
+    <string name="aj_shortcut_text_hint">Text to insert</string>
+    <string name="aj_shortcut_key_invalid">The key can only contain letters (up to 20)</string>
+    <string name="aj_shortcut_text_missing">Write the text the key will insert</string>
+    <string name="aj_space_slide">Slide on the space bar</string>
+    <string name="aj_space_slide_sub">Automatic moves the cursor, or switches language when more than one is turned on</string>
+    <string name="aj_space_auto">Automatic</string>
+    <string name="aj_space_cursor">Cursor</string>
+    <string name="aj_space_lang">Language</string>
+    <string name="aj_space_none">Nothing</string>
+
+    <!-- Tocar y respuesta -->
+    <string name="aj_preview">Bubble on keypress</string>
+    <string name="aj_preview_sub">Shows the glyph and its Latin letter above your finger; never in password fields</string>
+    <string name="aj_longpress">Long-press delay</string>
+    <string name="aj_longpress_sub">How long you hold a key before its alternatives appear</string>
+    <string name="aj_lp_short">Short</string>
+    <string name="aj_lp_medium">Medium</string>
+    <string name="aj_lp_long">Long</string>
+    <string name="aj_sound_sub">A short click on every key</string>
+    <string name="aj_volume">Volume</string>
+    <string name="aj_volume_sub">Loudness of the key sound, relative to the media volume</string>
+    <string name="aj_vibrate_sub">A light tap on every key</string>
+    <string name="aj_vibration">Vibration strength</string>
+    <string name="aj_vibration_sub">System uses the phone\'s keyboard feedback setting</string>
+    <string name="aj_vib_system">System</string>
+    <string name="aj_vib_soft">Soft</string>
+    <string name="aj_vib_medium">Medium</string>
+    <string name="aj_vib_strong">Strong</string>
+
+    <!-- Portapapeles -->
+    <string name="aj_clipboard_body">Everything you copy is kept in the keyboard\'s 📋 history, on this phone. Here you choose whether recent screenshots are suggested too.</string>
+
+    <!-- Ayuda y gestos: filas nuevas de 1.10 -->
+    <string name="aj_gesture_comma">Hold the comma</string>
+    <string name="aj_gesture_comma_result">!</string>
+    <string name="aj_gesture_delete_hold">Hold backspace</string>
+    <string name="aj_gesture_delete_hold_result">Deletes faster and faster; after about 2 s, whole words</string>
+    <string name="aj_gesture_shift_hold">Hold shift and tap letters</string>
+    <string name="aj_gesture_shift_hold_result">Capitals only while you hold it, like on a computer keyboard</string>
+    <string name="aj_gesture_space">Slide on the space bar</string>
+    <string name="aj_gesture_space_result">Moves the cursor letter by letter; with several languages turned on it switches language instead (choose in Smart typing)</string>
+    <string name="aj_gesture_hide">∨ under the keys</string>
+    <string name="aj_gesture_hide_result">Hides the keyboard; the button appears with a bottom margin of 24 dp or more</string>
+    <string name="aj_gesture_resize">Size icon in ?123</string>
+    <string name="aj_gesture_resize_result">Adjust mode: drag the handles to change the height and the bottom margin, separately on each screen of a foldable</string>
+
+    <!-- Resumenes de una linea bajo el titulo de cada seccion -->
+    <string name="aj_sum_margin">margin %1$d dp</string>
+    <string name="aj_sum_replace">auto replace</string>
+    <plurals name="aj_sum_shortcuts">
+        <item quantity="one">%1$d shortcut</item>
+        <item quantity="other">%1$d shortcuts</item>
+    </plurals>
+    <string name="aj_sum_bubble">bubble</string>
+    <string name="aj_sum_vibration">vibration %1$s</string>
+    <string name="aj_sum_shots_on">suggests screenshots</string>
+    <string name="aj_sum_shots_off">doesn\'t suggest screenshots</string>
+    <string name="aj_sum_split">split: %1$s</string>
+</resources>

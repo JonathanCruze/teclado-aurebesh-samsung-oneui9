@@ -2,6 +2,9 @@ package com.aurebesh.teclado;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.SystemClock;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -23,6 +26,10 @@ import java.util.Map;
  * telefono y sin salir de las preferencias privadas de la app, las parejas de palabras que el propio usuario
  * escribe; esas parejas mandan sobre la tabla integrada.
  *
+ * <p>Las parejas aprendidas viven en su propio archivo de preferencias ({@link #FILE}), no en el principal
+ * "aurebesh" (las versiones anteriores las guardaban alli; se migran una sola vez), y se escriben de forma
+ * diferida: como mucho un volcado cada {@link #SAVE_INTERVAL_MS}; {@link #flush} fuerza el pendiente.
+ *
  * <p>Formato del recurso: una linea por palabra previa, {@code w1<TAB>w2 n w2 n ...} (n = veces), con
  * {@code <s>} como inicio de frase. Las lineas que empiezan por {@code #} son comentarios.
  */
@@ -32,6 +39,10 @@ final class Bigrams {
     static final String START = "<s>";
     /** Clave de preferencias con las parejas aprendidas: lineas "previa palabra veces". */
     static final String PREF_KEY = "user_bigrams";
+    /** Archivo de preferencias propio de las parejas aprendidas (fuera del principal de {@link Prefs}). */
+    static final String FILE = "aurebesh_bigrams";
+    /** Tiempo minimo entre dos volcados de las parejas aprendidas al archivo. */
+    static final long SAVE_INTERVAL_MS = 5000;
     /** Parejas aprendidas que se conservan como mucho. */
     static final int MAX_USER_PAIRS = 2000;
     /** Bonificacion maxima que devuelve {@link #bonus}. */
@@ -49,6 +60,22 @@ final class Bigrams {
     private static final Object USER_LOCK = new Object();
     private static LinkedHashMap<String, Integer> userPairs;              // null hasta leer las preferencias
     private static final HashMap<String, HashMap<String, Integer>> userByPrev = new HashMap<>();
+    private static boolean dirty;                                          // hay parejas sin volcar al archivo
+    private static boolean savePending;                                    // ya hay un volcado programado
+    private static long lastSave = -SAVE_INTERVAL_MS;                      // uptime del ultimo volcado
+    private static Context appContext;                                     // contexto de la app para el volcado diferido
+    private static Handler saver;                                          // hilo principal; se crea al primer uso
+    private static final Runnable SAVE_TASK = new Runnable() {
+        @Override
+        public void run() {
+            Context c;
+            synchronized (USER_LOCK) {
+                savePending = false;
+                c = appContext;
+            }
+            if (c != null) flush(c);
+        }
+    };
 
     /** Seguidoras de una palabra previa, de mas a menos frecuente. */
     private static final class Entry {
@@ -215,9 +242,10 @@ final class Bigrams {
     // ---- parejas aprendidas del usuario (privadas: solo en las preferencias de la app)
 
     /**
-     * Aprende que {@code word} siguio a {@code prev} (null o vacio = inicio de frase). Se guarda en las
-     * preferencias bajo {@link #PREF_KEY} como lineas "previa palabra veces", con un tope de
+     * Aprende que {@code word} siguio a {@code prev} (null o vacio = inicio de frase). Se guarda en el archivo
+     * {@link #FILE} bajo {@link #PREF_KEY} como lineas "previa palabra veces", con un tope de
      * {@link #MAX_USER_PAIRS} parejas: al llenarse se descarta la menos repetida (y, en empate, la mas antigua).
+     * La escritura es diferida (como mucho una cada {@link #SAVE_INTERVAL_MS}); ver {@link #flush}.
      */
     void learn(Context c, String prev, String word) {
         if (word == null) return;
@@ -254,17 +282,83 @@ final class Bigrams {
                     if (vm.isEmpty()) userByPrev.remove(victim.substring(0, sp));
                 }
             }
-            saveUser(c);
+            scheduleSave(c);
         }
     }
 
-    /** Olvida todas las parejas aprendidas (memoria y preferencias). */
+    /** Preferencias donde viven las parejas aprendidas (archivo propio, separado del principal). */
+    static SharedPreferences store(Context c) {
+        return c.getSharedPreferences(FILE, Context.MODE_PRIVATE);
+    }
+
+    /**
+     * Vuelca al archivo las parejas pendientes, si las hay, y cancela el volcado programado. El IME lo llama al
+     * ocultarse el teclado y al destruirse el servicio; en cualquier otro momento la escritura es diferida.
+     */
+    static void flush(Context c) {
+        synchronized (USER_LOCK) {
+            cancelPendingSave();
+            if (!dirty || userPairs == null) return;
+            saveNow(c);
+        }
+    }
+
+    /** Olvida todas las parejas aprendidas (memoria y archivo; tambien la copia antigua del archivo principal). */
     static void forget(Context c) {
         synchronized (USER_LOCK) {
             userPairs = new LinkedHashMap<>();
             userByPrev.clear();
+            cancelPendingSave();
+            dirty = false;
+            store(c).edit().remove(PREF_KEY).apply();
             Prefs.get(c).edit().remove(PREF_KEY).apply();
         }
+    }
+
+    /**
+     * Descarta la copia en memoria sin tocar el archivo (lo pendiente se pierde: antes {@link #flush}); la
+     * proxima consulta vuelve a leer las preferencias. Para las pruebas.
+     */
+    static void unload() {
+        synchronized (USER_LOCK) {
+            cancelPendingSave();
+            userPairs = null;
+            userByPrev.clear();
+            dirty = false;
+            lastSave = -SAVE_INTERVAL_MS;
+        }
+    }
+
+    /**
+     * Marca las parejas como pendientes y programa el volcado: inmediato si del ultimo hace al menos
+     * {@link #SAVE_INTERVAL_MS}, y si no al cumplirse ese plazo (una sola vez por rafaga). Con USER_LOCK.
+     */
+    private static void scheduleSave(Context c) {
+        dirty = true;
+        appContext = c.getApplicationContext();
+        long now = SystemClock.uptimeMillis();
+        if (now - lastSave >= SAVE_INTERVAL_MS) {
+            saveNow(c);
+            return;
+        }
+        if (savePending) return;
+        if (saver == null) saver = new Handler(Looper.getMainLooper());
+        savePending = true;
+        saver.postDelayed(SAVE_TASK, lastSave + SAVE_INTERVAL_MS - now);
+    }
+
+    /** Escribe las parejas ahora mismo y anota el momento. Con USER_LOCK. */
+    private static void saveNow(Context c) {
+        cancelPendingSave();
+        dirty = false;
+        lastSave = SystemClock.uptimeMillis();
+        saveUser(c);
+    }
+
+    /** Quita de la cola el volcado programado, si lo hay. Con USER_LOCK. */
+    private static void cancelPendingSave() {
+        if (savePending && saver != null) saver.removeCallbacks(SAVE_TASK);
+        savePending = false;
     }
 
     /** Numero de parejas aprendidas guardadas. */
@@ -285,8 +379,17 @@ final class Bigrams {
             if (userPairs != null) return;
             userPairs = new LinkedHashMap<>();
             userByPrev.clear();
-            SharedPreferences sp = Prefs.get(c);
-            String raw = sp.getString(PREF_KEY, "");
+            SharedPreferences sp = store(c);
+            String raw = sp.getString(PREF_KEY, null);
+            if (raw == null) {                                // primera vez con el archivo propio: migrar del principal
+                SharedPreferences old = Prefs.get(c);
+                raw = old.getString(PREF_KEY, null);
+                if (raw != null) {
+                    sp.edit().putString(PREF_KEY, raw).apply();
+                    old.edit().remove(PREF_KEY).apply();
+                }
+            }
+            if (raw == null) raw = "";
             for (String line : raw.split("\n")) {
                 String[] parts = line.split(" ");
                 if (parts.length != 3) continue;
@@ -308,13 +411,14 @@ final class Bigrams {
         }
     }
 
+    /** Escribe todas las parejas en el archivo propio. Con USER_LOCK. */
     private static void saveUser(Context c) {
         StringBuilder b = new StringBuilder(userPairs.size() * 16);
         for (Map.Entry<String, Integer> e : userPairs.entrySet()) {
             if (b.length() > 0) b.append('\n');
             b.append(e.getKey()).append(' ').append(e.getValue());
         }
-        Prefs.get(c).edit().putString(PREF_KEY, b.toString()).apply();
+        store(c).edit().putString(PREF_KEY, b.toString()).apply();
     }
 
     /** Copia de las seguidoras aprendidas de una previa, o null si no hay ninguna. */

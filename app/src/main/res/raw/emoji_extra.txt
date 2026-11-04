@@ -1,0 +1,364 @@
+# palabra<TAB>emoji emoji ... Palabras conversacionales (español, inglés, alemán) con emojis elegidos a mano;
+# van por delante de las palabras clave de Unicode de emoji_names.txt. Sin tildes o con ellas da igual
+# (se comparan sin tildes); las risas jajaja/jejeje/hahaha/hehehe se reducen a jaja/jeje/haha/hehe.
+# --- saludos, risas y muletillas (compartidas)
+hola	👋 🙂
+buenas	👋 🙂
+adiós	👋 🫂
+chao	👋
+hallo	👋 🙂
+tschüss	👋
+tschüs	👋
+ciao	👋
+servus	👋
+moin	👋 ☕
+goodbye	👋 🫂
+jaja	😂 🤣 😆
+jeje	😂 😏
+haha	😂 🤣 😆
+hehe	😂 😏
+hihi	😄 🤭
+lol	😂 🤣
+xd	😂 🤣
+rofl	🤣 😂
+risa	😂 🤣
+laugh	😂 🤣
+lachen	😂 🤣
+ok	👍 👌
+okay	👍 👌
+vale	👍 👌
+yes	👍 ✅
+yeah	👍
+yep	👍
+ja	👍
+genau	👍 ✅
+stimmt	👍 ✅
+no	🙅 👎
+nope	👎
+nein	🙅 👎
+hmm	🤔
+oops	🙈 😅
+ugh	😩
+meh	😐
+yay	🎉 🥳
+omg	😱 😮
+krass	😳 🤯
+# --- cariño y cortesía
+besos	😘 💋
+beso	😘 💋
+muak	😘 💋
+mua	😘
+kisses	😘 💋
+kiss	😘 💋
+küsse	😘 💋
+kuss	😘 💋
+bussi	😘
+quiero	❤️ 😘
+amor	❤️ 🥰 😍
+cariño	🥰 ❤️
+corazón	❤️ 💖
+love	❤️ 🥰 😍
+heart	❤️ 💖
+liebe	❤️ 😍
+schatz	🥰 ❤️
+herz	❤️ 💖
+verliebt	😍 🥰
+guapo	😍 😘
+guapa	😍 😘
+mimos	🥰 🤗
+abrazos	🤗 🫂
+hugs	🤗 🫂
+umarmung	🤗 🫂
+miss	🥺 💔
+vermisse	🥺 💔
+favor	🙏
+perdón	🙏 😔
+siento	😔 🙏
+sorry	😔 🙏
+please	🙏 🥺
+welcome	🤗 🙏
+danke	🙏
+bitte	🙏 😊
+gerne	😊
+entschuldigung	🙏 😔
+bien	👍 😊
+good	👍 😊
+gut	👍 😊
+perfecto	👌 💯
+perfect	👌 💯
+perfekt	👌 💯
+genial	🤩 👌
+great	👍 👏 🙌
+awesome	🤩 😎
+nice	👌 😊
+cool	😎
+super	👍 👌
+toll	👍 🤩
+klasse	👍 👌
+geil	🤩 😎
+schön	😊 🌸
+wunderbar	🤩 👌
+bravo	👏 🎉
+enhorabuena	🎉 👏
+felicidades	🎉 🥳 👏
+congrats	🎉 👏
+congratulations	🎉 👏 🥳
+glückwunsch	🎉 🥳
+gratuliere	🎉 👏
+cumple	🎂 🎉
+birthday	🎂 🎉
+geburtstag	🎂 🎉
+# --- estados de ánimo
+feliz	😊 😄
+happy	😊 😄
+glücklich	😊 😄
+contento	😊
+contenta	😊
+triste	😢 😔
+llorar	😭 😢
+weinen	😭 😢
+traurig	😢 😔
+cansado	😩 😴
+cansada	😩 😴
+tired	😴 😩
+müde	😴 🥱
+dormir	😴 💤
+sueño	😴 💤
+dormido	😴 💤
+sleep	😴 💤
+sleepy	😴 🥱
+schlafen	😴 💤
+enfermo	🤒 🤧
+enferma	🤒 🤧
+sick	🤒 🤧
+krank	🤒 🤧
+fiebre	🤒 🌡️
+fever	🤒 🌡️
+fieber	🤒 🌡️
+nervioso	😬 😰
+nerviosa	😬 😰
+nervös	😬 😰
+susto	😱 😨
+scared	😱 😨
+angst	😨 😱
+cabreado	😡 🤬
+angry	😡 😠
+wütend	😡 🤬
+sauer	😡 😠
+aburrido	🥱 😑
+aburrida	🥱 😑
+bored	🥱 😑
+langweilig	🥱 😑
+pensar	🤔 💭
+think	🤔 💭
+denken	🤔 💭
+idee	💡 💭
+sorpresa	🎉 😮
+surprise	🎉 😮
+überraschung	🎉 😮
+ojalá	🤞 🙏
+suerte	🍀 🤞
+luck	🍀 🤞
+glück	🍀 🤞
+vamos	💪 🙌
+mist	😩 🙈
+mal	😞 👎
+lose	😞 👎
+verlieren	😞 👎
+# --- trabajo, estudios y mensajes
+trabajo	💼 👷
+work	💼 👷
+job	💼
+arbeit	💼 👷
+arbeiten	💼
+büro	💼
+ocupado	⏳ 💼
+busy	⏳ 💼
+beschäftigt	⏳ 💼
+reunión	🤝 📅
+estudiar	📚 ✍️
+lernen	📚 ✍️
+examen	📝 😰
+exam	📝 😰
+prüfung	📝 😰
+uni	🎓 📚
+universidad	🎓 📚
+college	🎓 📚
+cole	🏫 🎒
+schule	🏫 🎒
+dinero	💸 💰
+money	💸 💰
+geld	💸 💰
+mensaje	💬 📩
+nachricht	💬 📩
+llamar	📞 🤙
+llamada	📞
+call	📞 🤙
+anruf	📞
+anrufen	📞
+phone	📱 📞
+handy	📱
+correo	📧 ✉️
+foto	📸 📷
+photo	📸 📷
+leer	📖 📚
+# --- tiempo, momentos del día y salud
+noches	🌙 😴
+noche	🌙 🌃
+night	🌙 😴
+nacht	🌙 😴
+abend	🌆 🌙
+días	☀️ 👋
+mañana	🌅 ☀️
+morning	☀️ ☕
+morgen	☀️ ☕
+tomorrow	📅 🌅
+bald	🔜 ⏳
+später	👋 ⏰
+finde	🥳 🍻
+weekend	🥳 🍻
+wochenende	🥳 🍻
+vacaciones	🏖️ ✈️
+holiday	🏖️ ✈️
+holidays	🏖️ ✈️
+vacation	🏖️ ✈️
+urlaub	🏖️ ✈️
+viaje	✈️ 🧳
+travel	✈️ 🧳
+trip	✈️ 🧳
+reise	✈️ 🧳
+lluvia	🌧️ ☔
+llueve	🌧️ ☔
+rain	🌧️ ☔
+regen	🌧️ ☔
+calor	🥵 ☀️
+hot	🥵 🔥
+hitze	🥵 ☀️
+heiß	🥵 🔥
+frío	🥶 ❄️
+cold	🥶 ❄️
+kalt	🥶 ❄️
+nieve	❄️ ⛄
+snow	❄️ ⛄
+schnee	❄️ ⛄
+sonne	☀️ 😎
+médico	🩺 🧑‍⚕️
+doctor	🩺 🧑‍⚕️
+arzt	🩺 🧑‍⚕️
+krankenhaus	🏥
+tablette	💊
+descansar	😴 🛋️
+# --- comida y bebida
+cerveza	🍺 🍻
+beer	🍺 🍻
+bier	🍺 🍻
+prost	🍻 🥂
+cheers	🍻 🥂
+wein	🍷
+beber	🍻 🥤
+drink	🍻 🥤
+trinken	🍻 🥤
+comida	🍽️ 🍕
+comer	🍽️ 😋
+food	🍽️ 🍕
+essen	🍽️ 🍕
+hunger	😋 🍔
+rico	😋 🤤
+lecker	😋 🤤
+desayuno	🥐 ☕
+breakfast	🥐 ☕
+frühstück	🥐 ☕
+almuerzo	🍽️ 🥪
+lunch	🍽️ 🥪
+mittagessen	🍽️ 🥪
+cena	🍽️ 🍷
+dinner	🍽️ 🍷
+abendessen	🍽️ 🍷
+kaffee	☕
+agua	💧 🚰
+water	💧 🚰
+wasser	💧 🚰
+leche	🥛
+milk	🥛
+milch	🥛
+pastel	🎂 🍰
+cake	🎂 🍰
+kuchen	🎂 🍰
+torte	🎂 🍰
+eis	🍦 🍨
+chocolate	🍫 🍪
+schokolade	🍫 🍪
+obst	🍎 🍇
+brot	🍞 🥖
+ei	🥚 🍳
+hähnchen	🍗
+fleisch	🥩 🍖
+fisch	🐟 🍣
+salad	🥗
+salat	🥗
+# --- ocio, mascotas y celebraciones
+gato	🐱 🐈
+cat	🐱 🐈
+katze	🐱 🐈
+perro	🐶 🐕
+dog	🐶 🐕
+hund	🐶 🐕
+fußball	⚽
+fussball	⚽
+gol	⚽ 🥅
+goal	⚽ 🥅
+tor	⚽ 🥅
+ganar	🏆 🥇
+win	🏆 🥇
+gewinnen	🏆 🥇
+jugar	🎮 ⚽
+play	🎮 ⚽
+game	🎮 🎲
+spiel	🎮 ⚽
+spielen	🎮 ⚽
+música	🎵 🎶 🎧
+music	🎵 🎶 🎧
+musik	🎵 🎶 🎧
+cantar	🎤 🎶
+singen	🎤 🎶
+tanzen	💃 🕺
+película	🎬 🍿
+peli	🎬 🍿
+cine	🎬 🍿
+movie	🎬 🍿
+movies	🎬 🍿
+film	🎬 🍿
+kino	🎬 🍿
+fiesta	🥳 🎉 🍾
+party	🥳 🎉
+feier	🥳 🎉
+feiern	🥳 🎉
+navidad	🎄 🎅
+christmas	🎄 🎅
+weihnachten	🎄 🎅
+geschenk	🎁
+gift	🎁
+gimnasio	🏋️ 💪
+sport	🏃 ⚽
+laufen	🏃
+correr	🏃 💨
+fahrrad	🚲
+bike	🚲
+car	🚗
+auto	🚗
+coche	🚗
+home	🏠
+haus	🏠
+beach	🏖️
+strand	🏖️
+plane	✈️
+flugzeug	✈️
+zug	🚆
+feuer	🔥
+freund	🤝 😊
+friend	🤝 😊
+amigo	🤝 😊
+amigos	👫 🫂
+freunde	👫 🫂
+familie	👨‍👩‍👧 ❤️
+stark	💪

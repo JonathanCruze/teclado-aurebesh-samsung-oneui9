@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Pantalla de ajustes (1.10): secciones como One UI. Cada subtitulo dice que cambia, no donde esta. -->
+    <string name="aj_sec_design">Diseño</string>
+    <string name="aj_sec_size">Tamaño y posición</string>
+    <string name="aj_sec_smart">Escritura inteligente</string>
+    <string name="aj_sec_touch">Tocar y respuesta</string>
+    <string name="aj_sec_clipboard">Portapapeles</string>
+    <string name="aj_sec_help">Ayuda y gestos</string>
+
+    <!-- Diseno -->
+    <string name="aj_theme_auto">Automático</string>
+    <string name="aj_theme_auto_hint">Automático sigue el modo oscuro del teléfono: Estelar de día, Noche de noche</string>
+    <string name="aj_mode">Modo del teclado</string>
+    <string name="aj_mode_sub">A una mano, las teclas se encogen hacia un pulgar; la flecha de al lado lo pasa al otro lado</string>
+    <string name="aj_mode_standard">Estándar</string>
+    <string name="aj_mode_left">Una mano izq.</string>
+    <string name="aj_mode_right">Una mano der.</string>
+    <string name="aj_split_sub">Dos mitades con las teclas donde las pone Samsung Keyboard, para escribir con los dos pulgares</string>
+    <string name="aj_split_width">Ancho de las mitades</string>
+    <string name="aj_split_width_sub">Estrecho deja más hueco en medio; ancho agranda las teclas</string>
+    <string name="aj_split_narrow">Estrecho</string>
+    <string name="aj_split_normal">Normal</string>
+    <string name="aj_split_wide">Ancho</string>
+
+    <!-- Tamano y posicion -->
+    <string name="aj_height">Alto del teclado</string>
+    <string name="aj_height_sub">Las filas de teclas crecen o se encogen; el ancho no cambia</string>
+    <string name="aj_bottom">Margen inferior</string>
+    <string name="aj_bottom_sub">Espacio bajo la última fila para no llegar al borde; desde 24 dp aparece ahí el botón ∨ de ocultar el teclado</string>
+    <string name="aj_size_from_keyboard">También puedes ajustarlo desde el teclado: ?123 › icono de tamaño</string>
+    <string name="aj_size_screen_inner">Ahora ajustas: pantalla interior (%1$d dp). La tapa guarda su propio alto, margen y modo a una mano.</string>
+    <string name="aj_size_screen_cover">Ahora ajustas: tapa. La pantalla interior guarda su propio alto, margen y modo a una mano.</string>
+
+    <!-- Escritura inteligente -->
+    <string name="aj_auto_replace">Sustitución automática</string>
+    <string name="aj_auto_replace_sub">El espacio o un signo cambia la palabra por la sugerencia resaltada; retroceso recupera lo que escribiste</string>
+    <string name="aj_auto_caps">Mayúsculas automáticas</string>
+    <string name="aj_auto_caps_sub">Mayúscula al empezar cada frase</string>
+    <string name="aj_learned_row">Palabras aprendidas · %1$d</string>
+    <string name="aj_learned_sub">Ver, añadir o quitar las palabras que el teclado conserva</string>
+    <string name="aj_learned_title">Palabras aprendidas</string>
+    <string name="aj_learned_empty">Todavía no hay palabras aprendidas. Las que conserves desde la barra de sugerencias aparecerán aquí.</string>
+    <string name="aj_learned_add_hint">Palabra nueva</string>
+    <string name="aj_add">Añadir</string>
+    <string name="aj_remove">Quitar %1$s</string>
+    <string name="aj_forget_all">Olvidar todo</string>
+    <string name="aj_forget_confirm">¿Olvidar todas las palabras y pares aprendidos? Las sugerencias volverán a salir solo de los diccionarios integrados.</string>
+    <string name="aj_shortcuts_row">Atajos de texto · %1$d</string>
+    <string name="aj_shortcuts_sub">Una clave corta más un espacio inserta un texto largo; p. ej. ahr → ahora vuelvo</string>
+    <string name="aj_shortcuts_title">Atajos de texto</string>
+    <string name="aj_shortcuts_empty">Todavía no hay atajos</string>
+    <string name="aj_shortcut_key_hint">Clave (solo letras)</string>
+    <string name="aj_shortcut_text_hint">Texto que se inserta</string>
+    <string name="aj_shortcut_key_invalid">La clave solo puede tener letras (hasta 20)</string>
+    <string name="aj_shortcut_text_missing">Escribe el texto que insertará la clave</string>
+    <string name="aj_space_slide">Deslizar sobre el espacio</string>
+    <string name="aj_space_slide_sub">Automático mueve el cursor, o cambia de idioma si tienes más de uno activado</string>
+    <string name="aj_space_auto">Automático</string>
+    <string name="aj_space_cursor">Cursor</string>
+    <string name="aj_space_lang">Idioma</string>
+    <string name="aj_space_none">Nada</string>
+
+    <!-- Tocar y respuesta -->
+    <string name="aj_preview">Burbuja al pulsar</string>
+    <string name="aj_preview_sub">Muestra el glifo y su letra latina sobre el dedo; nunca en contraseñas</string>
+    <string name="aj_longpress">Retardo de pulsación larga</string>
+    <string name="aj_longpress_sub">Cuánto mantienes una tecla hasta que salen sus alternativas</string>
+    <string name="aj_lp_short">Corto</string>
+    <string name="aj_lp_medium">Medio</string>
+    <string name="aj_lp_long">Largo</string>
+    <string name="aj_sound_sub">Un clic corto en cada tecla</string>
+    <string name="aj_volume">Volumen</string>
+    <string name="aj_volume_sub">Fuerza del sonido de las teclas, respecto al volumen multimedia</string>
+    <string name="aj_vibrate_sub">Un toque ligero en cada tecla</string>
+    <string name="aj_vibration">Intensidad de la vibración</string>
+    <string name="aj_vibration_sub">Sistema usa el ajuste de respuesta del teclado del teléfono</string>
+    <string name="aj_vib_system">Sistema</string>
+    <string name="aj_vib_soft">Suave</string>
+    <string name="aj_vib_medium">Media</string>
+    <string name="aj_vib_strong">Fuerte</string>
+
+    <!-- Portapapeles -->
+    <string name="aj_clipboard_body">Todo lo que copias se guarda en el historial 📋 del teclado, en este teléfono. Aquí eliges si también se sugieren las capturas recientes.</string>
+
+    <!-- Ayuda y gestos: filas nuevas de 1.10 -->
+    <string name="aj_gesture_comma">Mantener la coma</string>
+    <string name="aj_gesture_comma_result">¿ ¡ ; :  (soltar sin mover da ¿)</string>
+    <string name="aj_gesture_delete_hold">Mantener borrar</string>
+    <string name="aj_gesture_delete_hold_result">Borra cada vez más rápido; pasados unos 2 s, palabras enteras</string>
+    <string name="aj_gesture_shift_hold">Mantener mayúsculas y tocar letras</string>
+    <string name="aj_gesture_shift_hold_result">Mayúsculas solo mientras la mantienes, como en el teclado de un ordenador</string>
+    <string name="aj_gesture_space">Deslizar sobre el espacio</string>
+    <string name="aj_gesture_space_result">Mueve el cursor letra a letra; con varios idiomas activados cambia de idioma en su lugar (se elige en Escritura inteligente)</string>
+    <string name="aj_gesture_hide">∨ bajo las teclas</string>
+    <string name="aj_gesture_hide_result">Oculta el teclado; el botón aparece con un margen inferior de 24 dp o más</string>
+    <string name="aj_gesture_resize">Icono de tamaño en ?123</string>
+    <string name="aj_gesture_resize_result">Modo de ajuste: arrastra los tiradores para cambiar el alto y el margen inferior, por separado en cada pantalla de un plegable</string>
+
+    <!-- Resumenes de una linea bajo el titulo de cada seccion -->
+    <string name="aj_sum_margin">margen %1$d dp</string>
+    <string name="aj_sum_replace">sustitución</string>
+    <plurals name="aj_sum_shortcuts">
+        <item quantity="one">%1$d atajo</item>
+        <item quantity="other">%1$d atajos</item>
+    </plurals>
+    <string name="aj_sum_bubble">burbuja</string>
+    <string name="aj_sum_vibration">vibración %1$s</string>
+    <string name="aj_sum_shots_on">sugiere capturas</string>
+    <string name="aj_sum_shots_off">no sugiere capturas</string>
+    <string name="aj_sum_split">dividido: %1$s</string>
+</resources>

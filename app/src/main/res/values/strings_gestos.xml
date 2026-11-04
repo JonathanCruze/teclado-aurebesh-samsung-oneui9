@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Teclado numerico de telefono: tecla de pausa (escribe una coma en el numero marcado) -->
+    <string name="numpad_pause">Pause</string>
+</resources>

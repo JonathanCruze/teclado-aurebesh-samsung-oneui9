@@ -39,7 +39,7 @@
     <string name="sum_toolbar">toolbar</string>
     <string name="sum_strip">translation bar</string>
     <string name="sum_glide">glide</string>
-    <string name="sum_autocorrect">autocorrect</string>
+    <string name="sum_autocorrect">predictive</string>
     <string name="sum_learn">learns words</string>
     <string name="sum_sound">sound</string>
     <string name="sum_vibrate">vibration</string>

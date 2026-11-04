@@ -28,10 +28,20 @@ import android.widget.FrameLayout;
 import android.widget.Toast;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Servicio de teclado (IME) Aurebesh. Escribe letras latinas mostradas como glifos Aurebesh.
@@ -54,12 +64,16 @@ public class AurebeshIME extends InputMethodService
     private Bigrams bigrams;            // siguiente palabra y contexto del idioma actual
     private boolean privateField = false;
     private boolean stripOn = false;
-    private boolean autocorrect = true;
+    private boolean autocorrect = true;           // texto predictivo (chips de la barra)
+    private boolean autoReplace = true;           // sustitucion automatica al teclear un separador
+    private boolean autoCaps = true;              // mayuscula automatica al inicio de frase
+    private boolean preview = true;               // burbuja al pulsar
     private boolean learn = true;
     private boolean doubleSpace = true;
     private boolean suggestionsAllowed = false;   // el campo admite sugerencias
     private boolean incognito = false;            // el campo pide no aprender nada (modo incognito)
     private String lang = "es";
+    private boolean severalLangs = false;         // varios idiomas Aurebesh activos (globo y cambio de idioma con el espacio)
 
     // Autocorreccion (las sugerencias se calculan en segundo plano)
     private Dictionary dict;                      // del idioma actual; null hasta que cargue
@@ -70,6 +84,14 @@ public class AurebeshIME extends InputMethodService
     private int suggestSeq = 0;                   // descarta resultados atrasados
     private long lastSpaceAt = 0;
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
+    private Future<Dictionary.Result> suggestFuture;   // peticion en vuelo de lastWord (un separador la espera como mucho 30 ms)
+    private String suggestFutureWord;                  // palabra de esa peticion
+    private String correctionAnchor;              // texto previo al cursor tras autocorregir: el chip "original" sigue mientras no cambie
+    private final HashMap<String, Integer> revertCount = new HashMap<>();   // veces que se deshizo la misma correccion en la sesion
+    private Map<String, String> shortcuts = new LinkedHashMap<>();         // atajos de texto (clave en minusculas -> expansion)
+    private AiRunner runner;                      // unico motor de IA del servicio (sobrevive a rehacer la vista)
+    // Seleccion conocida (EditorInfo al empezar y onUpdateSelection despues); -1 si el editor no la informa
+    private int selStart = -1, selEnd = -1, candStart = -1;
 
     // Escritura deslizando: la ultima palabra escrita con un trazo, para cambiarla por un chip o borrarla entera
     private static final String GLIDE_PUNCTUATION = ".,;:!?";
@@ -92,8 +114,7 @@ public class AurebeshIME extends InputMethodService
     private final SharedPreferences.OnSharedPreferenceChangeListener prefsListener =
             new SharedPreferences.OnSharedPreferenceChangeListener() {
                 @Override public void onSharedPreferenceChanged(SharedPreferences p, String key) {
-                    if (ClipHistory.KEY.equals(key) || Prefs.EMOJI_RECENT.equals(key) || Bigrams.PREF_KEY.equals(key)
-                            || ScreenshotWatcher.PREF_LAST_ID.equals(key) || AiModels.LAST_TONE.equals(key)) return;
+                    if (!Prefs.affectsKeyboard(key)) return;          // historial, emojis recientes, bigramas, candidatas, pantalla de ajustes...
                     if (Prefs.APP_LANG.equals(key)) {                 // idioma de la app: rehacer la vista
                         ui = AppLocale.wrap(AurebeshIME.this);
                         if (view != null) setInputView(onCreateInputView());
@@ -113,6 +134,12 @@ public class AurebeshIME extends InputMethodService
                         KeySound.get(AurebeshIME.this).reload(AurebeshIME.this);
                         return;
                     }
+                    if (Prefs.SHORTCUTS.equals(key)) {                // atajos de texto editados en la app
+                        shortcuts = Prefs.shortcuts(AurebeshIME.this);
+                        lastWord = null;                              // que el chip de la palabra actual se recalcule
+                        refresh();
+                        return;
+                    }
                     applyPrefs();                   // el teclado en pantalla cambia al instante
                     applyLanguage();
                     refresh();
@@ -127,6 +154,7 @@ public class AurebeshIME extends InputMethodService
         if (cm != null) cm.addPrimaryClipChangedListener(clipListener);
         KeySound.get(this).reload(this);
         ui = AppLocale.wrap(this);
+        runner = new AiRunner(this);                          // un solo motor de IA mientras viva el servicio
         screenshots = new ScreenshotWatcher(this, new ScreenshotWatcher.Listener() {
             @Override public void onScreenshot(ClipHistory.Entry e) { onScreenshotFound(e); }
         });
@@ -141,7 +169,8 @@ public class AurebeshIME extends InputMethodService
         ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
         if (cm != null) cm.removePrimaryClipChangedListener(clipListener);
         if (screenshots != null) screenshots.stop();
-        if (ai != null) ai.release();
+        if (ai != null) ai.cancel();
+        if (runner != null) runner.release();                 // el motor es del servicio: se libera con el
         worker.shutdownNow();
         super.onDestroy();
     }
@@ -161,19 +190,24 @@ public class AurebeshIME extends InputMethodService
     @Override
     public void onTrimMemory(int level) {
         super.onTrimMemory(level);
-        if (ai != null && (level >= TRIM_MEMORY_RUNNING_LOW || level == TRIM_MEMORY_UI_HIDDEN)) ai.unloadModel();
+        // El modelo se descarga solo con la memoria justa (RUNNING_LOW / RUNNING_CRITICAL) o con el teclado oculto
+        // (UI_HIDDEN y los niveles de fondo que le siguen); con RUNNING_MODERATE se conserva para no recargarlo a cada rato.
+        // Si esta generando, unloadModel no hace nada.
+        if (runner != null && (level == TRIM_MEMORY_RUNNING_LOW || level == TRIM_MEMORY_RUNNING_CRITICAL
+                || level >= TRIM_MEMORY_UI_HIDDEN)) runner.unloadModel();
     }
 
     @Override
     public void onLowMemory() {
         super.onLowMemory();
-        if (ai != null) ai.unloadModel();
+        if (runner != null) runner.unloadModel();
     }
 
     @Override
     public View onCreateInputView() {
-        if (ai != null) ai.release();                        // la vista se rehace (giro, modo noche): no filtrar el motor
+        if (ai != null && ai.isBusy()) ai.cancel();          // la vista se rehace (giro, modo noche): el motor compartido sigue cargado
         if (ui == null) ui = AppLocale.wrap(this);
+        if (runner == null) runner = new AiRunner(this);
         root = new FrameLayout(ui);
         view = new AurebeshKeyboardView(ui);
         view.setListener(this);
@@ -183,7 +217,7 @@ public class AurebeshIME extends InputMethodService
         emojis = new EmojiTray(ui);
         emojis.setHost(this);
         emojis.setVisibility(View.GONE);
-        ai = new AiTray(ui);
+        ai = new AiTray(ui, runner);
         ai.setHost(this);
         ai.setVisibility(View.GONE);
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -198,8 +232,12 @@ public class AurebeshIME extends InputMethodService
     private void applyPrefs() {
         stripOn = Prefs.strip(this);
         autocorrect = Prefs.autocorrect(this);
+        autoReplace = Prefs.autoReplace(this);
+        autoCaps = Prefs.autoCaps(this);
+        preview = Prefs.preview(this);
         learn = Prefs.learn(this);
         doubleSpace = Prefs.doubleSpace(this);
+        shortcuts = Prefs.shortcuts(this);
         Themes.Theme theme = Themes.byId(Prefs.theme(this));
         if (view != null) {
             view.applyPrefs(Prefs.hints(this), Prefs.vibrate(this), stripOn, Prefs.digraphs(this),
@@ -208,9 +246,16 @@ public class AurebeshIME extends InputMethodService
             view.setSuggestionBar(autocorrect);
             view.setHandMode(Prefs.handMode(this));
             view.setSplitMode(Prefs.splitMode(this));
+            view.setPreviewEnabled(preview && !privateField);
+            view.setSpaceSlide(spaceSlideMode(severalLangs));
+            view.setLongPressMs(Prefs.longPressMs(this));
+            view.setHaptics(Prefs.vibrationLevel(this));
+            view.setBottomPad(Prefs.bottomDp(this) * getResources().getDisplayMetrics().density);
+            view.setSplitBox(Prefs.splitBox(this));
             if (!autocorrect) clearSuggestions();
             updateGlide();
         }
+        // TODO: KeySound.get(this).setVolume(Prefs.soundVolume(this)) cuando KeySound tenga volumen (hoy suena a un nivel fijo)
         if (tray != null) tray.applyTheme(theme);
         if (emojis != null) {
             emojis.setFeedback(Prefs.vibrate(this), Prefs.sound(this));
@@ -221,6 +266,29 @@ public class AurebeshIME extends InputMethodService
             ai.setFeedback(Prefs.vibrate(this), Prefs.sound(this));
             ai.setLanguage(lang);
             ai.applyTheme(theme);
+        }
+    }
+
+    /**
+     * Que hace deslizar sobre el espacio segun la preferencia; "auto" cambia de idioma solo si hay varios subtipos
+     * Aurebesh activos (la misma condicion que el globo) y, si no, mueve el cursor.
+     */
+    private int spaceSlideMode(boolean several) {
+        String mode = Prefs.spaceSlide(this);
+        if ("cursor".equals(mode)) return AurebeshKeyboardView.SPACE_CURSOR;
+        if ("lang".equals(mode)) return AurebeshKeyboardView.SPACE_LANG;
+        if ("none".equals(mode)) return AurebeshKeyboardView.SPACE_NONE;
+        return several ? AurebeshKeyboardView.SPACE_LANG : AurebeshKeyboardView.SPACE_CURSOR;
+    }
+
+    /** Hay mas de un idioma Aurebesh activo en el sistema (condicion del globo y del cambio de idioma con el espacio). */
+    private static boolean severalSubtypes(InputMethodManager imm) {
+        if (imm == null) return false;
+        try {
+            List<InputMethodSubtype> enabled = imm.getEnabledInputMethodSubtypeList(null, true);
+            return enabled != null && enabled.size() > 1;
+        } catch (RuntimeException e) {
+            return false;
         }
     }
 
@@ -235,6 +303,9 @@ public class AurebeshIME extends InputMethodService
         if (view == null) return;
         hideTray();
         applyPrefs();
+        selStart = info.initialSelStart;
+        selEnd = info.initialSelEnd;
+        candStart = -1;
         int variation = info.inputType & InputType.TYPE_MASK_VARIATION;
         int cls = info.inputType & InputType.TYPE_MASK_CLASS;
         privateField = cls == InputType.TYPE_CLASS_TEXT && (variation == InputType.TYPE_TEXT_VARIATION_PASSWORD
@@ -247,12 +318,24 @@ public class AurebeshIME extends InputMethodService
                 && variation != InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
                 && variation != InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS;
         incognito = (info.imeOptions & EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING) != 0;
-        view.setPreviewEnabled(!privateField);   // sin burbuja en contrasenas
+        view.setPreviewEnabled(preview && !privateField);   // sin burbuja en contrasenas
         updateGlide();
         if (ai != null) ai.setFieldAllowed(suggestionsAllowed && !privateField);
+        int field = AurebeshKeyboardView.FIELD_NONE;        // teclas extra segun el campo (@ y .com, / y .com), siempre en Aurebesh
+        if (cls == InputType.TYPE_CLASS_TEXT) {
+            if (variation == InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
+                    || variation == InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS) field = AurebeshKeyboardView.FIELD_EMAIL;
+            else if (variation == InputType.TYPE_TEXT_VARIATION_URI) field = AurebeshKeyboardView.FIELD_URL;
+        }
+        view.setFieldVariant(field);
         if (!restarting) {
-            if (cls == InputType.TYPE_CLASS_NUMBER || cls == InputType.TYPE_CLASS_PHONE) view.showSymbols();
-            else view.resetToLetters();
+            if (cls == InputType.TYPE_CLASS_NUMBER || cls == InputType.TYPE_CLASS_PHONE) {     // teclado numerico Aurebesh
+                boolean number = cls == InputType.TYPE_CLASS_NUMBER;
+                view.showNumpad(!number, number && (info.inputType & InputType.TYPE_NUMBER_FLAG_DECIMAL) != 0,
+                        number && (info.inputType & InputType.TYPE_NUMBER_FLAG_SIGNED) != 0);
+            } else {
+                view.resetToLetters();
+            }
         }
         view.setEnterAction(enterAction(info));
         lastCorrection = null;
@@ -328,13 +411,10 @@ public class AurebeshIME extends InputMethodService
         view.setLanguage(lang);
         if (emojis != null) emojis.setLanguage(lang);
         if (ai != null) ai.setLanguage(lang);
-        boolean several = false;
-        if (imm != null) {
-            List<InputMethodSubtype> enabled = imm.getEnabledInputMethodSubtypeList(null, true);
-            several = enabled != null && enabled.size() > 1;
-        }
-        view.setLanguageSwitch(several);
-        view.setSpaceLabel(several ? getString("en".equals(lang) ? R.string.lang_en : "de".equals(lang) ? R.string.lang_de : R.string.lang_es) : null);
+        severalLangs = severalSubtypes(imm);
+        view.setLanguageSwitch(severalLangs);
+        view.setSpaceSlide(spaceSlideMode(severalLangs));     // "auto" depende de cuantos idiomas haya
+        view.setSpaceLabel(severalLangs ? getString("en".equals(lang) ? R.string.lang_en : "de".equals(lang) ? R.string.lang_de : R.string.lang_es) : null);
         loadDictionary();
         loadBigrams();
     }
@@ -425,6 +505,9 @@ public class AurebeshIME extends InputMethodService
     public void onUpdateSelection(int oldSelStart, int oldSelEnd, int newSelStart, int newSelEnd,
                                   int candidatesStart, int candidatesEnd) {
         super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd);
+        selStart = newSelStart;
+        selEnd = newSelEnd;
+        candStart = candidatesStart;
         refresh();
     }
 
@@ -440,7 +523,7 @@ public class AurebeshIME extends InputMethodService
             CharSequence before = ic.getTextBeforeCursor(60, 0);
             view.setStripText(before == null ? "" : before);
         }
-        boolean caps = info.inputType != InputType.TYPE_NULL && ic.getCursorCapsMode(info.inputType) != 0;
+        boolean caps = autoCaps && capsAtCursor(ic, info);
         view.setAutoShift(caps);
         updateSuggestions(ic);
     }
@@ -459,8 +542,25 @@ public class AurebeshIME extends InputMethodService
 
     // ------------------------------------------------------------------ autocorreccion
 
-    /** Palabra que se esta escribiendo (letras justo antes del cursor, con el cursor al final). */
+    /** El editor pide mayuscula en el cursor (inicio de frase, campo en mayusculas). */
+    private static boolean capsAtCursor(InputConnection ic, EditorInfo info) {
+        return info != null && info.inputType != InputType.TYPE_NULL && ic.getCursorCapsMode(info.inputType) != 0;
+    }
+
+    private boolean capsAtCursor(InputConnection ic) { return capsAtCursor(ic, getCurrentInputEditorInfo()); }
+
+    /**
+     * Hay texto seleccionado. Si la ultima seleccion informada esta vacia no se consulta al editor; si hay una o no
+     * se conoce (-1), lo confirma el editor.
+     */
+    private boolean hasSelection(InputConnection ic) {
+        if (selStart >= 0 && selEnd >= 0 && selStart == selEnd) return false;
+        return !TextUtils.isEmpty(ic.getSelectedText(0));
+    }
+
+    /** Palabra que se esta escribiendo (letras justo antes del cursor, con el cursor al final); null con seleccion. */
     private String currentWord(InputConnection ic) {
+        if (hasSelection(ic)) return null;               // con texto seleccionado no hay palabra "en curso"
         CharSequence after = ic.getTextAfterCursor(1, 0);
         if (after != null && after.length() > 0 && Character.isLetter(after.charAt(0))) return null;
         CharSequence before = ic.getTextBeforeCursor(40, 0);
@@ -470,7 +570,7 @@ public class AurebeshIME extends InputMethodService
         return before.subSequence(i, before.length()).toString();
     }
 
-    private static boolean looksLikeAcronym(String w) {
+    static boolean looksLikeAcronym(String w) {
         int upper = 0;
         for (int i = 0; i < w.length(); i++) if (Character.isUpperCase(w.charAt(i))) upper++;
         return upper >= 2;
@@ -483,7 +583,12 @@ public class AurebeshIME extends InputMethodService
             if (before != null && before.toString().equals(glideAnchor)) return;
             clearGlide();
         }
-        if (!autocorrect || !suggestionsAllowed || dict == null) {
+        if (correctionAnchor != null) {                  // chip "original" tras autocorregir: igual que los del deslizado
+            CharSequence before = ic.getTextBeforeCursor(60, 0);
+            if (before != null && before.toString().equals(correctionAnchor)) return;
+            correctionAnchor = null;
+        }
+        if (!autocorrect || !suggestionsAllowed) {
             clearSuggestions();
             return;
         }
@@ -493,13 +598,30 @@ public class AurebeshIME extends InputMethodService
             if (word != null && bigrams != null && fresh == null) {          // siguiente palabra prevista
                 String prev = previousWord(ic, "");
                 if (prev != null) {
-                    List<String> next = bigrams.next(prev, 3);
-                    if (!next.isEmpty()) view.setSuggestions(next, null);
+                    boolean start = "<s>".equals(prev);
+                    boolean caps = start && autoCaps && capsAtCursor(ic);  // al inicio de frase, los chips ya en mayuscula
+                    List<String> chips = new ArrayList<>();
+                    for (String s : bigrams.next(prev, 3)) chips.add(caps ? capitalize(s) : s);
+                    if (!start) chips.addAll(EmojiSuggest.lookup(this, prev, 1));   // emoji de la palabra recien cerrada
+                    if (!chips.isEmpty()) view.setSuggestions(chips, null);
                 }
             }
             return;
         }
         if (word.equals(lastWord)) return;              // ya pedidas
+        String expansion = shortcutFor(word);
+        if (expansion != null) {                         // atajo de texto: la expansion como chip resaltado (se aplica con el separador)
+            lastWord = word;
+            computedWord = word;
+            pendingCorrection = null;
+            suggestSeq++;
+            view.setSuggestions(Arrays.asList(expansion), expansion);
+            return;
+        }
+        if (dict == null) {
+            clearSuggestions();
+            return;
+        }
         lastWord = word;
         computedWord = null;
         pendingCorrection = null;
@@ -510,20 +632,71 @@ public class AurebeshIME extends InputMethodService
         final String w = word;
         final Dictionary d = dict;
         final int seq = ++suggestSeq;
-        worker.execute(new Runnable() {
-            @Override public void run() {
-                final Dictionary.Result r = d.suggest(w);
-                main.post(new Runnable() {
-                    @Override public void run() {
-                        if (seq != suggestSeq || !w.equals(lastWord) || view == null) return;
-                        showResult(w, r);
-                    }
-                });
-            }
-        });
+        try {
+            suggestFutureWord = w;
+            suggestFuture = worker.submit(new Callable<Dictionary.Result>() {   // un separador puede esperar este Future
+                @Override public Dictionary.Result call() {
+                    final Dictionary.Result r = d.suggest(w);
+                    main.post(new Runnable() {
+                        @Override public void run() {
+                            if (seq != suggestSeq || !w.equals(lastWord) || view == null) return;
+                            showResult(w, r);
+                        }
+                    });
+                    return r;
+                }
+            });
+        } catch (RejectedExecutionException e) {
+            suggestFuture = null;                        // el servicio se esta destruyendo
+        }
+    }
+
+    /** Expansion del atajo de texto si la palabra es una clave (nunca en contrasenas ni en campos sin sugerencias). */
+    private String shortcutFor(String word) {
+        if (word == null || word.isEmpty() || shortcuts.isEmpty() || privateField || !suggestionsAllowed) return null;
+        String expansion = shortcuts.get(word.toLowerCase(Locale.ROOT));
+        return expansion == null ? null : matchCase(word, expansion);
+    }
+
+    /**
+     * Espera (como mucho 30 ms) la peticion en vuelo de la palabra actual, para que el separador no bloquee el hilo
+     * principal. Si no llega a tiempo, la palabra se confirma tal cual (sin correccion ni deshacer) y devuelve false.
+     */
+    private boolean awaitSuggestion() {
+        if (lastWord == null) return false;
+        if (lastWord.equals(computedWord)) return true;
+        Future<Dictionary.Result> f = suggestFuture;
+        if (f == null || !lastWord.equals(suggestFutureWord)) return false;    // sin peticion (sigla): nada que corregir
+        try {
+            Dictionary.Result r = f.get(30, TimeUnit.MILLISECONDS);
+            rankResult(lastWord, r);
+            return true;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        } catch (TimeoutException | ExecutionException e) {
+            lastCorrection = null;
+            clearSuggestions();                          // la palabra se cierra tal cual; el resultado tardio se descarta
+            return false;
+        }
     }
 
     private void showResult(String word, Dictionary.Result r) {
+        rankResult(word, r);
+        List<String> chips = new ArrayList<>();
+        if (!r.known && !r.suggestions.isEmpty()) chips.add("\"" + word + "\"");   // conservar lo escrito
+        List<String> emo = EmojiSuggest.lookup(this, r.known ? word : (r.correction != null ? r.correction : word), 2);
+        int maxWords = emo.isEmpty() ? 3 : 2;                 // con emojis, dejarles sitio en la barra
+        for (String s : r.suggestions) {
+            if (chips.size() >= maxWords) break;
+            chips.add(s);
+        }
+        chips.addAll(emo);
+        view.setSuggestions(chips, pendingCorrection);
+    }
+
+    /** Anota el resultado de la palabra (correccion pendiente), eligiendo por contexto entre los candidatos. */
+    private void rankResult(String word, Dictionary.Result r) {
         computedWord = word;
         pendingCorrection = r.correction;
         if (bigrams != null && !r.known && r.correction != null && r.suggestions.size() > 1) {   // contexto: candidato que mejor sigue a la anterior
@@ -543,16 +716,6 @@ public class AurebeshIME extends InputMethodService
                 }
             }
         }
-        List<String> chips = new ArrayList<>();
-        if (!r.known && !r.suggestions.isEmpty()) chips.add("\"" + word + "\"");   // conservar lo escrito
-        List<String> emo = EmojiSuggest.lookup(this, r.known ? word : (r.correction != null ? r.correction : word), 2);
-        int maxWords = emo.isEmpty() ? 3 : 2;                 // con emojis, dejarles sitio en la barra
-        for (String s : r.suggestions) {
-            if (chips.size() >= maxWords) break;
-            chips.add(s);
-        }
-        chips.addAll(emo);
-        view.setSuggestions(chips, pendingCorrection);
     }
 
     private void clearSuggestions() {
@@ -560,8 +723,21 @@ public class AurebeshIME extends InputMethodService
         computedWord = null;
         pendingCorrection = null;
         suggestSeq++;
+        correctionAnchor = null;
         clearGlide();
         if (view != null) view.setSuggestions(null, null);
+    }
+
+    /** Tras autocorregir: un unico chip con la palabra original entrecomillada, que la recupera; se va cuando cambia el texto. */
+    private void showCorrectionChip(InputConnection ic, String original) {
+        lastWord = null;
+        computedWord = null;
+        pendingCorrection = null;
+        suggestSeq++;
+        clearGlide();
+        CharSequence before = ic.getTextBeforeCursor(60, 0);
+        correctionAnchor = before == null ? "" : before.toString();
+        view.setSuggestions(Arrays.asList("\"" + original + "\""), null);
     }
 
     // ------------------------------------------------------------------ escritura deslizando
@@ -585,6 +761,7 @@ public class AurebeshIME extends InputMethodService
         computedWord = null;
         pendingCorrection = null;
         suggestSeq++;
+        correctionAnchor = null;
         CharSequence before = ic.getTextBeforeCursor(60, 0);
         glideAnchor = before == null ? "" : before.toString();
         view.setSuggestions(chips.isEmpty() ? null : chips, highlight);
@@ -602,7 +779,7 @@ public class AurebeshIME extends InputMethodService
         ic.beginBatchEdit();
         String cur = currentWord(ic);
         if (cur != null && !cur.isEmpty()) {
-            if (!applyCorrection(ic, " ")) ic.commitText(" ", 1);
+            if (!closeWord(ic, " ")) ic.commitText(" ", 1);
         } else {
             CharSequence before = ic.getTextBeforeCursor(1, 0);
             if (before != null && before.length() == 1) {
@@ -626,7 +803,8 @@ public class AurebeshIME extends InputMethodService
         showGlideChips(ic, alts, null);
     }
 
-    private static String matchCase(String original, String replacement) {
+    /** Caja de lo escrito aplicada a la sustitucion: MAYUSCULAS, Capitalizada o tal cual. */
+    static String matchCase(String original, String replacement) {
         if (original.isEmpty() || replacement.isEmpty()) return replacement;
         if (original.length() > 1 && original.equals(original.toUpperCase(Locale.ROOT))) return replacement.toUpperCase(Locale.ROOT);
         if (Character.isUpperCase(original.charAt(0)))
@@ -634,27 +812,101 @@ public class AurebeshIME extends InputMethodService
         return replacement;
     }
 
-    /** Sustituye la palabra escrita por la correccion pendiente (mas el separador). */
+    /** Primera letra en mayuscula (si era minuscula). */
+    static String capitalize(String w) {
+        if (w == null || w.isEmpty() || !Character.isLowerCase(w.charAt(0))) return w;
+        return w.substring(0, 1).toUpperCase(Locale.ROOT) + w.substring(1);
+    }
+
+    /** Cierra la palabra en curso con el separador dado: el atajo de texto si lo es, o la autocorreccion pendiente. */
+    private boolean closeWord(InputConnection ic, String suffix) {
+        return expandShortcut(ic, suffix) || applyCorrection(ic, suffix);
+    }
+
+    /**
+     * Atajo de texto: si la palabra escrita es una clave, la cambia por su expansion (con la caja de lo escrito) mas el
+     * separador; retroceso justo despues lo deshace como una autocorreccion. Manda sobre la autocorreccion y no depende
+     * del diccionario ni del texto predictivo; nunca en contrasenas ni en campos sin sugerencias.
+     */
+    private boolean expandShortcut(InputConnection ic, String suffix) {
+        if (shortcuts.isEmpty() || privateField || !suggestionsAllowed) return false;
+        String cur = currentWord(ic);
+        String expansion = shortcutFor(cur);
+        if (expansion == null) return false;
+        ic.beginBatchEdit();
+        ic.deleteSurroundingText(cur.length(), 0);
+        ic.commitText(expansion + suffix, 1);
+        ic.endBatchEdit();
+        lastCorrection = new String[]{cur, expansion, suffix};
+        clearSuggestions();
+        return true;
+    }
+
+    /**
+     * Sustituye la palabra escrita por la correccion pendiente (mas el separador), solo con la sustitucion automatica
+     * activa. Si el resultado aun no llego se espera como mucho 30 ms; si no, la palabra se confirma tal cual.
+     */
     private boolean applyCorrection(InputConnection ic, String suffix) {
-        if (lastWord == null || dict == null) return false;
+        if (!autoReplace || lastWord == null || dict == null) return false;
         String cur = currentWord(ic);
         if (cur == null || !cur.equals(lastWord)) return false;
-        if (!lastWord.equals(computedWord)) {           // el resultado aun no llego: calcular ahora
+        if (!lastWord.equals(computedWord)) {           // el resultado aun no llego: esperarlo un poco
             if (looksLikeAcronym(lastWord)) return false;
-            Dictionary.Result r = dict.suggest(lastWord);
-            computedWord = lastWord;
-            pendingCorrection = r.correction;
+            if (!awaitSuggestion()) return false;
         }
         if (pendingCorrection == null) return false;
         String fix = matchCase(lastWord, pendingCorrection);
         if (fix.equals(lastWord)) return false;
+        String original = lastWord;
         ic.beginBatchEdit();
-        ic.deleteSurroundingText(lastWord.length(), 0);
+        ic.deleteSurroundingText(original.length(), 0);
         ic.commitText(fix + suffix, 1);
         ic.endBatchEdit();
-        lastCorrection = new String[]{lastWord, fix, suffix};
-        clearSuggestions();
+        lastCorrection = new String[]{original, fix, suffix};
+        Prefs.removeCandidate(this, original.toLowerCase(Locale.ROOT));   // una palabra corregida deja de ser candidata a aprenderse
+        showCorrectionChip(ic, original);
         return true;
+    }
+
+    /**
+     * Deshace la ultima autocorreccion (o atajo) si el texto previo al cursor sigue siendo el corregido: recupera la
+     * palabra original con su separador. La misma correccion deshecha dos veces en la sesion aprende la palabra.
+     */
+    private boolean revertCorrection(InputConnection ic) {
+        String[] c = lastCorrection;
+        lastCorrection = null;
+        if (c == null) return false;
+        String corrected = c[1] + c[2];
+        CharSequence before = ic.getTextBeforeCursor(corrected.length(), 0);
+        if (before == null || !before.toString().equals(corrected)) return false;
+        ic.beginBatchEdit();
+        ic.deleteSurroundingText(corrected.length(), 0);
+        ic.commitText(c[0] + c[2], 1);
+        ic.endBatchEdit();
+        String key = c[0].toLowerCase(Locale.ROOT);
+        if (!shortcuts.containsKey(key)) {              // deshacer un atajo no dice nada sobre la palabra
+            Integer n = revertCount.get(key);
+            int count = n == null ? 1 : n + 1;
+            revertCount.put(key, count);
+            if (count >= 2) learnWord(c[0]);
+        }
+        return true;
+    }
+
+    /**
+     * Palabra desconocida cerrada con un separador (sin correccion ni atajo): se anota y a la segunda vez que se
+     * escribe se aprende. Solo si se permite aprender (opcion, campo normal, sin modo incognito).
+     */
+    private void noteCandidate(InputConnection ic) {
+        if (dict == null || !learn || incognito || !suggestionsAllowed || privateField) return;
+        String cur = currentWord(ic);
+        if (cur == null || cur.length() < 3 || looksLikeAcronym(cur)) return;
+        String lw = cur.toLowerCase(Locale.ROOT);
+        if (dict.contains(lw) || shortcuts.containsKey(lw)) return;
+        if (Prefs.bumpCandidate(this, lw) >= 2) {
+            learnWord(cur);
+            Prefs.removeCandidate(this, lw);
+        }
     }
 
     /** Guarda una palabra que el usuario quiso conservar (si la opcion esta activa). */
@@ -710,7 +962,10 @@ public class AurebeshIME extends InputMethodService
             lastSpaceAt = 0;
         }
         if (!separator && fresh != null) clearPasteChip();
-        if (separator) rememberPair(ic);
+        if (separator) {
+            if (expandShortcut(ic, text)) return;                         // atajo de texto: manda sobre la autocorreccion
+            rememberPair(ic);
+        }
         if (glideWord != null) {                                          // la puntuacion absorbe el espacio del deslizado
             if (glideAutoSpace && text.length() == 1 && GLIDE_PUNCTUATION.indexOf(text.charAt(0)) >= 0) {
                 CharSequence before = ic.getTextBeforeCursor(glideWord.length() + 1, 0);
@@ -719,6 +974,7 @@ public class AurebeshIME extends InputMethodService
             clearGlide();
         }
         if (separator && applyCorrection(ic, text)) return;
+        if (separator) noteCandidate(ic);                                 // palabra desconocida que se queda tal cual
         if (!separator) lastCorrection = null;
         ic.commitText(text, 1);
     }
@@ -731,12 +987,11 @@ public class AurebeshIME extends InputMethodService
         String prev = previousWord(ic, cur);
         if (prev == null || "<s>".equals(prev)) return;
         if (dict != null && lastWord != null && lastWord.equals(cur) && !lastWord.equals(computedWord)) {
-            Dictionary.Result r = dict.suggest(lastWord);     // el resultado aun no llego: resolverlo como applyCorrection
-            computedWord = lastWord;
-            pendingCorrection = r.correction;
+            awaitSuggestion();                                // el resultado aun no llego: la misma espera corta que applyCorrection
         }
-        String w = pendingCorrection != null && lastWord != null && lastWord.equals(cur) && lastWord.equals(computedWord)
-                ? pendingCorrection.toLowerCase(Locale.ROOT) : cur.toLowerCase(Locale.ROOT);
+        boolean replaced = autoReplace && pendingCorrection != null && lastWord != null && lastWord.equals(cur)
+                && lastWord.equals(computedWord);             // lo que quedara escrito tras el separador
+        String w = replaced ? pendingCorrection.toLowerCase(Locale.ROOT) : cur.toLowerCase(Locale.ROOT);
         bigrams.learn(this, prev, w);
     }
 
@@ -767,21 +1022,8 @@ public class AurebeshIME extends InputMethodService
                 return;
             }
         }
-        // Retroceso justo despues de una autocorreccion: recupera la palabra original (y la aprende)
-        if (lastCorrection != null) {
-            String corrected = lastCorrection[1] + lastCorrection[2];
-            CharSequence before = ic.getTextBeforeCursor(corrected.length(), 0);
-            if (before != null && before.toString().equals(corrected)) {
-                ic.beginBatchEdit();
-                ic.deleteSurroundingText(corrected.length(), 0);
-                ic.commitText(lastCorrection[0] + lastCorrection[2], 1);
-                ic.endBatchEdit();
-                learnWord(lastCorrection[0]);
-                lastCorrection = null;
-                return;
-            }
-            lastCorrection = null;
-        }
+        // Retroceso justo despues de una autocorreccion: recupera la palabra original (se aprende si se repite)
+        if (lastCorrection != null && revertCorrection(ic)) return;
         // Borra un caracter completo (incluye emojis / pares sustitutos)
         CharSequence before = ic.getTextBeforeCursor(2, 0);
         int n = 1;
@@ -804,12 +1046,12 @@ public class AurebeshIME extends InputMethodService
         boolean multiLine = (info.inputType & InputType.TYPE_TEXT_FLAG_MULTI_LINE) != 0;
         if ((info.imeOptions & EditorInfo.IME_FLAG_NO_ENTER_ACTION) == 0
                 && action != EditorInfo.IME_ACTION_NONE && action != EditorInfo.IME_ACTION_UNSPECIFIED) {
-            applyCorrection(ic, "");
+            closeWord(ic, "");
             ic.performEditorAction(action);
         } else if (multiLine || info.inputType == InputType.TYPE_NULL) {
             onText("\n");
         } else {
-            applyCorrection(ic, "");
+            closeWord(ic, "");
             sendDownUpKeyEvents(KeyEvent.KEYCODE_ENTER);
         }
     }
@@ -853,6 +1095,13 @@ public class AurebeshIME extends InputMethodService
     public void onDeleteWord() {
         InputConnection ic = getCurrentInputConnection();
         if (ic == null) return;
+        lastSpaceAt = 0;
+        if (hasSelection(ic)) {                           // con seleccion: se borra ella y nada mas
+            ic.commitText("", 1);
+            lastCorrection = null;
+            clearSuggestions();
+            return;
+        }
         CharSequence before = ic.getTextBeforeCursor(64, 0);
         if (before == null || before.length() == 0) { sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL); return; }
         int n = before.length(), i = n;
@@ -908,8 +1157,13 @@ public class AurebeshIME extends InputMethodService
         String cur = currentWord(ic);
         ic.beginBatchEdit();
         if (word.length() >= 2 && word.startsWith("\"") && word.endsWith("\"")) {
-            ic.commitText(" ", 1);                      // conservar lo escrito, y aprenderlo
-            learnWord(cur);
+            String original = word.substring(1, word.length() - 1);
+            if (lastCorrection != null && original.equals(lastCorrection[0]) && revertCorrection(ic)) {
+                learnWord(original);                    // el usuario deshizo la correccion a proposito: la palabra es suya
+            } else {
+                ic.commitText(" ", 1);                  // conservar lo escrito, y aprenderlo
+                learnWord(cur);
+            }
         } else if (AurebeshKeyboardView.isEmoji(word)) {   // emoji sugerido: sustituye la palabra
             if (cur != null && !cur.isEmpty()) ic.deleteSurroundingText(cur.length(), 0);
             ic.commitText(word, 1);
@@ -918,6 +1172,8 @@ public class AurebeshIME extends InputMethodService
             if (cur != null && !cur.isEmpty()) {
                 ic.deleteSurroundingText(cur.length(), 0);
                 word = matchCase(cur, word);
+            } else if (autoCaps && capsAtCursor(ic)) {  // prediccion al inicio de frase: con mayuscula
+                word = capitalize(word);
             }
             ic.commitText(word + " ", 1);
         }
@@ -1066,7 +1322,7 @@ public class AurebeshIME extends InputMethodService
     public void onEmoji(String emoji) {
         InputConnection ic = getCurrentInputConnection();
         if (ic == null) return;
-        applyCorrection(ic, "");
+        closeWord(ic, "");
         ic.commitText(emoji, 1);
         lastCorrection = null;
         lastSpaceAt = 0;
@@ -1164,7 +1420,7 @@ public class AurebeshIME extends InputMethodService
         if (e.isImage()) { commitImage(e); return; }
         InputConnection ic = getCurrentInputConnection();
         if (ic == null || e.text == null) return;
-        applyCorrection(ic, "");
+        closeWord(ic, "");
         ic.commitText(e.text, 1);
         lastCorrection = null;
         lastSpaceAt = 0;
@@ -1213,7 +1469,7 @@ public class AurebeshIME extends InputMethodService
         }
         InputConnection ic = getCurrentInputConnection();
         if (ic != null && text != null) {
-            applyCorrection(ic, "");
+            closeWord(ic, "");
             ic.commitText(text, 1);
             lastCorrection = null;
             lastSpaceAt = 0;

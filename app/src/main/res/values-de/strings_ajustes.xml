@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Pantalla de ajustes (1.10): secciones como One UI. Cada subtitulo dice que cambia, no donde esta. -->
+    <string name="aj_sec_design">Stil und Layout</string>
+    <string name="aj_sec_size">Größe und Position</string>
+    <string name="aj_sec_smart">Intelligente Eingabe</string>
+    <string name="aj_sec_touch">Tippen und Feedback</string>
+    <string name="aj_sec_clipboard">Zwischenablage</string>
+    <string name="aj_sec_help">Hilfe und Gesten</string>
+
+    <!-- Diseno -->
+    <string name="aj_theme_auto">Automatisch</string>
+    <string name="aj_theme_auto_hint">Automatisch folgt dem Dunkelmodus des Telefons: tagsüber Sternenlicht, nachts Nacht</string>
+    <string name="aj_mode">Tastaturmodus</string>
+    <string name="aj_mode_sub">Einhändig rücken die Tasten zu einem Daumen zusammen; der Pfeil daneben wechselt die Seite</string>
+    <string name="aj_mode_standard">Standard</string>
+    <string name="aj_mode_left">Einhand links</string>
+    <string name="aj_mode_right">Einhand rechts</string>
+    <string name="aj_split_sub">Zwei Hälften mit den Tasten dort, wo die Samsung-Tastatur sie hat, zum Tippen mit beiden Daumen</string>
+    <string name="aj_split_width">Breite der Hälften</string>
+    <string name="aj_split_width_sub">Schmal lässt mehr Platz in der Mitte; breit vergrößert die Tasten</string>
+    <string name="aj_split_narrow">Schmal</string>
+    <string name="aj_split_normal">Normal</string>
+    <string name="aj_split_wide">Breit</string>
+
+    <!-- Tamano y posicion -->
+    <string name="aj_height">Tastaturhöhe</string>
+    <string name="aj_height_sub">Die Tastenreihen werden höher oder niedriger; die Breite bleibt gleich</string>
+    <string name="aj_bottom">Abstand nach unten</string>
+    <string name="aj_bottom_sub">Platz unter der letzten Reihe, damit du nicht bis zum Rand greifst; ab 24 dp erscheint dort die Taste ∨ zum Ausblenden</string>
+    <string name="aj_size_from_keyboard">Du kannst es auch von der Tastatur aus anpassen: ?123 › Größensymbol</string>
+    <string name="aj_size_screen_inner">Jetzt eingestellt: Innendisplay (%1$d dp). Das Frontdisplay behält eigene Höhe, eigenen Abstand und Einhandmodus.</string>
+    <string name="aj_size_screen_cover">Jetzt eingestellt: Frontdisplay. Das Innendisplay behält eigene Höhe, eigenen Abstand und Einhandmodus.</string>
+
+    <!-- Escritura inteligente -->
+    <string name="aj_auto_replace">Automatisch ersetzen</string>
+    <string name="aj_auto_replace_sub">Leerzeichen oder Satzzeichen ersetzt das Wort durch den markierten Vorschlag; die Rücktaste holt das Getippte zurück</string>
+    <string name="aj_auto_caps">Automatische Großschreibung</string>
+    <string name="aj_auto_caps_sub">Großbuchstabe am Anfang jedes Satzes</string>
+    <string name="aj_learned_row">Gelernte Wörter · %1$d</string>
+    <string name="aj_learned_sub">Wörter, die die Tastatur behält, ansehen, ergänzen oder entfernen</string>
+    <string name="aj_learned_title">Gelernte Wörter</string>
+    <string name="aj_learned_empty">Noch keine gelernten Wörter. Was du über die Vorschlagsleiste behältst, erscheint hier.</string>
+    <string name="aj_learned_add_hint">Neues Wort</string>
+    <string name="aj_add">Hinzufügen</string>
+    <string name="aj_remove">%1$s entfernen</string>
+    <string name="aj_forget_all">Alle vergessen</string>
+    <string name="aj_forget_confirm">Alle gelernten Wörter und Wortpaare vergessen? Vorschläge kommen dann wieder nur aus den integrierten Wörterbüchern.</string>
+    <string name="aj_shortcuts_row">Textkürzel · %1$d</string>
+    <string name="aj_shortcuts_sub">Ein kurzes Kürzel plus Leerzeichen fügt einen längeren Text ein, z. B. bg → bis gleich</string>
+    <string name="aj_shortcuts_title">Textkürzel</string>
+    <string name="aj_shortcuts_empty">Noch keine Kürzel</string>
+    <string name="aj_shortcut_key_hint">Kürzel (nur Buchstaben)</string>
+    <string name="aj_shortcut_text_hint">Einzufügender Text</string>
+    <string name="aj_shortcut_key_invalid">Das Kürzel darf nur Buchstaben enthalten (bis 20)</string>
+    <string name="aj_shortcut_text_missing">Schreibe den Text, den das Kürzel einfügen soll</string>
+    <string name="aj_space_slide">Auf der Leertaste wischen</string>
+    <string name="aj_space_slide_sub">Automatisch bewegt den Cursor oder wechselt die Sprache, wenn mehrere aktiviert sind</string>
+    <string name="aj_space_auto">Automatisch</string>
+    <string name="aj_space_cursor">Cursor</string>
+    <string name="aj_space_lang">Sprache</string>
+    <string name="aj_space_none">Nichts</string>
+
+    <!-- Tocar y respuesta -->
+    <string name="aj_preview">Blase beim Tippen</string>
+    <string name="aj_preview_sub">Zeigt das Zeichen und seinen lateinischen Buchstaben über dem Finger; nie in Passwortfeldern</string>
+    <string name="aj_longpress">Verzögerung für langes Drücken</string>
+    <string name="aj_longpress_sub">Wie lange du eine Taste hältst, bis ihre Alternativen erscheinen</string>
+    <string name="aj_lp_short">Kurz</string>
+    <string name="aj_lp_medium">Mittel</string>
+    <string name="aj_lp_long">Lang</string>
+    <string name="aj_sound_sub">Ein kurzer Klick bei jeder Taste</string>
+    <string name="aj_volume">Lautstärke</string>
+    <string name="aj_volume_sub">Stärke des Tastentons, bezogen auf die Medienlautstärke</string>
+    <string name="aj_vibrate_sub">Ein leichtes Tippen bei jeder Taste</string>
+    <string name="aj_vibration">Vibrationsstärke</string>
+    <string name="aj_vibration_sub">System verwendet die Tastatur-Feedback-Einstellung des Telefons</string>
+    <string name="aj_vib_system">System</string>
+    <string name="aj_vib_soft">Sanft</string>
+    <string name="aj_vib_medium">Mittel</string>
+    <string name="aj_vib_strong">Stark</string>
+
+    <!-- Portapapeles -->
+    <string name="aj_clipboard_body">Alles, was du kopierst, bleibt im 📋-Verlauf der Tastatur, auf diesem Telefon. Hier legst du fest, ob auch aktuelle Screenshots vorgeschlagen werden.</string>
+
+    <!-- Ayuda y gestos: filas nuevas de 1.10 -->
+    <string name="aj_gesture_comma">Komma gedrückt halten</string>
+    <string name="aj_gesture_comma_result">Weitere Satzzeichen; ohne Wischen loslassen schreibt das erste</string>
+    <string name="aj_gesture_delete_hold">Rücktaste gedrückt halten</string>
+    <string name="aj_gesture_delete_hold_result">Löscht immer schneller; nach etwa 2 s ganze Wörter</string>
+    <string name="aj_gesture_shift_hold">Umschalttaste halten und Buchstaben tippen</string>
+    <string name="aj_gesture_shift_hold_result">Großbuchstaben nur, solange du sie hältst, wie an einer Computertastatur</string>
+    <string name="aj_gesture_space">Auf der Leertaste wischen</string>
+    <string name="aj_gesture_space_result">Bewegt den Cursor Buchstabe für Buchstabe; bei mehreren aktivierten Sprachen wechselt es stattdessen die Sprache (einstellbar unter Intelligente Eingabe)</string>
+    <string name="aj_gesture_hide">∨ unter den Tasten</string>
+    <string name="aj_gesture_hide_result">Blendet die Tastatur aus; die Taste erscheint ab 24 dp Abstand nach unten</string>
+    <string name="aj_gesture_resize">Größensymbol in ?123</string>
+    <string name="aj_gesture_resize_result">Anpassungsmodus: Ziehe die Griffe, um Höhe und Abstand nach unten zu ändern, auf jedem Bildschirm eines Faltgeräts getrennt</string>
+
+    <!-- Resumenes de una linea bajo el titulo de cada seccion -->
+    <string name="aj_sum_margin">Abstand %1$d dp</string>
+    <string name="aj_sum_replace">ersetzt automatisch</string>
+    <plurals name="aj_sum_shortcuts">
+        <item quantity="one">%1$d Kürzel</item>
+        <item quantity="other">%1$d Kürzel</item>
+    </plurals>
+    <string name="aj_sum_bubble">Blase</string>
+    <string name="aj_sum_vibration">Vibration %1$s</string>
+    <string name="aj_sum_shots_on">schlägt Screenshots vor</string>
+    <string name="aj_sum_shots_off">keine Screenshot-Vorschläge</string>
+    <string name="aj_sum_split">geteilt: %1$s</string>
+</resources>

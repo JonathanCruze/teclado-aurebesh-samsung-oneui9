@@ -39,7 +39,7 @@
     <string name="sum_toolbar">Werkzeugleiste</string>
     <string name="sum_strip">Übersetzungsleiste</string>
     <string name="sum_glide">Wischen</string>
-    <string name="sum_autocorrect">Autokorrektur</string>
+    <string name="sum_autocorrect">Vorschläge</string>
     <string name="sum_learn">lernt Wörter</string>
     <string name="sum_sound">Ton</string>
     <string name="sum_vibrate">Vibration</string>

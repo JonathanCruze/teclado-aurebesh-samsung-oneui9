@@ -36,6 +36,12 @@ final class Dictionary {
     private static final int MAX_PREFIX_SCAN = 4000;
     private static final int MAX_LEN = 24;
     private static final double ED2_CUTOFF = 2.6;      // coste maximo de la busqueda a dos ediciones
+    /**
+     * Puntuacion base de una palabra aprendida del usuario: como una de frecuencia media (rango ~1500), asi
+     * gana a los candidatos raros del diccionario pero no a las palabras muy frecuentes.
+     */
+    static final double PERSONAL_SCORE = Math.log(1500);
+    private static final double MAX_EDIT = 2.5;        // coste maximo de una sola edicion (letra cambiada por otra cualquiera)
 
     /** Nunca se proponen ni se usan como correccion (si se escriben, se respetan). */
     private static final Set<String> NO_SUGGEST = new HashSet<>(Arrays.asList(
@@ -116,6 +122,7 @@ final class Dictionary {
     private final String[] byRank;                                       // por frecuencia (indice = rango), para el deslizado
     private final String[][] byLength = new String[MAX_LEN + 3][];        // palabras por longitud, en orden de frecuencia
     private volatile Set<String> personal = Collections.emptySet();      // palabras aprendidas del usuario
+    private volatile Map<String, String> personalPlain = Collections.emptyMap();   // forma sin tildes -> palabra aprendida
 
     /** Carga (o recupera de la cache) el diccionario de un idioma. Puede llamarse en segundo plano. */
     static synchronized Dictionary get(Context c, String lang) throws IOException {
@@ -165,9 +172,36 @@ final class Dictionary {
         for (int i = 0; i < byLength.length; i++) byLength[i] = buckets.get(i).toArray(new String[0]);
     }
 
-    /** Palabras aprendidas del usuario: se aceptan como conocidas y se completan. */
+    /**
+     * Palabras aprendidas del usuario: se aceptan como conocidas, se completan y tambien se corrige hacia ellas
+     * (como entradas de frecuencia media, {@link #PERSONAL_SCORE}, con la misma distancia ponderada).
+     */
     void setPersonal(Collection<String> words) {
-        personal = words == null ? Collections.<String>emptySet() : new HashSet<>(words);
+        HashSet<String> set = new HashSet<>();
+        HashMap<String, String> plain = new HashMap<>();
+        if (words != null) {
+            for (String w : words) {
+                if (w == null || w.isEmpty()) continue;
+                set.add(w);
+                String f = fold(w);
+                if (!plain.containsKey(f)) plain.put(f, w);
+            }
+        }
+        personalPlain = plain;
+        personal = set;
+    }
+
+    /** La palabra esta entre las aprendidas del usuario (se comparan en minusculas, como se guardan). */
+    boolean isPersonal(String w) {
+        return w != null && personal.contains(w.toLowerCase(Locale.ROOT));
+    }
+
+    /** Palabra aprendida igual a la forma dada o a su forma sin tildes (el usuario pudo escribirla sin ellas), o null. */
+    private String personalWord(String v) {
+        Set<String> set = personal;
+        if (set.isEmpty()) return null;
+        if (set.contains(v)) return v;
+        return personalPlain.get(fold(v));
     }
 
     /**
@@ -252,8 +286,10 @@ final class Dictionary {
         return n <= 2 ? 5.7 : n == 3 ? 7.3 : n == 4 ? 8.7 : 9.6;
     }
 
+    /** ln(rango) de una palabra del diccionario, o {@link #PERSONAL_SCORE} si es aprendida, mas la penalizacion. */
     private double score(String word, double penalty) {
-        return Math.log(rank.get(word) + 1) + penalty;
+        Integer r = rank.get(word);
+        return (r == null ? PERSONAL_SCORE : Math.log(r + 1)) + penalty;
     }
 
     /** Sugerencias y correccion para lo que se lleva escrito de una palabra. */
@@ -284,6 +320,8 @@ final class Dictionary {
         boolean accentFix = acc != null && !acc.equals(w);
         if (accentFix) put(cand, acc, score(acc, 0));
         if (!res.known) {
+            String pacc = personalWord(w);               // aprendida con tildes de lo escrito sin ellas
+            if (pacc != null && !pacc.equals(w)) put(cand, pacc, score(pacc, 0));
             edits(w, cand);
             if (n >= 5) scan(w, cand);                   // tambien a dos ediciones
         }
@@ -295,7 +333,13 @@ final class Dictionary {
             if (e.getValue() < bestScore) { bestScore = e.getValue(); best = e.getKey(); }
         }
         if (best != null) {
-            if (!res.known) { if (bestScore <= limit(n)) res.correction = best; }
+            if (!res.known) {
+                // una palabra aprendida a una sola edicion de lo escrito se corrige aunque el limite por longitud
+                // la dejara fuera: el usuario la guardo a proposito
+                boolean personalEdit = n >= 3 && !rank.containsKey(best) && personal.contains(best)
+                        && bestScore - PERSONAL_SCORE <= MAX_EDIT;
+                if (bestScore <= limit(n) || personalEdit) res.correction = best;
+            }
             else if (accentFix && best.equals(acc)) res.correction = acc;
         }
 
@@ -355,7 +399,8 @@ final class Dictionary {
 
     /**
      * Busqueda a dos ediciones: palabras de longitud parecida que empiezan por la misma letra, con la
-     * distancia ponderada (los mismos costes que las variantes a una edicion) y corte temprano.
+     * distancia ponderada (los mismos costes que las variantes a una edicion) y corte temprano. Las palabras
+     * aprendidas del usuario (como mucho unos cientos) se recorren con el mismo criterio.
      */
     private void scan(String w, Map<String, Double> cand) {
         String a = fold(w);
@@ -370,6 +415,13 @@ final class Dictionary {
                 if (cost <= 0 || cost > ED2_CUTOFF) continue;
                 put(cand, word, score(word, cost));
             }
+        }
+        for (String p : personal) {
+            int len = p.length();
+            if (len < 2 || len < n - 2 || len > n + 2 || plain(p.charAt(0), foldUmlaut) != first) continue;
+            double cost = distance(a, fold(p), ED2_CUTOFF, dp);
+            if (cost <= 0 || cost > ED2_CUTOFF) continue;
+            put(cand, p, score(p, cost));
         }
     }
 
@@ -436,13 +488,23 @@ final class Dictionary {
             if (v.length() < 3 || v.equals(w)) continue;
             for (String s : completions(v, 2)) put(cand, s, score(s, 1.2));
         }
+        for (String p : personal) {                      // aprendidas que extienden alguna variante
+            if (p.equals(w)) continue;
+            for (int len = Math.max(3, n - 1); len <= n + 1 && len < p.length(); len++) {
+                if (variants.contains(p.substring(0, len))) { put(cand, p, score(p, 1.2)); break; }
+            }
+        }
     }
 
-    /** Anota la variante si existe (o su forma con tildes), con puntuacion ln(rango) + penalizacion. */
+    /**
+     * Anota la variante si existe (o su forma con tildes), con puntuacion ln(rango) + penalizacion; si es una
+     * palabra aprendida, con {@link #PERSONAL_SCORE} + penalizacion.
+     */
     private void offer(Map<String, Double> cand, String variant, double penalty) {
         String r = resolve(variant);
-        if (r == null) return;
-        put(cand, r, score(r, penalty));
+        if (r != null) put(cand, r, score(r, penalty));
+        String p = personalWord(variant);
+        if (p != null && !p.equals(r)) put(cand, p, score(p, penalty));
     }
 
     private static void put(Map<String, Double> cand, String word, double score) {
