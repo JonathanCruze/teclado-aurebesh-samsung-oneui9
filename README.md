@@ -12,12 +12,12 @@
 
 <p align="center">
   <a href="https://github.com/JonathanCruze/teclado-aurebesh-samsung-oneui9/raw/main/releases/TecladoAurebesh.apk">
-    <img src="https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20%20DESCARGAR%20APK%20%E2%80%94%20Teclado%20Aurebesh%202.0-1B2838?style=for-the-badge&logoColor=white&labelColor=1B2838&color=7FD3F0" alt="Descargar APK">
+    <img src="https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20%20DESCARGAR%20APK%20%E2%80%94%20Teclado%20Aurebesh%202.0.1-1B2838?style=for-the-badge&logoColor=white&labelColor=1B2838&color=7FD3F0" alt="Descargar APK">
   </a>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/versi%C3%B3n-2.0-7FD3F0?style=flat-square" alt="versión 2.0">
+  <img src="https://img.shields.io/badge/versi%C3%B3n-2.0.1-7FD3F0?style=flat-square" alt="versión 2.0.1">
   <img src="https://img.shields.io/badge/Android-8.0%2B-3DDC84?style=flat-square" alt="Android 8+">
   <img src="https://img.shields.io/badge/Samsung-One%20UI%209.0-1428A0?style=flat-square" alt="Samsung One UI 9.0">
   <img src="https://img.shields.io/badge/sin%20anuncios-%E2%9C%93-2E7D32?style=flat-square" alt="sin anuncios">
@@ -35,7 +35,7 @@
 ## Instalar en tres pasos (sin saber qué es GitHub)
 
 1. **Descarga el APK** desde el teléfono con el botón grande de arriba. Si el navegador pregunta, elige *Descargar de todas formas*:
-   es un archivo de ~1,4 MB firmado por este proyecto.
+   es un archivo de ~1,5 MB firmado por este proyecto.
 2. **Abre el archivo** desde la barra de notificaciones o desde *Mis archivos › Descargas*. Si Android dice que no permite instalar
    apps desconocidas, toca **Ajustes** en ese aviso y activa *Permitir de esta fuente* para el navegador; vuelve atrás y toca **Instalar**.
 3. **Abre Teclado Aurebesh**: arriba del todo están los tres idiomas (cambian la app y el teclado a la vez) y el botón
@@ -172,8 +172,8 @@ Para actualizar, descarga el nuevo APK e instálalo encima: conserva tus ajustes
 </table>
 
 - **Deslizar para escribir**: traza la palabra sobre las letras (estela de sable del color elegido) y aparece con sus alternativas;
-  retroceso justo después la borra entera. Decodificador propio al estilo SHARK2; en trayectorias sintéticas acierta a la primera
-  el 98 % en español y el 96 % en inglés.
+  retroceso justo después la borra entera. Decodificador propio al estilo SHARK2; en trayectorias sintéticas con desvío realista acierta
+  a la primera el 98 % en español y el 97 % en inglés.
 - **Predicción de la siguiente palabra** con tablas de bigramas de corpus abiertos y los pares que tú mismo escribes (aprendidos
   solo en el teléfono).
 - **Tres idiomas de teclado**: español (ñ, ¿ ¡), inglés y alemán (QWERTZ con ü ö ä y ß en pulsación larga), cada uno con su
@@ -369,7 +369,7 @@ capturas y vídeo en la consola de Firebase. Necesita `FIREBASE_PROJECT` y una c
 ./build.sh                      # deja los recursos compilados en build/
 cd screenshot-test && mvn test  # capturas en ../screenshots/
 ```
-Tres clases de prueba con Robolectric y gráficos nativos:
+Diecisiete clases de prueba con Robolectric y gráficos nativos (126 pruebas). Las tres históricas:
 
 - **ScreenshotTest** renderiza un teclado, una pantalla `?123` (y la 2/2), una barra y una burbuja por tema, la barra de sugerencias
   con emoji, el chip "Pegar", el modo a una mano, el teclado dividido (también a ancho de Fold), la bandeja del portapapeles con
@@ -379,8 +379,13 @@ Tres clases de prueba con Robolectric y gráficos nativos:
   las palabras aprendidas, que la búsqueda de emojis encuentra "corazon", "mexico", "pizza" y "laugh" y que la extracción saca el
   teléfono, el correo y el enlace de un texto.
 - **SwipeTest** genera trayectorias sintéticas por los centros de las teclas, con ruido, para las 200 palabras más frecuentes y exige
-  al menos 80 % de acierto a la primera y 92 % entre las tres primeras (obtiene 98 % / 100 % en español y 96 % / 100 % en inglés).
+  al menos 80 % de acierto a la primera y 92 % entre las tres primeras (con desvío realista obtiene 98,5 % / 99,5 % en español y 97 % / 100 % en inglés; con trazos
+  perfectos, 99 % / 100 % en ambos).
 - **PredictionTest** comprueba la siguiente palabra ("muchas" → "gracias", "thank" → "you"), los pares aprendidos y el contexto.
+
+Las demás cubren gestos, tamaño y posición, lógica del IME, escritura inteligente, ajustes, bandejas, traducción y velocidad de la
+IA, estela de sable, accesibilidad, léxico Star Wars y las pruebas rápidas de deslizar (`GlideQuickTest`: palabras corrientes y del
+léxico con ruido y reloj reales, estela en seis colores, desvanecimiento y dedo tembloroso).
 
 Después, `python3 promo/make_promo.py` compone las imágenes promocionales. Necesita acceso a Maven Central; `androidx.test:monitor` y
 `espresso-idling-resource` deben estar en el repositorio local de Maven (vienen del Maven de Google o se compilan desde

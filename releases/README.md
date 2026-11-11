@@ -1,7 +1,7 @@
 # APK publicado
 
 `TecladoAurebesh.apk` es la versión instalable de **Teclado Aurebesh 2.0.1** (versionCode 30), firmada con la clave del proyecto,
-para Android 8.0 o superior y optimizada para Samsung Galaxy con One UI 9.0. Pesa alrededor de 1,4 MB; el modelo de inteligencia no va
+para Android 8.0 o superior y optimizada para Samsung Galaxy con One UI 9.0. Pesa alrededor de 1,5 MB; el modelo de inteligencia no va
 dentro y solo se descarga si lo pides desde Ajustes.
 
 ## Instalar
