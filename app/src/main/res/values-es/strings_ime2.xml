@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 2.0: servicio del teclado (panel de edicion, cuadricula de herramientas) -->
+    <string name="edit_action_unavailable">No disponible en esta app</string>
+</resources>

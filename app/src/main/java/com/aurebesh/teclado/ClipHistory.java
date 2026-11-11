@@ -29,6 +29,10 @@ import java.util.regex.Pattern;
  * Todo leer-modificar-guardar va bajo el cerrojo de la clase: el IME anade textos desde el hilo
  * principal y el vigilante de capturas anade imagenes desde otro. Tambien localiza telefonos,
  * correos y enlaces dentro de un texto para poder pegar solo esa parte.
+ *
+ * Fijados (2.0): una entrada fijada ({@link Entry#pinned}, "f":1 en el JSON) no caduca al llenarse el
+ * historial ni se borra con "Borrar todo"; {@link #items} las devuelve primero, en orden estable. Hay
+ * como mucho {@link #MAX_PINNED} fijadas; las demas entradas siguen con el tope de {@link #MAX}.
  */
 final class ClipHistory {
     private ClipHistory() {}
@@ -36,13 +40,17 @@ final class ClipHistory {
     static final String KEY = "clips";
     /** Archivo de preferencias propio: asi el historial no pasa por el oyente de ajustes del teclado. */
     static final String FILE = "aurebesh_clips";
-    static final int MAX = 20;
-    static final int MAX_IMAGES = 10;
+    static final int MAX = 20;            // entradas sin fijar
+    static final int MAX_IMAGES = 10;     // imagenes sin fijar
+    static final int MAX_PINNED = 10;     // entradas fijadas (no cuentan para MAX ni MAX_IMAGES)
     static final String DIR = "clips";
     private static final int MAX_LENGTH = 5000;
     private static final long MAX_IMAGE_BYTES = 8L * 1024 * 1024;
 
-    /** Un elemento del historial: texto copiado o imagen guardada en files/clips/. */
+    /**
+     * Un elemento del historial: texto copiado o imagen guardada en files/clips/. {@code pinned} no entra en
+     * equals/hashCode: la misma entrada fijada o suelta es la misma entrada (asi remove y setPinned la encuentran).
+     */
     static final class Entry {
         static final int TEXT = 0;
         static final int IMAGE = 1;
@@ -51,17 +59,26 @@ final class ClipHistory {
         final String text;    // texto (TEXT)
         final String path;    // ruta absoluta del archivo (IMAGE)
         final String mime;    // tipo de la imagen (IMAGE)
+        final boolean pinned; // fijada: no caduca ni se borra con "Borrar todo"
 
         Entry(int type, String text, String path, String mime) {
+            this(type, text, path, mime, false);
+        }
+
+        Entry(int type, String text, String path, String mime, boolean pinned) {
             this.type = type;
             this.text = text;
             this.path = path;
             this.mime = mime;
+            this.pinned = pinned;
         }
 
         boolean isImage() { return type == IMAGE; }
 
         File file() { return path == null ? null : new File(path); }
+
+        /** La misma entrada fijada o suelta. */
+        Entry withPinned(boolean p) { return p == pinned ? this : new Entry(type, text, path, mime, p); }
 
         @Override public boolean equals(Object o) {
             if (!(o instanceof Entry)) return false;
@@ -99,37 +116,49 @@ final class ClipHistory {
         return own;
     }
 
-    /** Elementos guardados, del mas reciente al mas antiguo; las imagenes cuyo archivo ya no existe se omiten. */
+    /**
+     * Elementos guardados: primero los fijados y despues los demas, cada grupo del mas reciente al mas antiguo
+     * (orden estable: fijar no reordena nada mas). Las imagenes cuyo archivo ya no existe se omiten.
+     */
     static List<Entry> items(Context c) {
-        List<Entry> out = new ArrayList<>();
+        List<Entry> pinned = new ArrayList<>();
+        List<Entry> rest = new ArrayList<>();
         String raw = prefs(c).getString(KEY, null);
-        if (raw == null || raw.isEmpty()) return out;
+        if (raw == null || raw.isEmpty()) return rest;
         try {
             JSONArray a = new JSONArray(raw);
             for (int i = 0; i < a.length(); i++) {
                 Object o = a.opt(i);
+                Entry e = null;
                 if (o instanceof JSONObject) {
                     JSONObject j = (JSONObject) o;
                     int type = j.optInt("t", Entry.TEXT);
+                    boolean f = j.optInt("f", 0) == 1;
                     if (type == Entry.IMAGE) {
                         String path = j.optString("p", null);
-                        if (path != null && new File(path).isFile()) out.add(new Entry(Entry.IMAGE, null, path, j.optString("m", "image/*")));
+                        if (path != null && new File(path).isFile()) e = new Entry(Entry.IMAGE, null, path, j.optString("m", "image/*"), f);
                     } else {
                         String text = j.optString("v", null);
-                        if (text != null && !text.isEmpty()) out.add(new Entry(Entry.TEXT, text, null, null));
+                        if (text != null && !text.isEmpty()) e = new Entry(Entry.TEXT, text, null, null, f);
                     }
                 } else if (o instanceof String) {          // formato antiguo: solo textos
                     String s = (String) o;
-                    if (!s.isEmpty()) out.add(new Entry(Entry.TEXT, s, null, null));
+                    if (!s.isEmpty()) e = new Entry(Entry.TEXT, s, null, null);
                 }
+                if (e != null) (e.pinned ? pinned : rest).add(e);
             }
         } catch (JSONException e) {
-            out.clear();
+            pinned.clear();
+            rest.clear();
         }
-        return out;
+        pinned.addAll(rest);
+        return pinned;
     }
 
-    /** Anade un texto al principio; si ya estaba, lo sube; nunca mas de MAX elementos. */
+    /**
+     * Anade un texto al principio; si ya estaba, lo sube; nunca mas de MAX elementos sin fijar. Si ese mismo texto
+     * ya esta fijado, se queda como esta: ni se desfija ni se duplica.
+     */
     static void addText(Context c, CharSequence text) {
         if (text == null) return;
         String s = text.toString();
@@ -138,11 +167,46 @@ final class ClipHistory {
         Entry e = new Entry(Entry.TEXT, s, null, null);
         synchronized (ClipHistory.class) {
             List<Entry> l = items(c);
-            l.remove(e);
-            l.add(0, e);
+            int at = l.indexOf(e);
+            if (at >= 0 && l.get(at).pinned) return;
+            if (at >= 0) l.remove(at);
+            l.add(firstUnpinned(l), e);
             trim(l);
             save(c, l);
         }
+    }
+
+    /** Indice de la primera entrada sin fijar (donde entra lo nuevo; los fijados van delante). */
+    private static int firstUnpinned(List<Entry> l) {
+        int i = 0;
+        while (i < l.size() && l.get(i).pinned) i++;
+        return i;
+    }
+
+    /**
+     * Fija o suelta una entrada (la busca por equals, asi que da igual el estado que traiga). Devuelve false si no
+     * esta en el historial o si ya hay {@link #MAX_PINNED} fijadas; con true, la lista queda guardada.
+     */
+    static boolean setPinned(Context c, Entry e, boolean pinned) {
+        if (e == null) return false;
+        synchronized (ClipHistory.class) {
+            List<Entry> l = items(c);
+            int at = l.indexOf(e);
+            if (at < 0) return false;
+            Entry cur = l.get(at);
+            if (cur.pinned == pinned) return true;
+            if (pinned && pinnedCount(l) >= MAX_PINNED) return false;
+            l.set(at, cur.withPinned(pinned));
+            trim(l);                                       // al soltar, la entrada vuelve a contar para los topes
+            save(c, l);
+            return true;
+        }
+    }
+
+    private static int pinnedCount(List<Entry> l) {
+        int n = 0;
+        for (Entry e : l) if (e.pinned) n++;
+        return n;
     }
 
     /**
@@ -186,7 +250,7 @@ final class ClipHistory {
         synchronized (ClipHistory.class) {                 // la copia va fuera del cerrojo; la lista, dentro
             if (!out.isFile()) return null;                // clear() vacio la carpeta mientras se copiaba
             List<Entry> l = items(c);
-            l.add(0, e);
+            l.add(firstUnpinned(l), e);
             trim(l);
             save(c, l);
         }
@@ -203,30 +267,43 @@ final class ClipHistory {
         }
     }
 
-    /** Vacia el historial y borra todas las imagenes guardadas. */
+    /** Vacia el historial salvo los fijados, borrando las imagenes que se van. */
     static void clear(Context c) {
+        clear(c, false);
+    }
+
+    /** Vacia el historial; con alsoPinned tambien los fijados (y entonces toda la carpeta de imagenes). */
+    static void clear(Context c, boolean alsoPinned) {
         synchronized (ClipHistory.class) {
-            File[] files = dir(c).listFiles();
-            if (files != null) for (File f : files) f.delete();
-            save(c, new ArrayList<Entry>());
+            List<Entry> keep = new ArrayList<>();
+            if (alsoPinned) {
+                File[] files = dir(c).listFiles();
+                if (files != null) for (File f : files) f.delete();
+            } else {
+                for (Entry e : items(c)) {
+                    if (e.pinned) keep.add(e);
+                    else if (e.isImage()) deleteFile(e);
+                }
+            }
+            save(c, keep);
         }
     }
 
-    /** Deja como mucho MAX elementos y MAX_IMAGES imagenes, borrando los archivos sobrantes (con el cerrojo tomado). */
+    /**
+     * Deja como mucho MAX elementos y MAX_IMAGES imagenes sin fijar, borrando los archivos sobrantes (con el cerrojo
+     * tomado). Los fijados no se tocan: tienen su propio tope en {@link #setPinned}.
+     */
     private static void trim(List<Entry> l) {
-        int images = 0;
+        int images = 0, loose = 0;
         for (Iterator<Entry> it = l.iterator(); it.hasNext(); ) {
             Entry e = it.next();
-            if (!e.isImage()) continue;
-            images++;
-            if (images > MAX_IMAGES) {
-                deleteFile(e);
+            if (e.pinned) continue;
+            loose++;
+            if (e.isImage()) images++;
+            if (loose > MAX || (e.isImage() && images > MAX_IMAGES)) {
+                if (e.isImage()) deleteFile(e);
                 it.remove();
             }
-        }
-        while (l.size() > MAX) {
-            Entry last = l.remove(l.size() - 1);
-            if (last.isImage()) deleteFile(last);
         }
     }
 
@@ -242,6 +319,7 @@ final class ClipHistory {
             for (Entry e : l) {
                 JSONObject j = new JSONObject();
                 j.put("t", e.type);
+                if (e.pinned) j.put("f", 1);
                 if (e.isImage()) {
                     j.put("p", e.path);
                     j.put("m", e.mime == null ? "image/*" : e.mime);

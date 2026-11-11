@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 2.0: trays (tools grid, text editing panel, pinned clips, emoji skin tones) -->
+
+    <!-- Tools grid ("..." on the toolbar) -->
+    <string name="tools_title">Tools</string>
+    <string name="tools_edit">Edit</string>
+    <string name="tools_done">Done</string>
+    <string name="tools_edit_hint">Tap to add or remove from the bar; ‹ › to reorder</string>
+    <string name="tools_limit">Up to %1$d on the bar</string>
+    <string name="tools_count">%1$d of %2$d on the bar</string>
+    <string name="tools_unavailable">Not available right now</string>
+    <string name="tools_move_left">Move left</string>
+    <string name="tools_move_right">Move right</string>
+    <string name="tools_label_emoji">Emoji</string>
+    <string name="tools_label_clipboard">Clipboard</string>
+    <string name="tools_label_hand">One-handed</string>
+    <string name="tools_label_edit">Text editing</string>
+    <string name="tools_label_translate">Translate</string>
+    <string name="tools_label_split">Split</string>
+    <string name="tools_label_strip">Translation bar</string>
+    <string name="tools_label_lang">Language</string>
+    <string name="tools_label_resize">Size and position</string>
+    <string name="tools_label_hide">Hide keyboard</string>
+    <string name="tools_label_settings">Settings</string>
+    <string name="tools_label_ai">Intelligence</string>
+
+    <!-- Text editing panel -->
+    <string name="edit_title">Text editing</string>
+    <plurals name="edit_selected">
+        <item quantity="one">%d character selected</item>
+        <item quantity="other">%d characters selected</item>
+    </plurals>
+    <string name="edit_select">Select</string>
+    <string name="edit_select_all">Select all</string>
+    <string name="edit_cut">Cut</string>
+    <string name="edit_copy">Copy</string>
+    <string name="edit_paste">Paste</string>
+    <string name="edit_undo">Undo</string>
+    <string name="edit_redo">Redo</string>
+    <string name="edit_home">Start</string>
+    <string name="edit_end">End</string>
+    <string name="edit_left">Left</string>
+    <string name="edit_right">Right</string>
+    <string name="edit_up">Up</string>
+    <string name="edit_down">Down</string>
+
+    <!-- Clipboard: pinned items -->
+    <string name="clip_pinned">Pinned</string>
+    <string name="clip_pin">Pin</string>
+    <string name="clip_unpin">Unpin</string>
+    <string name="clip_clear_pinned">Also clear pinned</string>
+    <string name="clip_pin_limit">Up to %1$d pinned items</string>
+
+    <!-- Emoji: skin tones -->
+    <string name="emoji_tone_title">Skin tone</string>
+    <string name="emoji_tone_close">Close</string>
+</resources>

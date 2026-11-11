@@ -71,13 +71,23 @@ final class AiRunner {
         }
     }
 
+    /**
+     * Tipo de fallo, para que el panel ofrezca la salida adecuada: TIMEOUT (tardo demasiado o el texto es
+     * demasiado largo: acortarlo ayuda), MEMORY (no cabe en memoria: un modelo mas pequeno), SERVER (servidor
+     * propio inalcanzable), MODEL (el archivo no sirve o fallo al cargar: elegir otro), NO_MODEL (no hay ninguno
+     * instalado) y WEAK (el modelo respondio pero el resultado no vale: reintentar).
+     */
+    enum ErrorKind { TIMEOUT, MEMORY, SERVER, MODEL, NO_MODEL, WEAK }
+
     /** Avisos al panel. Siempre en el hilo principal. */
     interface Callback {
-        void onPhase(CharSequence label);                        // "Cargando el modelo…", "Conectando…", "Leyendo…"
+        void onPhase(CharSequence label);                        // "Cargando el modelo…", "Conectando…", "Leyendo… 45 %"
         void onPiece(String soFar, int tokens, long elapsedMs);  // texto acumulado (sin limpiar), ritmo
         void onDone(String text, boolean weak);                  // texto limpio; weak = parece mal, sugerir reintento
         void onCancelled(String partialText);                    // texto parcial limpio (puede ser vacio)
-        void onError(CharSequence message);
+        void onError(CharSequence message);                      // compatibilidad: el runner llama siempre a la version con tipo
+        /** Error con su tipo; por defecto delega en {@link #onError(CharSequence)} para los oyentes antiguos. */
+        default void onError(ErrorKind kind, CharSequence message) { onError(message); }
     }
 
     static final int LOCAL_MAX_CHARS = 1800;
@@ -116,10 +126,17 @@ final class AiRunner {
     private String endText;
     private boolean endWeak;
     private CharSequence endError;
+    private ErrorKind endKind;
 
     AiRunner(Context c) { app = c.getApplicationContext(); }
 
     boolean isBusy() { return busy; }
+
+    /** Posiciones de la cache KV reutilizadas por la ultima generacion local (0 si no hubo o fue remota); diagnostico y pruebas. */
+    int lastReused() {
+        LlmEngine e = engine;
+        return e == null ? 0 : e.lastReused();
+    }
 
     // ------------------------------------------------------------------ oyente
 
@@ -140,7 +157,7 @@ final class AiRunner {
         ending = END_NONE;
         if (kind == END_DONE) cb.onDone(endText, endWeak);
         else if (kind == END_CANCELLED) cb.onCancelled(endText);
-        else if (kind == END_ERROR) cb.onError(endError);
+        else if (kind == END_ERROR) cb.onError(endKind, endError);
         return kind != END_NONE;
     }
 
@@ -181,9 +198,9 @@ final class AiRunner {
         ending = END_CANCELLED; endText = partial;
     }
 
-    private void emitError(CharSequence message) {
-        if (listener != null) { listener.onError(message); return; }
-        ending = END_ERROR; endError = message;
+    private void emitError(ErrorKind kind, CharSequence message) {
+        if (listener != null) { listener.onError(kind, message); return; }
+        ending = END_ERROR; endError = message; endKind = kind;
     }
 
     /** Hay motor disponible segun las preferencias actuales. */
@@ -257,7 +274,7 @@ final class AiRunner {
                 AiRemote r = remote;
                 if (r != null) r.cancel();
                 busy = false;
-                emitError(app.getString(R.string.ai_err_timeout));
+                emitError(ErrorKind.TIMEOUT, app.getString(R.string.ai_err_timeout));
             }
         };
         main.postDelayed(watchdog, useRemote ? REMOTE_TOTAL_MS : LOCAL_TOTAL_MS);
@@ -292,7 +309,29 @@ final class AiRunner {
                 if (!current(id, flag) || firstToken[0]) return;
                 flag.set(true);
                 busy = false;
-                emitError(app.getString(R.string.ai_err_timeout));
+                emitError(ErrorKind.TIMEOUT, app.getString(R.string.ai_err_timeout));
+            }
+        };
+        // Progreso real de la lectura del prompt (entre trozos del motor): "Leyendo el texto… 45 %". Mientras el
+        // modelo avanza, el aviso de "tarda demasiado" vuelve a contar desde cero; cancelar tambien para la lectura.
+        final int[] lastPct = {-1};
+        LlmEngine.PromptListener progress = new LlmEngine.PromptListener() {
+            @Override public boolean onPrompt(int done, int total) {
+                if (!current(id, flag)) return false;
+                final int pct = total <= 0 ? 100 : (int) Math.min(100L, 100L * done / total);
+                if (pct == lastPct[0]) return true;
+                lastPct[0] = pct;
+                main.post(new Runnable() {
+                    @Override public void run() {
+                        if (!current(id, flag)) return;
+                        if (!firstToken[0]) {                   // sigue leyendo: el aviso vuelve a contar desde ahora
+                            main.removeCallbacks(firstWatch);
+                            main.postDelayed(firstWatch, LOCAL_FIRST_MS);
+                        }
+                        if (lastPiece == null) emitPhase(app.getString(R.string.ia3_reading_pct, pct));   // aun no escribe
+                    }
+                });
+                return true;
             }
         };
         LlmEngine.TokenListener listener = new LlmEngine.TokenListener() {
@@ -320,6 +359,7 @@ final class AiRunner {
         };
         String result = null;
         CharSequence error = null;
+        ErrorKind errKind = null;
         try {
             if (useRemote) {
                 phase(id, flag, app.getString(R.string.ai_connecting));
@@ -340,20 +380,32 @@ final class AiRunner {
                 if (e.architecture() != null && e.architecture().toLowerCase(Locale.ROOT).contains("qwen3")) {
                     messages = noThink(messages);
                 }
-                result = e.generate(messages, o, listener);
+                result = e.generate(messages, o, listener, progress);
             }
         } catch (IOException ex) {
             if (!flag.get()) {
                 String m = ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage();
-                error = useRemote ? app.getString(R.string.ai_err_server, m) : badModel(ex);
+                if (useRemote) {
+                    errKind = ErrorKind.SERVER;
+                    error = app.getString(R.string.ai_err_server, m);
+                } else if (tooLong(m)) {
+                    // El motor rechazo el texto por largo: no es culpa del archivo; acortar (o la seleccion) ayuda
+                    errKind = m.contains("memoria") ? ErrorKind.MEMORY : ErrorKind.TIMEOUT;
+                    error = m;
+                } else {
+                    errKind = ErrorKind.MODEL;
+                    error = badModel(ex);
+                }
             }
         } catch (OutOfMemoryError oom) {
             closeEngine();
+            errKind = ErrorKind.MEMORY;
             error = app.getString(R.string.ai_err_memory);
         } catch (RuntimeException ex) {
-            if (!flag.get()) error = useRemote
-                    ? app.getString(R.string.ai_err_server, ex.getClass().getSimpleName())
-                    : badModel(ex);
+            if (!flag.get()) {
+                errKind = useRemote ? ErrorKind.SERVER : ErrorKind.MODEL;
+                error = useRemote ? app.getString(R.string.ai_err_server, ex.getClass().getSimpleName()) : badModel(ex);
+            }
         } finally {
             main.removeCallbacks(firstWatch);
         }
@@ -361,17 +413,23 @@ final class AiRunner {
         if (flag.get()) { finishCancelled(id, raw, req, watchdog); return; }
         final String text = result != null && result.length() >= raw.length() ? result : raw.toString();
         final CharSequence err = error;
+        final ErrorKind kind = errKind;
         main.post(new Runnable() {
             @Override public void run() {
                 main.removeCallbacks(watchdog);
                 if (seq.get() != id) return;
                 busy = false;
-                if (err != null) { emitError(err); return; }
+                if (err != null) { emitError(kind, err); return; }
                 Cleaned c = cleanChecked(req.action, text, req.source);
-                if (c.errorRes != 0) { emitError(app.getString(c.errorRes)); return; }
+                if (c.errorRes != 0) { emitError(ErrorKind.WEAK, app.getString(c.errorRes)); return; }
                 emitDone(c.text, c.weak);
             }
         });
+    }
+
+    /** El motor rechazo el prompt por tamano (contexto o memoria), no por el archivo del modelo. */
+    private static boolean tooLong(String engineMessage) {
+        return engineMessage != null && engineMessage.startsWith("El texto es demasiado largo");
     }
 
     private void finishCancelled(final int id, StringBuilder raw, Request req, final Runnable watchdog) {
@@ -396,7 +454,7 @@ final class AiRunner {
     private LlmEngine ensureEngine(final int id, final AtomicBoolean flag) {
         File f = AiModels.selected(app);
         if (f == null) {
-            fail(id, flag, app.getString(R.string.ai_err_no_model));
+            fail(id, flag, ErrorKind.NO_MODEL, app.getString(R.string.ai_err_no_model));
             return null;
         }
         synchronized (engineLock) {
@@ -411,11 +469,12 @@ final class AiRunner {
                 return engine;
             } catch (IOException e) {
                 boolean mapFail = e.getMessage() != null && e.getMessage().startsWith("MAPFAIL");
-                fail(id, flag, mapFail ? app.getString(R.string.ai_err_memory) : badModel(e));
+                if (mapFail) fail(id, flag, ErrorKind.MEMORY, app.getString(R.string.ai_err_memory));
+                else fail(id, flag, ErrorKind.MODEL, badModel(e));
             } catch (OutOfMemoryError e) {
-                fail(id, flag, app.getString(R.string.ai_err_memory));
+                fail(id, flag, ErrorKind.MEMORY, app.getString(R.string.ai_err_memory));
             } catch (RuntimeException e) {
-                fail(id, flag, badModel(e));
+                fail(id, flag, ErrorKind.MODEL, badModel(e));
             }
             return null;
         }
@@ -437,13 +496,13 @@ final class AiRunner {
         return t.getClass().getSimpleName() + (m == null || m.isEmpty() ? "" : ": " + m);
     }
 
-    private void fail(final int id, final AtomicBoolean flag, final CharSequence msg) {
+    private void fail(final int id, final AtomicBoolean flag, final ErrorKind kind, final CharSequence msg) {
         main.post(new Runnable() {
             @Override public void run() {
                 if (seq.get() != id) return;
                 flag.set(true);
                 busy = false;
-                emitError(msg);
+                emitError(kind, msg);
             }
         });
     }

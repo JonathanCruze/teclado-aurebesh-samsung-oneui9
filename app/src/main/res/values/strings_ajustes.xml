@@ -37,10 +37,10 @@
     <string name="aj_auto_replace_sub">Space or punctuation swaps the word for the highlighted suggestion; backspace brings back what you typed</string>
     <string name="aj_auto_caps">Auto capitalization</string>
     <string name="aj_auto_caps_sub">Capital letter at the start of every sentence</string>
-    <string name="aj_learned_row">Learned words · %1$d</string>
-    <string name="aj_learned_sub">See, add or remove the words the keyboard keeps</string>
-    <string name="aj_learned_title">Learned words</string>
-    <string name="aj_learned_empty">No learned words yet. The ones you keep from the suggestion bar show up here.</string>
+    <string name="aj_learned_row">Personal dictionary · %1$d</string>
+    <string name="aj_learned_sub">Your own words: names, nicknames, terms from work… See, add, export or import them</string>
+    <string name="aj_learned_title">Personal dictionary</string>
+    <string name="aj_learned_empty">No words yet. The ones you add or confirm from the suggestion bar show up here.</string>
     <string name="aj_learned_add_hint">New word</string>
     <string name="aj_add">Add</string>
     <string name="aj_remove">Remove %1$s</string>

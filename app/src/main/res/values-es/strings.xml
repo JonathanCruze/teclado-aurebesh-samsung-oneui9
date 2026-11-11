@@ -28,6 +28,7 @@
     <string name="theme_datapad">Datapad</string>
     <string name="theme_imperial">Imperial</string>
     <string name="theme_arena">Arena</string>
+    <string name="theme_contraste">Contraste</string>
     <string name="opt_hints">Letra latina en las teclas</string>
     <string name="opt_hints_sub">Letra latina pequeña en la esquina de cada tecla, útil mientras aprendes el alfabeto</string>
     <string name="opt_strip">Barra de traducción</string>

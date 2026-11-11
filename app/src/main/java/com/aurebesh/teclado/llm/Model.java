@@ -213,10 +213,19 @@ final class Model implements Closeable {
 
     // ------------------------------------------------------------------ contexto
 
-    /** Prepara la cache KV y las tablas RoPE para ctx tokens y vacia el historial. */
+    /**
+     * Prepara la cache KV y las tablas RoPE para ctx tokens y vacia el historial. Solo reasigna si la cache
+     * actual no cabe o es mas del doble de grande (asi una peticion corta tras una larga devuelve memoria);
+     * las tablas RoPE van ligadas a la capacidad, de modo que al conservarla no se recalculan.
+     */
     void reset(int ctx) {
         if (ctx < 1) ctx = 1;
         if (kCache == null || kvCap < ctx || kvCap > ctx * 2) {
+            // Se suelta la cache vieja antes de reservar la nueva para no sumar las dos en el pico de memoria
+            kCache = null;
+            vCache = null;
+            ropeCos = null;
+            ropeSin = null;
             kCache = new float[nLayer][];
             vCache = new float[nLayer][];
             for (int l = 0; l < nLayer; l++) {
@@ -224,23 +233,69 @@ final class Model implements Closeable {
                 vCache[l] = new float[ctx * kvStride];
             }
             kvCap = ctx;
-            int half = nRot / 2;
-            ropeCos = new float[ctx * half];
-            ropeSin = new float[ctx * half];
-            for (int i = 0; i < half; i++) {
-                double theta = Math.pow(ropeBase, -2.0 * i / nRot);
-                for (int p = 0; p < ctx; p++) {
-                    double a = p * theta;
-                    ropeCos[p * half + i] = (float) Math.cos(a);
-                    ropeSin[p * half + i] = (float) Math.sin(a);
-                }
-            }
+            ropeTables(ctx);
             for (Scratch s : scratch) s.scores = new float[ctx];
         }
         nPast = 0;
     }
 
-    /** Libera la cache KV (entre peticiones, para no retener memoria). */
+    /** Tablas cos/sin de RoPE para las posiciones 0..ctx-1 (solo dependen de la posicion). */
+    private void ropeTables(int ctx) {
+        int half = nRot / 2;
+        ropeCos = new float[ctx * half];
+        ropeSin = new float[ctx * half];
+        for (int i = 0; i < half; i++) {
+            double theta = Math.pow(ropeBase, -2.0 * i / nRot);
+            for (int p = 0; p < ctx; p++) {
+                double a = p * theta;
+                ropeCos[p * half + i] = (float) Math.cos(a);
+                ropeSin[p * half + i] = (float) Math.sin(a);
+            }
+        }
+    }
+
+    /**
+     * Amplia la cache KV a ctx tokens conservando las nPast posiciones validas (el prefijo reutilizado). Copia
+     * capa a capa y suelta cada array viejo al momento, para no tener las dos caches enteras en el pico de memoria.
+     */
+    void grow(int ctx) throws IOException {
+        if (kCache == null) throw new IOException("Contexto no inicializado");
+        if (ctx <= kvCap) return;
+        int keep = nPast * kvStride;
+        for (int l = 0; l < nLayer; l++) {
+            float[] nk = new float[ctx * kvStride];
+            System.arraycopy(kCache[l], 0, nk, 0, keep);
+            kCache[l] = nk;
+            float[] nv = new float[ctx * kvStride];
+            System.arraycopy(vCache[l], 0, nv, 0, keep);
+            vCache[l] = nv;
+        }
+        kvCap = ctx;
+        ropeTables(ctx);
+        for (Scratch s : scratch) s.scores = new float[ctx];
+    }
+
+    /** Hay cache KV reservada con sitio para ctx tokens (se puede reutilizar sin reasignar). */
+    boolean fits(int ctx) {
+        return kCache != null && kvCap >= ctx;
+    }
+
+    /** Capacidad de la cache KV en tokens (0 si no hay cache). */
+    int capacity() {
+        return kCache == null ? 0 : kvCap;
+    }
+
+    /**
+     * Retrocede el historial a n posiciones sin tocar los arrays: las entradas 0..n-1 de la cache KV siguen
+     * siendo validas (prefijo comun con la peticion anterior) y los siguientes tokens se escriben desde n.
+     */
+    void rewind(int n) throws IOException {
+        if (kCache == null) throw new IOException("Contexto no inicializado");
+        if (n < 0 || n > nPast) throw new IOException("No se puede retroceder a " + n + " (historial " + nPast + ")");
+        nPast = n;
+    }
+
+    /** Libera la cache KV (al cerrar o bajo presion de memoria). */
     void releaseCache() {
         kCache = null;
         vCache = null;

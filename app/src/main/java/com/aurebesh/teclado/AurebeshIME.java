@@ -49,7 +49,8 @@ import java.util.concurrent.TimeoutException;
  * busqueda y el historial del portapapeles (texto e imagenes). Sin internet.
  */
 public class AurebeshIME extends InputMethodService
-        implements AurebeshKeyboardView.Listener, KeyboardTray.Host, EmojiTray.Host, AiTray.Host {
+        implements AurebeshKeyboardView.Listener, KeyboardTray.Host, EmojiTray.Host, AiTray.Host,
+        ToolsTray.Host, EditTray.Host {
 
     private static final String SEPARATORS = " .,;:!?\n";
     private static final long DOUBLE_SPACE_MS = 500;
@@ -60,6 +61,8 @@ public class AurebeshIME extends InputMethodService
     private KeyboardTray tray;          // historial del portapapeles
     private EmojiTray emojis;           // panel de emojis
     private AiTray ai;                  // panel de inteligencia (modelo local o servidor propio)
+    private ToolsTray tools;            // cuadricula "..." con todas las herramientas de la cinta
+    private EditTray edit;              // panel de edicion (cursor, seleccion, cortar/copiar/pegar, deshacer)
     private ScreenshotWatcher screenshots;   // capturas recientes (opcional, con permiso de fotos)
     private Bigrams bigrams;            // siguiente palabra y contexto del idioma actual
     private boolean privateField = false;
@@ -133,6 +136,12 @@ public class AurebeshIME extends InputMethodService
                     }
                     if (Prefs.CUSTOM_SOUND.equals(key)) {
                         KeySound.get(AurebeshIME.this).reload(AurebeshIME.this);
+                        return;
+                    }
+                    if (Prefs.STARWARS.equals(key)) {                 // lexico Star Wars en la correccion
+                        if (dict != null) dict.setStarWars(Prefs.starWars(AurebeshIME.this));
+                        lastWord = null;                              // que la palabra actual se recalcule
+                        refresh();
                         return;
                     }
                     if (Prefs.SHORTCUTS.equals(key)) {                // atajos de texto editados en la app
@@ -223,11 +232,17 @@ public class AurebeshIME extends InputMethodService
         ai = new AiTray(ui, runner);
         ai.setHost(this);
         ai.setVisibility(View.GONE);
+        tools = new ToolsTray(ui, this);
+        tools.setVisibility(View.GONE);
+        edit = new EditTray(ui, this);
+        edit.setVisibility(View.GONE);
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         root.addView(view, lp);
         root.addView(tray, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         root.addView(emojis, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         root.addView(ai, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        root.addView(tools, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        root.addView(edit, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         applyPrefs();
         return root;
     }
@@ -245,7 +260,10 @@ public class AurebeshIME extends InputMethodService
         if (view != null) {
             view.applyPrefs(Prefs.hints(this), Prefs.vibrate(this), stripOn, Prefs.digraphs(this),
                     theme.id, Prefs.numbers(this), Prefs.sound(this), Prefs.heightScale(this));
+            view.setHintMode(Prefs.hintModeInt(this));         // nunca / siempre / aprendiendo (manda sobre el booleano antiguo)
+            view.setSaber(Prefs.saberArgb(this));              // color de la estela al deslizar
             view.setToolbar(Prefs.toolbar(this));
+            view.setToolbarItems(Prefs.toolbarItems(this));    // iconos de la cinta elegidos en "..."
             view.setSuggestionBar(autocorrect);
             view.setHandMode(Prefs.handMode(this));
             view.setSplitMode(Prefs.splitMode(this));
@@ -270,6 +288,15 @@ public class AurebeshIME extends InputMethodService
             ai.setLanguage(lang);
             ai.applyTheme(theme);
         }
+        if (tools != null) {
+            tools.setFeedback(Prefs.vibrate(this), Prefs.sound(this));
+            tools.applyTheme(theme);
+        }
+        if (edit != null) {
+            edit.setFeedback(Prefs.vibrate(this), Prefs.sound(this));
+            edit.applyTheme(theme);
+        }
+        if (dict != null) dict.setStarWars(Prefs.starWars(this));
     }
 
     /**
@@ -304,11 +331,14 @@ public class AurebeshIME extends InputMethodService
     public void onStartInputView(EditorInfo info, boolean restarting) {
         super.onStartInputView(info, restarting);
         if (view == null) return;
-        hideTray();
+        // El panel de edicion sigue abierto si la app solo reinicia el mismo campo (p. ej. tras pegar); lo demas se cierra
+        boolean editing = restarting && edit != null && edit.getVisibility() == View.VISIBLE;
+        if (!editing) hideTray();
         applyPrefs();
         selStart = info.initialSelStart;
         selEnd = info.initialSelEnd;
         candStart = -1;
+        if (editing) edit.setSelection(selectionCount());
         int variation = info.inputType & InputType.TYPE_MASK_VARIATION;
         int cls = info.inputType & InputType.TYPE_MASK_CLASS;
         privateField = cls == InputType.TYPE_CLASS_TEXT && (variation == InputType.TYPE_TEXT_VARIATION_PASSWORD
@@ -485,6 +515,7 @@ public class AurebeshIME extends InputMethodService
         if (d != null) {
             dict = d;
             dict.setPersonal(Prefs.learnedWords(this));
+            dict.setStarWars(Prefs.starWars(this));
             return;
         }
         dict = null;
@@ -493,6 +524,7 @@ public class AurebeshIME extends InputMethodService
                 try {
                     final Dictionary loaded = Dictionary.get(AurebeshIME.this, l);
                     loaded.setPersonal(Prefs.learnedWords(AurebeshIME.this));
+                    loaded.setStarWars(Prefs.starWars(AurebeshIME.this));
                     main.post(new Runnable() {
                         @Override public void run() {
                             if (l.equals(lang)) { dict = loaded; refresh(); }
@@ -512,7 +544,13 @@ public class AurebeshIME extends InputMethodService
         selStart = newSelStart;
         selEnd = newSelEnd;
         candStart = candidatesStart;
+        if (edit != null && edit.getVisibility() == View.VISIBLE) edit.setSelection(selectionCount());
         refresh();
+    }
+
+    /** Caracteres seleccionados segun la ultima seleccion informada, -1 si no se conoce. */
+    private int selectionCount() {
+        return selStart >= 0 && selEnd >= 0 ? Math.abs(selEnd - selStart) : -1;
     }
 
     /** Actualiza la franja Aurebesh, la mayuscula automatica y las sugerencias. */
@@ -605,7 +643,10 @@ public class AurebeshIME extends InputMethodService
                     boolean start = "<s>".equals(prev);
                     boolean caps = start && autoCaps && capsAtCursor(ic);  // al inicio de frase, los chips ya en mayuscula
                     List<String> chips = new ArrayList<>();
-                    for (String s : bigrams.next(prev, 3)) chips.add(caps ? capitalize(s) : s);
+                    for (String s : bigrams.next(prev, 3)) {
+                        String canon = canonicalOf(s);                       // "ahsoka" -> "Ahsoka"
+                        chips.add(canon != null ? canon : caps ? capitalize(s) : s);
+                    }
                     if (!start) chips.addAll(EmojiSuggest.lookup(this, prev, 1));   // emoji de la palabra recien cerrada
                     if (!chips.isEmpty()) view.setSuggestions(chips, null);
                 }
@@ -693,7 +734,7 @@ public class AurebeshIME extends InputMethodService
         int maxWords = emo.isEmpty() ? 3 : 2;                 // con emojis, dejarles sitio en la barra
         for (String s : r.suggestions) {
             if (chips.size() >= maxWords) break;
-            chips.add(s);
+            chips.add(chip(word, s));                             // lexico Star Wars: "Coruscant", no "coruscant"
         }
         chips.addAll(emo);
         view.setSuggestions(chips, pendingCorrection);
@@ -780,6 +821,10 @@ public class AurebeshIME extends InputMethodService
     public void onGlide(String best, List<String> alternatives) {
         InputConnection ic = getCurrentInputConnection();
         if (ic == null || view == null || best == null || best.isEmpty()) return;
+        if (!looksLikeAcronym(best)) {                   // lexico Star Wars: con su forma canonica (salvo en mayusculas)
+            String canon = canonicalOf(best);
+            if (canon != null) best = canon;
+        }
         ic.beginBatchEdit();
         String cur = currentWord(ic);
         if (cur != null && !cur.isEmpty()) {
@@ -800,7 +845,12 @@ public class AurebeshIME extends InputMethodService
         lastSpaceAt = 0;
         if (fresh != null) clearPasteChip();
         List<String> alts = new ArrayList<>();
-        if (alternatives != null) for (String a : alternatives) if (!a.equals(best) && !alts.contains(a)) alts.add(a);
+        if (alternatives != null) {
+            for (String a : alternatives) {
+                String alt = chip(best, a);
+                if (!alt.equals(best) && !alts.contains(alt)) alts.add(alt);
+            }
+        }
         glideWord = best;
         glideAlts = alts;
         glideAutoSpace = true;
@@ -814,6 +864,34 @@ public class AurebeshIME extends InputMethodService
         if (Character.isUpperCase(original.charAt(0)))
             return replacement.substring(0, 1).toUpperCase(Locale.ROOT) + replacement.substring(1);
         return replacement;
+    }
+
+    /** Lo escrito esta todo en mayusculas (dos letras o mas): la sustitucion tambien. */
+    static boolean allCaps(String s) {
+        return s != null && s.length() > 1 && s.equals(s.toUpperCase(Locale.ROOT));
+    }
+
+    /** Forma canonica de una palabra del lexico Star Wars ("coruscant" -> "Coruscant"), o null si no lo es. */
+    private String canonicalOf(String w) {
+        if (dict == null || w == null || w.isEmpty()) return null;
+        return dict.canonical(w.toLowerCase(Locale.ROOT));
+    }
+
+    /** Texto de un chip: la forma canonica si la palabra es del lexico Star Wars (en mayusculas si lo escrito lo esta); si no, tal cual. */
+    private String chip(String typed, String s) {
+        String canon = canonicalOf(s);
+        if (canon == null) return s;
+        return allCaps(typed) ? canon.toUpperCase(Locale.ROOT) : canon;
+    }
+
+    /**
+     * Caja de lo que se escribe en lugar de lo tecleado: la forma canonica si es del lexico Star Wars ("Coruscant",
+     * "Ahsoka"), y si no la de lo escrito ({@link #matchCase}). Todo en mayusculas se respeta en ambos casos.
+     */
+    private String cased(String typed, String word) {
+        String canon = canonicalOf(word);
+        if (canon == null) return matchCase(typed, word);
+        return allCaps(typed) ? canon.toUpperCase(Locale.ROOT) : canon;
     }
 
     /** Primera letra en mayuscula (si era minuscula). */
@@ -859,7 +937,7 @@ public class AurebeshIME extends InputMethodService
             if (!awaitSuggestion()) return false;
         }
         if (pendingCorrection == null) return false;
-        String fix = matchCase(lastWord, pendingCorrection);
+        String fix = cased(lastWord, pendingCorrection);     // "Coruscant" aunque se escribiera "coruscnt"
         if (fix.equals(lastWord)) return false;
         String original = lastWord;
         ic.beginBatchEdit();
@@ -1081,20 +1159,33 @@ public class AurebeshIME extends InputMethodService
     public void onCursorMove(int steps, boolean select) {
         if (steps == 0) return;
         int code = steps < 0 ? KeyEvent.KEYCODE_DPAD_LEFT : KeyEvent.KEYCODE_DPAD_RIGHT;
-        InputConnection ic = getCurrentInputConnection();
         int n = Math.abs(steps);
-        for (int i = 0; i < n; i++) {
-            if (select && ic != null) {
-                long now = android.os.SystemClock.uptimeMillis();
-                int meta = KeyEvent.META_SHIFT_ON | KeyEvent.META_SHIFT_LEFT_ON;
-                ic.sendKeyEvent(new KeyEvent(now, now, KeyEvent.ACTION_DOWN, code, 0, meta));
-                ic.sendKeyEvent(new KeyEvent(now, now, KeyEvent.ACTION_UP, code, 0, meta));
-            } else {
-                sendDownUpKeyEvents(code);
-            }
-        }
+        for (int i = 0; i < n; i++) sendKey(code, select, false);
         lastCorrection = null;
         clearSuggestions();
+    }
+
+    /**
+     * Tecla del teclado fisico (pulsar y soltar) por la conexion, con mayusculas (extiende la seleccion) y control
+     * opcionales. Con mayusculas se envia tambien la tecla Shift en si: TextView decide si extiende la seleccion
+     * por el estado de esa tecla en el texto, no por el meta del evento de la flecha.
+     */
+    private void sendKey(int code, boolean shift, boolean ctrl) {
+        InputConnection ic = getCurrentInputConnection();
+        int meta = (shift ? KeyEvent.META_SHIFT_ON | KeyEvent.META_SHIFT_LEFT_ON : 0)
+                | (ctrl ? KeyEvent.META_CTRL_ON | KeyEvent.META_CTRL_LEFT_ON : 0);
+        if (ic == null || meta == 0) {
+            sendDownUpKeyEvents(code);
+            return;
+        }
+        long now = SystemClock.uptimeMillis();
+        if (shift) ic.sendKeyEvent(new KeyEvent(now, now, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_SHIFT_LEFT, 0, meta));
+        ic.sendKeyEvent(new KeyEvent(now, now, KeyEvent.ACTION_DOWN, code, 0, meta));
+        ic.sendKeyEvent(new KeyEvent(now, now, KeyEvent.ACTION_UP, code, 0, meta));
+        if (shift) {
+            int rest = meta & ~(KeyEvent.META_SHIFT_ON | KeyEvent.META_SHIFT_LEFT_ON);
+            ic.sendKeyEvent(new KeyEvent(now, now, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_SHIFT_LEFT, 0, rest));
+        }
     }
 
     /** Borrar la palabra anterior entera (mantener borrar mas de ~2 s). */
@@ -1176,9 +1267,12 @@ public class AurebeshIME extends InputMethodService
             ic.commitText(word, 1);
             Prefs.addRecentEmoji(this, word);
         } else {
+            String canon = canonicalOf(word);           // lexico Star Wars: siempre con su forma canonica
             if (cur != null && !cur.isEmpty()) {
                 ic.deleteSurroundingText(cur.length(), 0);
-                word = matchCase(cur, word);
+                word = cased(cur, word);
+            } else if (canon != null) {
+                word = canon;
             } else if (autoCaps && capsAtCursor(ic)) {  // prediccion al inicio de frase: con mayuscula
                 word = capitalize(word);
             }
@@ -1199,6 +1293,13 @@ public class AurebeshIME extends InputMethodService
             case AurebeshKeyboardView.TOOL_CLIPBOARD: openClipboard(); break;
             case AurebeshKeyboardView.TOOL_HAND: Prefs.toggleHand(this); break;      // el oyente de preferencias lo aplica
             case AurebeshKeyboardView.TOOL_AI: openAi(); break;
+            case AurebeshKeyboardView.TOOL_TRANSLATE: openTranslate(); break;
+            case AurebeshKeyboardView.TOOL_MORE: openTools(); break;
+            case AurebeshKeyboardView.TOOL_EDIT: openEdit(); break;
+            case AurebeshKeyboardView.TOOL_SPLIT: toggleSplit(); break;                           // el oyente de preferencias lo aplica
+            case AurebeshKeyboardView.TOOL_STRIP: Prefs.get(this).edit().putBoolean(Prefs.STRIP, !Prefs.strip(this)).apply(); break;
+            case AurebeshKeyboardView.TOOL_HIDE: requestHideSelf(0); break;
+            case AurebeshKeyboardView.TOOL_LANG: onSwitchLanguage(); break;
             case AurebeshKeyboardView.TOOL_RESIZE: view.setResizeMode(!view.isResizeMode()); break;   // tiradores de alto y margen
             case AurebeshKeyboardView.TOOL_SETTINGS:
                 try {
@@ -1215,6 +1316,112 @@ public class AurebeshIME extends InputMethodService
         Prefs.setHand(this, mode == 1 ? "left" : "right");
     }
 
+    /**
+     * Teclado dividido desde la cinta: "on" u "off" segun lo que se ve ahora (no segun la preferencia, que puede
+     * ser "auto"). El dividido y el modo a una mano se excluyen: al dividir se apaga el modo a una mano.
+     */
+    private void toggleSplit() {
+        if (view == null) return;
+        boolean on = !view.isSplit();
+        if (on && !"none".equals(Prefs.hand(this))) Prefs.toggleHand(this);
+        Prefs.get(this).edit().putString(Prefs.SPLIT, on ? "on" : "off").apply();
+    }
+
+    /**
+     * Si la herramienta tiene sentido ahora: dividir solo en pantallas anchas (Fold desplegado, tableta) o si ya
+     * esta dividido; el globo solo con varios idiomas Aurebesh; inteligencia y traducir no en contrasenas.
+     */
+    private boolean toolAvailable(int tool) {
+        switch (tool) {
+            case AurebeshKeyboardView.TOOL_SPLIT:
+                return view.isSplit() || getResources().getConfiguration().smallestScreenWidthDp >= 600;
+            case AurebeshKeyboardView.TOOL_LANG:
+                return severalLangs;
+            case AurebeshKeyboardView.TOOL_AI:
+            case AurebeshKeyboardView.TOOL_TRANSLATE:
+                return !privateField;
+            default:
+                return true;
+        }
+    }
+
+    // ------------------------------------------------------------------ cuadricula "..." de herramientas
+
+    private void openTools() {
+        if (tools == null || view == null) return;
+        int[] all = AurebeshKeyboardView.ALL_TOOLS;
+        boolean[] available = new boolean[all.length];
+        for (int i = 0; i < all.length; i++) available[i] = toolAvailable(all[i]);
+        int[] bar = view.toolbarItems();
+        if (bar == null) bar = AurebeshKeyboardView.DEFAULT_TOOLBAR;
+        tools.show(bar, all, available);
+        showTray(tools);
+    }
+
+    /** Herramienta tocada en la cuadricula: como si se hubiera tocado en la cinta (sobre las teclas, ya visibles). */
+    @Override
+    public void onToolsPick(int tool) {
+        hideTray();
+        if (tool == AurebeshKeyboardView.TOOL_MORE) return;
+        onToolbar(tool);
+    }
+
+    /** Nueva eleccion y orden de la cinta (modo Editar de la cuadricula); null vuelve al orden de fabrica. */
+    @Override
+    public void onToolsOrder(int[] barItems) {
+        Prefs.setToolbarItems(this, barItems);           // el oyente de preferencias tambien lo aplica
+        if (view != null) view.setToolbarItems(barItems);
+    }
+
+    @Override
+    public void onToolsClose() { hideTray(); }
+
+    // ------------------------------------------------------------------ panel de edicion
+
+    private void openEdit() {
+        if (edit == null || view == null) return;
+        edit.show();
+        edit.setSelection(selectionCount());
+        showTray(edit);
+    }
+
+    /** Flecha de la cruceta (la repeticion al mantener la gestiona la bandeja); con select extiende la seleccion. */
+    @Override
+    public void onEditMove(int keyCode, boolean select) {
+        sendKey(keyCode, select, false);
+        lastCorrection = null;
+        lastSpaceAt = 0;
+        clearSuggestions();
+    }
+
+    /** Seleccionar todo, cortar, copiar, pegar, deshacer o rehacer, por el menu contextual del editor. */
+    @Override
+    public void onEditAction(int actionId) {
+        InputConnection ic = getCurrentInputConnection();
+        if (ic == null) return;
+        boolean done = ic.performContextMenuAction(actionId);
+        if (!done && (actionId == android.R.id.undo || actionId == android.R.id.redo)) {
+            Toast.makeText(this, ui.getString(R.string.edit_action_unavailable), Toast.LENGTH_SHORT).show();
+        }
+        if (actionId == android.R.id.cut || actionId == android.R.id.paste) {
+            lastCorrection = null;
+            lastSpaceAt = 0;
+            clearSuggestions();
+        }
+    }
+
+    /** Inicio o fin de todo el texto (con control; sin el, Inicio/Fin solo van a la linea), extendiendo la seleccion si select. */
+    @Override
+    public void onEditHome(boolean end, boolean select) {
+        sendKey(end ? KeyEvent.KEYCODE_MOVE_END : KeyEvent.KEYCODE_MOVE_HOME, select, true);
+        lastCorrection = null;
+        lastSpaceAt = 0;
+        clearSuggestions();
+    }
+
+    @Override
+    public void onEditClose() { hideTray(); }
+
     /** Muestra una bandeja ocupando exactamente el alto del teclado. */
     private void showTray(View which) {
         if (which == null || view == null) return;
@@ -1226,6 +1433,8 @@ public class AurebeshIME extends InputMethodService
         if (tray != null) tray.setVisibility(tray == which ? View.VISIBLE : View.GONE);
         if (emojis != null) emojis.setVisibility(emojis == which ? View.VISIBLE : View.GONE);
         if (ai != null) ai.setVisibility(ai == which ? View.VISIBLE : View.GONE);
+        if (tools != null) tools.setVisibility(tools == which ? View.VISIBLE : View.GONE);
+        if (edit != null) edit.setVisibility(edit == which ? View.VISIBLE : View.GONE);
         view.setVisibility(View.INVISIBLE);
     }
 
@@ -1234,6 +1443,8 @@ public class AurebeshIME extends InputMethodService
         if (tray != null) tray.setVisibility(View.GONE);
         if (emojis != null) emojis.setVisibility(View.GONE);
         if (ai != null) ai.setVisibility(View.GONE);
+        if (tools != null) tools.setVisibility(View.GONE);
+        if (edit != null) edit.setVisibility(View.GONE);
         view.setVisibility(View.VISIBLE);
     }
 
@@ -1242,6 +1453,13 @@ public class AurebeshIME extends InputMethodService
     private void openAi() {
         if (ai == null || privateField) return;
         ai.show();
+        showTray(ai);
+    }
+
+    /** Icono "Traducir" de la cinta: el panel de inteligencia directamente en Traducir. */
+    private void openTranslate() {
+        if (ai == null || privateField) return;
+        ai.openTranslate();
         showTray(ai);
     }
 
@@ -1499,5 +1717,15 @@ public class AurebeshIME extends InputMethodService
     @Override
     public void onTrayClose() {
         hideTray();
+    }
+
+    /**
+     * Chincheta de la bandeja: fija o suelta una entrada del historial (las fijadas no caducan al llenarse el
+     * historial y sobreviven al reinicio). Sin @Override: KeyboardTray.Host lo declara cuando llegue el fijado;
+     * entonces, antes de volver a mostrar la lista, va aqui ClipHistory.setPinned(this, entry, pinned).
+     */
+    public void onTrayPin(ClipHistory.Entry entry, boolean pinned) {
+        if (tray == null) return;
+        tray.show(ui.getString(R.string.clipboard_title), ClipHistory.items(this), ui.getString(R.string.clipboard_empty));
     }
 }

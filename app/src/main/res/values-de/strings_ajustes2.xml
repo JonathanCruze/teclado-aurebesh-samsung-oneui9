@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Pantalla de ajustes 2.0: sable, letras latinas por modo, diccionario Star Wars y personal, Mas ajustes, buscador. -->
+
+    <!-- Diseno: sable de luz -->
+    <string name="aj_saber">Lichtschwert-Spur</string>
+    <string name="aj_saber_sub">Farbe der Spur beim Wischen zum Schreiben; der Kern ist immer weiß</string>
+    <string name="saber_blue">Blau</string>
+    <string name="saber_blue_who">Anakin und Obi-Wan</string>
+    <string name="saber_green">Grün</string>
+    <string name="saber_green_who">Luke und Qui-Gon</string>
+    <string name="saber_yellow">Gelb</string>
+    <string name="saber_yellow_who">Tempelwache</string>
+    <string name="saber_orange">Bronze</string>
+    <string name="saber_orange_who">Cal Kestis</string>
+    <string name="saber_purple">Violett</string>
+    <string name="saber_purple_who">Mace Windu</string>
+    <string name="saber_red">Rot</string>
+    <string name="saber_red_who">Sith</string>
+    <string name="aj_sum_saber">Schwert %1$s</string>
+
+    <!-- Diseno: letras latinas en tres modos -->
+    <string name="aj_hint_mode_sub">Kleiner lateinischer Buchstabe in der Ecke jeder Taste. Bei Lernen verblasst jeder Buchstabe nach etwa 40 Tipps, während du dir das Alphabet einprägst</string>
+    <string name="aj_hint_off">Nie</string>
+    <string name="aj_hint_on">Immer</string>
+    <string name="aj_hint_learning">Lernen</string>
+    <string name="aj_hint_reset">Fortschritt zurücksetzen</string>
+    <string name="aj_hint_reset_done">Alle lateinischen Buchstaben sind wieder sichtbar</string>
+    <string name="aj_sum_hints_learning">lateinische Buchstaben: lernen</string>
+
+    <!-- Escritura inteligente: Star Wars y diccionario personal -->
+    <string name="aj_starwars">Star-Wars-Wörterbuch</string>
+    <string name="aj_starwars_sub">Figuren, Schiffe und Planeten (Coruscant, Ahsoka, Venator…) werden in den drei Sprachen akzeptiert und korrigiert</string>
+    <string name="aj_sum_starwars">Star Wars</string>
+    <string name="aj_personal_rules">Gelernt wird, was du hier hinzufügst, was du durch Antippen seines Chips bestätigst, ein neues Wort, das du zweimal tippst, und eine Korrektur, die du zweimal rückgängig machst. Alles bleibt auf diesem Telefon.</string>
+    <string name="aj_export">Exportieren…</string>
+    <string name="aj_import">Importieren…</string>
+    <string name="aj_words_exported">%1$d Wörter exportiert</string>
+    <string name="aj_words_imported">%1$d Wörter importiert</string>
+    <string name="aj_file_error">Diese Datei konnte nicht gelesen oder geschrieben werden</string>
+
+    <!-- Mas ajustes -->
+    <string name="aj_sec_more">Weitere Einstellungen</string>
+    <string name="aj_sum_more">zurücksetzen, Daten auf diesem Telefon, exportieren und importieren</string>
+    <string name="aj_reset">Einstellungen zurücksetzen</string>
+    <string name="aj_reset_sub">Zurück zu den Werkseinstellungen. Persönliches Wörterbuch, Kürzel, Zwischenablage und Modelle bleiben erhalten</string>
+    <string name="aj_reset_confirm">Alle Einstellungen auf die Werkseinstellungen zurücksetzen? Persönliches Wörterbuch, Textkürzel, Verlauf der Zwischenablage und heruntergeladene Modelle bleiben erhalten.</string>
+    <string name="aj_reset_done">Einstellungen zurückgesetzt</string>
+    <string name="aj_wipe">Persönliche Daten löschen</string>
+    <string name="aj_wipe_sub">Zwischenablage, persönliches Wörterbuch und Wortpaare, zuletzt verwendete Emojis und Textkürzel</string>
+    <string name="aj_wipe_confirm">Von diesem Telefon wird gelöscht:\n• der Verlauf der Zwischenablage, einschließlich der angepinnten Einträge\n• das persönliche Wörterbuch und die gelernten Wortpaare\n• die zuletzt verwendeten Emojis\n• die Textkürzel\n\nEinstellungen und heruntergeladene Modelle bleiben erhalten.</string>
+    <string name="aj_wipe_action">Löschen</string>
+    <string name="aj_wipe_done">Persönliche Daten gelöscht</string>
+    <string name="aj_data_title">Daten auf diesem Telefon</string>
+    <string name="aj_data_clip">Zwischenablage · %1$d · %2$s</string>
+    <string name="aj_data_dict">Persönliches Wörterbuch · %1$d Wörter · %2$d Paare</string>
+    <string name="aj_data_models">KI-Modelle · %1$d · %2$s</string>
+    <string name="aj_data_sound">Eigener Tastenton · %1$s</string>
+    <string name="aj_data_sound_none">keiner</string>
+    <string name="aj_data_local">Nichts davon verlässt das Telefon</string>
+    <string name="aj_empty">Leeren</string>
+    <string name="aj_view">Ansehen</string>
+    <string name="aj_remove_sound">Entfernen</string>
+    <string name="aj_clip_confirm">Verlauf der Zwischenablage leeren, einschließlich der angepinnten Einträge?</string>
+    <string name="aj_export_settings">Einstellungen exportieren…</string>
+    <string name="aj_export_settings_sub">Eine JSON-Datei mit deinen Einstellungen, Kürzeln, deinem persönlichen Wörterbuch und Wortpaaren. Nie dein Serverschlüssel, außer du setzt das Häkchen</string>
+    <string name="aj_export_include_key">Eigenen Server einschließen (URL, Modell und Schlüssel)</string>
+    <string name="aj_import_settings">Einstellungen importieren…</string>
+    <string name="aj_import_settings_sub">Liest eine aus dieser Tastatur exportierte Datei; nur bekannte Einstellungen mit passendem Typ werden übernommen</string>
+    <string name="aj_settings_exported">Einstellungen exportiert</string>
+    <string name="aj_settings_imported">%1$d Einstellungen importiert</string>
+    <string name="aj_import_invalid">Diese Datei ist kein Einstellungs-Export dieser Tastatur</string>
+
+    <!-- Buscador -->
+    <string name="aj_search_hint">Einstellung suchen</string>
+    <string name="aj_search_clear">Suche löschen</string>
+    <string name="aj_search_none">Keine passende Einstellung</string>
+
+    <!-- Accesibilidad de las cabeceras -->
+    <string name="aj_a11y_expanded">erweitert</string>
+    <string name="aj_a11y_collapsed">eingeklappt</string>
+</resources>

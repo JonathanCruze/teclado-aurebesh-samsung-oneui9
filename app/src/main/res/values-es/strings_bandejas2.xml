@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 2.0: bandejas (cuadricula de herramientas, panel de edicion, fijados del portapapeles, tonos de piel) -->
+
+    <!-- Cuadricula de herramientas ("..." de la cinta) -->
+    <string name="tools_title">Herramientas</string>
+    <string name="tools_edit">Editar</string>
+    <string name="tools_done">Listo</string>
+    <string name="tools_edit_hint">Toca para añadir o quitar de la cinta; ‹ › para ordenar</string>
+    <string name="tools_limit">Como mucho %1$d en la cinta</string>
+    <string name="tools_count">%1$d de %2$d en la cinta</string>
+    <string name="tools_unavailable">No disponible ahora</string>
+    <string name="tools_move_left">Mover a la izquierda</string>
+    <string name="tools_move_right">Mover a la derecha</string>
+    <string name="tools_label_emoji">Emojis</string>
+    <string name="tools_label_clipboard">Portapapeles</string>
+    <string name="tools_label_hand">Una mano</string>
+    <string name="tools_label_edit">Edición de texto</string>
+    <string name="tools_label_translate">Traducir</string>
+    <string name="tools_label_split">Dividir</string>
+    <string name="tools_label_strip">Barra de traducción</string>
+    <string name="tools_label_lang">Idioma</string>
+    <string name="tools_label_resize">Tamaño y posición</string>
+    <string name="tools_label_hide">Ocultar teclado</string>
+    <string name="tools_label_settings">Ajustes</string>
+    <string name="tools_label_ai">Inteligencia</string>
+
+    <!-- Panel de edicion de texto -->
+    <string name="edit_title">Edición de texto</string>
+    <plurals name="edit_selected">
+        <item quantity="one">%d carácter seleccionado</item>
+        <item quantity="other">%d caracteres seleccionados</item>
+    </plurals>
+    <string name="edit_select">Seleccionar</string>
+    <string name="edit_select_all">Seleccionar todo</string>
+    <string name="edit_cut">Cortar</string>
+    <string name="edit_copy">Copiar</string>
+    <string name="edit_paste">Pegar</string>
+    <string name="edit_undo">Deshacer</string>
+    <string name="edit_redo">Rehacer</string>
+    <string name="edit_home">Inicio</string>
+    <string name="edit_end">Fin</string>
+    <string name="edit_left">Izquierda</string>
+    <string name="edit_right">Derecha</string>
+    <string name="edit_up">Arriba</string>
+    <string name="edit_down">Abajo</string>
+
+    <!-- Portapapeles: fijados -->
+    <string name="clip_pinned">Fijados</string>
+    <string name="clip_pin">Fijar</string>
+    <string name="clip_unpin">Soltar</string>
+    <string name="clip_clear_pinned">Borrar también los fijados</string>
+    <string name="clip_pin_limit">Como mucho %1$d fijados</string>
+
+    <!-- Emojis: tonos de piel -->
+    <string name="emoji_tone_title">Tono de piel</string>
+    <string name="emoji_tone_close">Cerrar</string>
+</resources>

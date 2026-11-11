@@ -36,6 +36,7 @@
     <string name="theme_datapad">Datapad</string>
     <string name="theme_imperial">Imperial</string>
     <string name="theme_arena">Sand</string>
+    <string name="theme_contraste">Contrast</string>
     <string name="opt_hints">Latin letters on the keys</string>
     <string name="opt_hints_sub">Small Latin letter in the corner of each key, handy while you learn the alphabet</string>
     <string name="opt_strip">Translation bar</string>

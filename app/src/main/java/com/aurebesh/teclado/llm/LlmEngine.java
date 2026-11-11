@@ -15,11 +15,20 @@ import java.util.Map;
  *
  * Uso: {@code LlmEngine e = LlmEngine.load(archivo, hilos); e.generate(mensajes, opciones, oyente); e.close();}
  * Las llamadas a generate se serializan (una generacion a la vez por motor).
+ *
+ * <p>Cache de prefijo: la cache KV se conserva entre generaciones junto con los tokens que la produjeron. Como el
+ * system prompt y la plantilla se repiten de una peticion a otra, la siguiente solo evalua lo que cambia tras el
+ * prefijo comun ({@link #lastReused()} dice cuantas posiciones se ahorraron). Se libera en {@link #close()} y en
+ * {@link #trimMemory()} (presion de memoria).
  */
 public final class LlmEngine {
 
     /** Limite de contexto en tiempo de ejecucion (tokens de prompt + respuesta). */
     public static final int MAX_CONTEXT = 2048;
+    /** Prefijo minimo (tokens) por el que merece la pena ampliar la cache copiando en vez de reiniciarla. */
+    static final int GROW_MIN_REUSE = 16;
+    /** Holgura (tokens) al ampliar la cache, para que la siguiente peticion parecida no vuelva a ampliarla. */
+    static final int GROW_HEADROOM = 64;
 
     /** Parametros de generacion. */
     public static final class Options {
@@ -36,6 +45,15 @@ public final class LlmEngine {
         boolean onToken(String piece);
     }
 
+    /**
+     * Progreso de la lectura del prompt: se llama antes del primer trozo (done = posiciones reutilizadas de la
+     * cache) y tras cada trozo de {@link Model#CHUNK} tokens, con done == total al terminar. Devolver false cancela
+     * la lectura (generate devuelve "" sin llamar al oyente de tokens).
+     */
+    public interface PromptListener {
+        boolean onPrompt(int done, int total);
+    }
+
     private final Model model;
     private final Tokenizer tokenizer;
     private final ChatTemplate template;
@@ -46,6 +64,11 @@ public final class LlmEngine {
     private final long fileSize;
     private final String generalName;
     private boolean closed;
+
+    // Cache de prefijo: tokens cuyas claves/valores estan en la cache KV (prompt mas lo generado que se evaluo)
+    private int[] lastPrompt;
+    private int lastValid;      // posiciones validas de la cache (= lastPrompt.length)
+    private int lastReused;     // posiciones reutilizadas en la ultima generacion (diagnostico y pruebas)
 
     private LlmEngine(Model model, Tokenizer tokenizer, ChatTemplate template, Workers workers, long fileSize, String name) {
         this.model = model;
@@ -149,12 +172,18 @@ public final class LlmEngine {
      * entrega las piezas de texto descodificadas al oyente a medida que salen y devuelve el texto
      * completo. Si el oyente devuelve false se detiene y se devuelve lo generado hasta entonces.
      */
-    public synchronized String generate(List<ChatMessage> messages, Options o, TokenListener l) throws IOException {
+    public String generate(List<ChatMessage> messages, Options o, TokenListener l) throws IOException {
+        return generate(messages, o, l, null);
+    }
+
+    /** Igual, avisando del progreso de la lectura del prompt a {@code pl} (puede ser null), que tambien puede cancelar. */
+    public synchronized String generate(List<ChatMessage> messages, Options o, TokenListener l, PromptListener pl)
+            throws IOException {
         if (closed) throw new IOException("Motor cerrado");
         if (o == null) o = new Options();
         List<ChatTemplate.Piece> pieces = template.build(messages == null ? new ArrayList<ChatMessage>() : messages);
         int[] prompt = ChatTemplate.tokenize(pieces, tokenizer);
-        return generateTokens(prompt, o, l);
+        return generateTokens(prompt, o, l, pl);
     }
 
     /** Prompt como texto (para depuracion): lo que ve el modelo antes de tokenizar. */
@@ -164,6 +193,10 @@ public final class LlmEngine {
 
     /** Generacion a partir de ids ya tokenizados (compartido con las pruebas). */
     String generateTokens(int[] prompt, Options o, TokenListener l) throws IOException {
+        return generateTokens(prompt, o, l, null);
+    }
+
+    String generateTokens(int[] prompt, Options o, TokenListener l, PromptListener pl) throws IOException {
         int ctx = Math.min(MAX_CONTEXT, model.nCtxTrain);
         if (prompt.length == 0) throw new IOException("Prompt vacio");
         if (prompt.length + 8 > ctx) {
@@ -171,11 +204,7 @@ public final class LlmEngine {
                     + (ctx - 8) + ")");
         }
         int maxNew = Math.max(1, Math.min(o.maxTokens, ctx - prompt.length));
-        // Tope por la memoria realmente disponible: la cache KV ocupa 8 bytes por token, capa y columna
-        Runtime rt = Runtime.getRuntime();
-        long free = rt.maxMemory() - (rt.totalMemory() - rt.freeMemory());
-        long perToken = 8L * model.nLayer * model.kvStride;
-        int ctxMem = (int) Math.min(Integer.MAX_VALUE, free / 2 / Math.max(1L, perToken));
+        int ctxMem = memoryContext();
         if (prompt.length + 8 > ctxMem) throw new IOException("El texto es demasiado largo para la memoria disponible");
         maxNew = Math.max(1, Math.min(maxNew, ctxMem - prompt.length));
         int[] history = new int[prompt.length + maxNew];
@@ -186,8 +215,8 @@ public final class LlmEngine {
         StringBuilder text = new StringBuilder();
         boolean thinking = false;
         try {
-            model.reset(prompt.length + maxNew);
-            float[] logits = model.forward(prompt, 0, prompt.length, true);
+            float[] logits = prefill(prompt, maxNew, pl);
+            if (logits == null) return "";                        // cancelado durante la lectura
             for (int i = 0; i < maxNew; i++) {
                 int id = sampler.sample(logits, hidden, eogMask, history, histLen, o.temperature, o.topP, o.repeatPenalty);
                 if (tokenizer.isEog(id)) break;
@@ -210,10 +239,108 @@ public final class LlmEngine {
                 text.append(tail);
                 if (l != null) l.onToken(tail);
             }
+        } catch (OutOfMemoryError e) {
+            trimMemory();
+            throw e;
         } finally {
-            model.releaseCache();
+            // La cache se conserva para la siguiente peticion: sus posiciones 0..nPast-1 son history[0..nPast)
+            remember(history, histLen);
         }
         return text.toString();
+    }
+
+    /**
+     * Tokens de contexto que admite la memoria realmente disponible: la cache KV ocupa 8 bytes por token, capa y
+     * columna, y la que ya existe cuenta como libre (se reutiliza o se suelta antes de reservar otra).
+     */
+    private int memoryContext() {
+        Runtime rt = Runtime.getRuntime();
+        long free = rt.maxMemory() - (rt.totalMemory() - rt.freeMemory());
+        long perToken = 8L * model.nLayer * model.kvStride;
+        free += (long) model.capacity() * perToken;
+        return (int) Math.min(Integer.MAX_VALUE, free / 2 / Math.max(1L, perToken));
+    }
+
+    /**
+     * Evalua el prompt y devuelve los logits de su ultimo token (o null si {@code pl} cancelo). Si la cache KV
+     * guarda la peticion anterior, se reutiliza el prefijo comun (como maximo hasta el penultimo token, para que
+     * el ultimo se evalue y haya logits) y solo se calcula el resto; si la cache no tiene sitio para
+     * prompt.length + maxNew tokens se amplia copiando el prefijo ({@link Model#grow}) cuando este es apreciable
+     * y, si no, se reinicia el contexto como siempre. La lectura va en trozos de {@link Model#CHUNK} con aviso a
+     * {@code pl} entre ellos.
+     */
+    float[] prefill(int[] prompt, int maxNew, PromptListener pl) throws IOException {
+        int need = prompt.length + Math.max(1, maxNew);
+        int reuse = 0;
+        if (lastPrompt != null && lastValid > 0 && model.capacity() > 0) {
+            reuse = commonPrefix(prompt, lastPrompt, Math.min(lastValid, prompt.length) - 1);
+            // Si la cache se quedo corta para esta peticion, solo merece la pena ampliarla (copiando el prefijo)
+            // cuando el prefijo es apreciable; si no, se reinicia como siempre
+            if (reuse > 0 && reuse < GROW_MIN_REUSE && !model.fits(need)) reuse = 0;
+        }
+        lastReused = reuse;
+        try {
+            if (reuse > 0) {
+                model.rewind(reuse);
+                if (!model.fits(need)) model.grow(need + GROW_HEADROOM);
+            } else {
+                model.reset(need);
+            }
+            int done = reuse;
+            if (pl != null && !pl.onPrompt(done, prompt.length)) return null;
+            float[] logits = null;
+            while (done < prompt.length) {
+                int c = Math.min(Model.CHUNK, prompt.length - done);
+                boolean last = done + c == prompt.length;
+                logits = model.forward(prompt, done, c, last);
+                done += c;
+                if (pl != null && !pl.onPrompt(done, prompt.length)) return null;
+            }
+            return logits;
+        } catch (OutOfMemoryError e) {
+            trimMemory();
+            throw e;
+        } finally {
+            remember(prompt, prompt.length);
+        }
+    }
+
+    /** Apunta que la cache KV contiene tokens[0..nPast) (y nada si no hay cache). */
+    private void remember(int[] tokens, int len) {
+        int valid = Math.min(model.nPast, Math.min(len, tokens.length));
+        if (valid <= 0 || model.capacity() == 0) {
+            lastPrompt = null;
+            lastValid = 0;
+            return;
+        }
+        lastPrompt = Arrays.copyOf(tokens, valid);
+        lastValid = valid;
+    }
+
+    /** Longitud del prefijo comun de a y b, como maximo max (nunca negativa). */
+    public static int commonPrefix(int[] a, int[] b, int max) {
+        if (a == null || b == null) return 0;
+        int n = Math.min(max, Math.min(a.length, b.length));
+        int i = 0;
+        while (i < n && a[i] == b[i]) i++;
+        return Math.max(0, i);
+    }
+
+    /** Posiciones de la cache KV reutilizadas por la ultima generacion (0 si se evaluo todo el prompt). */
+    public int lastReused() {
+        return lastReused;
+    }
+
+    /** Posiciones validas de la cache KV conservada para la siguiente peticion (0 si no hay). */
+    public int cachedTokens() {
+        return lastValid;
+    }
+
+    /** Libera la cache KV y los buferes (presion de memoria); el modelo sigue cargado y la siguiente peticion la reserva de nuevo. */
+    public synchronized void trimMemory() {
+        model.releaseCache();
+        lastPrompt = null;
+        lastValid = 0;
     }
 
     /** Tokeniza texto de usuario (sin especiales); util para contar tokens antes de generar. */

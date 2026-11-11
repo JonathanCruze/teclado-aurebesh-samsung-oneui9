@@ -27,15 +27,23 @@ final class Themes {
         final int hint;           // letra latina pequena en la tecla
         final float radiusDp;     // esquina de tecla
         final boolean shadow;     // sombra de 1 px bajo la tecla
+        final float strokeDp;     // grosor del borde de tecla en dp (1 salvo que el tema pida otro)
 
         Theme(String id, int name, int bg, int keyBg, int keyStroke, int glyph, int glow, int icon,
               int accent, int onAccent, int specialBg, int spaceBg, int pressed, int preview,
               int previewText, int previewLatin, int hint, float radiusDp, boolean shadow) {
+            this(id, name, bg, keyBg, keyStroke, glyph, glow, icon, accent, onAccent, specialBg, spaceBg, pressed,
+                    preview, previewText, previewLatin, hint, radiusDp, shadow, 1f);
+        }
+
+        Theme(String id, int name, int bg, int keyBg, int keyStroke, int glyph, int glow, int icon,
+              int accent, int onAccent, int specialBg, int spaceBg, int pressed, int preview,
+              int previewText, int previewLatin, int hint, float radiusDp, boolean shadow, float strokeDp) {
             this.id = id; this.name = name; this.bg = bg; this.keyBg = keyBg; this.keyStroke = keyStroke;
             this.glyph = glyph; this.glow = glow; this.icon = icon; this.accent = accent; this.onAccent = onAccent;
             this.specialBg = specialBg; this.spaceBg = spaceBg; this.pressed = pressed; this.preview = preview;
             this.previewText = previewText; this.previewLatin = previewLatin; this.hint = hint;
-            this.radiusDp = radiusDp; this.shadow = shadow;
+            this.radiusDp = radiusDp; this.shadow = shadow; this.strokeDp = strokeDp;
         }
     }
 
@@ -69,7 +77,16 @@ final class Themes {
             0xFFC8541F, 0xFFFFF4EA, 0xFFD6C9AF, 0xFFF8F2E7, 0xFFC9BBA0, 0xFF3A2C1E,
             0xFFFFF4EA, 0xFFB8A78E, 0xFF9A8A72, 10f, true);
 
-    static final Theme[] ALL = {ESTELAR, NOCHE, DATAPAD, IMPERIAL, ARENA};
+    /**
+     * Contraste (accesibilidad): fondo negro, teclas blancas con borde negro de 2 dp, glifo negro, acento amarillo
+     * con icono negro. Sin halo ni sombra y esquinas de 4 dp, para que cada tecla se recorte sin matices.
+     */
+    static final Theme CONTRASTE = new Theme("contraste", R.string.theme_contraste,
+            0xFF000000, 0xFFFFFFFF, 0xFF000000, 0xFF000000, 0, 0xFF000000,
+            0xFFFFD600, 0xFF000000, 0xFFE6E6E6, 0xFFFFFFFF, 0xFFBDBDBD, 0xFFFFFFFF,
+            0xFF000000, 0xFF000000, 0xFF000000, 4f, false, 2f);
+
+    static final Theme[] ALL = {ESTELAR, NOCHE, DATAPAD, IMPERIAL, ARENA, CONTRASTE};
     static final Theme DEFAULT = ESTELAR;
 
     static Theme byId(String id) {

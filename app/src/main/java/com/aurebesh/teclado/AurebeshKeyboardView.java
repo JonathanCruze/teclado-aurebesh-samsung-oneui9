@@ -3,6 +3,7 @@ package com.aurebesh.teclado;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
+import android.graphics.BlurMaskFilter;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Path;
@@ -77,9 +78,20 @@ public final class AurebeshKeyboardView extends View {
     static final int TOOL_CLIPBOARD = 2;
     static final int TOOL_SETTINGS = 3;     // solo en la pagina ?123
     static final int TOOL_HAND = 4;         // modo a una mano (junto al portapapeles)
-    static final int TOOL_AI = 5;           // inteligencia, a la izquierda de la barra
-    private static final int[] TOOLS_LETTERS = {TOOL_EMOJI, TOOL_CLIPBOARD, TOOL_HAND};
-    private static final int[] TOOLS_SYMBOLS = {TOOL_EMOJI, TOOL_CLIPBOARD, TOOL_HAND, TOOL_RESIZE, TOOL_SETTINGS};
+    static final int TOOL_AI = 5;           // inteligencia, a la izquierda de la barra (boton propio, no va en la cinta)
+    // 2.0: herramientas nuevas; la cinta es personalizable (Prefs.TOOLBAR_ITEMS) y termina siempre en "..."
+    static final int TOOL_EDIT = 8;         // panel de edicion: cursor, seleccion, copiar y pegar
+    static final int TOOL_SPLIT = 9;        // dividir el teclado (solo en pantallas de 600 dp o mas)
+    static final int TOOL_HIDE = 10;        // ocultar el teclado
+    static final int TOOL_STRIP = 11;       // cinta de lo escrito en Aurebesh
+    static final int TOOL_LANG = 12;        // siguiente idioma
+    static final int TOOL_TRANSLATE = 13;   // traducir con la inteligencia
+    static final int TOOL_MORE = 14;        // "...": cuadricula con todas las herramientas
+    /** Catalogo de herramientas que pueden ir en la cinta, en el orden de la cuadricula "...". */
+    static final int[] ALL_TOOLS = {TOOL_EMOJI, TOOL_CLIPBOARD, TOOL_HAND, TOOL_EDIT, TOOL_TRANSLATE, TOOL_SPLIT,
+            TOOL_STRIP, TOOL_LANG, TOOL_HIDE, TOOL_RESIZE, TOOL_SETTINGS};
+    /** Cinta de fabrica (sin el "..." final, que se anade siempre). */
+    static final int[] DEFAULT_TOOLBAR = {TOOL_EMOJI, TOOL_CLIPBOARD, TOOL_HAND, TOOL_EDIT, TOOL_RESIZE, TOOL_SETTINGS};
 
     static final class Key {
         final String output;
@@ -152,7 +164,15 @@ public final class AurebeshKeyboardView extends View {
     private boolean numpadPhone, numpadDecimal, numpadSigned;
     private int repeatCount;                // repeticiones de borrar en la pulsacion actual (acelera y pasa a palabras)
 
-    private boolean showHints = false;
+    private boolean showHints = false;      // alguna pista latina (modo 1 o 2)
+    private int hintMode = 0;               // 0 nunca, 1 siempre, 2 aprendiendo (cada letra se desvanece con el uso)
+    private boolean hintModeSet = false;    // setHintMode ya mando: applyPrefs deja de tocar el modo
+    private final java.util.HashMap<String, Integer> hintCounts = new java.util.HashMap<>();   // veces pulsada cada letra
+    private int hintSinceSave = 0;          // pulsaciones desde el ultimo guardado en Prefs.HINT_COUNTS
+    private boolean hintDirty = false;
+    /** Modo aprendiendo: pulsaciones de una letra hasta que su pista latina desaparece, y cada cuantas se guarda. */
+    static final int HINT_FADE_TAPS = 40;
+    private static final int HINT_SAVE_EVERY = 25;
     private boolean vibrate = true;
     private boolean showStrip = false;
     private boolean useDigraphs = true;
@@ -180,7 +200,12 @@ public final class AurebeshKeyboardView extends View {
     private final List<String> suggestionWords = new ArrayList<>();   // palabra de cada chip dibujado (puede saltarse alguno)
     private String highlighted;             // sugerencia que se aplicara sola (resaltada)
     private boolean toolbar = true;         // iconos sobre las teclas cuando no hay sugerencias
-    private final RectF[] toolRects = new RectF[5];
+    private final RectF[] toolRects = new RectF[ALL_TOOLS.length + 1];   // iconos dibujados y el "..." (vacio = no esta)
+    private final int[] toolRectIds = new int[ALL_TOOLS.length + 1];     // herramienta de cada rectangulo
+    private int[] toolbarItems;                                          // orden elegido por el usuario (null = DEFAULT_TOOLBAR)
+    private final int[] toolsBuf = new int[ALL_TOOLS.length];            // herramientas con sentido ahora (sin asignar por fotograma)
+    private final RectF suggestionBand = new RectF();                    // banda unica de las sugerencias
+    private final Paint dividerPaint = new Paint(Paint.ANTI_ALIAS_FLAG);  // lineas entre sugerencias
     private int toolDownId = -1;                 // herramienta bajo el dedo al bajar (se resuelve al soltar)
     private final RectF toolDownRect = new RectF();
     private final RectF hideRect = new RectF();     // boton ∨ de la banda inferior (margen >= 24 dp)
@@ -232,9 +257,13 @@ public final class AurebeshKeyboardView extends View {
     static final float POINT_MIN_DIST_DP = 2f;
     /** Puntos maximos guardados; al llegar se diezma por dos. */
     static final int MAX_POINTS = 2048;
-    /** Tiempo (ms) que tarda en desvanecerse cada tramo de la estela, y su grosor maximo (dp). */
+    /** Tiempo (ms) que tarda en desvanecerse cada tramo de la estela, y grosor maximo (dp) de la hoja del sable. */
     static final long TRAIL_MS = 600;
-    static final float TRAIL_WIDTH_DP = 6f;
+    static final float TRAIL_WIDTH_DP = 6.5f;
+    /** Grosores (dp) del nucleo blanco y de los dos halos translucidos de la estela. */
+    static final float TRAIL_CORE_DP = 2.5f, TRAIL_HALO_DP = 20f, TRAIL_OUTER_DP = 30f;
+    /** Tramos por edad en que se parte la estela para desvanecer la cola. */
+    static final int TRAIL_BANDS = 10;
 
     private static final int GLIDE_NONE = 0, GLIDE_PENDING = 1, GLIDE_GLIDING = 2;
     private boolean glideEnabled = false;
@@ -247,8 +276,16 @@ public final class AurebeshKeyboardView extends View {
     private float[] strokeX = new float[256], strokeY = new float[256];
     private long[] strokeT = new long[256];
     private int strokeN = 0;
-    private final Paint trailPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint trailGlowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    // Estela de sable de luz: nucleo blanco, hoja del color elegido y dos halos translucidos, en tramos por edad
+    private int saberColor = Prefs.SABER_ARGB[0];
+    private final Paint trailCorePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint trailBladePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint trailHaloPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint trailOuterPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint trailFlashPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Path[] trailPaths = new Path[TRAIL_BANDS];          // una Path por tramo, reutilizadas en cada fotograma
+    private final boolean[] trailBandUsed = new boolean[TRAIL_BANDS];
+    private BlurMaskFilter trailBlur;                                 // halo difuminado, solo sin aceleracion por hardware
     private volatile SwipeDecoder decoder;          // indice del idioma y la geometria actuales (se rehace si cambian)
     private Future<?> glideTask;                    // ultima tarea de reconocimiento (para pruebas)
     private static ExecutorService glideExecutor;
@@ -269,12 +306,16 @@ public final class AurebeshKeyboardView extends View {
         glowPaint.setStrokeWidth(2.5f * dp);
         strokePaint.setStyle(Paint.Style.STROKE);
         strokePaint.setStrokeWidth(dp);
-        trailPaint.setStyle(Paint.Style.STROKE);
-        trailPaint.setStrokeCap(Paint.Cap.ROUND);
-        trailPaint.setStrokeJoin(Paint.Join.ROUND);
-        trailGlowPaint.setStyle(Paint.Style.STROKE);
-        trailGlowPaint.setStrokeCap(Paint.Cap.ROUND);
-        trailGlowPaint.setStrokeJoin(Paint.Join.ROUND);
+        for (Paint p : new Paint[]{trailCorePaint, trailBladePaint, trailHaloPaint, trailOuterPaint}) {
+            p.setStyle(Paint.Style.STROKE);
+            p.setStrokeCap(Paint.Cap.BUTT);          // los tramos empalman en los puntos medios: sin remates solapados
+            p.setStrokeJoin(Paint.Join.ROUND);
+        }
+        for (int i = 0; i < TRAIL_BANDS; i++) trailPaths[i] = new Path();
+        try { trailBlur = new BlurMaskFilter(6 * dp, BlurMaskFilter.Blur.NORMAL); } catch (RuntimeException e) { trailBlur = null; }
+        for (int i = 0; i < toolRects.length; i++) toolRects[i] = new RectF();
+        dividerPaint.setStyle(Paint.Style.STROKE);
+        dividerPaint.setStrokeWidth(dp);
         compact = heightClass() == 0;      // pantalla muy baja: sin fila de numeros desde el principio
         buildLayouts();
         current = letters;
@@ -298,7 +339,7 @@ public final class AurebeshKeyboardView extends View {
             this.heightScale = heightScale;
             requestLayout();
         }
-        showHints = hints;
+        if (!hintModeSet) { hintMode = hints ? 1 : 0; showHints = hints; }   // hasta que setHintMode mande
         this.vibrate = vibrate;
         if (useDigraphs != digraphs) {
             useDigraphs = digraphs;
@@ -455,6 +496,152 @@ public final class AurebeshKeyboardView extends View {
     }
 
     boolean isGlideEnabled() { return glideEnabled; }
+
+    /** Color de la hoja del sable de la estela (ARGB; el nucleo siempre es blanco). Cambia en vivo. */
+    public void setSaber(int argb) {
+        saberColor = argb | 0xFF000000;
+        invalidate();
+    }
+
+    int saber() { return saberColor; }
+
+    // ------------------------------------------------------------------ letras latinas: nunca, siempre, aprendiendo
+
+    /**
+     * Letras latinas en las teclas: 0 nunca, 1 siempre, 2 aprendiendo (cada letra se desvanece con las veces que
+     * se pulsa: alfa = 1 - veces/40, y a las 40 desaparece). Carga los contadores de Prefs.HINT_COUNTS
+     * ("letra n" por linea); se guardan cada 25 pulsaciones y al desaparecer la vista.
+     */
+    public void setHintMode(int mode) {
+        hintModeSet = true;
+        hintMode = Math.max(0, Math.min(2, mode));
+        showHints = hintMode != 0;
+        if (hintDirty) saveHintCounts();
+        loadHintCounts();
+        invalidate();
+    }
+
+    int hintMode() { return hintMode; }
+
+    /** Opacidad (0-1) de la pista latina de una letra segun el modo; en aprendiendo, 1 - min(1, veces/40). */
+    float hintAlpha(String letter) {
+        if (hintMode == 0) return 0f;
+        if (hintMode == 1) return 1f;
+        return 1f - Math.min(1f, hintCount(letter) / (float) HINT_FADE_TAPS);
+    }
+
+    /** Veces que se ha pulsado la letra en modo aprendiendo (para pruebas). */
+    int hintCount(String letter) {
+        Integer n = hintCounts.get(letter);
+        return n == null ? 0 : n;
+    }
+
+    /** Vuelve a mostrar todas las pistas: borra los contadores en memoria y en preferencias. */
+    public void resetHintCounts() {
+        hintCounts.clear();
+        hintSinceSave = 0;
+        hintDirty = false;
+        Prefs.get(getContext()).edit().remove(Prefs.HINT_COUNTS).apply();
+        invalidate();
+    }
+
+    /** Una pulsacion mas de la letra (solo cuenta en modo aprendiendo y hasta el tope, que es cuando ya no se ve). */
+    private void countHint(String letter) {
+        if (hintMode != 2 || letter == null) return;
+        int n = hintCount(letter);
+        if (n >= HINT_FADE_TAPS) return;
+        hintCounts.put(letter, n + 1);
+        hintDirty = true;
+        if (++hintSinceSave >= HINT_SAVE_EVERY) saveHintCounts();
+    }
+
+    private void loadHintCounts() {
+        hintCounts.clear();
+        hintSinceSave = 0;
+        hintDirty = false;
+        String raw = Prefs.get(getContext()).getString(Prefs.HINT_COUNTS, null);
+        if (raw == null) return;
+        for (String line : raw.split("\n")) {
+            int cut = line.indexOf(' ');
+            if (cut <= 0) continue;
+            try {
+                hintCounts.put(line.substring(0, cut), Integer.parseInt(line.substring(cut + 1).trim()));
+            } catch (NumberFormatException ignored) {
+                // linea corrupta: se ignora
+            }
+        }
+    }
+
+    private void saveHintCounts() {
+        StringBuilder b = new StringBuilder();
+        for (java.util.Map.Entry<String, Integer> e : hintCounts.entrySet()) {
+            if (b.length() > 0) b.append('\n');
+            b.append(e.getKey()).append(' ').append(e.getValue());
+        }
+        Prefs.get(getContext()).edit().putString(Prefs.HINT_COUNTS, b.toString()).apply();
+        hintSinceSave = 0;
+        hintDirty = false;
+    }
+
+    /** Color con su alfa multiplicado por {@code a} (0-1). */
+    private static int fade(int color, float a) {
+        return (color & 0x00FFFFFF) | (((int) ((color >>> 24) * a)) << 24);
+    }
+
+    // ------------------------------------------------------------------ cinta personalizable
+
+    /** Iconos de la cinta en orden (ids TOOL_*), como vienen de Prefs.toolbarItems; null = cinta de fabrica. */
+    void setToolbarItems(int[] ids) {
+        toolbarItems = ids == null ? null : ids.clone();
+        invalidate();
+    }
+
+    /** Cinta actual (copia): el orden elegido o DEFAULT_TOOLBAR, sin filtrar y sin el "..." final. */
+    int[] toolbarItems() { return (toolbarItems == null ? DEFAULT_TOOLBAR : toolbarItems).clone(); }
+
+    /** Para cada herramienta de ALL_TOOLS, si tiene sentido ahora (para la cuadricula "..."). */
+    boolean[] availableTools() {
+        boolean[] out = new boolean[ALL_TOOLS.length];
+        for (int i = 0; i < ALL_TOOLS.length; i++) out[i] = toolAllowed(ALL_TOOLS[i]);
+        return out;
+    }
+
+    /** Dividir solo en pantallas de 600 dp o mas, una mano nunca con el dividido activo, idioma solo con varios; tamano y ajustes siempre. */
+    private boolean toolAllowed(int id) {
+        switch (id) {
+            case TOOL_SPLIT: return getResources().getConfiguration().smallestScreenWidthDp >= 600;
+            case TOOL_HAND: return !split;
+            case TOOL_LANG: return languageSwitch;
+            case TOOL_EMOJI: case TOOL_CLIPBOARD: case TOOL_EDIT: case TOOL_TRANSLATE: case TOOL_STRIP:
+            case TOOL_HIDE: case TOOL_RESIZE: case TOOL_SETTINGS:
+                return true;
+            default:
+                return false;        // la inteligencia tiene su propio boton; "..." se anade aparte; ids desconocidos se ignoran
+        }
+    }
+
+    /** Rellena toolsBuf con la cinta elegida filtrada y sin repetidos; devuelve cuantas hay (el "..." no cuenta). */
+    private int computeTools() {
+        int[] items = toolbarItems == null ? DEFAULT_TOOLBAR : toolbarItems;
+        int n = 0;
+        for (int id : items) {
+            if (!toolAllowed(id) || n >= toolsBuf.length) continue;
+            boolean dup = false;
+            for (int j = 0; j < n; j++) dup |= toolsBuf[j] == id;
+            if (!dup) toolsBuf[n++] = id;
+        }
+        return n;
+    }
+
+    /** Zonas de toque de las sugerencias dibujadas (copia, para pruebas): celdas contiguas de la banda. */
+    List<RectF> suggestionRects() {
+        List<RectF> out = new ArrayList<>(suggestionRects.size());
+        for (RectF r : suggestionRects) out.add(new RectF(r));
+        return out;
+    }
+
+    /** Banda de las sugerencias tal y como se dibujo (copia, para pruebas); vacia si no hay sugerencias. */
+    RectF suggestionBandRect() { return new RectF(suggestionBand); }
 
     /** Abre la pantalla ?123 (campos numericos y de telefono). */
     void showSymbols() {
@@ -1054,33 +1241,67 @@ public final class AurebeshKeyboardView extends View {
     }
 
     /**
-     * Estela del trazo: un tramo por par de puntos, cada uno con la transparencia y el grosor de su edad
-     * (la cola se afina y se desvanece en TRAIL_MS). Con halo en los temas con brillo. Se vuelve a dibujar
-     * en cada fotograma mientras quede algun tramo visible.
+     * Estela de sable de luz: una curva continua y suave por los puntos del trazo (cuadraticas entre puntos
+     * medios con el punto como control) con nucleo blanco fino, hoja del color del sable y dos halos anchos y
+     * translucidos. Se parte en TRAIL_BANDS tramos por edad que empalman en los puntos medios (la curva sigue
+     * siendo continua) y cada tramo se afina y se desvanece hacia la cola en TRAIL_MS; el extremo delantero
+     * lleva un destello blanco con halo. Las Path se reutilizan y se vuelve a dibujar en cada fotograma
+     * mientras quede algo visible. Sin aceleracion por hardware el halo va ademas difuminado.
      */
     private void drawTrail(Canvas c) {
         long now = SystemClock.uptimeMillis();
-        int ink = theme.accent == theme.keyBg ? theme.glyph : theme.accent;
-        boolean any = false;
-        for (int i = strokeN - 1; i >= 1; i--) {
-            long age = now - strokeT[i];
-            if (age > TRAIL_MS) break;                       // los anteriores son mas viejos todavia
-            if (age < 0) age = 0;
-            float k = 1f - age / (float) TRAIL_MS;
-            int alpha = (int) (255 * k);
-            float width = TRAIL_WIDTH_DP * dp * (0.35f + 0.65f * k);
-            if (theme.glow != 0) {
-                trailGlowPaint.setColor((theme.glow & 0x00FFFFFF) | ((alpha / 3) << 24));
-                trailGlowPaint.setStrokeWidth(width * 2.2f);
-                c.drawLine(strokeX[i - 1], strokeY[i - 1], strokeX[i], strokeY[i], trailGlowPaint);
+        int last = strokeN - 1;
+        int first = last;                                             // punto mas viejo todavia visible
+        while (first > 0 && now - strokeT[first - 1] <= TRAIL_MS) first--;
+        for (int b = 0; b < TRAIL_BANDS; b++) trailBandUsed[b] = false;
+        int cur = -1;
+        float sx = strokeX[first], sy = strokeY[first];
+        for (int i = first + 1; i <= last; i++) {
+            long age = Math.max(0, now - strokeT[i]);
+            int b = (int) (age * TRAIL_BANDS / TRAIL_MS);
+            if (b >= TRAIL_BANDS) b = TRAIL_BANDS - 1;
+            float ex, ey;                                             // fin del tramo: punto medio con el siguiente (o el ultimo punto)
+            if (i < last) { ex = (strokeX[i] + strokeX[i + 1]) / 2f; ey = (strokeY[i] + strokeY[i + 1]) / 2f; }
+            else { ex = strokeX[i]; ey = strokeY[i]; }
+            if (b != cur) {                                           // las edades crecen hacia la cola: cada tramo es un solo trozo
+                cur = b;
+                trailPaths[b].rewind();
+                trailPaths[b].moveTo(sx, sy);
+                trailBandUsed[b] = true;
             }
-            trailPaint.setColor((ink & 0x00FFFFFF) | (alpha << 24));
-            trailPaint.setStrokeWidth(width);
-            c.drawLine(strokeX[i - 1], strokeY[i - 1], strokeX[i], strokeY[i], trailPaint);
+            if (i < last) trailPaths[b].quadTo(strokeX[i], strokeY[i], ex, ey);
+            else trailPaths[b].lineTo(ex, ey);
+            sx = ex;
+            sy = ey;
+        }
+        boolean any = cur >= 0;
+        int rgb = saberColor & 0x00FFFFFF;
+        trailHaloPaint.setMaskFilter(c.isHardwareAccelerated() ? null : trailBlur);
+        // Cuatro capas de fuera adentro, cada una con todos sus tramos de la cola al frente: ningun halo tapa un nucleo
+        for (int layer = 0; layer < 4; layer++) {
+            Paint p = layer == 0 ? trailOuterPaint : layer == 1 ? trailHaloPaint : layer == 2 ? trailBladePaint : trailCorePaint;
+            float base = (layer == 0 ? TRAIL_OUTER_DP : layer == 1 ? TRAIL_HALO_DP : layer == 2 ? TRAIL_WIDTH_DP : TRAIL_CORE_DP) * dp;
+            for (int b = TRAIL_BANDS - 1; b >= 0; b--) {
+                if (!trailBandUsed[b]) continue;
+                float k = 1f - b / (float) TRAIL_BANDS;               // 1 recien trazado, hacia 0 en la cola
+                int alpha = layer == 0 ? (int) (0x26 * k) : layer == 1 ? (int) (0x58 * k)
+                        : layer == 2 ? (int) (255 * k) : (int) (255 * k * k);
+                p.setColor((layer == 3 ? 0x00FFFFFF : rgb) | (alpha << 24));
+                p.setStrokeWidth(base * (0.4f + 0.6f * k));
+                c.drawPath(trailPaths[b], p);
+            }
+        }
+        // Destello en el extremo delantero; al soltar se apaga con la edad del ultimo punto
+        float kf = glideState == GLIDE_GLIDING ? 1f : 1f - Math.min(1f, Math.max(0, now - strokeT[last]) / (float) TRAIL_MS);
+        if (kf > 0f) {
+            trailFlashPaint.setColor(rgb | (((int) (0x90 * kf)) << 24));
+            c.drawCircle(strokeX[last], strokeY[last], 9 * dp * (0.6f + 0.4f * kf), trailFlashPaint);
+            trailFlashPaint.setColor(0x00FFFFFF | (((int) (255 * kf)) << 24));
+            c.drawCircle(strokeX[last], strokeY[last], 3.5f * dp, trailFlashPaint);
             any = true;
         }
         if (any) postInvalidateOnAnimation();
-        else if (glideState == GLIDE_NONE) strokeN = 0;      // ya se desvanecio del todo
+        else if (glideState == GLIDE_NONE) strokeN = 0;              // ya se desvanecio del todo
     }
 
     private void drawKeyFace(Canvas c, Key k, RectF r, boolean digitRow) {
@@ -1092,12 +1313,16 @@ public final class AurebeshKeyboardView extends View {
                     float h = r.height() * (digitRow ? 0.44f : current == numpad ? 0.58f : 0.50f);   // numerico: digitos grandes
                     if (theme.glow != 0) Glyphs.drawCentered(c, k.glyph, cx, cy, h, r.width() * 0.74f, glowPaint);
                     Glyphs.drawCentered(c, k.glyph, cx, cy, h, r.width() * 0.74f, glyphPaint);
-                    if (showHints || !k.glyph.equals(k.output)) {   // con acento: la latina siempre, para distinguirlas
+                    float ha = !k.glyph.equals(k.output) ? 1f : hintAlpha(k.output);   // con acento: la latina siempre, para distinguirlas
+                    if (ha > 0f) {
+                        int base = hintPaint.getColor();
+                        if (ha < 1f) hintPaint.setColor(fade(base, ha));        // aprendiendo: se desvanece con el uso
                         hintPaint.setTextSize(9 * sp);
                         hintPaint.setTextAlign(Paint.Align.LEFT);
                         String hint = shiftActive() ? k.label.toUpperCase() : k.label;
                         c.drawText(hint, r.left + 4 * dp, r.top + 10 * dp, hintPaint);
                         hintPaint.setTextAlign(Paint.Align.RIGHT);
+                        hintPaint.setColor(base);
                     }
                 } else if (k.label.length() > 1) {
                     drawMiniWord(c, k.label, cx, cy, 10 * dp);    // ".com" o "Pausa": palabra en Aurebesh pequeño, como ?123
@@ -1114,7 +1339,10 @@ public final class AurebeshKeyboardView extends View {
                 if (k.alts != null && !digitRow) {
                     String first = k.alts[0];
                     boolean digit = first.length() == 1 && Character.isDigit(first.charAt(0));
-                    if (showHints || digit) {                    // los numeros ocultos siempre se insinuan
+                    float aa = digit ? 1f : hintAlpha(k.output);   // los numeros ocultos siempre se insinuan; el resto sigue a su letra
+                    if (aa > 0f) {
+                        int base = hintPaint.getColor();
+                        if (aa < 1f) hintPaint.setColor(fade(base, aa));
                         hintPaint.setTextSize(9 * sp);
                         if (symbolKey) {
                             hintPaint.setTextAlign(Paint.Align.LEFT);
@@ -1123,6 +1351,7 @@ public final class AurebeshKeyboardView extends View {
                         } else {
                             c.drawText(first, r.right - 4 * dp, r.top + 10 * dp, hintPaint);
                         }
+                        hintPaint.setColor(base);
                     }
                 }
                 break;
@@ -1228,30 +1457,6 @@ public final class AurebeshKeyboardView extends View {
         c.drawOval(tmp, iconPaint);
     }
 
-    /** Carita (emojis): circulo, dos ojos y sonrisa. */
-    private void drawSmiley(Canvas c, float cx, float cy) {
-        iconPaint.setStrokeWidth(2.2f * dp);
-        c.drawCircle(cx, cy, 8 * dp, iconPaint);
-        fill.setColor(theme.icon);
-        c.drawCircle(cx - 3 * dp, cy - 2.6f * dp, 1.5f * dp, fill);
-        c.drawCircle(cx + 3 * dp, cy - 2.6f * dp, 1.5f * dp, fill);
-        tmp.set(cx - 4.6f * dp, cy - 3.2f * dp, cx + 4.6f * dp, cy + 4.6f * dp);
-        c.drawArc(tmp, 25, 130, false, iconPaint);
-    }
-
-    /** Portapapeles: tablilla con pinza. */
-    private void drawPaste(Canvas c, float cx, float cy) {
-        iconPaint.setStrokeWidth(2.4f * dp);
-        float w = 7 * dp, h = 9 * dp;
-        tmp.set(cx - w, cy - h + 2 * dp, cx + w, cy + h);
-        c.drawRoundRect(tmp, 2.5f * dp, 2.5f * dp, iconPaint);
-        tmp.set(cx - 3.5f * dp, cy - h - dp, cx + 3.5f * dp, cy - h + 4 * dp);
-        fill.setColor(theme.icon);
-        c.drawRoundRect(tmp, 1.5f * dp, 1.5f * dp, fill);
-        c.drawLine(cx - 3.5f * dp, cy + 0.5f * dp, cx + 3.5f * dp, cy + 0.5f * dp, iconPaint);
-        c.drawLine(cx - 3.5f * dp, cy + 4.5f * dp, cx + 1.5f * dp, cy + 4.5f * dp, iconPaint);
-    }
-
     private void drawEnter(Canvas c, float cx, float cy) {
         iconPaint.setStrokeWidth(3f * dp);
         iconPaint.setColor(theme.onAccent);
@@ -1318,12 +1523,16 @@ public final class AurebeshKeyboardView extends View {
             String shown = shiftActive() && (current == letters || current == symbols3) ? a.toUpperCase() : a;
             String gk = Glyphs.glyphKey(a);                 // a a a a: glifo de la letra base y la latina debajo
             if (gk != null) {
+                // La latina segun el modo (en aprendiendo siempre); con acento siempre, que el glifo es el de la base
+                boolean latin = hintMode != 0 || !gk.equals(a.toLowerCase(java.util.Locale.ROOT));
                 glyphPaint.setColor(sel ? theme.onAccent : theme.previewText);
-                Glyphs.drawCentered(c, gk, cx, cy - 6 * dp, popupCellH * 0.42f, popupCell * 0.7f, glyphPaint);
+                Glyphs.drawCentered(c, gk, cx, latin ? cy - 6 * dp : cy, popupCellH * 0.42f, popupCell * 0.7f, glyphPaint);
                 glyphPaint.setColor(theme.glyph);
-                textPaint.setColor(sel ? theme.onAccent : theme.previewLatin);
-                textPaint.setTextSize(10 * sp);
-                c.drawText(shown, cx, cell.bottom - 7 * dp, textPaint);
+                if (latin) {
+                    textPaint.setColor(sel ? theme.onAccent : theme.previewLatin);
+                    textPaint.setTextSize(10 * sp);
+                    c.drawText(shown, cx, cell.bottom - 7 * dp, textPaint);
+                }
             } else {
                 textPaint.setColor(sel ? theme.onAccent : theme.previewText);
                 textPaint.setTextSize(a.length() > 2 ? 15 * dp : 22 * dp);
@@ -1400,6 +1609,7 @@ public final class AurebeshKeyboardView extends View {
         String out = popupAlts[popupIndex];
         if (shiftActive() && current == letters) out = out.toUpperCase();
         if (listener != null) listener.onText(out);
+        if (current == letters && singleLetter(popupKey)) countHint(popupKey.output);   // aprendiendo: la tecla se uso
         if (shiftPointer >= 0) shiftHeldTyped = true;
         else if (shift && !capsLock) { shift = false; autoShifted = false; }
         closePopup();
@@ -1434,15 +1644,19 @@ public final class AurebeshKeyboardView extends View {
         c.drawRoundRect(tmp, 10 * dp, 10 * dp, fill);
         if (theme.keyStroke != 0) c.drawRoundRect(tmp, 10 * dp, 10 * dp, strokePaint);
         if (k.glyph != null) {
-            if (theme.glow != 0) Glyphs.drawCentered(c, k.glyph, tmp.centerX(), tmp.centerY() - 7 * dp, tmp.height() * 0.46f, tmp.width() * 0.72f, glowPaint);
+            boolean latin = hintMode != 0 || !k.glyph.equals(k.output);   // en aprendiendo siempre visible; con acento, siempre
+            float gy = latin ? tmp.centerY() - 7 * dp : tmp.centerY();
+            if (theme.glow != 0) Glyphs.drawCentered(c, k.glyph, tmp.centerX(), gy, tmp.height() * 0.46f, tmp.width() * 0.72f, glowPaint);
             glyphPaint.setColor(theme.previewText);
-            Glyphs.drawCentered(c, k.glyph, tmp.centerX(), tmp.centerY() - 7 * dp, tmp.height() * 0.46f, tmp.width() * 0.72f, glyphPaint);
+            Glyphs.drawCentered(c, k.glyph, tmp.centerX(), gy, tmp.height() * 0.46f, tmp.width() * 0.72f, glyphPaint);
             glyphPaint.setColor(theme.glyph);
-            textPaint.setColor(theme.previewLatin);
-            textPaint.setTextSize(11 * sp);
-            String latin = shiftActive() ? k.label.toUpperCase() : k.label;
-            c.drawText(latin, tmp.centerX(), tmp.bottom - 6 * dp, textPaint);
-            textPaint.setColor(theme.glyph);
+            if (latin) {
+                textPaint.setColor(theme.previewLatin);
+                textPaint.setTextSize(11 * sp);
+                String s = shiftActive() ? k.label.toUpperCase() : k.label;
+                c.drawText(s, tmp.centerX(), tmp.bottom - 6 * dp, textPaint);
+                textPaint.setColor(theme.glyph);
+            }
         } else {
             textPaint.setColor(theme.previewText);
             textPaint.setTextSize(26 * dp);
@@ -1456,7 +1670,8 @@ public final class AurebeshKeyboardView extends View {
         float top = (stripHeight() - h) / 2f;
         suggestionRects.clear();
         suggestionWords.clear();
-        for (int i = 0; i < toolRects.length; i++) toolRects[i] = null;
+        suggestionBand.setEmpty();
+        for (int i = 0; i < toolRects.length; i++) toolRects[i].setEmpty();
         float hw = handWidth(), off = handOffset();            // la cinta acompana a la caja de teclas
         float right = off + hw - 12 * dp;
         boolean chips = !suggestions.isEmpty();
@@ -1481,28 +1696,11 @@ public final class AurebeshKeyboardView extends View {
         float off = handOffset();                                // modo a una mano derecha: la barra acompana a las teclas
         float cy = stripHeight() / 2f, cx = off + 6 * dp + 22 * dp;
         aiRect.set(off + 6 * dp, 0, off + 6 * dp + 44 * dp, stripHeight());
-        fill.setColor(toolPressed == 9 ? theme.pressed : theme.specialBg);
+        fill.setColor(theme.specialBg);
         c.drawCircle(cx, cy, toolRadius(), fill);
         if (theme.keyStroke != 0) c.drawCircle(cx, cy, toolRadius(), strokePaint);
-        fill.setColor(theme.icon);
-        star(c, cx - 1.5f * dp, cy + 1.5f * dp, 7.5f * dp);
-        star(c, cx + 5.5f * dp, cy - 5.5f * dp, 3.2f * dp);
+        ToolIcons.draw(c, TOOL_AI, cx, cy, 20 * dp, iconPaint);
         return aiRect.right + 4 * dp;
-    }
-
-    private void star(Canvas c, float cx, float cy, float r) {
-        float k = r * 0.24f;
-        iconPath.reset();
-        iconPath.moveTo(cx, cy - r);
-        iconPath.lineTo(cx + k, cy - k);
-        iconPath.lineTo(cx + r, cy);
-        iconPath.lineTo(cx + k, cy + k);
-        iconPath.lineTo(cx, cy + r);
-        iconPath.lineTo(cx - k, cy + k);
-        iconPath.lineTo(cx - r, cy);
-        iconPath.lineTo(cx - k, cy - k);
-        iconPath.close();
-        c.drawPath(iconPath, fill);
     }
 
     /** Boton "..." a la derecha mientras hay sugerencias: muestra los iconos de la barra. */
@@ -1513,8 +1711,7 @@ public final class AurebeshKeyboardView extends View {
         fill.setColor(theme.specialBg);
         c.drawCircle(cx, cy, toolRadius(), fill);
         if (theme.keyStroke != 0) c.drawCircle(cx, cy, toolRadius(), strokePaint);
-        fill.setColor(theme.icon);
-        for (int i = -1; i <= 1; i++) c.drawCircle(cx + i * 5 * dp, cy, 1.8f * dp, fill);
+        ToolIcons.draw(c, TOOL_MORE, cx, cy, 20 * dp, iconPaint);
         return moreRect.left - 4 * dp;
     }
 
@@ -1563,47 +1760,37 @@ public final class AurebeshKeyboardView extends View {
         return pasteRect.right + 10 * dp;
     }
 
-    private int[] tools() { return current != letters ? TOOLS_SYMBOLS : TOOLS_LETTERS; }
-
-    /** Iconos redondos a la derecha: emojis, portapapeles, una mano y, en ?123, ajustes. Devuelve el limite izquierdo. */
+    /**
+     * Iconos redondos a la derecha, en el orden elegido por el usuario (filtrado por lo que tiene sentido ahora,
+     * igual en letras que en ?123) y siempre con "..." (TOOL_MORE) al final; si no caben todos a 44 dp, los
+     * primeros y "...". Con la cinta de lo escrito visible se le reserva un minimo de sitio. Devuelve el limite izquierdo.
+     */
     private float drawToolbar(Canvas c) {
-        int[] ids = tools();
+        int n = computeTools();
         float hw = handWidth(), off = handOffset();
         float cell = 44 * dp, cy = stripHeight() / 2f;
-        float x = off + hw - 6 * dp - cell * ids.length;
+        float right = off + hw - 6 * dp;
+        float reserve = showStrip && suggestions.isEmpty() ? 72 * dp : 0;      // sitio minimo para lo escrito en Aurebesh
+        int fit = (int) Math.floor((right - stripLeft - reserve) / cell) - 1;  // menos el "..."
+        int shown = Math.max(0, Math.min(n, fit));
+        float x = right - cell * (shown + 1);
         float left = x;
-        for (int i = 0; i < toolRects.length; i++) toolRects[i] = null;
-        for (int i = 0; i < ids.length; i++) {
-            toolRects[i] = new RectF(x, 0, x + cell, stripHeight());
+        for (int i = 0; i < toolRects.length; i++) toolRects[i].setEmpty();
+        for (int i = 0; i <= shown; i++) {
+            int id = i < shown ? toolsBuf[i] : TOOL_MORE;
+            toolRects[i].set(x, 0, x + cell, stripHeight());
+            toolRectIds[i] = id;
             float cx = x + cell / 2f;
-            boolean active = ids[i] == TOOL_HAND && handMode != 0;
+            boolean active = (id == TOOL_HAND && handMode != 0) || (id == TOOL_SPLIT && split) || (id == TOOL_STRIP && showStrip);
             fill.setColor(toolPressed == i ? theme.pressed : active ? theme.accent : theme.specialBg);
             c.drawCircle(cx, cy, toolRadius(), fill);
             if (theme.keyStroke != 0 && !active) c.drawCircle(cx, cy, toolRadius(), strokePaint);
-            if (active) iconPaint.setColor(theme.onAccent);
-            switch (ids[i]) {
-                case TOOL_EMOJI: drawSmiley(c, cx, cy); break;
-                case TOOL_CLIPBOARD: drawPaste(c, cx, cy); break;
-                case TOOL_HAND: drawHand(c, cx, cy, active); break;
-                case TOOL_RESIZE: drawResizeIcon(c, cx, cy); break;
-                default: drawGear(c, cx, cy); break;
-            }
-            if (active) iconPaint.setColor(theme.icon);
+            iconPaint.setColor(active ? theme.onAccent : theme.icon);
+            ToolIcons.draw(c, id, cx, cy, 20 * dp, iconPaint);
             x += cell;
         }
+        iconPaint.setColor(theme.icon);
         return left - 6 * dp;
-    }
-
-    /** Modo a una mano: teclado estrecho con una flecha de desplazamiento. */
-    private void drawHand(Canvas c, float cx, float cy, boolean active) {
-        iconPaint.setStrokeWidth(2.2f * dp);
-        tmp.set(cx - 2 * dp, cy - 6 * dp, cx + 9 * dp, cy + 6 * dp);
-        c.drawRoundRect(tmp, 2 * dp, 2 * dp, iconPaint);
-        fill.setColor(active ? theme.onAccent : theme.icon);
-        for (int i = 0; i < 2; i++) for (int j = 0; j < 3; j++) c.drawCircle(cx + 1 * dp + j * 2.5f * dp, cy - 2.5f * dp + i * 2.8f * dp, 0.8f * dp, fill);
-        c.drawLine(cx - 9 * dp, cy, cx - 4.5f * dp, cy, iconPaint);
-        c.drawLine(cx - 9 * dp, cy, cx - 6.5f * dp, cy - 2.5f * dp, iconPaint);
-        c.drawLine(cx - 9 * dp, cy, cx - 6.5f * dp, cy + 2.5f * dp, iconPaint);
     }
 
     /** En modo a una mano, boton en el margen libre para pasar el teclado al otro lado. */
@@ -1624,34 +1811,6 @@ public final class AurebeshKeyboardView extends View {
         c.drawLine(cx - d * s, cy, cx + d * s, cy, iconPaint);
         c.drawLine(cx + d * s, cy, cx + d * s * 0.35f, cy - s * 0.65f, iconPaint);
         c.drawLine(cx + d * s, cy, cx + d * s * 0.35f, cy + s * 0.65f, iconPaint);
-    }
-
-    /** Engranaje (ajustes): corona gruesa con ocho dientes y eje hueco. */
-    private void drawGear(Canvas c, float cx, float cy) {
-        iconPaint.setStrokeWidth(3.4f * dp);
-        for (int i = 0; i < 8; i++) {
-            double a = Math.PI / 4 * i + Math.PI / 8;
-            float dx = (float) Math.cos(a), dy = (float) Math.sin(a);
-            c.drawLine(cx + dx * 5.5f * dp, cy + dy * 5.5f * dp, cx + dx * 8.6f * dp, cy + dy * 8.6f * dp, iconPaint);
-        }
-        iconPaint.setStrokeWidth(3.2f * dp);
-        c.drawCircle(cx, cy, 5.2f * dp, iconPaint);
-        fill.setColor(theme.icon);
-        c.drawCircle(cx, cy, 2.1f * dp, fill);
-    }
-
-    /** Tamano y posicion: flecha vertical de dos puntas entre dos topes. */
-    private void drawResizeIcon(Canvas c, float cx, float cy) {
-        iconPaint.setStrokeWidth(2.2f * dp);
-        float s = 8 * dp, a = 3 * dp, w = 6 * dp;
-        c.drawLine(cx - w, cy - s, cx + w, cy - s, iconPaint);                   // tope superior
-        c.drawLine(cx - w, cy + s, cx + w, cy + s, iconPaint);                   // tope inferior
-        float y0 = cy - s + 3 * dp, y1 = cy + s - 3 * dp;
-        c.drawLine(cx, y0, cx, y1, iconPaint);                                   // asta
-        c.drawLine(cx, y0, cx - a, y0 + a, iconPaint);                           // punta de arriba
-        c.drawLine(cx, y0, cx + a, y0 + a, iconPaint);
-        c.drawLine(cx, y1, cx - a, y1 - a, iconPaint);                           // punta de abajo
-        c.drawLine(cx, y1, cx + a, y1 - a, iconPaint);
     }
 
     /**
@@ -1725,10 +1884,17 @@ public final class AurebeshKeyboardView extends View {
         c.drawText(label, r.centerX(), r.centerY() + 5 * dp, textPaint);
     }
 
-    /** Sugerencias del corrector como chips, de izquierda a derecha hasta {@code right}; la que se aplicara sola va resaltada. */
+    /**
+     * Sugerencias del corrector en una sola banda redondeada (specialBg, radio 12 dp) de stripLeft a right, con
+     * las palabras separadas por lineas verticales finas; solo la que se aplicara sola lleva su pastilla de acento
+     * dentro de la banda. Las celdas se reparten el ancho a partes iguales cuando todas caben asi (como Samsung
+     * Keyboard); si no, cada una con su ancho medido (y el sobrante repartido) y, si ni asi caben, las ultimas se
+     * omiten. Los emojis conservan su tamano. Las zonas de toque son las celdas completas, contiguas.
+     */
     private void drawSuggestions(Canvas c, float h, float top, float right) {
         int n = suggestions.size();
-        float[] widths = new float[n];
+        float[] widths = new float[n];          // ancho medido con sus margenes: el minimo de la celda
+        float[] textW = new float[n];
         boolean[] emojiAt = new boolean[n];
         List<List<Glyphs.Token>> tokens = new ArrayList<>();
         for (int i = 0; i < n; i++) {
@@ -1743,18 +1909,24 @@ public final class AurebeshKeyboardView extends View {
                 textPaint.setTextSize(emojiAt[i] ? 19 * sp : 14 * sp);
                 tw = textPaint.measureText(word);
             }
+            textW[i] = tw;
             widths[i] = tw + (emojiAt[i] ? 16 : 22) * dp;
         }
-        // Si no cabe todo, se sacrifican chips de palabra por el final (nunca el primero ni el resaltado) para que los emojis se vean
+        float inset = Math.max(2 * dp, stripHeight() / 2f - toolRadius());     // tan alta como los botones redondos
+        suggestionBand.set(stripLeft, inset, right - 2 * dp, stripHeight() - inset);
+        float avail = suggestionBand.width();
+        if (avail <= 0) { suggestionBand.setEmpty(); return; }
+        // Si no cabe todo, se sacrifican palabras por el final (nunca la primera ni la resaltada) para que los emojis se vean
         boolean[] show = new boolean[n];
         java.util.Arrays.fill(show, true);
-        float avail = right - 2 * dp - stripLeft;
         boolean anyEmoji = false;
         for (int i = 0; i < n; i++) anyEmoji |= emojiAt[i];
+        float total;
+        int shown;
         while (true) {
-            float total = 0;
-            int shown = 0;
-            for (int i = 0; i < n; i++) if (show[i]) { total += widths[i] + (shown > 0 ? 5 * dp : 0); shown++; }
+            total = 0;
+            shown = 0;
+            for (int i = 0; i < n; i++) if (show[i]) { total += widths[i]; shown++; }
             if (total <= avail || !anyEmoji) break;
             int drop = -1;
             for (int i = n - 1; i > 0; i--) {
@@ -1763,22 +1935,40 @@ public final class AurebeshKeyboardView extends View {
             if (drop < 0) break;
             show[drop] = false;
         }
-        float x = stripLeft;
+        if (shown == 0) { suggestionBand.setEmpty(); return; }
+        float widest = 0;
+        for (int i = 0; i < n; i++) if (show[i]) widest = Math.max(widest, widths[i]);
+        boolean equal = widest * shown <= avail;                                 // a partes iguales si la mas ancha cabe en la suya
+        float extra = !equal && total <= avail ? (avail - total) / shown : 0;    // sobrante repartido para llenar la banda
+        float radius = 12 * dp;
+        fill.setColor(theme.specialBg);
+        c.drawRoundRect(suggestionBand, radius, radius, fill);
+        if (theme.keyStroke != 0) c.drawRoundRect(suggestionBand, radius, radius, strokePaint);
+        dividerPaint.setColor((theme.glyph & 0x00FFFFFF) | 0x55000000);
+        float x = suggestionBand.left;
+        int drawn = 0;
         for (int i = 0; i < n; i++) {
             if (!show[i]) continue;
+            float w = equal ? avail / shown : widths[i] + extra;
+            if (x + w > suggestionBand.right + 0.5f * dp) break;             // no cabe (solo en el modo medido): se omiten
+            if (drawn == shown - 1) w = suggestionBand.right - x;             // la ultima cierra la banda sin restos de redondeo
+            RectF cell = new RectF(x, suggestionBand.top, x + w, suggestionBand.bottom);
             String word = suggestions.get(i);
             boolean emoji = emojiAt[i];
-            RectF cell = new RectF(x, 5 * dp, x + widths[i], stripHeight() - 5 * dp);
-            if (cell.right > right - 2 * dp) break;
             boolean hl = highlighted != null && highlighted.equals(word);
-            fill.setColor(hl ? theme.accent : theme.specialBg);
-            c.drawRoundRect(cell, 9 * dp, 9 * dp, fill);
-            if (theme.keyStroke != 0 && !hl) c.drawRoundRect(cell, 9 * dp, 9 * dp, strokePaint);
+            if (drawn > 0) c.drawLine(x, cell.top + 7 * dp, x, cell.bottom - 7 * dp, dividerPaint);
+            if (hl) {
+                tmp.set(cell.left + 3 * dp, cell.top + 3 * dp, cell.right - 3 * dp, cell.bottom - 3 * dp);
+                fill.setColor(theme.accent);
+                c.drawRoundRect(tmp, radius - 3 * dp, radius - 3 * dp, fill);
+            }
             int ink = hl ? theme.onAccent : theme.glyph;
             glyphPaint.setColor(ink);
             textPaint.setColor(ink);
             textPaint.setTextAlign(Paint.Align.LEFT);
-            float gx = cell.left + (emoji ? 8 : 11) * dp;
+            c.save();
+            c.clipRect(cell.left + 2 * dp, cell.top, cell.right - 2 * dp, cell.bottom);
+            float gx = cell.centerX() - textW[i] / 2f;                          // centrada en su celda
             List<Glyphs.Token> tk = tokens.get(i);
             if (tk != null) {
                 for (Glyphs.Token t : tk) gx += Glyphs.drawToken(c, t, gx, top, h, glyphPaint, textPaint);
@@ -1786,12 +1976,14 @@ public final class AurebeshKeyboardView extends View {
                 textPaint.setTextSize(emoji ? 19 * sp : 14 * sp);
                 c.drawText(word, gx, cell.centerY() + (emoji ? 7 : 5) * dp, textPaint);
             }
+            c.restore();
             textPaint.setTextAlign(Paint.Align.CENTER);
             glyphPaint.setColor(theme.glyph);
             textPaint.setColor(theme.glyph);
             suggestionRects.add(cell);
             suggestionWords.add(word);
-            x = cell.right + 5 * dp;
+            x = cell.right;
+            drawn++;
         }
     }
 
@@ -1937,11 +2129,10 @@ public final class AurebeshKeyboardView extends View {
                         }
                     }
                     for (int i = 0; i < toolRects.length; i++) {
-                        if (toolRects[i] != null && toolRects[i].contains(tx, ty)) {
+                        if (!toolRects[i].isEmpty() && toolRects[i].contains(tx, ty)) {
                             toolPressed = i;
                             toolPointer = id;
-                            int[] idsNow = tools();
-                            toolDownId = i < idsNow.length ? idsNow[i] : -1;   // se resuelve al soltar contra esta copia
+                            toolDownId = toolRectIds[i];                      // se resuelve al soltar contra esta copia
                             toolDownRect.set(toolRects[i]);
                             feedback(special("", CODE_SPACE, 1f));
                             invalidate();
@@ -2489,6 +2680,7 @@ public final class AurebeshKeyboardView extends View {
             case CODE_TEXT: {
                 String out = shiftActive() && (current == letters || current == symbols3) ? k.output.toUpperCase() : k.output;
                 listener.onText(out);
+                if (current == letters && singleLetter(k)) countHint(k.output);   // aprendiendo: una pulsacion mas de la letra
                 if (shiftPointer >= 0) shiftHeldTyped = true;           // sostenida: sigue en mayusculas hasta soltarla
                 else if (shift && !capsLock) { shift = false; autoShifted = false; }
                 break;
@@ -2627,6 +2819,7 @@ public final class AurebeshKeyboardView extends View {
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
         if (resizeMode) setResizeMode(false);       // sin Listo no se guarda nada
+        if (hintDirty) saveHintCounts();            // contadores del modo aprendiendo
         cancelTimers();
         closePopup();
         resetGlide(true);

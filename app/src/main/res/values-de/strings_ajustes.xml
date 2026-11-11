@@ -37,10 +37,10 @@
     <string name="aj_auto_replace_sub">Leerzeichen oder Satzzeichen ersetzt das Wort durch den markierten Vorschlag; die Rücktaste holt das Getippte zurück</string>
     <string name="aj_auto_caps">Automatische Großschreibung</string>
     <string name="aj_auto_caps_sub">Großbuchstabe am Anfang jedes Satzes</string>
-    <string name="aj_learned_row">Gelernte Wörter · %1$d</string>
-    <string name="aj_learned_sub">Wörter, die die Tastatur behält, ansehen, ergänzen oder entfernen</string>
-    <string name="aj_learned_title">Gelernte Wörter</string>
-    <string name="aj_learned_empty">Noch keine gelernten Wörter. Was du über die Vorschlagsleiste behältst, erscheint hier.</string>
+    <string name="aj_learned_row">Persönliches Wörterbuch · %1$d</string>
+    <string name="aj_learned_sub">Deine eigenen Wörter: Namen, Kosenamen, Fachbegriffe… ansehen, ergänzen, exportieren oder importieren</string>
+    <string name="aj_learned_title">Persönliches Wörterbuch</string>
+    <string name="aj_learned_empty">Noch keine Wörter. Was du hinzufügst oder über die Vorschlagsleiste bestätigst, erscheint hier.</string>
     <string name="aj_learned_add_hint">Neues Wort</string>
     <string name="aj_add">Hinzufügen</string>
     <string name="aj_remove">%1$s entfernen</string>

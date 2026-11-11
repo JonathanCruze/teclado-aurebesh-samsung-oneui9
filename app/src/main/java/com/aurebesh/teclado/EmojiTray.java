@@ -1,6 +1,7 @@
 package com.aurebesh.teclado;
 
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
 import android.graphics.Canvas;
 import android.graphics.Paint;
@@ -20,6 +21,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AbsListView;
 import android.widget.BaseAdapter;
+import android.widget.FrameLayout;
 import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
@@ -31,8 +33,10 @@ import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 /**
  * Panel de emojis que sustituye a las teclas. Sigue la clasificacion oficial de Unicode
@@ -48,6 +52,11 @@ import java.util.Locale;
  *
  * La respuesta haptica de la lupa, las pestanas, las celdas y las teclas inferiores pasa por {@link Haptics},
  * que obedece a "Vibracion al pulsar" y al nivel elegido; el teclado reducido lleva la suya propia.
+ *
+ * Tonos de piel (2.0): mantener pulsado un emoji que admite modificador (manos, personas, partes del cuerpo:
+ * {@link #TONE_BASES}) abre sobre la celda un menu con las seis variantes (sin modificador y U+1F3FB..U+1F3FF);
+ * elegir una la escribe y la recuerda para ese emoji en el archivo de preferencias {@link #TONES_FILE}, y desde
+ * entonces un toque normal sobre ese emoji escribe la variante recordada (la cuadricula sigue mostrando la base).
  */
 final class EmojiTray extends LinearLayout {
 
@@ -93,6 +102,19 @@ final class EmojiTray extends LinearLayout {
     private static List<Section> sections;      // recursos leidos una sola vez
     private static List<Named> named;
 
+    /** Archivo de preferencias propio con el tono recordado por emoji (clave: la base sin FE0F; valor: 0..5). */
+    static final String TONES_FILE = "aurebesh_emoji_tones";
+    /** Modificadores de tono: ninguno y U+1F3FB..U+1F3FF (claro, medio claro, medio, medio oscuro, oscuro). */
+    static final String[] TONES = {"", "\uD83C\uDFFB", "\uD83C\uDFFC", "\uD83C\uDFFD", "\uD83C\uDFFE", "\uD83C\uDFFF"};
+    /** Emojis de un solo punto de codigo que admiten modificador de tono (sin el FE0F que algunos llevan en la lista). */
+    static final String[] TONE_BASES = {
+            "👍", "👎", "👋", "🙏", "👏", "🙌", "💪", "✌", "🤞", "🤙", "👌", "✋", "🖐", "🖖", "☝", "👆", "👇", "👈", "👉",
+            "🤝", "🙋", "🙆", "🙅", "💁", "🤷", "🤦", "👶", "👦", "👧", "🧒", "👨", "👩", "🧑", "👴", "👵", "🧓", "👮",
+            "👷", "💂", "🕵", "👸", "🤴", "👳", "👲", "🧕", "🤵", "👰", "🤰", "🤱", "👼", "🎅", "🤶", "🧙", "🧝", "🧛",
+            "🧜", "🧚", "💆", "💇", "🚶", "🏃", "💃", "🕺", "🧖", "🧗", "🏄", "🚣", "🏊", "⛹", "🏋", "🚴", "🚵", "🤸",
+            "🤽", "🤾", "🤹", "🧘", "🛀", "🛌", "👂", "👃", "💅", "🤳", "🦶", "🦵", "🦻"};
+    private static Set<String> toneBases;
+
     private final float dp;
     private Themes.Theme theme = Themes.DEFAULT;
     private Host host;
@@ -107,10 +129,16 @@ final class EmojiTray extends LinearLayout {
     private final TextView searchButton;
     private final LinearLayout tabBar;
     private final HorizontalScrollView tabScroll;
+    private final ListsFrame lists;             // las dos listas y, encima, el menu de tonos
     private final ListView list;
     private final LinearLayout bottom;
     private final KeyView abc, space, delete;
     private int currentTab = -1;
+
+    // Menu de tonos de piel (sobre la celda mantenida)
+    private final LinearLayout toneMenu;
+    private final TextView[] toneCells = new TextView[TONES.length];
+    private String toneBase;                    // emoji (tal cual esta en la lista) al que pertenece el menu abierto
 
     // Modo busqueda
     private boolean searching = false;
@@ -163,33 +191,7 @@ final class EmojiTray extends LinearLayout {
         tabBar.setPadding(px(4), 0, 0, 0);
         addView(tabBar, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, px(40)));
 
-        // Lista continua: cabeceras de subgrupo y filas de emojis
-        list = plainList(c);
-        list.setAdapter(adapter);
-        list.setOnScrollListener(new AbsListView.OnScrollListener() {
-            @Override public void onScrollStateChanged(AbsListView v, int state) {}
-            @Override public void onScroll(AbsListView v, int first, int visible, int total) {
-                if (first >= 0 && first < rows.size()) highlight(groupIndex(rows.get(first).group));
-            }
-        });
-        addView(list, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
-
-        // Fila inferior
-        bottom = new LinearLayout(c);
-        bottom.setOrientation(HORIZONTAL);
-        bottom.setPadding(px(6), px(4), px(6), px(6));
-        abc = new KeyView(c, KeyView.ABC);
-        space = new KeyView(c, KeyView.SPACE);
-        delete = new KeyView(c, KeyView.DELETE);
-        LinearLayout.LayoutParams mid = new LinearLayout.LayoutParams(0, px(48), 1f);
-        mid.leftMargin = px(4);
-        mid.rightMargin = px(4);
-        bottom.addView(abc, new LinearLayout.LayoutParams(px(64), px(48)));
-        bottom.addView(space, mid);
-        bottom.addView(delete, new LinearLayout.LayoutParams(px(64), px(48)));
-        addView(bottom, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-
-        // Busqueda: barra con la consulta, resultados y teclado reducido
+        // Busqueda: barra con la consulta (va antes de las listas para quedar arriba en modo busqueda)
         searchBar = new LinearLayout(c);
         searchBar.setOrientation(HORIZONTAL);
         searchBar.setGravity(Gravity.CENTER_VERTICAL);
@@ -213,11 +215,71 @@ final class EmojiTray extends LinearLayout {
         searchBar.setVisibility(GONE);
         addView(searchBar, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, px(40)));
 
+        // Lista continua: cabeceras de subgrupo y filas de emojis; comparte marco con los resultados y el menu de tonos
+        lists = new ListsFrame(c);
+        list = plainList(c);
+        list.setAdapter(adapter);
+        list.setOnScrollListener(new AbsListView.OnScrollListener() {
+            @Override public void onScrollStateChanged(AbsListView v, int state) {
+                if (state != SCROLL_STATE_IDLE) hideToneMenu();
+            }
+            @Override public void onScroll(AbsListView v, int first, int visible, int total) {
+                if (first >= 0 && first < rows.size()) highlight(groupIndex(rows.get(first).group));
+            }
+        });
+        lists.addView(list, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+
         resultList = plainList(c);
         resultList.setAdapter(resultAdapter);
         resultList.setVisibility(GONE);
-        addView(resultList, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+        resultList.setOnScrollListener(new AbsListView.OnScrollListener() {
+            @Override public void onScrollStateChanged(AbsListView v, int state) {
+                if (state != SCROLL_STATE_IDLE) hideToneMenu();
+            }
+            @Override public void onScroll(AbsListView v, int first, int visible, int total) {}
+        });
+        lists.addView(resultList, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
+        toneMenu = new LinearLayout(c);
+        toneMenu.setOrientation(HORIZONTAL);
+        toneMenu.setPadding(px(4), px(4), px(4), px(4));
+        toneMenu.setContentDescription(c.getString(R.string.emoji_tone_title));
+        toneMenu.setElevation(6 * dp);
+        for (int i = 0; i < TONES.length; i++) {
+            final int tone = i;
+            TextView t = new TextView(c);
+            t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 24);
+            t.setGravity(Gravity.CENTER);
+            t.setIncludeFontPadding(false);
+            t.setOnClickListener(new OnClickListener() {
+                @Override public void onClick(View v) {
+                    Haptics.tap(v);
+                    tonePicked(tone);
+                }
+            });
+            toneMenu.addView(t, new LinearLayout.LayoutParams(px(44), px(44)));
+            toneCells[i] = t;
+        }
+        toneMenu.setVisibility(GONE);
+        lists.addView(toneMenu, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        addView(lists, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+
+        // Fila inferior
+        bottom = new LinearLayout(c);
+        bottom.setOrientation(HORIZONTAL);
+        bottom.setPadding(px(6), px(4), px(6), px(6));
+        abc = new KeyView(c, KeyView.ABC);
+        space = new KeyView(c, KeyView.SPACE);
+        delete = new KeyView(c, KeyView.DELETE);
+        LinearLayout.LayoutParams mid = new LinearLayout.LayoutParams(0, px(48), 1f);
+        mid.leftMargin = px(4);
+        mid.rightMargin = px(4);
+        bottom.addView(abc, new LinearLayout.LayoutParams(px(64), px(48)));
+        bottom.addView(space, mid);
+        bottom.addView(delete, new LinearLayout.LayoutParams(px(64), px(48)));
+        addView(bottom, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        // Busqueda: teclado reducido (la barra de consulta va arriba, con las pestanas; los resultados, en el marco)
         miniKb = new AurebeshKeyboardView(c);
         miniKb.setToolbar(false);
         miniKb.setEnterAction(1);
@@ -288,6 +350,7 @@ final class EmojiTray extends LinearLayout {
         space.invalidate();
         delete.invalidate();
         miniKb.applyPrefs(false, vibrate, false, true, theme.id, false, sound, 0.8f);
+        styleToneMenu();
         adapter.notifyDataSetChanged();
         resultAdapter.notifyDataSetChanged();
     }
@@ -295,6 +358,7 @@ final class EmojiTray extends LinearLayout {
     /** Construye las filas (recientes primero) y abre el panel en recientes o, si no hay, en caritas. */
     void show(List<String> recent) {
         closeSearch();
+        hideToneMenu();
         List<Section> data = load(getContext());
         boolean es = "es".equals(Locale.getDefault().getLanguage());
         rows.clear();
@@ -323,6 +387,7 @@ final class EmojiTray extends LinearLayout {
 
     /** Entra en modo busqueda con la consulta dada (puede ser vacia). */
     void openSearch(String q) {
+        hideToneMenu();
         searching = true;
         query.setLength(0);
         if (q != null) query.append(q);
@@ -338,6 +403,7 @@ final class EmojiTray extends LinearLayout {
 
     /** Vuelve a las pestanas y la lista por categorias. */
     void closeSearch() {
+        hideToneMenu();
         if (!searching) return;
         searching = false;
         query.setLength(0);
@@ -648,7 +714,16 @@ final class EmojiTray extends LinearLayout {
                 t.setOnClickListener(new OnClickListener() {
                     @Override public void onClick(View v) {
                         Haptics.tap(v);
-                        if (host != null) host.onEmoji(((TextView) v).getText().toString());
+                        if (host != null) host.onEmoji(toned(((TextView) v).getText().toString()));
+                    }
+                });
+                t.setOnLongClickListener(new OnLongClickListener() {
+                    @Override public boolean onLongClick(View v) {
+                        String e = ((TextView) v).getText().toString();
+                        if (!canTone(e)) return false;
+                        Haptics.tap(v);
+                        showToneMenu(v, e);
+                        return true;
                     }
                 });
                 addView(t, new LinearLayout.LayoutParams(0, px(44), 1f));
@@ -669,6 +744,180 @@ final class EmojiTray extends LinearLayout {
                         ColorStateList.valueOf((theme.pressed & 0x00FFFFFF) | 0x80000000), null, mask));
             }
         }
+    }
+
+    // ------------------------------------------------------------------ tonos de piel
+
+    private static synchronized Set<String> toneBases() {
+        if (toneBases == null) {
+            Set<String> set = new HashSet<>();
+            for (String b : TONE_BASES) set.add(b);
+            toneBases = set;
+        }
+        return toneBases;
+    }
+
+    /** El emoji sin el selector de presentacion FE0F (la lista lo lleva en ✌️, ☝️, 🕵️...). */
+    static String stripVs16(String emoji) {
+        if (emoji == null || emoji.indexOf('\uFE0F') < 0) return emoji;
+        StringBuilder b = new StringBuilder(emoji.length());
+        for (int i = 0; i < emoji.length(); i++) if (emoji.charAt(i) != '\uFE0F') b.append(emoji.charAt(i));
+        return b.toString();
+    }
+
+    /** La base del emoji: sin FE0F y sin el modificador de tono que ya lleve (los recientes guardan la variante). */
+    static String baseOf(String emoji) {
+        String b = stripVs16(emoji);
+        if (b == null) return null;
+        for (int i = 1; i < TONES.length; i++) {
+            if (b.length() > TONES[i].length() && b.endsWith(TONES[i])) return b.substring(0, b.length() - TONES[i].length());
+        }
+        return b;
+    }
+
+    /** Si el emoji ya lleva modificador de tono. */
+    private static boolean hasTone(String emoji) {
+        String b = stripVs16(emoji);
+        return b != null && !b.equals(baseOf(emoji));
+    }
+
+    /** Si el emoji (tal cual esta en la lista, o ya con tono en recientes) admite modificador de tono. */
+    static boolean canTone(String emoji) {
+        return emoji != null && toneBases().contains(baseOf(emoji));
+    }
+
+    /** La variante con el tono 0..5 (0 = sin modificador): la base sin FE0F seguida del modificador. */
+    static String applyTone(String emoji, int tone) {
+        if (emoji == null) return null;
+        if (tone <= 0 || tone >= TONES.length) return hasTone(emoji) ? baseOf(emoji) : emoji;
+        return baseOf(emoji) + TONES[tone];
+    }
+
+    /** Las seis variantes del emoji, en el orden del menu (primero sin modificador). */
+    static List<String> variants(String emoji) {
+        List<String> out = new ArrayList<>(TONES.length);
+        for (int i = 0; i < TONES.length; i++) out.add(applyTone(emoji, i));
+        return out;
+    }
+
+    private SharedPreferences tones() {
+        return getContext().getSharedPreferences(TONES_FILE, Context.MODE_PRIVATE);
+    }
+
+    /** Tono recordado para el emoji (0 si ninguno). */
+    int toneOf(String emoji) {
+        if (!canTone(emoji)) return 0;
+        int t = tones().getInt(baseOf(emoji), 0);
+        return t < 0 || t >= TONES.length ? 0 : t;
+    }
+
+    /** Recuerda el tono elegido para el emoji; 0 lo olvida. */
+    void rememberTone(String emoji, int tone) {
+        if (!canTone(emoji)) return;
+        String key = baseOf(emoji);
+        if (tone <= 0 || tone >= TONES.length) tones().edit().remove(key).apply();
+        else tones().edit().putInt(key, tone).apply();
+    }
+
+    /**
+     * Lo que se escribe al tocar el emoji: su variante con el tono recordado, o el mismo si no admite tono, no hay
+     * tono recordado o ya viene con uno (un reciente con tono se escribe tal cual).
+     */
+    String toned(String emoji) {
+        if (hasTone(emoji)) return emoji;
+        int t = toneOf(emoji);
+        return t == 0 ? emoji : applyTone(emoji, t);
+    }
+
+    /**
+     * Abre el menu de variantes sobre la celda mantenida (dentro del marco de las listas: sin ventanas emergentes,
+     * que en un teclado no siempre tienen token). Si no cabe encima de la fila, va debajo.
+     */
+    void showToneMenu(View cell, String emoji) {
+        toneBase = emoji;
+        styleToneMenu();
+        int w = px(44) * TONES.length + px(8), h = px(44) + px(8);
+        View row = (View) cell.getParent();
+        int cellX = cell.getLeft() + cell.getWidth() / 2, rowTop = 0, rowBottom = h;
+        if (row != null) {
+            cellX += row.getLeft();
+            rowTop = row.getTop();
+            rowBottom = row.getBottom();
+        }
+        int frameW = lists.getWidth() > 0 ? lists.getWidth() : getWidth();
+        int left = Math.max(px(4), Math.min(cellX - w / 2, frameW - w - px(4)));
+        int top = rowTop - h - px(4);
+        if (top < 0) top = rowBottom + px(4);
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(w, h);
+        lp.gravity = Gravity.TOP | Gravity.START;
+        lp.leftMargin = left;
+        lp.topMargin = top;
+        toneMenu.setLayoutParams(lp);
+        toneMenu.setVisibility(VISIBLE);
+        toneMenu.bringToFront();
+    }
+
+    void hideToneMenu() {
+        toneBase = null;
+        if (toneMenu != null) toneMenu.setVisibility(GONE);
+    }
+
+    boolean isToneMenuShown() { return toneMenu.getVisibility() == VISIBLE; }
+
+    /** Variante elegida en el menu: se escribe, se recuerda y el menu se cierra. */
+    private void tonePicked(int tone) {
+        String base = toneBase;
+        hideToneMenu();
+        if (base == null) return;
+        rememberTone(base, tone);
+        if (host != null) host.onEmoji(applyTone(base, tone));
+    }
+
+    /** Fondo de burbuja del tema y las seis variantes de la base abierta, con la recordada resaltada. */
+    private void styleToneMenu() {
+        if (toneMenu == null) return;
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(theme.keyBg);
+        bg.setCornerRadius(px(12));
+        bg.setStroke(Math.max(1, px(1)), theme.keyStroke != 0 ? theme.keyStroke : (theme.hint & 0x00FFFFFF) | 0x66000000);
+        toneMenu.setBackground(bg);
+        int current = toneBase == null ? -1 : toneOf(toneBase);
+        for (int i = 0; i < toneCells.length; i++) {
+            TextView t = toneCells[i];
+            t.setText(toneBase == null ? "" : applyTone(toneBase, i));
+            t.setTextColor(theme.glyph);
+            GradientDrawable mask = new GradientDrawable();
+            mask.setColor(0xFFFFFFFF);
+            mask.setCornerRadius(px(8));
+            GradientDrawable sel = null;
+            if (i == current) {
+                sel = new GradientDrawable();
+                sel.setColor(theme.specialBg);
+                sel.setCornerRadius(px(8));
+            }
+            t.setBackground(new RippleDrawable(ColorStateList.valueOf((theme.pressed & 0x00FFFFFF) | 0x80000000), sel, mask));
+        }
+    }
+
+    /** Marco de las listas: un toque fuera del menu de tonos abierto solo lo cierra. */
+    private final class ListsFrame extends FrameLayout {
+        ListsFrame(Context c) { super(c); }
+
+        @Override
+        public boolean onInterceptTouchEvent(MotionEvent e) {
+            if (toneMenu != null && toneMenu.getVisibility() == VISIBLE && e.getActionMasked() == MotionEvent.ACTION_DOWN) {
+                boolean inside = e.getX() >= toneMenu.getLeft() && e.getX() <= toneMenu.getRight()
+                        && e.getY() >= toneMenu.getTop() && e.getY() <= toneMenu.getBottom();
+                if (!inside) {
+                    hideToneMenu();
+                    return true;
+                }
+            }
+            return super.onInterceptTouchEvent(e);
+        }
+
+        @Override
+        public boolean onTouchEvent(MotionEvent e) { return true; }   // el toque interceptado muere aqui
     }
 
     // ------------------------------------------------------------------ teclas inferiores

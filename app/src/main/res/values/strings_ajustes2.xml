@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Pantalla de ajustes 2.0: sable, letras latinas por modo, diccionario Star Wars y personal, Mas ajustes, buscador. -->
+
+    <!-- Diseno: sable de luz -->
+    <string name="aj_saber">Lightsaber trail</string>
+    <string name="aj_saber_sub">Color of the trail when you glide to type; the core is always white</string>
+    <string name="saber_blue">Blue</string>
+    <string name="saber_blue_who">Anakin and Obi-Wan</string>
+    <string name="saber_green">Green</string>
+    <string name="saber_green_who">Luke and Qui-Gon</string>
+    <string name="saber_yellow">Yellow</string>
+    <string name="saber_yellow_who">Temple Guard</string>
+    <string name="saber_orange">Bronze</string>
+    <string name="saber_orange_who">Cal Kestis</string>
+    <string name="saber_purple">Purple</string>
+    <string name="saber_purple_who">Mace Windu</string>
+    <string name="saber_red">Red</string>
+    <string name="saber_red_who">Sith</string>
+    <string name="aj_sum_saber">%1$s saber</string>
+
+    <!-- Diseno: letras latinas en tres modos -->
+    <string name="aj_hint_mode_sub">Small Latin letter in the corner of each key. In Learning, each letter fades out after about 40 presses, as you memorize the alphabet</string>
+    <string name="aj_hint_off">Never</string>
+    <string name="aj_hint_on">Always</string>
+    <string name="aj_hint_learning">Learning</string>
+    <string name="aj_hint_reset">Reset progress</string>
+    <string name="aj_hint_reset_done">All Latin letters are shown again</string>
+    <string name="aj_sum_hints_learning">Latin letters: learning</string>
+
+    <!-- Escritura inteligente: Star Wars y diccionario personal -->
+    <string name="aj_starwars">Star Wars dictionary</string>
+    <string name="aj_starwars_sub">Characters, ships and planets (Coruscant, Ahsoka, Venator…) are accepted and corrected in the three languages</string>
+    <string name="aj_sum_starwars">Star Wars</string>
+    <string name="aj_personal_rules">It learns what you add here, what you confirm by tapping its chip, a new word you type twice, and a correction you undo twice. Everything stays on this phone.</string>
+    <string name="aj_export">Export…</string>
+    <string name="aj_import">Import…</string>
+    <string name="aj_words_exported">%1$d words exported</string>
+    <string name="aj_words_imported">%1$d words imported</string>
+    <string name="aj_file_error">Couldn\'t read or write that file</string>
+
+    <!-- Mas ajustes -->
+    <string name="aj_sec_more">More settings</string>
+    <string name="aj_sum_more">reset, data on this phone, export and import</string>
+    <string name="aj_reset">Reset settings</string>
+    <string name="aj_reset_sub">Back to the factory values. Keeps your personal dictionary, shortcuts, clipboard and models</string>
+    <string name="aj_reset_confirm">Reset every setting to its factory value? Your personal dictionary, text shortcuts, clipboard history and downloaded models stay.</string>
+    <string name="aj_reset_done">Settings reset</string>
+    <string name="aj_wipe">Delete personal data</string>
+    <string name="aj_wipe_sub">Clipboard, personal dictionary and word pairs, recent emoji and text shortcuts</string>
+    <string name="aj_wipe_confirm">This deletes from this phone:\n• the clipboard history, pinned items included\n• the personal dictionary and the learned word pairs\n• the recent emoji\n• the text shortcuts\n\nSettings and downloaded models stay.</string>
+    <string name="aj_wipe_action">Delete</string>
+    <string name="aj_wipe_done">Personal data deleted</string>
+    <string name="aj_data_title">Data on this phone</string>
+    <string name="aj_data_clip">Clipboard · %1$d · %2$s</string>
+    <string name="aj_data_dict">Personal dictionary · %1$d words · %2$d pairs</string>
+    <string name="aj_data_models">AI models · %1$d · %2$s</string>
+    <string name="aj_data_sound">Custom key sound · %1$s</string>
+    <string name="aj_data_sound_none">none</string>
+    <string name="aj_data_local">None of this leaves the phone</string>
+    <string name="aj_empty">Empty</string>
+    <string name="aj_view">View</string>
+    <string name="aj_remove_sound">Remove</string>
+    <string name="aj_clip_confirm">Empty the clipboard history, pinned items included?</string>
+    <string name="aj_export_settings">Export settings…</string>
+    <string name="aj_export_settings_sub">A JSON file with your settings, shortcuts, personal dictionary and word pairs. Never your server key unless you tick the box</string>
+    <string name="aj_export_include_key">Include my own server (URL, model and key)</string>
+    <string name="aj_import_settings">Import settings…</string>
+    <string name="aj_import_settings_sub">Reads a file exported from this keyboard; only known settings with the right type are applied</string>
+    <string name="aj_settings_exported">Settings exported</string>
+    <string name="aj_settings_imported">%1$d settings imported</string>
+    <string name="aj_import_invalid">That file isn\'t a settings export from this keyboard</string>
+
+    <!-- Buscador -->
+    <string name="aj_search_hint">Search settings</string>
+    <string name="aj_search_clear">Clear search</string>
+    <string name="aj_search_none">No setting matches</string>
+
+    <!-- Accesibilidad de las cabeceras -->
+    <string name="aj_a11y_expanded">expanded</string>
+    <string name="aj_a11y_collapsed">collapsed</string>
+</resources>

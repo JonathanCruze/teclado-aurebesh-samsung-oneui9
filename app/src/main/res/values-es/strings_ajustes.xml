@@ -37,10 +37,10 @@
     <string name="aj_auto_replace_sub">El espacio o un signo cambia la palabra por la sugerencia resaltada; retroceso recupera lo que escribiste</string>
     <string name="aj_auto_caps">Mayúsculas automáticas</string>
     <string name="aj_auto_caps_sub">Mayúscula al empezar cada frase</string>
-    <string name="aj_learned_row">Palabras aprendidas · %1$d</string>
-    <string name="aj_learned_sub">Ver, añadir o quitar las palabras que el teclado conserva</string>
-    <string name="aj_learned_title">Palabras aprendidas</string>
-    <string name="aj_learned_empty">Todavía no hay palabras aprendidas. Las que conserves desde la barra de sugerencias aparecerán aquí.</string>
+    <string name="aj_learned_row">Diccionario personal · %1$d</string>
+    <string name="aj_learned_sub">Tus propias palabras: nombres, apodos, términos del trabajo… Verlas, añadirlas, exportarlas o importarlas</string>
+    <string name="aj_learned_title">Diccionario personal</string>
+    <string name="aj_learned_empty">Todavía no hay palabras. Las que añadas o confirmes desde la barra de sugerencias aparecerán aquí.</string>
     <string name="aj_learned_add_hint">Palabra nueva</string>
     <string name="aj_add">Añadir</string>
     <string name="aj_remove">Quitar %1$s</string>

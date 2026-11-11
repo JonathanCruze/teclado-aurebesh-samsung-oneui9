@@ -5,6 +5,7 @@ import android.content.res.ColorStateList;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -28,6 +29,11 @@ import java.util.List;
  * portapapeles (textos e imagenes). Tocar pega; bajo un texto con telefono, correo o enlace
  * aparecen chips para pegar solo esa parte; la x borra y "Borrar todo" vacia. Cada toque responde con
  * {@link Haptics#tap}, que obedece a "Vibracion al pulsar" y al nivel elegido.
+ *
+ * Fijados (2.0): mantener pulsada una fila, o tocar su chincheta (junto a la x), la fija o la suelta a traves de
+ * {@link Host#onTrayPin}; las fijadas van arriba bajo la cabecera "Fijados", separadas del resto por una linea.
+ * "Borrar todo" solo vacia las sueltas; cuando ya solo quedan fijadas, el boton pasa a "Borrar tambien los
+ * fijados" (segundo toque), que las quita una a una con {@link Host#onTrayRemove} y remata con {@link Host#onTrayClear}.
  */
 final class KeyboardTray extends LinearLayout {
 
@@ -36,6 +42,12 @@ final class KeyboardTray extends LinearLayout {
         void onTrayRemove(ClipHistory.Entry entry);
         void onTrayClear();
         void onTrayClose();
+        /**
+         * Chincheta o pulsacion larga sobre una fila: fijar (pinned=true) o soltar la entrada. El anfitrion guarda
+         * el cambio con {@link ClipHistory#setPinned} y vuelve a mostrar la lista con {@link #show}; la bandeja no
+         * toca el historial por su cuenta. {@code entry} llega con el estado que tenia antes del toque.
+         */
+        void onTrayPin(ClipHistory.Entry entry, boolean pinned);
     }
 
     private static final int MATCH = ViewGroup.LayoutParams.MATCH_PARENT;
@@ -85,7 +97,7 @@ final class KeyboardTray extends LinearLayout {
         clear.setOnClickListener(new OnClickListener() {
             @Override public void onClick(View v) {
                 Haptics.tap(v);
-                if (host != null) host.onTrayClear();
+                clearTapped();
             }
         });
         header.addView(clear, new LinearLayout.LayoutParams(WRAP, WRAP));
@@ -143,7 +155,57 @@ final class KeyboardTray extends LinearLayout {
             list.addView(emptyRow(), rowParams());
             return;
         }
-        for (ClipHistory.Entry e : items) list.addView(e.isImage() ? imageRow(e) : textRow(e), rowParams());
+        List<ClipHistory.Entry> pinned = new ArrayList<>();
+        List<ClipHistory.Entry> rest = new ArrayList<>();
+        for (ClipHistory.Entry e : items) (e.pinned ? pinned : rest).add(e);
+        // Solo quedan fijados: "Borrar todo" no haria nada, asi que el boton ofrece borrarlos tambien
+        clear.setText(rest.isEmpty() ? R.string.clip_clear_pinned : R.string.clipboard_clear);
+        if (!pinned.isEmpty()) {
+            list.addView(sectionHeader(getContext().getString(R.string.clip_pinned)), rowParams());
+            for (ClipHistory.Entry e : pinned) list.addView(e.isImage() ? imageRow(e) : textRow(e), rowParams());
+            if (!rest.isEmpty()) list.addView(divider(), dividerParams());
+        }
+        for (ClipHistory.Entry e : rest) list.addView(e.isImage() ? imageRow(e) : textRow(e), rowParams());
+    }
+
+    /** Cabecera pequena de seccion ("Fijados"), con el estilo del titulo. */
+    private TextView sectionHeader(CharSequence text) {
+        TextView t = new TextView(getContext());
+        t.setText(text);
+        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+        t.setAllCaps(true);
+        t.setLetterSpacing(0.08f);
+        t.setTypeface(medium);
+        t.setTextColor(theme.hint);
+        t.setPadding(px(8), px(2), px(8), 0);
+        return t;
+    }
+
+    /** Linea fina entre los fijados y el resto. */
+    private View divider() {
+        View v = new View(getContext());
+        v.setBackgroundColor((theme.hint & 0x00FFFFFF) | 0x55000000);
+        return v;
+    }
+
+    private LinearLayout.LayoutParams dividerParams() {
+        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(MATCH, Math.max(1, px(1)));
+        p.topMargin = px(10);
+        p.bottomMargin = px(4);
+        p.leftMargin = px(6);
+        p.rightMargin = px(6);
+        return p;
+    }
+
+    /** "Borrar todo": vacia las sueltas; si ya solo hay fijadas, las quita una a una y luego avisa de vaciar. */
+    private void clearTapped() {
+        if (host == null) return;
+        boolean onlyPinned = true;
+        for (ClipHistory.Entry e : items) if (!e.pinned) { onlyPinned = false; break; }
+        if (onlyPinned) {
+            for (ClipHistory.Entry e : new ArrayList<>(items)) host.onTrayRemove(e);
+        }
+        host.onTrayClear();
     }
 
     private LinearLayout.LayoutParams rowParams() {
@@ -178,11 +240,40 @@ final class KeyboardTray extends LinearLayout {
                 if (host != null) host.onTrayPick(entry, pick);
             }
         });
+        r.setOnLongClickListener(new OnLongClickListener() {
+            @Override public boolean onLongClick(View v) {
+                togglePin(v, entry);
+                return true;
+            }
+        });
         return r;
     }
 
+    /** Fijar o soltar la fila (pulsacion larga o chincheta): lo decide y lo guarda el anfitrion. */
+    private void togglePin(View v, ClipHistory.Entry entry) {
+        Haptics.tap(v);
+        if (host != null) host.onTrayPin(entry, !entry.pinned);
+    }
+
+    /** Chincheta junto a la x: rellena si la fila esta fijada, solo contorno si no; tocarla alterna. */
+    private PinButton pinButton(final ClipHistory.Entry entry) {
+        PinButton pin = new PinButton(getContext());
+        pin.setPinned(entry.pinned);
+        pin.setColor(entry.pinned ? theme.accent : theme.hint);
+        pin.setContentDescription(getContext().getString(entry.pinned ? R.string.clip_unpin : R.string.clip_pin));
+        pin.setBackground(ripple(0x00000000, theme.pressed, px(20)));
+        pin.setOnClickListener(new OnClickListener() {
+            @Override public void onClick(View v) { togglePin(v, entry); }
+        });
+        return pin;
+    }
+
+    private LinearLayout.LayoutParams pinParams() {
+        return new LinearLayout.LayoutParams(px(36), MATCH);
+    }
+
     /** Boton x de una fila: quita la fila y avisa al anfitrion. */
-    private TextView deleteButton(final ClipHistory.Entry entry, final View row) {
+    private TextView deleteButton(final ClipHistory.Entry entry) {
         TextView del = new TextView(getContext());
         del.setText("×");
         del.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20);
@@ -194,11 +285,7 @@ final class KeyboardTray extends LinearLayout {
             @Override public void onClick(View v) {
                 Haptics.tap(v);
                 items.remove(entry);
-                list.removeView(row);
-                if (items.isEmpty()) {
-                    clear.setVisibility(GONE);
-                    list.addView(emptyRow(), rowParams());
-                }
+                rebuild();                                 // tambien quita la cabecera "Fijados" o la linea si ya no hacen falta
                 if (host != null) host.onTrayRemove(entry);
             }
         });
@@ -246,7 +333,8 @@ final class KeyboardTray extends LinearLayout {
             column.addView(scroll, sp);
         }
         r.addView(column, new LinearLayout.LayoutParams(0, WRAP, 1f));
-        r.addView(deleteButton(entry, r), deleteParams());
+        r.addView(pinButton(entry), pinParams());
+        r.addView(deleteButton(entry), deleteParams());
         return r;
     }
 
@@ -296,7 +384,8 @@ final class KeyboardTray extends LinearLayout {
         LinearLayout.LayoutParams ip = new LinearLayout.LayoutParams(WRAP, WRAP);
         r.addView(img, ip);
         r.addView(new View(getContext()), new LinearLayout.LayoutParams(0, 1, 1f));
-        r.addView(deleteButton(entry, r), deleteParams());
+        r.addView(pinButton(entry), pinParams());
+        r.addView(deleteButton(entry), deleteParams());
         return r;
     }
 
@@ -314,8 +403,51 @@ final class KeyboardTray extends LinearLayout {
 
     private int px(float dps) { return Math.round(dps * dp); }
 
-    /** Boton de cierre: dibuja un teclado pequeno (marco, dos filas de puntos y la barra espaciadora). */
-    private static final class CloseButton extends View {
+    /** Chincheta: cabeza, cuello y punta; rellena si esta fijada, en contorno si no. */
+    private static final class PinButton extends View {
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Path path = new Path();
+        private final float dp;
+        private boolean pinned;
+
+        PinButton(Context c) {
+            super(c);
+            dp = getResources().getDisplayMetrics().density;
+            paint.setStrokeWidth(1.8f * dp);
+            paint.setStrokeJoin(Paint.Join.ROUND);
+            paint.setStrokeCap(Paint.Cap.ROUND);
+            setClickable(true);
+            setFocusable(true);
+        }
+
+        void setPinned(boolean p) { pinned = p; invalidate(); }
+
+        void setColor(int color) { paint.setColor(color); invalidate(); }
+
+        @Override
+        protected void onDraw(Canvas c) {
+            float cx = getWidth() / 2f, cy = getHeight() / 2f;
+            float s = 7 * dp;                              // media altura del dibujo
+            paint.setStyle(pinned ? Paint.Style.FILL_AND_STROKE : Paint.Style.STROKE);
+            path.reset();
+            path.moveTo(cx - s * 0.55f, cy - s);           // cabeza (trapecio ancho arriba)
+            path.lineTo(cx + s * 0.55f, cy - s);
+            path.lineTo(cx + s * 0.4f, cy - s * 0.1f);
+            path.lineTo(cx + s * 0.85f, cy + s * 0.25f);  // hombros
+            path.lineTo(cx - s * 0.85f, cy + s * 0.25f);
+            path.lineTo(cx - s * 0.4f, cy - s * 0.1f);
+            path.close();
+            c.drawPath(path, paint);
+            paint.setStyle(Paint.Style.STROKE);
+            c.drawLine(cx, cy + s * 0.25f, cx, cy + s, paint);   // punta
+        }
+    }
+
+    /**
+     * Boton de cierre: dibuja un teclado pequeno (marco, dos filas de puntos y la barra espaciadora). Lo comparten
+     * las demas bandejas (herramientas, edicion) para que todas cierren igual.
+     */
+    static final class CloseButton extends View {
         private final Paint stroke = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final RectF rect = new RectF();

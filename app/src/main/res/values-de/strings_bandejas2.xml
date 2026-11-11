@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 2.0: Ablagen (Werkzeugraster, Textbearbeitung, angeheftete Clips, Hauttöne) -->
+
+    <!-- Werkzeugraster ("..." in der Leiste) -->
+    <string name="tools_title">Werkzeuge</string>
+    <string name="tools_edit">Bearbeiten</string>
+    <string name="tools_done">Fertig</string>
+    <string name="tools_edit_hint">Tippen zum Hinzufügen oder Entfernen; ‹ › zum Sortieren</string>
+    <string name="tools_limit">Höchstens %1$d in der Leiste</string>
+    <string name="tools_count">%1$d von %2$d in der Leiste</string>
+    <string name="tools_unavailable">Gerade nicht verfügbar</string>
+    <string name="tools_move_left">Nach links</string>
+    <string name="tools_move_right">Nach rechts</string>
+    <string name="tools_label_emoji">Emojis</string>
+    <string name="tools_label_clipboard">Zwischenablage</string>
+    <string name="tools_label_hand">Einhandmodus</string>
+    <string name="tools_label_edit">Textbearbeitung</string>
+    <string name="tools_label_translate">Übersetzen</string>
+    <string name="tools_label_split">Teilen</string>
+    <string name="tools_label_strip">Übersetzungsleiste</string>
+    <string name="tools_label_lang">Sprache</string>
+    <string name="tools_label_resize">Größe und Position</string>
+    <string name="tools_label_hide">Tastatur ausblenden</string>
+    <string name="tools_label_settings">Einstellungen</string>
+    <string name="tools_label_ai">Intelligenz</string>
+
+    <!-- Textbearbeitung -->
+    <string name="edit_title">Textbearbeitung</string>
+    <plurals name="edit_selected">
+        <item quantity="one">%d Zeichen ausgewählt</item>
+        <item quantity="other">%d Zeichen ausgewählt</item>
+    </plurals>
+    <string name="edit_select">Auswählen</string>
+    <string name="edit_select_all">Alles auswählen</string>
+    <string name="edit_cut">Ausschneiden</string>
+    <string name="edit_copy">Kopieren</string>
+    <string name="edit_paste">Einfügen</string>
+    <string name="edit_undo">Rückgängig</string>
+    <string name="edit_redo">Wiederholen</string>
+    <string name="edit_home">Anfang</string>
+    <string name="edit_end">Ende</string>
+    <string name="edit_left">Links</string>
+    <string name="edit_right">Rechts</string>
+    <string name="edit_up">Nach oben</string>
+    <string name="edit_down">Nach unten</string>
+
+    <!-- Zwischenablage: Angeheftete -->
+    <string name="clip_pinned">Angeheftet</string>
+    <string name="clip_pin">Anheften</string>
+    <string name="clip_unpin">Lösen</string>
+    <string name="clip_clear_pinned">Auch Angeheftete löschen</string>
+    <string name="clip_pin_limit">Höchstens %1$d angeheftet</string>
+
+    <!-- Emojis: Hauttöne -->
+    <string name="emoji_tone_title">Hautton</string>
+    <string name="emoji_tone_close">Schließen</string>
+</resources>

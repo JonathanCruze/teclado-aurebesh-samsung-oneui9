@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Pantalla de ajustes 2.0: sable, letras latinas por modo, diccionario Star Wars y personal, Mas ajustes, buscador. -->
+
+    <!-- Diseno: sable de luz -->
+    <string name="aj_saber">Sable de luz</string>
+    <string name="aj_saber_sub">Color de la estela al deslizar para escribir; el núcleo siempre es blanco</string>
+    <string name="saber_blue">Azul</string>
+    <string name="saber_blue_who">Anakin y Obi-Wan</string>
+    <string name="saber_green">Verde</string>
+    <string name="saber_green_who">Luke y Qui-Gon</string>
+    <string name="saber_yellow">Amarillo</string>
+    <string name="saber_yellow_who">Guardia del Templo</string>
+    <string name="saber_orange">Bronce</string>
+    <string name="saber_orange_who">Cal Kestis</string>
+    <string name="saber_purple">Morado</string>
+    <string name="saber_purple_who">Mace Windu</string>
+    <string name="saber_red">Rojo</string>
+    <string name="saber_red_who">Sith</string>
+    <string name="aj_sum_saber">sable %1$s</string>
+
+    <!-- Diseno: letras latinas en tres modos -->
+    <string name="aj_hint_mode_sub">Letra latina pequeña en la esquina de cada tecla. En Aprendiendo, cada letra se desvanece tras unas 40 pulsaciones, según memorizas el alfabeto</string>
+    <string name="aj_hint_off">Nunca</string>
+    <string name="aj_hint_on">Siempre</string>
+    <string name="aj_hint_learning">Aprendiendo</string>
+    <string name="aj_hint_reset">Reiniciar progreso</string>
+    <string name="aj_hint_reset_done">Todas las letras latinas vuelven a verse</string>
+    <string name="aj_sum_hints_learning">letras latinas: aprendiendo</string>
+
+    <!-- Escritura inteligente: Star Wars y diccionario personal -->
+    <string name="aj_starwars">Diccionario Star Wars</string>
+    <string name="aj_starwars_sub">Personajes, naves y planetas (Coruscant, Ahsoka, Venator…) se aceptan y se corrigen en los tres idiomas</string>
+    <string name="aj_sum_starwars">Star Wars</string>
+    <string name="aj_personal_rules">Aprende lo que añades aquí, lo que confirmas tocando su chip, una palabra nueva que escribes dos veces y una corrección que deshaces dos veces. Todo se queda en este teléfono.</string>
+    <string name="aj_export">Exportar…</string>
+    <string name="aj_import">Importar…</string>
+    <string name="aj_words_exported">%1$d palabras exportadas</string>
+    <string name="aj_words_imported">%1$d palabras importadas</string>
+    <string name="aj_file_error">No se pudo leer o escribir ese archivo</string>
+
+    <!-- Mas ajustes -->
+    <string name="aj_sec_more">Más ajustes</string>
+    <string name="aj_sum_more">restablecer, datos en este teléfono, exportar e importar</string>
+    <string name="aj_reset">Restablecer ajustes</string>
+    <string name="aj_reset_sub">Vuelve a los valores de fábrica. Conserva el diccionario personal, los atajos, el portapapeles y los modelos</string>
+    <string name="aj_reset_confirm">¿Restablecer todos los ajustes a sus valores de fábrica? El diccionario personal, los atajos de texto, el historial del portapapeles y los modelos descargados se conservan.</string>
+    <string name="aj_reset_done">Ajustes restablecidos</string>
+    <string name="aj_wipe">Borrar datos personales</string>
+    <string name="aj_wipe_sub">Portapapeles, diccionario personal y pares, emojis recientes y atajos de texto</string>
+    <string name="aj_wipe_confirm">Se borra de este teléfono:\n• el historial del portapapeles, incluidos los fijados\n• el diccionario personal y los pares de palabras aprendidos\n• los emojis recientes\n• los atajos de texto\n\nLos ajustes y los modelos descargados se conservan.</string>
+    <string name="aj_wipe_action">Borrar</string>
+    <string name="aj_wipe_done">Datos personales borrados</string>
+    <string name="aj_data_title">Datos en este teléfono</string>
+    <string name="aj_data_clip">Portapapeles · %1$d · %2$s</string>
+    <string name="aj_data_dict">Diccionario personal · %1$d palabras · %2$d pares</string>
+    <string name="aj_data_models">Modelos de inteligencia · %1$d · %2$s</string>
+    <string name="aj_data_sound">Sonido personalizado · %1$s</string>
+    <string name="aj_data_sound_none">ninguno</string>
+    <string name="aj_data_local">Nada de esto sale del teléfono</string>
+    <string name="aj_empty">Vaciar</string>
+    <string name="aj_view">Ver</string>
+    <string name="aj_remove_sound">Quitar</string>
+    <string name="aj_clip_confirm">¿Vaciar el historial del portapapeles, incluidos los fijados?</string>
+    <string name="aj_export_settings">Exportar ajustes…</string>
+    <string name="aj_export_settings_sub">Un archivo JSON con tus ajustes, atajos, diccionario personal y pares. Nunca la clave de tu servidor, salvo que marques la casilla</string>
+    <string name="aj_export_include_key">Incluir mi servidor propio (URL, modelo y clave)</string>
+    <string name="aj_import_settings">Importar ajustes…</string>
+    <string name="aj_import_settings_sub">Lee un archivo exportado desde este teclado; solo se aplican los ajustes conocidos y con el tipo correcto</string>
+    <string name="aj_settings_exported">Ajustes exportados</string>
+    <string name="aj_settings_imported">%1$d ajustes importados</string>
+    <string name="aj_import_invalid">Ese archivo no es una exportación de ajustes de este teclado</string>
+
+    <!-- Buscador -->
+    <string name="aj_search_hint">Buscar ajuste</string>
+    <string name="aj_search_clear">Borrar búsqueda</string>
+    <string name="aj_search_none">Ningún ajuste coincide</string>
+
+    <!-- Accesibilidad de las cabeceras -->
+    <string name="aj_a11y_expanded">expandida</string>
+    <string name="aj_a11y_collapsed">contraída</string>
+</resources>

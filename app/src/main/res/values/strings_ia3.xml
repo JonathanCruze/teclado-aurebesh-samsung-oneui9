@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Panel "Intelligence" 2.0: real reading progress, actionable errors, result history and saved tones -->
+    <string name="ia3_reading_pct">Reading the text… %1$d %%</string>
+    <string name="ia3_err_smaller_model">Smaller model</string>
+    <string name="ia3_err_check_server">Check server</string>
+    <string name="ia3_only_selection">Selection only</string>
+    <string name="ia3_select_first">Select part of the text first, then try again.</string>
+    <string name="ia3_result_nav" translatable="false">%1$d/%2$d</string>
+    <string name="ia3_prev_result">Previous result</string>
+    <string name="ia3_next_result">Next result</string>
+    <string name="ia3_tone_forgotten">Tone removed</string>
+    <string name="ia3_tone_hold_hint">Hold a saved tone to remove it.</string>
+</resources>

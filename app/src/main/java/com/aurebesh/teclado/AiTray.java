@@ -31,6 +31,12 @@ import java.util.Locale;
  * entrada de texto con teclado reducido (tono personalizado, otro idioma y Redactor), generacion en
  * curso con el texto en directo y Cancelar, y resultado con Reemplazar / Insertar / Copiar / Reintentar.
  *
+ * <p>Reintentar no borra el resultado anterior: el panel guarda hasta {@link #HISTORY_MAX} resultados de la misma
+ * peticion y se navegan con ‹ 2/3 › sobre el texto; Reemplazar / Insertar / Copiar usan el visible, y al reabrir el
+ * panel con el mismo texto en el campo se vuelve al ultimo resultado. Los errores llegan con su tipo
+ * ({@link AiRunner.ErrorKind}) y la fila inferior ofrece la salida que toca: Elegir modelo…, Modelo mas pequeno,
+ * Comprobar servidor, Reintentar o Solo la seleccion. Los tonos personalizados recientes se guardan como chips.
+ *
  * <p>El panel lee el texto del campo a traves de {@link Host} al abrirse y al lanzar cada accion;
  * nunca lo guarda. El trabajo lo hace {@link AiRunner} (modelo local o servidor del usuario). Con el
  * runner compartido del servicio, un panel nuevo (la vista se rehace al girar, cambiar de tema o de
@@ -74,7 +80,14 @@ final class AiTray extends LinearLayout {
 
     // Peticion y resultado actuales
     private AiRunner.Request lastRequest;
-    private String result;
+    private String result;                  // resultado visible (el que usan Reemplazar / Insertar / Copiar)
+    /** Historial de resultados de la peticion actual (Reintentar anade, no borra), el mas antiguo primero. */
+    static final int HISTORY_MAX = 5;
+    private final List<String> results = new ArrayList<>();
+    private final List<CharSequence> resultLabels = new ArrayList<>();
+    private int shown = -1;                 // indice del resultado visible
+    private String resultsSource;           // texto del campo al que corresponde el historial
+    private AiRunner.ErrorKind errorKind;   // tipo del ultimo error: define los botones de la fila inferior
     private PromptKind promptKind = PromptKind.COMPOSE;
     private boolean useContext = true;
     private final StringBuilder query = new StringBuilder();
@@ -99,11 +112,12 @@ final class AiTray extends LinearLayout {
     private final ScrollView tonesScroll;          // tonos de Estilo o idiomas de Traducir
     private final LinearLayout tones;
     private final List<TextView> toneChips = new ArrayList<>();
-    private final LinearLayout runView;
-    private final TextView phase, output;
+    private final LinearLayout runView, phaseRow;
+    private final TextView phase, output, prevKey, nextKey, navLabel;
     private final ScrollView outScroll;
     private final LinearLayout errorView;
     private final TextView errorText;
+    private final TextView tonesHint;              // "Manten pulsado un tono guardado para olvidarlo"
 
     // Entrada de texto (tono personalizado / Redactor)
     private final LinearLayout promptBar, contextRow;
@@ -114,7 +128,7 @@ final class AiTray extends LinearLayout {
     // Fila inferior
     private final LinearLayout bottom;
     private final AbcKey abc;
-    private final TextView cancelKey, replaceKey, insertKey, copyKey, retryKey;
+    private final TextView cancelKey, replaceKey, insertKey, copyKey, fixKey, retryKey, selKey;
     private final List<TextView> keys = new ArrayList<>();
 
     /** True si el runner es propio (se libera con el panel); false si lo presta el servicio y sobrevive al rehacer la vista. */
@@ -248,16 +262,38 @@ final class AiTray extends LinearLayout {
         tones = column(c);
         tones.setPadding(px(10), px(2), px(10), px(16));
         tonesScroll.addView(tones, new ViewGroup.LayoutParams(MATCH, WRAP));
+        tonesHint = new TextView(c);
+        tonesHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+        tonesHint.setPadding(px(14), px(6), px(14), 0);
+        tonesHint.setText(R.string.ia3_tone_hold_hint);
         content.addView(tonesScroll, new FrameLayout.LayoutParams(MATCH, MATCH));
 
         // Generacion y resultado
         runView = column(c);
+        phaseRow = row(c);
+        phaseRow.setGravity(Gravity.CENTER_VERTICAL);
+        phaseRow.setPadding(px(10), 0, px(10), 0);
+        prevKey = navKey(c, "\u2039", R.string.ia3_prev_result, new OnClickListener() {
+            @Override public void onClick(View v) { tap(v); previousResult(); }
+        });
+        phaseRow.addView(prevKey, new LinearLayout.LayoutParams(px(32), px(28)));
         phase = new TextView(c);
         phase.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         phase.setMaxLines(1);
         phase.setEllipsize(TextUtils.TruncateAt.END);
-        phase.setPadding(px(16), px(2), px(16), px(2));
-        runView.addView(phase, new LinearLayout.LayoutParams(MATCH, WRAP));
+        phase.setPadding(px(6), px(2), px(6), px(2));
+        phaseRow.addView(phase, new LinearLayout.LayoutParams(0, WRAP, 1f));
+        navLabel = new TextView(c);
+        navLabel.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        navLabel.setTypeface(medium);
+        navLabel.setContentDescription("result_nav");
+        navLabel.setPadding(px(4), 0, px(4), 0);
+        phaseRow.addView(navLabel, new LinearLayout.LayoutParams(WRAP, WRAP));
+        nextKey = navKey(c, "\u203a", R.string.ia3_next_result, new OnClickListener() {
+            @Override public void onClick(View v) { tap(v); nextResult(); }
+        });
+        phaseRow.addView(nextKey, new LinearLayout.LayoutParams(px(32), px(28)));
+        runView.addView(phaseRow, new LinearLayout.LayoutParams(MATCH, WRAP));
         outScroll = scroll(c);
         outScroll.setOnTouchListener(new OnTouchListener() {
             @Override public boolean onTouch(View v, MotionEvent e) {
@@ -394,8 +430,14 @@ final class AiTray extends LinearLayout {
                 }
             }
         });
+        fixKey = key(c, R.string.ai_open_settings, new OnClickListener() {
+            @Override public void onClick(View v) { tap(v); if (host != null) host.openSettings(); }
+        });
         retryKey = key(c, R.string.ai_retry, new OnClickListener() {
             @Override public void onClick(View v) { tap(v); retry(); }
+        });
+        selKey = key(c, R.string.ia3_only_selection, new OnClickListener() {
+            @Override public void onClick(View v) { tap(v); onlySelection(); }
         });
         for (TextView k : keys) {
             LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, px(48), 1f);
@@ -448,10 +490,17 @@ final class AiTray extends LinearLayout {
             return;
         }
         readSource();
-        result = null;
         if (!fieldAllowed) enter(State.DISABLED_FIELD);
         else if (!runner.available()) enter(State.NO_MODEL);
-        else enter(State.IDLE);
+        else if (!results.isEmpty() && source.equals(resultsSource)) {
+            // El campo sigue igual que cuando se genero: se vuelve al resultado que se estaba viendo
+            showResult(shown);
+            enter(State.RESULT);
+            outScroll.scrollTo(0, 0);
+        } else {
+            clearResults();
+            enter(State.IDLE);
+        }
     }
 
     /**
@@ -490,7 +539,8 @@ final class AiTray extends LinearLayout {
         if (runner.hasPending()) {
             lastRequest = runner.request();
             source = lastRequest == null ? "" : lastRequest.source;
-            result = null;
+            clearResults();
+            resultsSource = source;
             userScrolled = false;
             output.setText("");
             phase.setText(runner.isRemote() ? R.string.ai_connecting : R.string.ai_loading_model);
@@ -536,7 +586,13 @@ final class AiTray extends LinearLayout {
         disabledView.setTextColor(theme.hint);
         for (Card card : cards) card.restyle();
         for (int i = 0; i < toneChips.size(); i++) styleChip(toneChips.get(i));
+        tonesHint.setTextColor(theme.hint);
         phase.setTextColor(theme.hint);
+        navLabel.setTextColor(theme.hint);
+        for (TextView k : new TextView[]{prevKey, nextKey}) {
+            k.setTextColor(theme.glyph);
+            k.setBackground(ripple(theme.specialBg, theme.pressed, px(14)));
+        }
         output.setTextColor(theme.glyph);
         errorText.setTextColor(theme.glyph);
         promptIcon.setTextColor(theme.glyph);
@@ -545,7 +601,7 @@ final class AiTray extends LinearLayout {
         styleContextChip();
         gridAbc.invalidate();
         abc.invalidate();
-        for (TextView k : keys) styleKey(k, k == replaceKey);
+        for (TextView k : keys) styleKey(k, k == replaceKey || k == fixKey);
         miniKb.applyPrefs(false, vibrate, false, true, theme.id, false, sound, 0.8f);
     }
 
@@ -568,13 +624,20 @@ final class AiTray extends LinearLayout {
         errorView.setVisibility(s == State.ERROR ? VISIBLE : GONE);
         bottom.setVisibility(s == State.IDLE || prompt ? GONE : VISIBLE);
         cancelKey.setVisibility(s == State.RUNNING ? VISIBLE : GONE);
-        boolean res = s == State.RESULT;
+        boolean res = s == State.RESULT, err = s == State.ERROR;
         boolean canReplace = res && !(source.trim().isEmpty());
         replaceKey.setVisibility(canReplace ? VISIBLE : GONE);
         insertKey.setVisibility(res ? VISIBLE : GONE);
         copyKey.setVisibility(res ? VISIBLE : GONE);
-        retryKey.setVisibility(res || s == State.ERROR ? VISIBLE : GONE);
-        back.setBack(s == State.TONES || s == State.TARGETS);
+        // Error: la salida que toca segun el tipo. Un archivo que no sirve no se reintenta: se elige otro.
+        int fixRes = err ? fixLabel(errorKind) : 0;
+        if (fixRes != 0) fixKey.setText(fixRes);
+        fixKey.setVisibility(fixRes != 0 ? VISIBLE : GONE);
+        boolean retryable = !err || (errorKind != AiRunner.ErrorKind.MODEL && errorKind != AiRunner.ErrorKind.NO_MODEL);
+        retryKey.setVisibility(res || (err && retryable) ? VISIBLE : GONE);
+        selKey.setVisibility(err && errorKind == AiRunner.ErrorKind.TIMEOUT && !hadSelection ? VISIBLE : GONE);
+        updateNav();
+        back.setBack(s == State.TONES || s == State.TARGETS || res || err);
         title.setText(s == State.TONES ? R.string.ai_action_style
                 : s == State.TARGETS ? R.string.ai2_action_translate : R.string.ai_title);
         if (s == State.IDLE) {
@@ -602,6 +665,11 @@ final class AiTray extends LinearLayout {
             case RUNNING:
                 runner.cancel();
                 if (host != null) host.closeTray();
+                break;
+            case RESULT:
+            case ERROR:
+                readSource();                       // vuelta a las acciones; el historial queda por si se reabre
+                enter(State.IDLE);
                 break;
             default:
                 if (host != null) host.closeTray();
@@ -653,6 +721,7 @@ final class AiTray extends LinearLayout {
         if (q.isEmpty()) return;
         if (promptKind == PromptKind.TONE) {
             Prefs.get(getContext()).edit().putString(AiModels.LAST_TONE, q).apply();
+            Prefs.rememberAiTone(getContext(), q);
             run(AiRunner.Action.STYLE_CUSTOM, q, null);
         } else if (promptKind == PromptKind.TARGET) {
             Prefs.get(getContext()).edit().putString(LAST_TARGET, q).apply();
@@ -680,16 +749,41 @@ final class AiTray extends LinearLayout {
         r.target = target;
         r.lang = lang;
         r.useContext = useContext;
-        launch(r);
+        launch(r, false);
     }
 
+    /** Reintentar: misma peticion con mas temperatura; el resultado anterior se conserva en el historial. */
     private void retry() {
         if (lastRequest == null) { enter(State.IDLE); return; }
-        launch(lastRequest.copyForRetry());
+        launch(lastRequest.copyForRetry(), true);
     }
 
-    private void launch(AiRunner.Request r) {
+    /**
+     * "Solo la seleccion" tras tardar demasiado con todo el campo: repite la accion sobre lo que el usuario haya
+     * seleccionado ahora en el campo; si no hay seleccion se lo dice.
+     */
+    private void onlySelection() {
+        CharSequence sel = host == null ? null : host.selectedText();
+        if (sel == null || sel.toString().trim().isEmpty()) {
+            Toast.makeText(getContext(), R.string.ia3_select_first, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (lastRequest == null) { enter(State.IDLE); return; }
+        readSource();                                   // ahora source es la seleccion
+        AiRunner.Request r = new AiRunner.Request(lastRequest.action, source);
+        r.tone = lastRequest.tone;
+        r.prompt = lastRequest.prompt;
+        r.target = lastRequest.target;
+        r.lang = lastRequest.lang;
+        r.useContext = lastRequest.useContext;
+        launch(r, false);
+    }
+
+    /** Lanza la peticion; {@code keep} conserva el historial de resultados (Reintentar), si no empieza uno nuevo. */
+    private void launch(AiRunner.Request r, boolean keep) {
         lastRequest = r;
+        if (!keep) clearResults();
+        resultsSource = source;
         result = null;
         userScrolled = false;
         output.setText("");
@@ -712,20 +806,16 @@ final class AiTray extends LinearLayout {
             scrollToEnd();
         }
         @Override public void onDone(String text, boolean weak) {
-            result = text;
-            output.setText(text);
             String label = actionName(lastRequest) + " · " + runner.engineLabel();
             if (weak) label = getContext().getString(R.string.ai_weak_result);
-            phase.setText(label);
+            addResult(text, label);
             unseen = getVisibility() != VISIBLE;
             enter(State.RESULT);
             outScroll.scrollTo(0, 0);
         }
         @Override public void onCancelled(String partialText) {
             if (partialText != null && partialText.trim().length() >= 20) {
-                result = partialText;
-                output.setText(partialText);
-                phase.setText(R.string.ai_partial);
+                addResult(partialText, getContext().getString(R.string.ai_partial));
                 unseen = getVisibility() != VISIBLE;
                 enter(State.RESULT);
             } else {
@@ -733,12 +823,96 @@ final class AiTray extends LinearLayout {
                 enter(State.IDLE);
             }
         }
-        @Override public void onError(CharSequence message) {
+        @Override public void onError(CharSequence message) { onError(null, message); }
+        @Override public void onError(AiRunner.ErrorKind kind, CharSequence message) {
+            errorKind = kind;
             errorText.setText(message);
             unseen = getVisibility() != VISIBLE;
             enter(State.ERROR);
         }
     };
+
+    // ------------------------------------------------------------------ historial de resultados
+
+    /** Anade un resultado al historial de la peticion (como maximo HISTORY_MAX: cae el mas antiguo) y lo muestra. */
+    private void addResult(String text, CharSequence label) {
+        while (results.size() >= HISTORY_MAX) {
+            results.remove(0);
+            resultLabels.remove(0);
+        }
+        results.add(text);
+        resultLabels.add(label);
+        showResult(results.size() - 1);
+    }
+
+    private void showResult(int idx) {
+        if (results.isEmpty()) { result = null; shown = -1; return; }
+        shown = Math.max(0, Math.min(idx, results.size() - 1));
+        result = results.get(shown);
+        output.setText(result);
+        phase.setText(resultLabels.get(shown));
+        updateNav();
+    }
+
+    private void clearResults() {
+        results.clear();
+        resultLabels.clear();
+        shown = -1;
+        result = null;
+        resultsSource = null;
+    }
+
+    /** Flechas ‹ 2/3 › solo con mas de un resultado; en los extremos la flecha se atenua. */
+    private void updateNav() {
+        boolean nav = state == State.RESULT && results.size() > 1;
+        prevKey.setVisibility(nav ? VISIBLE : GONE);
+        nextKey.setVisibility(nav ? VISIBLE : GONE);
+        navLabel.setVisibility(nav ? VISIBLE : GONE);
+        if (!nav) return;
+        navLabel.setText(getContext().getString(R.string.ia3_result_nav, shown + 1, results.size()));
+        prevKey.setEnabled(shown > 0);
+        prevKey.setAlpha(shown > 0 ? 1f : 0.35f);
+        nextKey.setEnabled(shown < results.size() - 1);
+        nextKey.setAlpha(shown < results.size() - 1 ? 1f : 0.35f);
+    }
+
+    /** Resultado anterior del historial (‹). */
+    void previousResult() {
+        if (state == State.RESULT && shown > 0) { showResult(shown - 1); outScroll.scrollTo(0, 0); }
+    }
+
+    /** Resultado siguiente del historial (›). */
+    void nextResult() {
+        if (state == State.RESULT && shown < results.size() - 1) { showResult(shown + 1); outScroll.scrollTo(0, 0); }
+    }
+
+    /** Etiqueta del boton primario de un error, o 0 si ese tipo no tiene (Reintentar basta). */
+    private static int fixLabel(AiRunner.ErrorKind kind) {
+        if (kind == null) return 0;
+        switch (kind) {
+            case MODEL:
+            case NO_MODEL: return R.string.ai_open_settings;
+            case MEMORY: return R.string.ia3_err_smaller_model;
+            case SERVER: return R.string.ia3_err_check_server;
+            default: return 0;
+        }
+    }
+
+    // Acceso para las pruebas
+    int resultCount() { return results.size(); }
+    int shownIndex() { return shown; }
+    String result() { return result; }
+    AiRunner.ErrorKind errorKind() { return errorKind; }
+    /** Texto del boton primario del error visible, o null si no hay. */
+    CharSequence primaryErrorAction() { return fixKey.getVisibility() == VISIBLE ? fixKey.getText() : null; }
+    boolean offersRetry() { return retryKey.getVisibility() == VISIBLE; }
+    boolean offersSelectionOnly() { return selKey.getVisibility() == VISIBLE; }
+    boolean showsNavigation() { return navLabel.getVisibility() == VISIBLE; }
+    CharSequence navigationLabel() { return navLabel.getText(); }
+    int toneChipCount() { return toneChips.size(); }
+    TextView toneChip(int i) { return toneChips.get(i); }
+    /** El oyente del runner, para simular finales en las pruebas sin modelo. */
+    AiRunner.Callback callback() { return callback; }
 
     private void scrollToEnd() {
         if (userScrolled) return;
@@ -775,6 +949,7 @@ final class AiTray extends LinearLayout {
 
     // ------------------------------------------------------------------ tonos
 
+    /** Los cuatro tonos fijos, los personalizados recientes (Prefs.aiTones, pulsacion larga para olvidar) y "Otro…". */
     private void buildTones() {
         tones.removeAllViews();
         toneChips.clear();
@@ -782,19 +957,42 @@ final class AiTray extends LinearLayout {
         addTone(R.string.ai_tone_formal, AiRunner.Action.STYLE_FORMAL, null);
         addTone(R.string.ai_tone_respectful, AiRunner.Action.STYLE_RESPECTFUL, null);
         addTone(R.string.ai_tone_friendly, AiRunner.Action.STYLE_FRIENDLY, null);
-        String last = Prefs.get(getContext()).getString(AiModels.LAST_TONE, null);
-        if (last != null && !last.trim().isEmpty()) addTone(0, AiRunner.Action.STYLE_CUSTOM, last.trim());
+        List<String> saved = Prefs.aiTones(getContext());
+        if (saved.isEmpty()) {
+            // Version anterior: solo se recordaba el ultimo tono; pasa a la lista
+            String last = Prefs.get(getContext()).getString(AiModels.LAST_TONE, null);
+            if (last != null && !last.trim().isEmpty()) {
+                Prefs.rememberAiTone(getContext(), last.trim());
+                saved = Prefs.aiTones(getContext());
+            }
+        }
+        for (String t : saved) addTone(0, AiRunner.Action.STYLE_CUSTOM, t);
         addTone(R.string.ai_tone_custom, null, null);
+        if (!saved.isEmpty()) tones.addView(tonesHint, new LinearLayout.LayoutParams(MATCH, WRAP));
     }
 
     private void addTone(int labelRes, final AiRunner.Action action, final String customTone) {
-        addChip(labelRes != 0 ? getContext().getString(labelRes) : "✎ " + customTone, new OnClickListener() {
+        TextView chip = addChip(labelRes != 0 ? getContext().getString(labelRes) : "✎ " + customTone, new OnClickListener() {
             @Override public void onClick(View v) {
                 tap(v);
-                if (action == null) openPrompt(PromptKind.TONE);
-                else run(action, customTone, null);
+                if (action == null) { openPrompt(PromptKind.TONE); return; }
+                if (customTone != null) Prefs.rememberAiTone(getContext(), customTone);   // el usado pasa al principio
+                run(action, customTone, null);
             }
         });
+        if (customTone != null) {
+            chip.setOnLongClickListener(new OnLongClickListener() {
+                @Override public boolean onLongClick(View v) {
+                    tap(v);
+                    Prefs.forgetAiTone(getContext(), customTone);
+                    String last = Prefs.get(getContext()).getString(AiModels.LAST_TONE, null);
+                    if (customTone.equals(last)) Prefs.get(getContext()).edit().remove(AiModels.LAST_TONE).apply();
+                    Toast.makeText(getContext(), R.string.ia3_tone_forgotten, Toast.LENGTH_SHORT).show();
+                    buildTones();
+                    return true;
+                }
+            });
+        }
     }
 
     // ------------------------------------------------------------------ idiomas destino (Traducir)
@@ -822,8 +1020,8 @@ final class AiTray extends LinearLayout {
         });
     }
 
-    /** Fila de la lista de tonos / idiomas. */
-    private void addChip(CharSequence label, OnClickListener l) {
+    /** Fila de la lista de tonos / idiomas; devuelve la vista para anadirle mas gestos. */
+    private TextView addChip(CharSequence label, OnClickListener l) {
         TextView t = new TextView(getContext());
         t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
         t.setTypeface(medium);
@@ -838,6 +1036,7 @@ final class AiTray extends LinearLayout {
         p.topMargin = px(2);
         tones.addView(t, p);
         toneChips.add(t);
+        return t;
     }
 
     private void styleChip(TextView t) {
@@ -942,6 +1141,20 @@ final class AiTray extends LinearLayout {
         t.setPadding(px(4), 0, px(4), 0);
         t.setOnClickListener(l);
         keys.add(t);
+        return t;
+    }
+
+    /** Flecha redonda ‹ › de la fila de fase para recorrer el historial de resultados. */
+    private TextView navKey(Context c, String glyph, int descRes, OnClickListener l) {
+        TextView t = new TextView(c);
+        t.setText(glyph);
+        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20);
+        t.setTypeface(medium);
+        t.setGravity(Gravity.CENTER);
+        t.setIncludeFontPadding(false);
+        t.setContentDescription(c.getString(descRes));
+        t.setOnClickListener(l);
+        t.setVisibility(GONE);
         return t;
     }
 

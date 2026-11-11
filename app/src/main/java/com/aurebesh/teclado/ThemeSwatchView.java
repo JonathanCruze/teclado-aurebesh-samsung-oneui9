@@ -69,7 +69,7 @@ final class ThemeSwatchView extends View {
         c.drawRoundRect(key, r, r, paint);
         if (theme.keyStroke != 0) {
             paint.setStyle(Paint.Style.STROKE);
-            paint.setStrokeWidth(dp);
+            paint.setStrokeWidth(theme.strokeDp * dp);   // Contraste pide un borde mas grueso
             paint.setColor(theme.keyStroke);
             c.drawRoundRect(key, r, r, paint);
         }

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Panel "Inteligencia" 2.0: progreso real de lectura, errores accionables, historial de resultados y tonos guardados -->
+    <string name="ia3_reading_pct">Leyendo el texto… %1$d %%</string>
+    <string name="ia3_err_smaller_model">Modelo más pequeño</string>
+    <string name="ia3_err_check_server">Comprobar servidor</string>
+    <string name="ia3_only_selection">Solo la selección</string>
+    <string name="ia3_select_first">Selecciona primero una parte del texto y vuelve a intentarlo.</string>
+    <string name="ia3_prev_result">Resultado anterior</string>
+    <string name="ia3_next_result">Resultado siguiente</string>
+    <string name="ia3_tone_forgotten">Tono olvidado</string>
+    <string name="ia3_tone_hold_hint">Mantén pulsado un tono guardado para olvidarlo.</string>
+</resources>

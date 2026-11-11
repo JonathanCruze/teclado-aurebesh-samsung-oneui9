@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Panel "Intelligenz" 2.0: echter Lesefortschritt, Fehler mit Ausweg, Ergebnisverlauf und gespeicherte Tonarten -->
+    <string name="ia3_reading_pct">Text wird gelesen… %1$d %%</string>
+    <string name="ia3_err_smaller_model">Kleineres Modell</string>
+    <string name="ia3_err_check_server">Server prüfen</string>
+    <string name="ia3_only_selection">Nur die Auswahl</string>
+    <string name="ia3_select_first">Markiere zuerst einen Teil des Texts und versuche es erneut.</string>
+    <string name="ia3_prev_result">Vorheriges Ergebnis</string>
+    <string name="ia3_next_result">Nächstes Ergebnis</string>
+    <string name="ia3_tone_forgotten">Ton entfernt</string>
+    <string name="ia3_tone_hold_hint">Halte einen gespeicherten Ton gedrückt, um ihn zu entfernen.</string>
+</resources>

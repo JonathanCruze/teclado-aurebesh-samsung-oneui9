@@ -21,6 +21,11 @@ import java.util.Set;
  * Diccionario de frecuencia por idioma (res/raw/words_es.txt, words_en.txt y words_de.txt: una palabra
  * por linea, de mas a menos frecuente). Da autocorreccion a una edicion, restauracion de tildes y completado
  * de palabras. Todo ocurre en el telefono, sin internet.
+ * <p>
+ * Lleva ademas el lexico Star Wars (res/raw/starwars_words.txt, una entrada por linea en su forma canonica:
+ * personajes, especies, planetas, naves y conceptos, con sus variantes en espanol y aleman), compartido por los
+ * tres idiomas y activable con {@link #setStarWars}: sus entradas se aceptan como conocidas, se completan y se
+ * corrige hacia ellas como si fueran palabras aprendidas; {@link #canonical} devuelve la caja propia de cada una.
  */
 final class Dictionary {
 
@@ -42,6 +47,19 @@ final class Dictionary {
      */
     static final double PERSONAL_SCORE = Math.log(1500);
     private static final double MAX_EDIT = 2.5;        // coste maximo de una sola edicion (letra cambiada por otra cualquiera)
+    /**
+     * Longitud desde la que una entrada del lexico Star Wars cuenta siempre. Las mas cortas (Rey, Poe, Gon, AT) solo
+     * se reconocen escritas con su caja canonica y nunca sirven de correccion: "gon" o "poe" en minusculas siguen
+     * siendo los errores de "con" y "por" de toda la vida.
+     */
+    private static final int SW_MIN = 4;
+    /**
+     * Puntuacion de una entrada larga del lexico Star Wars (mas de cinco letras): algo mejor que una aprendida
+     * ({@link #PERSONAL_SCORE}), porque parecerse a "palpatine" o "coruscant" rara vez es casualidad.
+     */
+    static final double SW_LONG_SCORE = Math.log(800);
+    /** Coste maximo hacia una entrada larga del lexico: dos errores caros ("palatino" -> "palpatine"). */
+    private static final double SW_ED2_CUTOFF = 4.0;
 
     /** Nunca se proponen ni se usan como correccion (si se escriben, se respetan). */
     private static final Set<String> NO_SUGGEST = new HashSet<>(Arrays.asList(
@@ -123,6 +141,12 @@ final class Dictionary {
     private final String[][] byLength = new String[MAX_LEN + 3][];        // palabras por longitud, en orden de frecuencia
     private volatile Set<String> personal = Collections.emptySet();      // palabras aprendidas del usuario
     private volatile Map<String, String> personalPlain = Collections.emptyMap();   // forma sin tildes -> palabra aprendida
+    // ---- lexico Star Wars: el mismo archivo para los tres idiomas, cargado una vez con cada instancia
+    private volatile boolean starWars;                                   // activo (Prefs.STARWARS); apagado hasta que lo fije el IME
+    private final HashMap<String, String> swCanon = new HashMap<>();     // minusculas -> forma canonica ("coruscant" -> "Coruscant")
+    private final HashMap<String, String> swPlain = new HashMap<>();     // sin tildes -> entrada en minusculas ("padme" -> "padmé")
+    private final String[] swWords;                                      // entradas en minusculas, en el orden del archivo
+    private final String[] swFolded;                                     // las mismas en la forma de comparacion ({@link #fold})
 
     /** Carga (o recupera de la cache) el diccionario de un idioma. Puede llamarse en segundo plano. */
     static synchronized Dictionary get(Context c, String lang) throws IOException {
@@ -170,6 +194,27 @@ final class Dictionary {
         for (int i = 0; i < byLength.length; i++) buckets.add(new ArrayList<String>());
         for (String w : all) if (w.length() < byLength.length) buckets.get(w.length()).add(w);
         for (int i = 0; i < byLength.length; i++) byLength[i] = buckets.get(i).toArray(new String[0]);
+
+        List<String> saga = new ArrayList<>(800);
+        r = new BufferedReader(new InputStreamReader(c.getResources().openRawResource(R.raw.starwars_words), "UTF-8"));
+        try {
+            String line;
+            while ((line = r.readLine()) != null) {
+                String w = line.trim();
+                if (w.length() < 2) continue;
+                String lower = w.toLowerCase(Locale.ROOT);
+                if (swCanon.containsKey(lower)) continue;
+                swCanon.put(lower, w);
+                saga.add(lower);
+                String plain = fold(lower);
+                if (!plain.equals(lower) && !swPlain.containsKey(plain)) swPlain.put(plain, lower);
+            }
+        } finally {
+            r.close();
+        }
+        swWords = saga.toArray(new String[0]);
+        swFolded = new String[swWords.length];
+        for (int i = 0; i < swWords.length; i++) swFolded[i] = fold(swWords[i]);
     }
 
     /**
@@ -202,6 +247,50 @@ final class Dictionary {
         if (set.isEmpty()) return null;
         if (set.contains(v)) return v;
         return personalPlain.get(fold(v));
+    }
+
+    // ---- lexico Star Wars
+
+    /** Activa o desactiva el lexico Star Wars en conocidas, completados, correcciones y {@link #canonical}. */
+    void setStarWars(boolean on) { starWars = on; }
+
+    boolean starWars() { return starWars; }
+
+    /**
+     * Forma canonica de una entrada del lexico Star Wars ("coruscant" -> "Coruscant"), o null si no lo es, si el
+     * lexico esta desactivado o si la palabra es ademas una palabra normal del idioma ("orden", "fuerza", "ghost",
+     * "wing"): esas no cambian de forma.
+     */
+    String canonical(String lower) {
+        if (!starWars || lower == null) return null;
+        String c = swCanon.get(lower);
+        return c == null || rank.containsKey(lower) ? null : c;
+    }
+
+    /** Entrada del lexico (de {@link #SW_MIN} letras o mas) igual a la forma dada o a su forma sin tildes, o null. */
+    private String swWord(String v) {
+        if (!starWars || v.length() < SW_MIN) return null;
+        if (swCanon.containsKey(v)) return v;
+        return swPlain.get(fold(v));
+    }
+
+    /** Entrada del lexico activo que no es palabra normal del idioma (las que lo son siguen las reglas del diccionario). */
+    private boolean isSaga(String w) {
+        return starWars && w.length() >= SW_MIN && swCanon.containsKey(w) && !rank.containsKey(w);
+    }
+
+    /**
+     * Lo escrito es una entrada del lexico activo: tal cual o con tildes de mas ("ahsóka" se respeta), con cuatro
+     * letras o mas o, si es mas corta, con su caja canonica ("Rey", "Poe", "AT"); tambien su plural regular
+     * ("jedis", "ewoks", "wookiees").
+     */
+    private boolean swKnown(String typed, String w) {
+        if (!starWars) return false;
+        String canon = swCanon.get(w);
+        if (canon == null && !w.equals(fold(w))) canon = swCanon.get(fold(w));
+        if (canon != null) return w.length() >= SW_MIN || canon.equals(typed);
+        int n = w.length();
+        return n > SW_MIN && w.charAt(n - 1) == 's' && swCanon.containsKey(w.substring(0, n - 1));
     }
 
     /**
@@ -243,7 +332,9 @@ final class Dictionary {
         }
     }
 
-    boolean contains(String w) { return rank.containsKey(w) || personal.contains(w); }
+    boolean contains(String w) {
+        return rank.containsKey(w) || personal.contains(w) || (starWars && w.length() >= SW_MIN && swCanon.containsKey(w));
+    }
 
     int size() { return sorted.length; }
 
@@ -286,10 +377,19 @@ final class Dictionary {
         return n <= 2 ? 5.7 : n == 3 ? 7.3 : n == 4 ? 8.7 : 9.6;
     }
 
-    /** ln(rango) de una palabra del diccionario, o {@link #PERSONAL_SCORE} si es aprendida, mas la penalizacion. */
+    /**
+     * ln(rango) de una palabra del diccionario, o {@link #PERSONAL_SCORE} si es aprendida, mas la penalizacion. Una
+     * entrada del lexico Star Wars puntua al menos como una aprendida ({@link #SW_LONG_SCORE} si es larga) aunque
+     * figure en la cola del diccionario del idioma ("anakin", "skywalker"): asi no la tapan palabras raras.
+     */
     private double score(String word, double penalty) {
         Integer r = rank.get(word);
-        return (r == null ? PERSONAL_SCORE : Math.log(r + 1)) + penalty;
+        double base = r == null ? PERSONAL_SCORE : Math.log(r + 1);
+        if (starWars && word.length() >= SW_MIN && swCanon.containsKey(word)) {
+            double saga = word.length() > 5 ? SW_LONG_SCORE : PERSONAL_SCORE;
+            if (saga < base) base = saga;
+        }
+        return base + penalty;
     }
 
     /** Sugerencias y correccion para lo que se lleva escrito de una palabra. */
@@ -317,15 +417,18 @@ final class Dictionary {
             String plainLearned = personalPlain.get(fold(w));
             learned = plainLearned != null && plainLearned.equals(fold(w));
         }
-        res.known = rank.containsKey(w) || learned;
+        boolean saga = swKnown(typed, w);                  // del lexico Star Wars, si esta activo
+        res.known = rank.containsKey(w) || learned || saga;
 
         HashMap<String, Double> cand = new HashMap<>();
-        String acc = learned ? null : resolve(w);
+        String acc = learned || saga ? null : resolve(w);
         boolean accentFix = acc != null && !acc.equals(w);
         if (accentFix) put(cand, acc, score(acc, 0));
         if (!res.known) {
             String pacc = personalWord(w);               // aprendida con tildes de lo escrito sin ellas
             if (pacc != null && !pacc.equals(w)) put(cand, pacc, score(pacc, 0));
+            String sacc = swWord(w);                     // entrada del lexico con tildes ("padme" -> "padmé")
+            if (sacc != null && !sacc.equals(w)) put(cand, sacc, score(sacc, 0));
             edits(w, cand);
             if (n >= 5) scan(w, cand);                   // tambien a dos ediciones
         }
@@ -342,13 +445,20 @@ final class Dictionary {
                 // la dejara fuera: el usuario la guardo a proposito
                 boolean personalEdit = n >= 3 && !rank.containsKey(best) && personal.contains(best)
                         && bestScore - PERSONAL_SCORE <= MAX_EDIT;
-                if (bestScore <= limit(n) || personalEdit) res.correction = best;
+                // lo mismo para una entrada del lexico Star Wars; las largas admiten hasta dos errores caros
+                // ("palatino" -> "palpatine"): pocas palabras normales se les parecen tanto
+                boolean sagaEdit = n >= 3 && isSaga(best)
+                        && bestScore - score(best, 0) <= (best.length() > 5 ? SW_ED2_CUTOFF : MAX_EDIT);
+                if (bestScore <= limit(n) || personalEdit || sagaEdit) res.correction = best;
             }
             else if (accentFix && best.equals(acc)) res.correction = acc;
         }
 
         for (String s : completions(w, MAX_SUGGESTIONS)) put(cand, s, score(s, 0.5));
         for (String p : personal) if (p.startsWith(w) && !p.equals(w)) put(cand, p, 1.0);
+        if (starWars) {                                  // entradas del lexico que empiezan asi (las del idioma ya salen arriba)
+            for (String s : swWords) if (isSaga(s) && s.startsWith(w) && !s.equals(w)) put(cand, s, score(s, 0.5));
+        }
         fuzzyCompletions(w, cand);
         List<Map.Entry<String, Double>> list = new ArrayList<>(cand.entrySet());
         Collections.sort(list, new Comparator<Map.Entry<String, Double>>() {
@@ -404,7 +514,8 @@ final class Dictionary {
     /**
      * Busqueda a dos ediciones: palabras de longitud parecida que empiezan por la misma letra, con la
      * distancia ponderada (los mismos costes que las variantes a una edicion) y corte temprano. Las palabras
-     * aprendidas del usuario (como mucho unos cientos) se recorren con el mismo criterio.
+     * aprendidas del usuario (como mucho unos cientos) y el lexico Star Wars (unas setecientas entradas) se
+     * recorren con el mismo criterio; hacia las entradas largas del lexico se admite un coste mayor.
      */
     private void scan(String w, Map<String, Double> cand) {
         String a = fold(w);
@@ -426,6 +537,16 @@ final class Dictionary {
             double cost = distance(a, fold(p), ED2_CUTOFF, dp);
             if (cost <= 0 || cost > ED2_CUTOFF) continue;
             put(cand, p, score(p, cost));
+        }
+        if (!starWars) return;
+        for (int i = 0; i < swWords.length; i++) {
+            String s = swWords[i];
+            int len = s.length();
+            if (len < SW_MIN || len < n - 2 || len > n + 2 || swFolded[i].charAt(0) != first || rank.containsKey(s)) continue;
+            double cutoff = len > 5 ? SW_ED2_CUTOFF : ED2_CUTOFF;
+            double cost = distance(a, swFolded[i], cutoff, dp);
+            if (cost <= 0 || cost > cutoff) continue;
+            put(cand, s, score(s, cost));
         }
     }
 
@@ -498,17 +619,29 @@ final class Dictionary {
                 if (variants.contains(p.substring(0, len))) { put(cand, p, score(p, 1.2)); break; }
             }
         }
+        if (!starWars) return;
+        // Entradas del lexico Star Wars que extienden una variante de igual longitud o una letra mas larga (no la de
+        // una letra de menos: para una palabra completa como "hola" abriria todas las que empiezan por "hol"), con
+        // mas penalizacion que las aprendidas porque son muchas mas
+        for (String s : swWords) {
+            if (!isSaga(s) || s.equals(w)) continue;
+            for (int len = n; len <= n + 1 && len < s.length(); len++) {
+                if (variants.contains(s.substring(0, len))) { put(cand, s, score(s, 2.0)); break; }
+            }
+        }
     }
 
     /**
      * Anota la variante si existe (o su forma con tildes), con puntuacion ln(rango) + penalizacion; si es una
-     * palabra aprendida, con {@link #PERSONAL_SCORE} + penalizacion.
+     * palabra aprendida o del lexico Star Wars, con {@link #PERSONAL_SCORE} (o {@link #SW_LONG_SCORE}) + penalizacion.
      */
     private void offer(Map<String, Double> cand, String variant, double penalty) {
         String r = resolve(variant);
         if (r != null) put(cand, r, score(r, penalty));
         String p = personalWord(variant);
         if (p != null && !p.equals(r)) put(cand, p, score(p, penalty));
+        String s = swWord(variant);
+        if (s != null && !s.equals(r) && !s.equals(p)) put(cand, s, score(s, penalty));
     }
 
     private static void put(Map<String, Double> cand, String word, double score) {
