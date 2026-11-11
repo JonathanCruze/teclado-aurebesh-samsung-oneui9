@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 2.0: Barrierefreiheit (was der Screenreader zu jeder Taste und Schaltfläche der Tastatur sagt) -->
+
+    <!-- Funktionstasten -->
+    <string name="a11y_space">Leertaste</string>
+    <string name="a11y_delete">Löschen</string>
+    <string name="a11y_shift">Umschalttaste</string>
+    <string name="a11y_shift_on">Umschalttaste, aktiviert</string>
+    <string name="a11y_shift_lock">Feststelltaste, aktiviert</string>
+    <string name="a11y_enter">Eingabe</string>
+    <string name="a11y_enter_search">Suchen</string>
+    <string name="a11y_enter_send">Senden</string>
+    <string name="a11y_enter_next">Weiter</string>
+    <string name="a11y_enter_done">Fertig</string>
+    <string name="a11y_symbols">Symbole</string>
+    <string name="a11y_letters">Buchstaben</string>
+    <string name="a11y_page">Weitere Symbole, %1$s</string>
+    <string name="a11y_globe">Nächste Sprache</string>
+
+    <!-- Leiste, Vorschläge und seitliche Schaltflächen -->
+    <string name="a11y_tool_more">Weitere Werkzeuge</string>
+    <string name="a11y_tool_active">%1$s, aktiv</string>
+    <string name="a11y_suggestion_auto">%1$s, Autokorrektur</string>
+    <string name="a11y_paste_image">Kopiertes Bild einfügen</string>
+    <string name="a11y_side_left">Tastatur nach links verschieben</string>
+    <string name="a11y_side_right">Tastatur nach rechts verschieben</string>
+</resources>

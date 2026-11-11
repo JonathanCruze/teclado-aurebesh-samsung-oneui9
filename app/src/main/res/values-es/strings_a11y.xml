@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 2.0: accesibilidad (lo que dice el lector de pantalla por cada tecla y boton del teclado) -->
+
+    <!-- Teclas de funcion -->
+    <string name="a11y_space">Espacio</string>
+    <string name="a11y_delete">Borrar</string>
+    <string name="a11y_shift">Mayúsculas</string>
+    <string name="a11y_shift_on">Mayúsculas, activadas</string>
+    <string name="a11y_shift_lock">Bloqueo de mayúsculas, activado</string>
+    <string name="a11y_enter">Intro</string>
+    <string name="a11y_enter_search">Buscar</string>
+    <string name="a11y_enter_send">Enviar</string>
+    <string name="a11y_enter_next">Siguiente</string>
+    <string name="a11y_enter_done">Listo</string>
+    <string name="a11y_symbols">Símbolos</string>
+    <string name="a11y_letters">Letras</string>
+    <string name="a11y_page">Más símbolos, %1$s</string>
+    <string name="a11y_globe">Siguiente idioma</string>
+
+    <!-- Cinta, sugerencias y botones laterales -->
+    <string name="a11y_tool_more">Más herramientas</string>
+    <string name="a11y_tool_active">%1$s, activado</string>
+    <string name="a11y_suggestion_auto">%1$s, autocorrección</string>
+    <string name="a11y_paste_image">Pegar la imagen copiada</string>
+    <string name="a11y_side_left">Mover el teclado a la izquierda</string>
+    <string name="a11y_side_right">Mover el teclado a la derecha</string>
+</resources>

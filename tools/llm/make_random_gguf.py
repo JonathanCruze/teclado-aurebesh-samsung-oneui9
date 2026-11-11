@@ -198,8 +198,8 @@ def main():
     out = sys.argv[2]
     os.makedirs(out, exist_ok=True)
     if sys.argv[1] == "tiny":
-        write_model("qwen3", os.path.join(out, "tiny-qwen3.gguf"), tied=True)
-        write_model("qwen2", os.path.join(out, "tiny-qwen2.gguf"), tied=False)
+        write_model("qwen3", os.path.join(out, "tiny-qwen3.gguf"), tied=True, ctx=4096)
+        write_model("qwen2", os.path.join(out, "tiny-qwen2.gguf"), tied=False, ctx=4096)   # contexto amplio: el panel con su system prompt cabe
         write_model("llama", os.path.join(out, "tiny-llama.gguf"), tied=True)
         write_model("llama", os.path.join(out, "tiny-llama-qkv.gguf"), tied=False, fused_qkv=True, alignment=64,
                     omit_kv_heads=True, n_head_kv=4, types=dict(embd=T.F32, q=T.Q8_0, o=T.Q8_0, out=T.BF16))

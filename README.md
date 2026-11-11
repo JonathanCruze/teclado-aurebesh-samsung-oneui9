@@ -12,12 +12,12 @@
 
 <p align="center">
   <a href="https://github.com/JonathanCruze/teclado-aurebesh-samsung-oneui9/raw/main/releases/TecladoAurebesh.apk">
-    <img src="https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20%20DESCARGAR%20APK%20%E2%80%94%20Teclado%20Aurebesh%201.10-1B2838?style=for-the-badge&logoColor=white&labelColor=1B2838&color=7FD3F0" alt="Descargar APK">
+    <img src="https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20%20DESCARGAR%20APK%20%E2%80%94%20Teclado%20Aurebesh%202.0-1B2838?style=for-the-badge&logoColor=white&labelColor=1B2838&color=7FD3F0" alt="Descargar APK">
   </a>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/versi%C3%B3n-1.10-7FD3F0?style=flat-square" alt="versión 1.10">
+  <img src="https://img.shields.io/badge/versi%C3%B3n-2.0-7FD3F0?style=flat-square" alt="versión 2.0">
   <img src="https://img.shields.io/badge/Android-8.0%2B-3DDC84?style=flat-square" alt="Android 8+">
   <img src="https://img.shields.io/badge/Samsung-One%20UI%209.0-1428A0?style=flat-square" alt="Samsung One UI 9.0">
   <img src="https://img.shields.io/badge/sin%20anuncios-%E2%9C%93-2E7D32?style=flat-square" alt="sin anuncios">
@@ -43,6 +43,41 @@
    momento, mantén pulsada la barra espaciadora.
 
 Para actualizar, descarga el nuevo APK e instálalo encima: conserva tus ajustes.
+
+### Novedades de la 2.0
+- **Estela de sable de luz** al deslizar para escribir: curva continua con núcleo blanco, hoja de color y halo, que se desvanece
+  por la cola; seis colores en Diseño: Azul (Anakin y Obi-Wan), Verde (Luke y Qui-Gon), Amarillo (Guardia del Templo), Bronce,
+  Morado (Mace Windu) y Rojo (Sith).
+- **Sugerencias con fondo:** una sola banda redondeada con separadores finos para todas las palabras, y solo la autocorrección
+  pendiente lleva su propia pastilla de acento. Se eligió un único fondo, como Samsung Keyboard y Gboard, porque una pastilla por
+  palabra añade ruido visual y reduce el área de toque; las celdas se reparten el ancho a partes iguales.
+- **Cinta personalizable y "…":** el último icono abre una cuadrícula con todas las herramientas (emojis, portapapeles, una mano,
+  edición de texto, traducir, dividir, barra de traducción, idioma, tamaño, ocultar, ajustes); con "Editar" eliges cuáles van en
+  la cinta y en qué orden.
+- **Panel de edición de texto** como el de Samsung: cruceta con repetición, Seleccionar, Seleccionar todo, Cortar, Copiar, Pegar,
+  Deshacer, Rehacer, Inicio y Fin.
+- **Portapapeles con elementos fijados:** mantén pulsado un elemento para fijarlo; los fijados van arriba, sobreviven a "Borrar
+  todo" y al reinicio del teléfono (se guardan en el almacenamiento privado de la app).
+- **Diccionario Star Wars** (activable en Escritura inteligente): más de 450 nombres de personajes, naves, planetas, especies y
+  términos (Coruscant, Ahsoka, Venator, Palpatine, Holocrón, Kyber…) que se completan y se corrigen con sus mayúsculas
+  ("curuscant" → "Coruscant", "palatino" → "Palpatine") en los tres idiomas; las palabras normales no cambian.
+- **Diccionario personal:** añade tus propias palabras (nombres, apodos, términos de trabajo) y expórtalas o impórtalas como
+  texto; además el teclado aprende solo una palabra nueva que escribes dos veces y una corrección que deshaces dos veces, y
+  corrige hacia todas ellas. Todo queda en el teléfono.
+- **Inteligencia más rápida en el teléfono:** la parte fija del prompt se evalúa una sola vez y se reutiliza (caché de prefijo),
+  hasta seis hilos, progreso real mientras lee el texto con posibilidad de cancelar, errores con la acción que los resuelve,
+  historial de hasta cinco resultados y tonos personalizados guardados. Nota honesta: Galaxy AI corre en el NPU con modelos y
+  API privados de Samsung que un teclado de terceros no puede usar; aquí el motor es Java puro, así que para velocidad real la
+  opción es un servidor propio.
+- **Emojis con tono de piel** al mantener pulsado un emoji de manos o personas; se recuerda el último tono por emoji.
+- **Letras latinas "Aprendiendo":** cada letra muestra su pista hasta unas 40 pulsaciones y luego desaparece; se puede
+  reiniciar el progreso.
+- **Accesibilidad:** nodos de accesibilidad por tecla, sugerencia e icono para TalkBack, exploración táctil, tema de alto
+  contraste y controles de Ajustes con rol y estado.
+- **Ajustes:** buscador de ajustes, Restablecer ajustes, Borrar datos personales, tarjeta "Datos en este teléfono" con tamaños
+  y borrado, exportar e importar ajustes como JSON.
+- **Pantalla de cubierta del Z Flip:** no es un fallo del teclado. One UI reserva la pantalla exterior para Samsung Keyboard y no
+  permite teclados de terceros ahí (tampoco Gboard); no existe ninguna declaración en el manifiesto que lo habilite.
 
 ### Novedades de la 1.10
 - **Toques que no escriben lo que no querías.** El menú de alternativas incluye la letra base, cabe en dos filas y se cancela al
@@ -171,7 +206,7 @@ a partir de un prompt. El resultado se puede reemplazar, insertar, copiar o rein
 
 ## Frente a Samsung Keyboard
 
-| Función | Samsung Keyboard | Teclado Aurebesh 1.10 |
+| Función | Samsung Keyboard | Teclado Aurebesh 2.0 |
 |---|---|---|
 | Galaxy AI / Inteligencia avanzada | Sí | Inteligencia local (modelo en el teléfono) o servidor propio |
 | Deslizar para escribir | Sí | Sí, con estela y alternativas |

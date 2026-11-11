@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 2.0: accessibility (what the screen reader says for each key and button of the keyboard) -->
+
+    <!-- Function keys -->
+    <string name="a11y_space">Space</string>
+    <string name="a11y_delete">Delete</string>
+    <string name="a11y_shift">Shift</string>
+    <string name="a11y_shift_on">Shift, on</string>
+    <string name="a11y_shift_lock">Caps lock, on</string>
+    <string name="a11y_enter">Enter</string>
+    <string name="a11y_enter_search">Search</string>
+    <string name="a11y_enter_send">Send</string>
+    <string name="a11y_enter_next">Next</string>
+    <string name="a11y_enter_done">Done</string>
+    <string name="a11y_symbols">Symbols</string>
+    <string name="a11y_letters">Letters</string>
+    <string name="a11y_page">More symbols, %1$s</string>
+    <string name="a11y_globe">Next language</string>
+
+    <!-- Toolbar, suggestions and side buttons -->
+    <string name="a11y_tool_more">More tools</string>
+    <string name="a11y_tool_active">%1$s, on</string>
+    <string name="a11y_suggestion_auto">%1$s, autocorrection</string>
+    <string name="a11y_paste_image">Paste the copied image</string>
+    <string name="a11y_side_left">Move the keyboard to the left</string>
+    <string name="a11y_side_right">Move the keyboard to the right</string>
+</resources>

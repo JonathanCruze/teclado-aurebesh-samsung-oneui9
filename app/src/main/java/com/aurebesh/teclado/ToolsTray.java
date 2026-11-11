@@ -38,7 +38,7 @@ final class ToolsTray extends LinearLayout {
     }
 
     /** Iconos que caben en la cinta ademas del "...". */
-    static final int MAX_BAR = 5;
+    static final int MAX_BAR = 6;
     private static final int COLUMNS = 4;
     private static final int MATCH = ViewGroup.LayoutParams.MATCH_PARENT;
     private static final int WRAP = ViewGroup.LayoutParams.WRAP_CONTENT;

@@ -7,10 +7,12 @@ import android.graphics.BlurMaskFilter;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.text.TextUtils;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
@@ -20,6 +22,11 @@ import android.util.SparseArray;
 import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewParent;
+import android.view.accessibility.AccessibilityEvent;
+import android.view.accessibility.AccessibilityManager;
+import android.view.accessibility.AccessibilityNodeInfo;
+import android.view.accessibility.AccessibilityNodeProvider;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -91,7 +98,7 @@ public final class AurebeshKeyboardView extends View {
     static final int[] ALL_TOOLS = {TOOL_EMOJI, TOOL_CLIPBOARD, TOOL_HAND, TOOL_EDIT, TOOL_TRANSLATE, TOOL_SPLIT,
             TOOL_STRIP, TOOL_LANG, TOOL_HIDE, TOOL_RESIZE, TOOL_SETTINGS};
     /** Cinta de fabrica (sin el "..." final, que se anade siempre). */
-    static final int[] DEFAULT_TOOLBAR = {TOOL_EMOJI, TOOL_CLIPBOARD, TOOL_HAND, TOOL_EDIT, TOOL_RESIZE, TOOL_SETTINGS};
+    static final int[] DEFAULT_TOOLBAR = {TOOL_EMOJI, TOOL_CLIPBOARD, TOOL_HAND, TOOL_EDIT, TOOL_SETTINGS};   // cinco: caben en un telefono junto al "..."
 
     static final class Key {
         final String output;
@@ -320,6 +327,7 @@ public final class AurebeshKeyboardView extends View {
         buildLayouts();
         current = letters;
         applyTheme();
+        setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_YES);   // nodos virtuales para el lector de pantalla
     }
 
     void setListener(Listener l) { listener = l; }
@@ -376,7 +384,7 @@ public final class AurebeshKeyboardView extends View {
     private int hapticsLevel = 0;
 
     /** Margen inferior bajo la ultima fila, en px; con >= 24 dp se dibuja ahi el boton ∨ de ocultar. */
-    void setBottomPad(float px) { if (bottomPad != px) { bottomPad = px; requestLayout(); invalidate(); } }
+    void setBottomPad(float px) { if (bottomPad != px) { bottomPad = px; requestLayout(); invalidate(); a11yChanged(); } }
     private float bottomPad = 0f;
 
     /** Fraccion del ancho de cada mitad del teclado dividido (0,33 / 0,375 / 0,42). */
@@ -406,6 +414,7 @@ public final class AurebeshKeyboardView extends View {
         resetGlide(true);
         requestLayout();
         invalidate();
+        a11yChanged();
     }
 
     boolean isNumpad() { return current == numpad && !numpad.isEmpty(); }
@@ -594,6 +603,7 @@ public final class AurebeshKeyboardView extends View {
     void setToolbarItems(int[] ids) {
         toolbarItems = ids == null ? null : ids.clone();
         invalidate();
+        a11yChanged();
     }
 
     /** Cinta actual (copia): el orden elegido o DEFAULT_TOOLBAR, sin filtrar y sin el "..." final. */
@@ -648,6 +658,7 @@ public final class AurebeshKeyboardView extends View {
         current = symbols;
         requestLayout();
         invalidate();
+        a11yChanged();
     }
 
     private void applyTheme() {
@@ -660,7 +671,7 @@ public final class AurebeshKeyboardView extends View {
         strokePaint.setColor(theme.keyStroke);
     }
 
-    void setEnterAction(int action) { enterAction = action; invalidate(); }
+    void setEnterAction(int action) { enterAction = action; invalidate(); a11yChanged(); }
 
     /** Distribucion por idioma ("es", "en" o "de"); reconstruye las teclas si cambia. */
     void setLanguage(String lang) {
@@ -691,9 +702,10 @@ public final class AurebeshKeyboardView extends View {
     void setSuggestions(List<String> words, String highlight) {
         suggestions.clear();
         if (words != null) suggestions.addAll(words);
-        if (suggestions.isEmpty()) toolsOverChips = false;
+        if (suggestions.isEmpty() && !hasPasteSuggestion()) toolsOverChips = false;
         highlighted = highlight;
         invalidate();
+        a11yChanged();
     }
 
     /** Chip "Pegar" con lo recien copiado (miniatura o fragmento de texto); null lo quita. */
@@ -701,7 +713,9 @@ public final class AurebeshKeyboardView extends View {
         pasteThumb = thumb;
         pasteLabel = label;
         if (action != null) pasteAction = action;
+        if (!hasPasteSuggestion() && suggestions.isEmpty()) toolsOverChips = false;
         invalidate();
+        a11yChanged();
     }
 
     boolean hasPasteSuggestion() { return pasteThumb != null || pasteLabel != null; }
@@ -712,6 +726,7 @@ public final class AurebeshKeyboardView extends View {
         toolbar = on;
         requestLayout();
         invalidate();
+        a11yChanged();
     }
 
     /** Teclado dividido en dos mitades (Galaxy Fold desplegado): 0 automatico, 1 siempre, 2 nunca. */
@@ -745,6 +760,7 @@ public final class AurebeshKeyboardView extends View {
         if (updateSplit()) return;
         requestLayout();
         invalidate();
+        a11yChanged();
     }
 
     /** Reconstruye todas las distribuciones (idioma, fila de numeros, globo, dividido, campo) conservando la pagina actual. */
@@ -762,11 +778,13 @@ public final class AurebeshKeyboardView extends View {
         closePopup();
         requestLayout();
         invalidate();
+        a11yChanged();
     }
 
     void setSpaceLabel(String label) {
         spaceLabel = label;
         invalidate();
+        a11yChanged();
     }
 
     void setStripText(CharSequence text) {
@@ -781,12 +799,15 @@ public final class AurebeshKeyboardView extends View {
         shift = false;
         requestLayout();
         invalidate();
+        a11yChanged();
     }
 
     void setAutoShift(boolean on) {
         if (capsLock || shiftPointer >= 0) return;     // con mayusculas sostenida manda el dedo, no el texto
+        boolean was = shift;
         if (on) { shift = true; autoShifted = true; }
         else if (autoShifted) { shift = false; autoShifted = false; }
+        if (shift != was) a11yChanged();              // las letras cambian de caja para el lector de pantalla
         invalidate();
     }
 
@@ -1304,6 +1325,15 @@ public final class AurebeshKeyboardView extends View {
         else if (glideState == GLIDE_NONE) strokeN = 0;              // ya se desvanecio del todo
     }
 
+    /** True si dos colores apenas se distinguen (diferencia de luminancia pequena): la tinta no se veria sobre ese fondo. */
+    private static boolean lowContrast(int a, int b) {
+        return Math.abs(luma(a) - luma(b)) < 0.25f;
+    }
+
+    private static float luma(int argb) {
+        return (0.299f * ((argb >> 16) & 0xFF) + 0.587f * ((argb >> 8) & 0xFF) + 0.114f * (argb & 0xFF)) / 255f;
+    }
+
     private void drawKeyFace(Canvas c, Key k, RectF r, boolean digitRow) {
         float cx = r.centerX();
         float cy = r.centerY();
@@ -1312,7 +1342,10 @@ public final class AurebeshKeyboardView extends View {
                 if (k.glyph != null) {
                     float h = r.height() * (digitRow ? 0.44f : current == numpad ? 0.58f : 0.50f);   // numerico: digitos grandes
                     if (theme.glow != 0) Glyphs.drawCentered(c, k.glyph, cx, cy, h, r.width() * 0.74f, glowPaint);
+                    boolean dimInk = digitRow && lowContrast(theme.glyph, theme.bg);   // franja sin tecla sobre un fondo del color de la tinta (tema Contraste)
+                    if (dimInk) glyphPaint.setColor(theme.keyBg);
                     Glyphs.drawCentered(c, k.glyph, cx, cy, h, r.width() * 0.74f, glyphPaint);
+                    if (dimInk) glyphPaint.setColor(theme.glyph);
                     float ha = !k.glyph.equals(k.output) ? 1f : hintAlpha(k.output);   // con acento: la latina siempre, para distinguirlas
                     if (ha > 0f) {
                         int base = hintPaint.getColor();
@@ -1675,11 +1708,12 @@ public final class AurebeshKeyboardView extends View {
         float hw = handWidth(), off = handOffset();            // la cinta acompana a la caja de teclas
         float right = off + hw - 12 * dp;
         boolean chips = !suggestions.isEmpty();
+        boolean compact = chips || hasPasteSuggestion();     // con chips o con "Pegar" la cinta se pliega a "..."
         moreRect.setEmpty();
         pasteRect.setEmpty();
         aiRect.setEmpty();
         stripLeft = toolbar ? drawAiButton(c) : off + 12 * dp;
-        if (toolbar && (!chips || toolsOverChips)) right = drawToolbar(c);
+        if (toolbar && (!compact || toolsOverChips)) right = drawToolbar(c);
         else if (toolbar) right = drawMore(c);
         if (chips) {
             drawSuggestions(c, h, top, right);
@@ -2119,6 +2153,7 @@ public final class AurebeshKeyboardView extends View {
                         feedback(special("", CODE_SPACE, 1f));
                         toolsOverChips = true;
                         invalidate();
+                        a11yChanged();
                         return true;
                     }
                     for (int i = 0; i < suggestionRects.size(); i++) {
@@ -2676,6 +2711,8 @@ public final class AurebeshKeyboardView extends View {
 
     private void release(Key k) {
         if (listener == null) return;
+        boolean upper = shiftActive();
+        List<List<Key>> page = current;
         switch (k.code) {
             case CODE_TEXT: {
                 String out = shiftActive() && (current == letters || current == symbols3) ? k.output.toUpperCase() : k.output;
@@ -2706,6 +2743,7 @@ public final class AurebeshKeyboardView extends View {
                 requestLayout();
                 break;
         }
+        if (upper != shiftActive() || page != current) a11yChanged();   // otra pagina u otra caja: el lector relee los nodos
         invalidate();
     }
 
@@ -2815,6 +2853,387 @@ public final class AurebeshKeyboardView extends View {
         }
     }
 
+    // ------------------------------------------------------------------ accesibilidad (lector de pantalla)
+
+    /**
+     * Ids de los nodos virtuales que ve el lector de pantalla. Las teclas llevan fila * 100 + columna dentro de
+     * {@code current} (estables mientras no cambie la pagina); el resto son fijos (inteligencia, pegar, "...",
+     * cambiar de lado, ocultar) o por bloques: A11Y_TOOL + id TOOL_* del icono y A11Y_SUGGESTION + indice del chip.
+     */
+    static final int A11Y_NONE = Integer.MIN_VALUE;
+    static final int A11Y_AI = 10000, A11Y_PASTE = 10001, A11Y_MORE = 10002, A11Y_SIDE = 10003, A11Y_HIDE = 10004;
+    static final int A11Y_TOOL = 20000;
+    static final int A11Y_SUGGESTION = 30000;
+    private static final int A11Y_KEY_ROW = 100;
+    private static final String A11Y_CLASS = "android.widget.Button";
+    private A11yProvider a11yProvider;
+    private AccessibilityManager a11yManager;
+    private int a11yHovered = A11Y_NONE;        // nodo bajo el dedo en la exploracion tactil
+    private int a11yFocused = A11Y_NONE;        // nodo con el foco de accesibilidad
+    private final Rect a11yRect = new Rect();
+
+    /** Nodos virtuales para TalkBack: cada tecla, boton de la cinta y sugerencia es un boton con su nombre. */
+    @Override
+    public AccessibilityNodeProvider getAccessibilityNodeProvider() {
+        if (a11yProvider == null) a11yProvider = new A11yProvider();
+        return a11yProvider;
+    }
+
+    private AccessibilityManager accessibilityManager() {
+        if (a11yManager == null) a11yManager = (AccessibilityManager) getContext().getSystemService(Context.ACCESSIBILITY_SERVICE);
+        return a11yManager;
+    }
+
+    /** Hay lector de pantalla con exploracion tactil: el dedo que pasa por encima (hover) va a los nodos. */
+    private boolean touchExploring() {
+        AccessibilityManager am = accessibilityManager();
+        return am != null && am.isEnabled() && am.isTouchExplorationEnabled();
+    }
+
+    /**
+     * Exploracion tactil (TalkBack): el hover se traduce al nodo bajo el dedo y se anuncia al entrar y salir de
+     * cada uno; sin lector de pantalla sigue el comportamiento normal de la vista.
+     */
+    @Override
+    public boolean dispatchHoverEvent(MotionEvent e) {
+        if (touchExploring()) {
+            switch (e.getActionMasked()) {
+                case MotionEvent.ACTION_HOVER_ENTER:
+                case MotionEvent.ACTION_HOVER_MOVE: {
+                    int id = a11yIdAt(e.getX(), e.getY());
+                    setA11yHovered(id);
+                    if (id != A11Y_NONE) return true;
+                    break;
+                }
+                case MotionEvent.ACTION_HOVER_EXIT:
+                    if (a11yHovered != A11Y_NONE) { setA11yHovered(A11Y_NONE); return true; }
+                    break;
+            }
+        }
+        return super.dispatchHoverEvent(e);
+    }
+
+    private void setA11yHovered(int id) {
+        if (a11yHovered == id) return;
+        int was = a11yHovered;
+        a11yHovered = id;
+        sendA11yEvent(id, AccessibilityEvent.TYPE_VIEW_HOVER_ENTER);
+        sendA11yEvent(was, AccessibilityEvent.TYPE_VIEW_HOVER_EXIT);
+    }
+
+    /** Nodo bajo el dedo en la exploracion tactil (para pruebas); A11Y_NONE si ninguno. */
+    int a11yHovered() { return a11yHovered; }
+
+    /** Nodo con el foco de accesibilidad (para pruebas); A11Y_NONE si ninguno. */
+    int a11yFocused() { return a11yFocused; }
+
+    /**
+     * Nodo virtual bajo el punto (A11Y_NONE si ninguno), con las mismas zonas que el toque: la cinta por
+     * encima de las teclas y, debajo, ocultar, cambiar de lado y las teclas con la tolerancia de {@link #findKey}
+     * (20 dp alrededor, el margen lateral entero), de modo que en la clase compacta (filas de 34 dp y digitos de
+     * 28 dp) ninguna tecla baja de los 48 dp efectivos tampoco al explorar con el dedo.
+     */
+    int a11yIdAt(float x, float y) {
+        if (resizeMode) return A11Y_NONE;
+        if (y < stripHeight()) {
+            if (!aiRect.isEmpty() && aiRect.contains(x, y)) return A11Y_AI;
+            if (!pasteRect.isEmpty() && pasteRect.contains(x, y)) return A11Y_PASTE;
+            if (!moreRect.isEmpty() && moreRect.contains(x, y)) return A11Y_MORE;
+            for (int i = 0; i < suggestionRects.size(); i++) if (suggestionRects.get(i).contains(x, y)) return A11Y_SUGGESTION + i;
+            for (int i = 0; i < toolRects.length; i++) if (!toolRects[i].isEmpty() && toolRects[i].contains(x, y)) return A11Y_TOOL + toolRectIds[i];
+            return A11Y_NONE;
+        }
+        if (!hideRect.isEmpty() && hideRect.contains(x, y)) return A11Y_HIDE;
+        if (!sideRect.isEmpty() && sideRect.contains(x, y)) return A11Y_SIDE;
+        return a11yIdOf(findKey(x, y));
+    }
+
+    /** Id del nodo de una tecla del teclado actual (fila * 100 + columna); A11Y_NONE si no esta o es un hueco. */
+    int a11yIdOf(Key k) {
+        if (k == null || k.code == CODE_GAP) return A11Y_NONE;
+        for (int r = 0; r < current.size(); r++) {
+            int c = current.get(r).indexOf(k);
+            if (c >= 0) return r * A11Y_KEY_ROW + c;
+        }
+        return A11Y_NONE;
+    }
+
+    /** Tecla de un id de nodo; null si el id no es de tecla, no existe ahora, es un hueco o aun no se coloco. */
+    private Key a11yKey(int id) {
+        if (id < 0 || id >= A11Y_AI) return null;
+        int r = id / A11Y_KEY_ROW, c = id % A11Y_KEY_ROW;
+        if (r >= current.size() || c >= current.get(r).size()) return null;
+        Key k = current.get(r).get(c);
+        return k.code == CODE_GAP || k.rect.isEmpty() ? null : k;
+    }
+
+    /** Zona (en la vista) de un nodo virtual tal y como se dibujo; null si ahora no existe. */
+    private RectF a11yRectOf(int id) {
+        if (id >= A11Y_SUGGESTION) {
+            int i = id - A11Y_SUGGESTION;
+            return i < suggestionRects.size() ? suggestionRects.get(i) : null;
+        }
+        if (id >= A11Y_TOOL) {
+            int tool = id - A11Y_TOOL;
+            for (int i = 0; i < toolRects.length; i++) if (!toolRects[i].isEmpty() && toolRectIds[i] == tool) return toolRects[i];
+            return null;
+        }
+        RectF r = id == A11Y_AI ? aiRect : id == A11Y_PASTE ? pasteRect : id == A11Y_MORE ? moreRect
+                : id == A11Y_SIDE ? sideRect : id == A11Y_HIDE ? hideRect : null;
+        if (r != null) return r.isEmpty() ? null : r;
+        Key k = a11yKey(id);
+        return k == null ? null : k.rect;
+    }
+
+    /** Lo que lee el lector de pantalla por cada nodo, en el idioma de la app; null si el nodo no existe. */
+    private String a11yDescription(int id) {
+        Context ctx = getContext();
+        if (id >= A11Y_SUGGESTION) {
+            int i = id - A11Y_SUGGESTION;
+            if (i >= suggestionWords.size()) return null;
+            String w = suggestionWords.get(i);
+            return highlighted != null && highlighted.equals(w) ? ctx.getString(R.string.a11y_suggestion_auto, w) : w;
+        }
+        if (id >= A11Y_TOOL) return toolName(id - A11Y_TOOL);
+        switch (id) {
+            case A11Y_AI: return ctx.getString(R.string.tools_label_ai);
+            case A11Y_PASTE:
+                if (pasteLabel != null && !pasteLabel.isEmpty()) return pasteAction + ", " + pasteLabel.replace('\n', ' ');
+                return pasteThumb != null ? ctx.getString(R.string.a11y_paste_image) : pasteAction;
+            case A11Y_MORE: return ctx.getString(R.string.a11y_tool_more);
+            case A11Y_SIDE: return ctx.getString(handMode == 2 ? R.string.a11y_side_left : R.string.a11y_side_right);
+            case A11Y_HIDE: return ctx.getString(R.string.tools_label_hide);
+        }
+        Key k = a11yKey(id);
+        return k == null ? null : keyDescription(k);
+    }
+
+    /** Nombre de una herramienta de la cinta (el mismo que en la cuadricula "..."), con ", activado" si esta en marcha. */
+    private String toolName(int tool) {
+        Context ctx = getContext();
+        if (tool == TOOL_MORE) return ctx.getString(R.string.a11y_tool_more);
+        int res = ToolsTray.labelOf(tool);
+        String name = res != 0 ? ctx.getString(res) : String.valueOf(tool);
+        boolean active = (tool == TOOL_HAND && handMode != 0) || (tool == TOOL_SPLIT && split) || (tool == TOOL_STRIP && showStrip);
+        return active ? ctx.getString(R.string.a11y_tool_active, name) : name;
+    }
+
+    /**
+     * Nombre de una tecla: la letra latina (en mayuscula segun mayusculas, como lo que escribe), "Espacio" con el
+     * idioma si se muestra, "Borrar", "Mayusculas" con su estado, la accion de intro, "Simbolos"/"Letras", la
+     * pagina de signos o "Siguiente idioma".
+     */
+    private String keyDescription(Key k) {
+        Context ctx = getContext();
+        switch (k.code) {
+            case CODE_TEXT: {
+                String s = k.label != null && !k.label.isEmpty() ? k.label : k.output;   // la pausa del telefono se llama "Pausa"
+                return shiftActive() && (current == letters || current == symbols3) ? s.toUpperCase() : s;
+            }
+            case CODE_SPACE: {
+                String s = ctx.getString(R.string.a11y_space);
+                return spaceLabel != null ? s + ", " + spaceLabel : s;
+            }
+            case CODE_DELETE: return ctx.getString(R.string.a11y_delete);
+            case CODE_SHIFT: return ctx.getString(capsLock ? R.string.a11y_shift_lock : shift ? R.string.a11y_shift_on : R.string.a11y_shift);
+            case CODE_ENTER:
+                switch (enterAction) {
+                    case 1: return ctx.getString(R.string.a11y_enter_search);
+                    case 2: return ctx.getString(R.string.a11y_enter_send);
+                    case 3: return ctx.getString(R.string.a11y_enter_next);
+                    case 4: return ctx.getString(R.string.a11y_enter_done);
+                    default: return ctx.getString(R.string.a11y_enter);
+                }
+            case CODE_MODE: return ctx.getString(current == letters ? R.string.a11y_symbols : R.string.a11y_letters);
+            case CODE_PAGE: return ctx.getString(R.string.a11y_page, k.label);
+            case CODE_GLOBE: return ctx.getString(R.string.a11y_globe);
+            default: return k.label;
+        }
+    }
+
+    /** Nodo raiz: la vista con todos sus hijos en orden de lectura (cinta, teclas fila a fila, lado y ocultar). */
+    private AccessibilityNodeInfo a11yHostNode() {
+        AccessibilityNodeInfo node = AccessibilityNodeInfo.obtain(this);
+        onInitializeAccessibilityNodeInfo(node);
+        if (!aiRect.isEmpty()) node.addChild(this, A11Y_AI);
+        if (!pasteRect.isEmpty()) node.addChild(this, A11Y_PASTE);
+        for (int i = 0; i < suggestionRects.size(); i++) node.addChild(this, A11Y_SUGGESTION + i);
+        for (int i = 0; i < toolRects.length; i++) if (!toolRects[i].isEmpty()) node.addChild(this, A11Y_TOOL + toolRectIds[i]);
+        if (!moreRect.isEmpty()) node.addChild(this, A11Y_MORE);
+        for (int r = 0; r < current.size(); r++) {
+            List<Key> row = current.get(r);
+            for (int c = 0; c < row.size(); c++) {
+                Key k = row.get(c);
+                if (k.code != CODE_GAP && !k.rect.isEmpty()) node.addChild(this, r * A11Y_KEY_ROW + c);
+            }
+        }
+        if (!sideRect.isEmpty()) node.addChild(this, A11Y_SIDE);
+        if (!hideRect.isEmpty()) node.addChild(this, A11Y_HIDE);
+        return node;
+    }
+
+    /** Nodo virtual: un boton con su nombre, su zona en la vista y en pantalla, y la accion de clic. */
+    private AccessibilityNodeInfo a11yNode(int id) {
+        RectF r = a11yRectOf(id);
+        String desc = a11yDescription(id);
+        if (r == null || desc == null) return null;
+        AccessibilityNodeInfo node = AccessibilityNodeInfo.obtain();
+        node.setPackageName(getContext().getPackageName());
+        node.setClassName(A11Y_CLASS);
+        node.setSource(this, id);
+        node.setParent(this);
+        node.setContentDescription(desc);
+        node.setEnabled(true);
+        node.setClickable(true);
+        node.setFocusable(true);
+        node.setVisibleToUser(true);
+        node.setImportantForAccessibility(true);
+        r.round(a11yRect);
+        node.setBoundsInParent(a11yRect);
+        getLocationOnScreen(screenLoc);
+        a11yRect.offset(screenLoc[0], screenLoc[1]);
+        node.setBoundsInScreen(a11yRect);
+        node.addAction(AccessibilityNodeInfo.ACTION_CLICK);
+        boolean focused = id == a11yFocused;
+        node.setAccessibilityFocused(focused);
+        node.addAction(focused ? AccessibilityNodeInfo.ACTION_CLEAR_ACCESSIBILITY_FOCUS : AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS);
+        Key k = a11yKey(id);
+        if (k != null && k.code == CODE_SHIFT) {
+            node.setCheckable(true);
+            node.setChecked(shift || capsLock);
+        }
+        return node;
+    }
+
+    /** Acciones sobre un nodo virtual: foco de accesibilidad y clic (lo mismo que un toque). */
+    private boolean a11yAction(int id, int action) {
+        switch (action) {
+            case AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS:
+                if (a11yFocused == id || a11yRectOf(id) == null) return false;
+                a11yFocused = id;
+                sendA11yEvent(id, AccessibilityEvent.TYPE_VIEW_ACCESSIBILITY_FOCUSED);
+                invalidate();
+                return true;
+            case AccessibilityNodeInfo.ACTION_CLEAR_ACCESSIBILITY_FOCUS:
+                if (a11yFocused != id) return false;
+                a11yFocused = A11Y_NONE;
+                sendA11yEvent(id, AccessibilityEvent.TYPE_VIEW_ACCESSIBILITY_FOCUS_CLEARED);
+                invalidate();
+                return true;
+            case AccessibilityNodeInfo.ACTION_CLICK:
+                if (!a11yClick(id)) return false;
+                sendA11yEvent(id, AccessibilityEvent.TYPE_VIEW_CLICKED);
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * Clic por accesibilidad: exactamente lo que hace un toque en esa zona (inteligencia, pegar, "...", sugerencia,
+     * icono de la cinta, cambiar de lado, ocultar o tecla, borrar incluido), con su misma respuesta sonora y haptica.
+     */
+    private boolean a11yClick(int id) {
+        if (resizeMode || a11yRectOf(id) == null) return false;
+        Key button = special("", CODE_SPACE, 1f);            // respuesta de los botones de la cinta, como al tocarlos
+        if (id >= A11Y_SUGGESTION) {
+            if (listener == null) return false;
+            feedback(button);
+            listener.onSuggestion(suggestionWords.get(id - A11Y_SUGGESTION));
+            return true;
+        }
+        if (id >= A11Y_TOOL) {
+            int tool = id - A11Y_TOOL;
+            feedback(button);
+            if (listener != null) listener.onToolbar(tool);
+            if (tool == TOOL_RESIZE && !resizeMode) setResizeMode(true);
+            return true;
+        }
+        switch (id) {
+            case A11Y_AI:
+                if (listener == null) return false;
+                feedback(button);
+                listener.onToolbar(TOOL_AI);
+                return true;
+            case A11Y_PASTE:
+                if (listener == null) return false;
+                feedback(button);
+                listener.onPasteSuggestion();
+                return true;
+            case A11Y_MORE:
+                feedback(button);
+                toolsOverChips = true;
+                invalidate();
+                a11yChanged();
+                return true;
+            case A11Y_SIDE:
+                if (listener == null) return false;
+                feedback(button);
+                listener.onHandSide(handMode == 2 ? 1 : 2);
+                return true;
+            case A11Y_HIDE:
+                if (listener == null) return false;
+                feedback(button);
+                listener.onHide();
+                return true;
+        }
+        Key k = a11yKey(id);
+        if (k == null) return false;
+        feedback(k);
+        if (k.code == CODE_DELETE) { if (listener != null) listener.onDelete(); }
+        else release(k);
+        invalidate();
+        return true;
+    }
+
+    /** Evento de accesibilidad sobre un nodo virtual (hover, foco, clic); nada sin lector de pantalla o sin ventana. */
+    private void sendA11yEvent(int id, int type) {
+        if (id == A11Y_NONE) return;
+        AccessibilityManager am = accessibilityManager();
+        ViewParent parent = getParent();
+        if (am == null || !am.isEnabled() || parent == null) return;
+        AccessibilityEvent ev = AccessibilityEvent.obtain(type);
+        ev.setPackageName(getContext().getPackageName());
+        ev.setClassName(A11Y_CLASS);
+        ev.setEnabled(true);
+        ev.setSource(this, id);
+        String desc = a11yDescription(id);
+        if (desc != null) ev.setContentDescription(desc);
+        parent.requestSendAccessibilityEvent(this, ev);
+    }
+
+    /**
+     * Los nodos virtuales cambiaron (otra pagina, otras sugerencias, otro idioma, otra cinta, mayusculas): se
+     * avisa al lector de pantalla con WINDOW_CONTENT_CHANGED para que los vuelva a leer. Sin lector no cuesta nada.
+     */
+    private void a11yChanged() {
+        AccessibilityManager am = accessibilityManager();
+        if (am == null || !am.isEnabled() || getParent() == null) return;
+        AccessibilityEvent ev = AccessibilityEvent.obtain(AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED);
+        ev.setContentChangeTypes(AccessibilityEvent.CONTENT_CHANGE_TYPE_SUBTREE);
+        sendAccessibilityEventUnchecked(ev);
+    }
+
+    /** Proveedor de nodos del framework (sin androidx): la raiz es la vista y cada zona tocable es un hijo virtual. */
+    private final class A11yProvider extends AccessibilityNodeProvider {
+        @Override
+        public AccessibilityNodeInfo createAccessibilityNodeInfo(int virtualViewId) {
+            return virtualViewId == HOST_VIEW_ID ? a11yHostNode() : a11yNode(virtualViewId);
+        }
+
+        @Override
+        public boolean performAction(int virtualViewId, int action, Bundle arguments) {
+            if (virtualViewId == HOST_VIEW_ID) return performAccessibilityAction(action, arguments);
+            return a11yAction(virtualViewId, action);
+        }
+
+        @Override
+        public AccessibilityNodeInfo findFocus(int focus) {
+            if (focus == AccessibilityNodeInfo.FOCUS_ACCESSIBILITY && a11yFocused != A11Y_NONE) return a11yNode(a11yFocused);
+            return null;
+        }
+    }
+
     @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
@@ -2827,5 +3246,7 @@ public final class AurebeshKeyboardView extends View {
         shiftPointer = -1;
         shiftHeldTyped = false;
         spaceDragged = false;
+        a11yHovered = A11Y_NONE;
+        a11yFocused = A11Y_NONE;
     }
 }

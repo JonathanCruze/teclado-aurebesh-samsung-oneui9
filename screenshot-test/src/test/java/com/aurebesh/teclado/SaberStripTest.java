@@ -174,7 +174,7 @@ public class SaberStripTest {
         check(red(c) > green(c) + 30 && red(c) > blue(c) + 30, "hoja roja tras setSaber: " + Integer.toHexString(c));
         // Al soltar la estela se desvanece sola: pasado TRAIL_MS no queda nada (ni destello)
         event(kb, MotionEvent.ACTION_UP, x1, y, base, base + (steps + 1) * 16L);
-        idle(AurebeshKeyboardView.TRAIL_MS + 200);
+        idle(AurebeshKeyboardView.TRAIL_MS + (steps + 1) * 16L + 200);     // el destello se apaga TRAIL_MS tras el ultimo punto
         Bitmap after = snapshot(kb, W);
         check(pixel(after, (x0 + x1) / 2f, y + 2 * dp) == pixel(before, (x0 + x1) / 2f, y + 2 * dp), "la hoja se desvanecio");
         check(pixel(after, x1, y) == pixel(before, x1, y), "el destello se apago");
@@ -196,7 +196,7 @@ public class SaberStripTest {
         Recorder rec = new Recorder();
         kb.setListener(rec);
         kb.setSuggestionBar(true);
-        kb.setSuggestions(Arrays.asList("\"fuersa\"", "fuerza", "fuera"), "fuerza");
+        kb.setSuggestions(Arrays.asList("\"ola\"", "hola", "sola"), "hola");         // cortas: caben las tres a partes iguales
         Bitmap b = render(kb, W);
         save(b, "sugerencias_banda.png");
         List<RectF> cells = kb.suggestionRects();
@@ -227,11 +227,11 @@ public class SaberStripTest {
         tap(kb, cells.get(0).centerX(), band.centerY());
         tap(kb, cells.get(1).left + 2 * dp, band.centerY());
         tap(kb, cells.get(2).right - 2 * dp, band.bottom - 2 * dp);
-        check(rec.events.toString(), "[sug:\"fuersa\", sug:fuerza, sug:fuera]", "toques en las celdas");
+        check(rec.events.toString(), "[sug:\"ola\", sug:hola, sug:sola]", "toques en las celdas");
         rec.reset();
 
         // Con emojis: tambien contiguas y cerrando la banda; los emojis conservan su tamano (celda no mas estrecha que la palabra corta)
-        kb.setSuggestions(Arrays.asList("perro", "perros", "🐶", "🐕"), null);
+        kb.setSuggestions(Arrays.asList("sol", "sal", "🐶", "🐕"), null);        // palabras cortas: caben las cuatro con los emojis a 19 sp
         b = render(kb, W);
         save(b, "sugerencias_banda_emoji.png");
         cells = kb.suggestionRects();
@@ -311,8 +311,8 @@ public class SaberStripTest {
         tap(narrow, 720 - 72 * dp, 20 * dp);
         tap(narrow, 720 - 116 * dp, 20 * dp);
         tap(narrow, 720 - 160 * dp, 20 * dp);
-        tap(narrow, 720 - 204 * dp, 20 * dp);          // ya no hay icono: ni siquiera la inteligencia (que esta a 6-50 dp)
-        check(rec.typed.toString(), "<tool14><tool4><tool2><tool1>", "cinta estrecha: " + rec.typed);   // de derecha a izquierda
+        tap(narrow, 720 - 204 * dp, 20 * dp);          // 240 dp de ancho: 36 dp desde el borde es el boton de inteligencia (6-50 dp)
+        check(rec.typed.toString(), "<tool14><tool4><tool2><tool1><tool5>", "cinta estrecha: " + rec.typed);   // de derecha a izquierda
         rec.reset();
 
         // Con sugerencias, "..." sigue mostrando los iconos sobre los chips; el ultimo de estos es el "..." de la cuadricula

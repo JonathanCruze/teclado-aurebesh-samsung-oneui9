@@ -205,13 +205,13 @@ public class ScreenshotTest {
         kb.setSuggestions(null, null);
         kb.setSuggestionBar(false);
 
-        // Barra de herramientas: emojis y portapapeles a la derecha; en ?123 aparece ademas el engrane
+        // Barra de herramientas: de fabrica emojis, portapapeles, una mano, edicion, tamano y, siempre al final, "..."
         render(kb);
         typed.setLength(0);
-        tap(kb, W - 116 * dp, 20 * dp);
-        tap(kb, W - 72 * dp, 20 * dp);
+        tap(kb, W - 248 * dp, 20 * dp);
+        tap(kb, W - 204 * dp, 20 * dp);
         tap(kb, W - 28 * dp, 20 * dp);
-        if (!typed.toString().equals("<tool1><tool2><tool4>")) throw new AssertionError("barra: " + typed);
+        if (!typed.toString().equals("<tool1><tool2><tool14>")) throw new AssertionError("barra: " + typed);
         typed.setLength(0);
         // La cinta no lleva el margen de las teclas: a 8 dp del borde (dentro del margen de las teclas) aun se
         // tocan el boton de inteligencia y el icono de una mano
@@ -219,13 +219,13 @@ public class ScreenshotTest {
         if (!(8 * dp < km0)) throw new AssertionError("margen de teclas menor que 8 dp: " + km0);
         tap(kb, 8 * dp, 20 * dp);
         tap(kb, W - 8 * dp, 20 * dp);
-        if (!typed.toString().equals("<tool5><tool4>")) throw new AssertionError("cinta al borde: " + typed);
+        if (!typed.toString().equals("<tool5><tool14>")) throw new AssertionError("cinta al borde: " + typed);   // ✦ y "..." en los bordes
         typed.setLength(0);
         float modeY = kb.getMeasuredHeight() - 30 * dp;
         tap(kb, 30 * dp, modeY);                       // ?123
         render(kb);
         save(render(kb), "simbolos_engrane.png");
-        tap(kb, W - 28 * dp, 20 * dp);
+        tap(kb, W - 72 * dp, 20 * dp);                 // el engrane va justo antes del "..." (ultimo icono de la cinta)
         if (!typed.toString().equals("<tool3>")) throw new AssertionError("engrane: " + typed);
         typed.setLength(0);
         // Signos como en Samsung Keyboard: , ; : ? en la cuarta fila y . en la fila inferior; 1/2 abre la segunda pagina
@@ -344,7 +344,7 @@ public class ScreenshotTest {
         typed.setLength(0);
         tap(kb, W - 28 * dp, 20 * dp);                 // "..." -> aparecen los iconos
         render(kb);
-        tap(kb, W - 116 * dp, 20 * dp);
+        tap(kb, W - 248 * dp, 20 * dp);                // emojis: el primero de la cinta de fabrica
         if (!typed.toString().equals("<tool1>")) throw new AssertionError("mas: " + typed);
         typed.setLength(0);
         kb.setSuggestions(null, null);
@@ -374,6 +374,7 @@ public class ScreenshotTest {
             public void onTrayRemove(ClipHistory.Entry entry) {}
             public void onTrayClear() {}
             public void onTrayClose() {}
+            public void onTrayPin(ClipHistory.Entry entry, boolean pinned) {}
         });
         File clipsDir = new File(app.getFilesDir(), ClipHistory.DIR);
         clipsDir.mkdirs();

@@ -467,7 +467,7 @@ public class GestureTest {
         // La cinta acompana a la caja: el icono de una mano al borde derecho y la inteligencia al principio de la caja
         tap(kb, wide - 28 * dp, 20 * dp);
         tap(kb, wide - 400 * dp + 28 * dp, 20 * dp);
-        check(rec.typed.toString(), "<tool4><tool5>", "cinta sobre la caja: " + rec.typed);
+        check(rec.typed.toString(), "<tool" + AurebeshKeyboardView.TOOL_MORE + "><tool5>", "cinta sobre la caja: " + rec.typed);   // "..." al borde, inteligencia al principio
         rec.reset();
         kb.setHandMode(1);
         layout(kb, wide);
@@ -503,8 +503,8 @@ public class GestureTest {
         tap(kb, kb.keyFor(","));
         check(rec.typed.toString(), "5#,", "teclear en el numerico");
         rec.reset();
-        tap(kb, W - 28 * dp, 20 * dp);                 // la cinta es la de ?123: el ultimo icono es ajustes
-        check(rec.typed.toString(), "<tool3>", "cinta del numerico: " + rec.typed);
+        tap(kb, W - 28 * dp, 20 * dp);                 // la cinta: el ultimo icono es siempre "..." (cuadricula)
+        check(rec.typed.toString(), "<tool" + AurebeshKeyboardView.TOOL_MORE + ">", "cinta del numerico: " + rec.typed);
         rec.reset();
 
         // Decimal con signo: separador del idioma (coma en espanol), − y +, sin * ni #; intro alto

@@ -65,7 +65,7 @@
 <body>
 <div class="wrap">
   <header>
-    <div class="brand">Teclado Aurebesh · 1.10</div>
+    <div class="brand">Teclado Aurebesh · 2.0</div>
     <div class="lang" role="group" aria-label="Idioma / Language">
       <button type="button" id="btn-es" aria-pressed="true" onclick="setLang('es')">Español</button>
       <button type="button" id="btn-en" aria-pressed="false" onclick="setLang('en')">English</button>
@@ -80,7 +80,7 @@
         <p>Las teclas muestran glifos Aurebesh y lo que escribes se envía en letras normales, así cualquiera puede leerlo.
            Autocorrector, deslizar para escribir, emojis con búsqueda, portapapeles con imágenes, teclado dividido para Fold
            y un panel de inteligencia que funciona sin internet.</p>
-        <a class="btn" href="https://github.com/JonathanCruze/teclado-aurebesh-samsung-oneui9/raw/main/releases/TecladoAurebesh.apk">⬇️ Descargar APK<small>Teclado Aurebesh 1.10 · 1,4 MB · Android 8.0+</small></a>
+        <a class="btn" href="https://github.com/JonathanCruze/teclado-aurebesh-samsung-oneui9/raw/main/releases/TecladoAurebesh.apk">⬇️ Descargar APK<small>Teclado Aurebesh 2.0 · 1,5 MB · Android 8.0+</small></a>
         <p class="meta">Optimizado para Samsung Galaxy con One UI 9.0. Todas las versiones en la
           <a href="https://github.com/JonathanCruze/teclado-aurebesh-samsung-oneui9/releases">página de Releases</a>.</p>
         <ul class="badges">
@@ -111,6 +111,7 @@
         <div class="card"><img src="../screenshots/emojis_busqueda.png" alt="Búsqueda de emojis"><div><h3>Emojis con búsqueda</h3><p>Grupos y subgrupos oficiales de Unicode, recientes y búsqueda tolerante a errores en español e inglés.</p></div></div>
         <div class="card"><img src="../screenshots/portapapeles_estelar.png" alt="Portapapeles"><div><h3>Portapapeles con imágenes</h3><p>Historial de texto e imágenes; pega solo el número, el correo o el enlace con un toque.</p></div></div>
         <div class="card"><img src="../screenshots/ia_acciones.png" alt="Panel de inteligencia"><div><h3>✦ Inteligencia</h3><p>Ortografía, estilo con tonos, resumir, viñetas, tabla y redactor, con un modelo en tu teléfono o tu propio servidor.</p></div></div>
+        <div class="card"><img src="../screenshots/sable_verde.png" alt="Estela de sable de luz"><div><h3>Estela de sable de luz</h3><p>Al deslizar para escribir, una hoja continua con núcleo blanco y halo en seis colores: azul, verde, amarillo, bronce, morado y rojo.</p></div></div>
         <div class="card"><img src="../screenshots/dividido_fold.png" alt="Teclado dividido"><div><h3>Dividido para Galaxy Fold</h3><p>Al desplegar, dos mitades con la misma geometría que Samsung Keyboard (filas escalonadas, dos espacios); se puede desactivar en Ajustes › Diseño (Plegables · Galaxy Z Fold en pantallas anchas).</p></div></div>
         <div class="card"><img src="../screenshots/simbolos_estelar.png" alt="Signos como Samsung"><div><h3>?123 como Samsung Keyboard</h3><p>Misma distribución de signos; la página 2/3 añade dígrafos Aurebesh, ¿ ¡ « » y más símbolos, y la 3/3 todas las letras con acento (à â ä ç ö ô ü ß…).</p></div></div>
         <div class="card"><img src="../promo/out/02_cinco_temas.png" alt="Cinco temas"><div><h3>Cinco temas y tres idiomas</h3><p>Estelar, Noche, Datapad, Imperial y Arena. Español, inglés y alemán (QWERTZ), con deslizar para escribir en todos.</p></div></div>
@@ -120,7 +121,7 @@
     <section>
       <h2>Frente a Samsung Keyboard</h2>
       <table>
-        <tr><th>Función</th><th>Samsung Keyboard</th><th>Teclado Aurebesh 1.10</th></tr>
+        <tr><th>Función</th><th>Samsung Keyboard</th><th>Teclado Aurebesh 2.0</th></tr>
         <tr><td>Galaxy AI / Inteligencia avanzada</td><td>Sí</td><td>Inteligencia local o servidor propio</td></tr>
         <tr><td>Deslizar para escribir</td><td>Sí</td><td>Sí</td></tr>
         <tr><td>Emojis</td><td>Sí</td><td>Sí, con búsqueda y sugerencias</td></tr>
@@ -138,6 +139,8 @@
       <h2>Preguntas frecuentes</h2>
       <details open><summary>¿Recopila datos? ¿Usa internet?</summary><p>No recopila nada: sin analítica, sin registros, sin cuentas. Internet se usa solo para dos cosas que tú inicias: descargar un modelo de inteligencia o hablar con tu propio servidor. El historial del portapapeles, las palabras y pares que aprende, los modelos y el sonido personalizado se quedan en el teléfono y se borran desde Ajustes. La copia de seguridad de Android está desactivada para la app.</p></details>
       <details><summary>¿Cómo funciona la inteligencia sin internet?</summary><p>Un motor escrito en Java puro ejecuta un modelo pequeño de pesos abiertos (por defecto Qwen2.5-0.5B-Instruct, unos 350 MB, licencia Apache-2.0) dentro del teléfono. Se descarga de Hugging Face solo cuando tocas Descargar en Ajustes › Inteligencia, o importas un archivo GGUF. Es lento: unos pocos tokens por segundo, un párrafo puede tardar entre 20 y 60 segundos. Si quieres velocidad, indica un servidor compatible con OpenAI en tu ordenador (Ollama, LM Studio, llama.cpp). La app recomienda un modelo según tu Galaxy y su RAM, y el botón Probar comprueba que funciona y mide la velocidad. Considéralo experimental.</p></details>
+      <details><summary>¿Funciona en la pantalla de cubierta del Galaxy Z Flip?</summary><p>No, y no depende del teclado: One UI reserva la pantalla exterior del Z Flip para Samsung Keyboard y no permite teclados de terceros ahí (tampoco Gboard). No existe ninguna declaración que una app pueda añadir para habilitarlo. En la pantalla interior funciona todo, con filas compactas si la ventana es baja.</p></details>
+      <details><summary>¿Por qué la IA de Samsung va más rápida que la del teclado?</summary><p>Galaxy AI corre en el NPU del teléfono con modelos y API privados de Samsung que un teclado de terceros no puede usar. Aquí el motor es Java puro dentro de la app: en la 2.0 reutiliza la parte fija del prompt (caché de prefijo), usa hasta seis hilos y ofrece un modelo más ligero (SmolLM2 135M), pero sigue siendo más lento. Para velocidad real, apunta a tu propio servidor (Ollama, LM Studio) en tu computadora.</p></details>
       <details><summary>¿Qué modelo elijo para mi Galaxy?</summary><p>Con 12 GB o más (Galaxy S26 Ultra, S26+, S26, S25 Ultra, S25+, S25, Z Fold 8/7/6, Z Flip 8/7/6) cualquiera de la lista; Q8_0 o Qwen3 0.6B si prefieres calidad. Con 8 GB (S24, S23, A56, A55) Qwen2.5 0.5B Q4_0. Con 6 GB o menos (A3x, A2x, A1x) Q4_0 va lento: SmolLM2 360M (solo inglés) o un servidor propio.</p></details>
       <details><summary>¿Solo para Samsung?</summary><p>Se desarrolló y probó en Samsung Galaxy con One UI 9.0. Debería instalarse en cualquier Android 8.0 o superior, pero fuera de ese entorno está sujeto a fallos y la app muestra un aviso.</p></details>
       <details><summary>¿Y Galaxy AI?</summary><p>Galaxy AI es exclusivo de Samsung Keyboard y no se puede integrar en otros teclados. Sigue disponible en el menú de selección de texto de Android mientras usas Teclado Aurebesh. A cambio, el panel ✦ ofrece las mismas acciones con un modelo local o tu servidor.</p></details>
@@ -154,7 +157,7 @@
         <p>The keys show Aurebesh glyphs and what you type is sent as normal letters, so anyone can read it.
            Autocorrect, glide typing, emoji with search, a clipboard with images, a split layout for the Fold
            and an intelligence panel that works offline.</p>
-        <a class="btn" href="https://github.com/JonathanCruze/teclado-aurebesh-samsung-oneui9/raw/main/releases/TecladoAurebesh.apk">⬇️ Download APK<small>Aurebesh Keyboard 1.10 · 1.4 MB · Android 8.0+</small></a>
+        <a class="btn" href="https://github.com/JonathanCruze/teclado-aurebesh-samsung-oneui9/raw/main/releases/TecladoAurebesh.apk">⬇️ Download APK<small>Aurebesh Keyboard 2.0 · 1.5 MB · Android 8.0+</small></a>
         <p class="meta">Optimized for Samsung Galaxy with One UI 9.0. Every version on the
           <a href="https://github.com/JonathanCruze/teclado-aurebesh-samsung-oneui9/releases">Releases page</a>.</p>
         <ul class="badges">
@@ -185,6 +188,7 @@
         <div class="card"><img src="../screenshots/emojis_busqueda.png" alt="Emoji search"><div><h3>Emoji with search</h3><p>Official Unicode groups and subgroups, recents and typo-tolerant search in Spanish and English.</p></div></div>
         <div class="card"><img src="../screenshots/portapapeles_estelar.png" alt="Clipboard"><div><h3>Clipboard with images</h3><p>History of text and images; paste only the number, the email or the link with one tap.</p></div></div>
         <div class="card"><img src="../screenshots/ia_acciones.png" alt="Intelligence panel"><div><h3>✦ Intelligence</h3><p>Spelling, writing style with tones, summary, bullets, table and composer, with a model on your phone or your own server.</p></div></div>
+        <div class="card"><img src="../screenshots/sable_verde.png" alt="Lightsaber trail"><div><h3>Lightsaber trail</h3><p>While glide typing, a continuous blade with a white core and glow in six colors: blue, green, yellow, bronze, purple and red.</p></div></div>
         <div class="card"><img src="../screenshots/dividido_fold.png" alt="Split keyboard"><div><h3>Split for the Galaxy Fold</h3><p>Two halves with a central gap and two space bars when the screen is unfolded; also as an option.</p></div></div>
         <div class="card"><img src="../screenshots/simbolos_estelar.png" alt="Symbols like Samsung"><div><h3>?123 like Samsung Keyboard</h3><p>Same symbol layout; the 2/3 page adds Aurebesh digraphs, ¿ ¡ « » and more symbols, and 3/3 shows every accented letter (à â ä ç ö ô ü ß…).</p></div></div>
         <div class="card"><img src="../promo/out/02_cinco_temas.png" alt="Five themes"><div><h3>Five themes, three languages</h3><p>Stellar, Night, Datapad, Imperial and Sand. Spanish, English and German (QWERTZ), with glide typing in all of them.</p></div></div>
@@ -194,7 +198,7 @@
     <section>
       <h2>Compared with Samsung Keyboard</h2>
       <table>
-        <tr><th>Feature</th><th>Samsung Keyboard</th><th>Aurebesh Keyboard 1.10</th></tr>
+        <tr><th>Feature</th><th>Samsung Keyboard</th><th>Aurebesh Keyboard 2.0</th></tr>
         <tr><td>Galaxy AI / Advanced intelligence</td><td>Yes</td><td>Local intelligence or your own server</td></tr>
         <tr><td>Glide typing</td><td>Yes</td><td>Yes</td></tr>
         <tr><td>Emoji</td><td>Yes</td><td>Yes, with search and suggestions</td></tr>

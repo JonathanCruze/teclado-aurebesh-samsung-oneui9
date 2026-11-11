@@ -26,10 +26,12 @@ import static org.junit.Assert.assertTrue;
 /**
  * Lexico Star Wars del diccionario ({@link Dictionary#setStarWars}): con el lexico activo sus entradas se aceptan
  * como conocidas, se completan y se corrige hacia ellas a una y dos ediciones (curuscant -> coruscant, palatino ->
- * palpatine) en cualquier idioma; {@link Dictionary#canonical} devuelve la caja propia ("Coruscant") salvo para las
- * entradas que son ademas palabras normales del idioma ("fuerza", "orden", "ghost"); las entradas cortas solo
- * cuentan escritas con su caja; desactivado, nada de esto ocurre; y el archivo de palabras no tiene lineas vacias
- * ni repetidas. Todo local, sin red.
+ * palpatine) en cualquier idioma; {@link Dictionary#canonical} devuelve la caja propia ("Coruscant", y tambien
+ * "Anakin" o "Jedi" aunque las listas de frecuencia los traigan) salvo para las entradas que son ademas palabras
+ * normales del idioma ("fuerza", "orden", "ghost", "hunter") o nombres comunes de la saga escritos en minuscula
+ * ("bantha", "lightsaber"); las entradas cortas, y las que en minusculas serian un error evidente de una palabra
+ * frecuente ("hoth" en ingles, "rael", "kamino" en espanol), solo cuentan escritas con su mayuscula; desactivado,
+ * nada de esto ocurre; y el archivo de palabras no tiene lineas vacias ni repetidas. Todo local, sin red.
  */
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 35, qualifiers = "es-rES-w411dp-h914dp-xxhdpi")
@@ -106,6 +108,10 @@ public class StarWarsTest {
         assertEquals("canción", es.suggest("cancion").correction);
         assertNull(es.suggest("hola").correction);
         assertTrue(es.suggest("hol").suggestions.contains("hola"));
+        // con prefijos cortos, las palabras corrientes van por delante de las del lexico
+        assertFalse(es.suggest("man").suggestions.toString(), es.suggest("man").suggestions.toString().contains("mandalor"));
+        assertFalse(es.suggest("mand").suggestions.toString(), es.suggest("mand").suggestions.toString().contains("mandalor"));
+        assertTrue(es.suggest("mandal").suggestions.toString(), es.suggest("mandal").suggestions.contains("mandalorian"));
     }
 
     // ------------------------------------------------------------------ conocidas y completados
@@ -128,6 +134,8 @@ public class StarWarsTest {
         assertTrue(es.suggest("corus").suggestions.toString(), es.suggest("corus").suggestions.contains("coruscant"));
         assertTrue(es.suggest("kyb").suggestions.toString(), es.suggest("kyb").suggestions.contains("kyber"));
         assertTrue(es.suggest("coruz").suggestions.toString(), es.suggest("coruz").suggestions.contains("coruscant"));
+        // correccion de nombres largos a una edicion
+        assertEquals("tatooine", es.suggest("tatuine").correction);
         // en aleman tambien
         Dictionary de = Dictionary.get(app, "de");
         assertTrue(de.suggest("sturmtruppler").known);
@@ -147,12 +155,54 @@ public class StarWarsTest {
         assertNull(en.canonical("ghost"));
         assertNull(en.canonical("wing"));
         assertNull(en.canonical("force"));
+        assertNull("nombre de la saga que es ademas palabra corriente", en.canonical("hunter"));
         assertNull(en.canonical("hola"));                        // ni siquiera es del lexico
         assertNull(en.canonical(null));
         Dictionary de = Dictionary.get(app, "de");
         assertNull(de.canonical("macht"));
         assertNull(de.canonical("imperium"));
+        assertNull(de.canonical("fett"));
+        // el plural regular tampoco vale para una palabra corriente: "echos" no es "Echo" en plural
+        assertFalse(es.suggest("echos").known);
+        assertNotNull(es.suggest("echos").correction);
+        assertFalse(en.suggest("echos").known);
     }
+
+    @Test
+    public void namesInFrequencyListsKeepTheirCase() throws IOException {
+        // las listas de frecuencia salen de subtitulos y traen "anakin", "jedi" o "yoda": siguen siendo nombres
+        for (String l : LANGS) {
+            Dictionary d = Dictionary.get(app, l);
+            assertEquals(l, "Anakin", d.canonical("anakin"));
+            assertEquals(l, "Skywalker", d.canonical("skywalker"));
+            assertEquals(l, "Jedi", d.canonical("jedi"));
+            assertEquals(l, "Yoda", d.canonical("yoda"));
+            assertTrue(l, d.suggest("anakin").known);
+            assertEquals(l, "anakin", d.suggest("anakyn").correction);
+        }
+        Dictionary en = Dictionary.get(app, "en");
+        Dictionary es = Dictionary.get(app, "es");
+        Dictionary de = Dictionary.get(app, "de");
+        assertEquals("Leia", en.canonical("leia"));
+        assertEquals("Leia", de.canonical("leia"));
+        assertNull("en espanol \"leia\" es \"leía\" sin tilde", es.canonical("leia"));
+        assertEquals("Lichtschwert", de.canonical("lichtschwert"));   // sustantivo aleman de la saga
+        assertTrue(de.suggest("lichtschwert").known);
+    }
+
+    @Test
+    public void commonNounsKeepTypedCase() throws IOException {
+        Dictionary es = Dictionary.get(app, "es");
+        assertTrue(es.suggest("lightsaber").known);              // conocida y completable...
+        assertTrue(es.suggest("lightsabers").known);
+        assertTrue(es.contains("bantha"));
+        assertNull(es.canonical("lightsaber"));                  // ...pero sin caja propia: se respeta la del usuario
+        assertNull(es.canonical("bantha"));
+        assertTrue(es.suggest("milenario").known);               // "Halcón Milenario": adjetivo normal en espanol
+        assertNull(es.canonical("milenario"));
+    }
+
+    // ------------------------------------------------------------------ solo con su caja
 
     @Test
     public void shortNamesOnlyCountWithTheirCase() throws IOException {
@@ -166,9 +216,42 @@ public class StarWarsTest {
         Dictionary.Result nal = es.suggest("nal");
         assertFalse(nal.known);
         assertNotNull(nal.correction);
-        assertFalse(es.contains("nal"));                         // nunca se aprende ni se propone como correccion
-        assertTrue(es.suggest("AT").known);
-        assertFalse(es.suggest("at").known);
+        assertFalse(es.contains("nal"));                         // para el diccionario no cuenta como palabra
+        assertTrue(es.suggest("Hux").known);
+        assertFalse(es.suggest("hux").known);
+        Dictionary en = Dictionary.get(app, "en");
+        assertTrue(en.suggest("Kix").known);
+        assertFalse(en.suggest("kix").known);
+    }
+
+    @Test
+    public void lowercaseNameDoesNotBlockObviousCorrection() throws IOException {
+        Dictionary es = Dictionary.get(app, "es");
+        Dictionary en = Dictionary.get(app, "en");
+        // "hoth" en ingles es "both" con una tecla vecina; en espanol no se parece a nada y se reconoce
+        Dictionary.Result hoth = en.suggest("hoth");
+        assertFalse(hoth.known);
+        assertEquals("both", hoth.correction);
+        assertTrue(en.suggest("Hoth").known);
+        assertNull(en.suggest("Hoth").correction);
+        assertEquals("Hoth", en.canonical("hoth"));
+        assertTrue(en.contains("hoth"));                         // aun asi no se aprende como palabra nueva
+        assertTrue(es.suggest("hoth").known);
+        // "rael" son las letras de "real" cambiadas, en los dos idiomas
+        assertEquals("real", es.suggest("rael").correction);
+        assertEquals("real", en.suggest("rael").correction);
+        assertFalse(es.suggest("rael").known);
+        assertTrue(es.suggest("Rael").known);
+        // "kamino" en espanol es "camino"; en ingles es el planeta
+        assertEquals("camino", es.suggest("kamino").correction);
+        assertTrue(es.suggest("Kamino").known);
+        assertTrue(en.suggest("kamino").known);
+        assertEquals("Kamino", en.canonical("kamino"));
+        assertEquals("days", en.suggest("dyas").correction);
+        // el plural sigue la misma regla
+        assertFalse(en.suggest("hutts").known);
+        assertTrue(en.suggest("Hutts").known);
+        assertTrue(es.suggest("hutts").known);
     }
 
     // ------------------------------------------------------------------ desactivado
@@ -183,6 +266,7 @@ public class StarWarsTest {
         assertNotEquals("coruscant", r.correction);
         assertFalse(r.suggestions.contains("coruscant"));
         assertNull(es.canonical("coruscant"));
+        assertNull(es.canonical("anakin"));
         assertFalse(es.contains("coruscant"));
         assertFalse(es.suggest("tantive").known);
         assertFalse(es.suggest("corus").suggestions.contains("coruscant"));

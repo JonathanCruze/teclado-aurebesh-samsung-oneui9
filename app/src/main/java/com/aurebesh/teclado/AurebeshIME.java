@@ -124,6 +124,10 @@ public class AurebeshIME extends InputMethodService
                         if (view != null) setInputView(onCreateInputView());
                         return;
                     }
+                    if (Prefs.HINT_COUNTS.equals(key)) {              // "Reiniciar progreso" del modo Aprendiendo
+                        if (view != null) view.setHintMode(Prefs.hintModeInt(AurebeshIME.this));
+                        return;
+                    }
                     if (Prefs.KEYBOARD_LANG.equals(key)) {            // idioma del teclado elegido en la app
                         subtypeSwitchTried = null;
                         applyLanguage();
@@ -1710,8 +1714,8 @@ public class AurebeshIME extends InputMethodService
 
     @Override
     public void onTrayClear() {
-        ClipHistory.clear(this);
-        tray.show(ui.getString(R.string.clipboard_title), new ArrayList<ClipHistory.Entry>(), ui.getString(R.string.clipboard_empty));
+        ClipHistory.clear(this);                     // conserva los fijados: siguen a la vista
+        tray.show(ui.getString(R.string.clipboard_title), ClipHistory.items(this), ui.getString(R.string.clipboard_empty));
     }
 
     @Override
@@ -1724,8 +1728,12 @@ public class AurebeshIME extends InputMethodService
      * historial y sobreviven al reinicio). Sin @Override: KeyboardTray.Host lo declara cuando llegue el fijado;
      * entonces, antes de volver a mostrar la lista, va aqui ClipHistory.setPinned(this, entry, pinned).
      */
+    @Override
     public void onTrayPin(ClipHistory.Entry entry, boolean pinned) {
         if (tray == null) return;
+        if (!ClipHistory.setPinned(this, entry, pinned) && pinned) {
+            Toast.makeText(this, ui.getString(R.string.clip_pin_limit, ClipHistory.MAX_PINNED), Toast.LENGTH_SHORT).show();
+        }
         tray.show(ui.getString(R.string.clipboard_title), ClipHistory.items(this), ui.getString(R.string.clipboard_empty));
     }
 }

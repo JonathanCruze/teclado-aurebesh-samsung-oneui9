@@ -173,6 +173,7 @@ public class TrayTest {
             public void onTrayRemove(ClipHistory.Entry entry) { picked.append("<x>"); }
             public void onTrayClear() { picked.append("<clear>"); }
             public void onTrayClose() { picked.append("<close>"); }
+            public void onTrayPin(ClipHistory.Entry entry, boolean pinned) { picked.append(pinned ? "<pin>" : "<unpin>"); }
         });
         List<ClipHistory.Entry> clips = new ArrayList<>();
         clips.add(new ClipHistory.Entry(ClipHistory.Entry.TEXT, "hola", null, null));

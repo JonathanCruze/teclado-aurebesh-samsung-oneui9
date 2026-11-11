@@ -224,7 +224,7 @@ public class SettingsTest {
         assertEquals("mientras se arrastra no se guarda", 100, Prefs.heightPct(app));
         l.onStopTrackingTouch(bar);
         assertEquals(120, Prefs.heightPct(app));
-        assertTrue("la etiqueta muestra el valor", hasText(a, "120 %"));
+        assertTrue("la etiqueta muestra el valor", hasText(a, "120 %") || hasText(a, "120 %"));   // espacio normal o duro
 
         // Sin arrastre (teclado o accesibilidad) se guarda al momento
         l.onProgressChanged(bar, 10, true);

@@ -335,6 +335,7 @@ public class SizeTest {
 
         // El icono de tamano va en la cinta de ?123, antes del engrane, y abre el modo aunque el oyente no lo haga
         tap(kb, kb.keyFor(AurebeshKeyboardView.CODE_MODE));
+        kb.setToolbarItems(new int[]{AurebeshKeyboardView.TOOL_RESIZE});   // en la cinta de fabrica el tamano vive en la cuadricula "..."
         layout(kb, W);
         render(kb, W);                                       // los rectangulos de la cinta se fijan al dibujar
         tap(kb, W - 72 * dp, 20 * dp);
