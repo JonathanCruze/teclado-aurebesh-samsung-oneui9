@@ -43,6 +43,13 @@ final class Prefs {
     static final String SHORTCUTS = "text_shortcuts";    // atajos de texto: lineas "clave\tvalor"
     static final String CANDIDATES = "candidate_words";  // palabras desconocidas vistas: lineas "palabra n" (se aprenden al repetirse)
     static final String THEME_AUTO = "auto";             // valor de THEME: sigue el modo oscuro del telefono
+    // --- 2.0
+    static final String SABER = "saber";                 // color de la estela del sable: blue, green, yellow, orange, purple, red
+    static final String STARWARS = "starwars_dict";      // diccionario Star Wars (personajes, naves, planetas) en la correccion
+    static final String HINT_MODE = "hint_mode";         // letras latinas: "off", "on", "learning" (se desvanecen con el uso)
+    static final String HINT_COUNTS = "hint_counts";     // modo Aprendiendo: "letra n" por linea (veces pulsada)
+    static final String TOOLBAR_ITEMS = "toolbar_items"; // iconos de la cinta en orden, separados por comas (ids de herramienta)
+    static final String AI_TONES = "ai_custom_tones";    // tonos personalizados guardados (uno por linea, el mas reciente primero)
     private static final String LEGACY_DARK = "dark_theme";
 
     static SharedPreferences get(Context c) {
@@ -147,6 +154,75 @@ final class Prefs {
     }
     static void setHand(Context c, String side) { get(c).edit().putString(perScreen(c, HAND), side).putString(HAND_LAST, side).apply(); }
 
+    // ------------------------------------------------------------------ 2.0: sable, Star Wars, aprendiendo, cinta
+
+    static final String[] SABERS = {"blue", "green", "yellow", "orange", "purple", "red"};
+    /** Colores de la hoja (el nucleo es blanco): Anakin/Obi-Wan, Luke/Qui-Gon, Guardia del Templo, bronce, Mace Windu, Sith. */
+    static final int[] SABER_ARGB = {0xFF2E8BFF, 0xFF3DDC84, 0xFFFFD600, 0xFFFF8A3D, 0xFFA35CFF, 0xFFFF3B3B};
+
+    static String saber(Context c) { return get(c).getString(SABER, "blue"); }
+    static int saberArgb(Context c) {
+        String id = saber(c);
+        for (int i = 0; i < SABERS.length; i++) if (SABERS[i].equals(id)) return SABER_ARGB[i];
+        return SABER_ARGB[0];
+    }
+    static boolean starWars(Context c) { return get(c).getBoolean(STARWARS, true); }
+    /** Letras latinas: "off", "on" o "learning"; migra el booleano HINTS antiguo. */
+    static String hintMode(Context c) {
+        String m = get(c).getString(HINT_MODE, null);
+        if (m != null) return m;
+        return get(c).getBoolean(HINTS, false) ? "on" : "off";
+    }
+    /** 0 nunca, 1 siempre, 2 aprendiendo (se desvanecen con el uso). */
+    static int hintModeInt(Context c) {
+        switch (hintMode(c)) {
+            case "on": return 1;
+            case "learning": return 2;
+            default: return 0;
+        }
+    }
+    /** Iconos de la cinta en orden (ids TOOL_* de AurebeshKeyboardView), o null para el orden de fabrica. */
+    static int[] toolbarItems(Context c) {
+        String raw = get(c).getString(TOOLBAR_ITEMS, null);
+        if (raw == null || raw.trim().isEmpty()) return null;
+        String[] parts = raw.split(",");
+        int[] out = new int[parts.length];
+        int n = 0;
+        for (String part : parts) {
+            try { out[n++] = Integer.parseInt(part.trim()); } catch (NumberFormatException ignored) { }
+        }
+        return java.util.Arrays.copyOf(out, n);
+    }
+    static void setToolbarItems(Context c, int[] ids) {
+        if (ids == null) { get(c).edit().remove(TOOLBAR_ITEMS).apply(); return; }
+        StringBuilder b = new StringBuilder();
+        for (int id : ids) { if (b.length() > 0) b.append(','); b.append(id); }
+        get(c).edit().putString(TOOLBAR_ITEMS, b.toString()).apply();
+    }
+    /** Tonos personalizados guardados, el mas reciente primero (maximo 5). */
+    static java.util.List<String> aiTones(Context c) {
+        java.util.List<String> out = new java.util.ArrayList<>();
+        for (String t : get(c).getString(AI_TONES, "").split("\n")) if (!t.trim().isEmpty()) out.add(t.trim());
+        return out;
+    }
+    static void rememberAiTone(Context c, String tone) {
+        if (tone == null || tone.trim().isEmpty()) return;
+        java.util.List<String> all = aiTones(c);
+        all.remove(tone.trim());
+        all.add(0, tone.trim());
+        while (all.size() > 5) all.remove(all.size() - 1);
+        StringBuilder b = new StringBuilder();
+        for (String t : all) { if (b.length() > 0) b.append('\n'); b.append(t.replace('\n', ' ')); }
+        get(c).edit().putString(AI_TONES, b.toString()).apply();
+    }
+    static void forgetAiTone(Context c, String tone) {
+        java.util.List<String> all = aiTones(c);
+        if (!all.remove(tone)) return;
+        StringBuilder b = new StringBuilder();
+        for (String t : all) { if (b.length() > 0) b.append('\n'); b.append(t); }
+        get(c).edit().putString(AI_TONES, b.toString()).apply();
+    }
+
     /** Claves de preferencias que cambian el teclado en pantalla (el IME ignora el resto). */
     static boolean affectsKeyboard(String key) {
         if (key == null) return false;
@@ -157,6 +233,7 @@ final class Prefs {
             case SPLIT: case CUSTOM_SOUND: case LEARNED: case APP_LANG: case KEYBOARD_LANG:
             case SPACE_SLIDE: case AUTO_REPLACE: case AUTO_CAPS: case PREVIEW: case LONGPRESS: case VIBRATION:
             case SOUND_VOLUME: case HEIGHT_PCT: case BOTTOM_DP: case SPLIT_WIDTH: case SHORTCUTS:
+            case SABER: case STARWARS: case HINT_MODE: case TOOLBAR_ITEMS:
             case AiModels.MODEL: case AiModels.MODE: case AiModels.REMOTE_URL: case AiModels.REMOTE_MODEL:
                 return true;
             default:
