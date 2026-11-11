@@ -136,6 +136,34 @@ public class GestureTest {
     }
 
     @Test
+    public void accentsEverywhere() throws Exception {
+        Application app = (Application) RuntimeEnvironment.getApplication();
+        AurebeshKeyboardView kb = view(app, W);
+        Recorder rec = new Recorder();
+        kb.setListener(rec);
+        // Pulsacion larga: o da o o o o o o oe, c da c con cedilla, s da eszett
+        String o = Arrays.toString(kb.keyFor("o").alts);
+        for (String ch : new String[]{"\u00f3", "\u00f2", "\u00f6", "\u00f4", "\u00f5", "\u00f8", "\u0153"}) check(o.contains(ch), "falta " + ch + " en la o: " + o);
+        check("\u00e7".equals(kb.keyFor("c").alts[0]), "c con cedilla");
+        check("\u00df".equals(kb.keyFor("s").alts[0]), "eszett en la s");
+        // Pagina 3/3: todas las letras con acento a la vista; shift las escribe en mayuscula
+        tap(kb, kb.keyFor(AurebeshKeyboardView.CODE_MODE));
+        layout(kb, W);
+        tap(kb, kb.keyFor(AurebeshKeyboardView.CODE_PAGE));
+        layout(kb, W);
+        tap(kb, kb.keyFor(AurebeshKeyboardView.CODE_PAGE));
+        layout(kb, W);
+        for (String ch : new String[]{"\u00e0", "\u00e2", "\u00e4", "\u00e7", "\u00f2", "\u00f4", "\u00f6", "\u00fc", "\u00df"}) check(kb.keyFor(ch) != null, "pagina 3/3 sin " + ch);
+        rec.reset();
+        tap(kb, kb.keyFor("\u00f6"));
+        check(rec.typed.toString(), "\u00f6", "escribe o con dieresis");
+        save(render(kb, W), "gestos_acentos.png");
+        tap(kb, kb.keyFor(AurebeshKeyboardView.CODE_PAGE));
+        layout(kb, W);
+        check(kb.keyFor("\u00f6") == null && kb.keyFor("+") != null, "3/3 vuelve a la pagina 1");
+    }
+
+    @Test
     public void popupBaseLetterAndCancel() throws Exception {
         Application app = (Application) RuntimeEnvironment.getApplication();
         AurebeshKeyboardView kb = view(app, W);

@@ -313,6 +313,10 @@ final class Dictionary {
         }
         if (n < 2 || n > MAX_LEN) return res;
         boolean learned = personal.contains(w);
+        if (!learned && !w.equals(fold(w))) {              // escrita con tildes y aprendida sin ellas: se respeta tal cual
+            String plainLearned = personalPlain.get(fold(w));
+            learned = plainLearned != null && plainLearned.equals(fold(w));
+        }
         res.known = rank.containsKey(w) || learned;
 
         HashMap<String, Double> cand = new HashMap<>();

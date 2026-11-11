@@ -405,7 +405,7 @@ final class AiRunner {
             phase(id, flag, app.getString(R.string.ai_loading_model));
             try {
                 int cpus = Runtime.getRuntime().availableProcessors();
-                int threads = Math.max(1, Math.min(4, cpus / 2));
+                int threads = Math.max(1, Math.min(6, cpus - 2));   // reparto dinamico: mas hilos, mas rapido aun con nucleos lentos
                 engine = LlmEngine.load(f, threads);
                 engineFile = f.getAbsolutePath();
                 return engine;

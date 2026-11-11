@@ -448,7 +448,7 @@ final class AiSettingsCard {
                         try {
                             long t0 = System.currentTimeMillis();
                             int cpus = Runtime.getRuntime().availableProcessors();
-                            e = com.aurebesh.teclado.llm.LlmEngine.load(f, Math.max(1, Math.min(4, cpus / 2)));
+                            e = com.aurebesh.teclado.llm.LlmEngine.load(f, Math.max(1, Math.min(6, cpus - 2)));
                             long loadMs = System.currentTimeMillis() - t0;
                             List<com.aurebesh.teclado.llm.ChatMessage> msgs = new java.util.ArrayList<>();
                             msgs.add(new com.aurebesh.teclado.llm.ChatMessage("user", "Di hola en una frase corta."));

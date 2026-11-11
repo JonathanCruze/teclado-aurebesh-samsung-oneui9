@@ -50,6 +50,16 @@ final class Glyphs {
         return key != null && PATHS.containsKey(key);
     }
 
+    /** Clave del glifo que representa a ch: el propio si existe o, para letras con acento, el de la letra base; null si no hay. */
+    static String glyphKey(String ch) {
+        if (ch == null || ch.isEmpty()) return null;
+        if (has(ch)) return ch;
+        String lower = ch.toLowerCase(Locale.ROOT);
+        if (has(lower)) return lower;
+        String base = stripMarks(lower);
+        return has(base) ? base : null;
+    }
+
     /** Ancho del glifo en unidades (alto de letra = 10). */
     static float width(String key) {
         Float w = WIDTHS.get(key);

@@ -83,7 +83,8 @@ public class AurebeshIME extends InputMethodService
     private String[] lastCorrection;              // {original, corregida, separador} para deshacer
     private int suggestSeq = 0;                   // descarta resultados atrasados
     private long lastSpaceAt = 0;
-    private final ExecutorService worker = Executors.newSingleThreadExecutor();
+    private final ExecutorService worker = Executors.newSingleThreadExecutor();      // E/S: portapapeles, capturas, cargas
+    private final ExecutorService suggester = Executors.newSingleThreadExecutor();   // solo dict.suggest(): la espera de 30 ms mide su coste real
     private Future<Dictionary.Result> suggestFuture;   // peticion en vuelo de lastWord (un separador la espera como mucho 30 ms)
     private String suggestFutureWord;                  // palabra de esa peticion
     private String correctionAnchor;              // texto previo al cursor tras autocorregir: el chip "original" sigue mientras no cambie
@@ -173,6 +174,7 @@ public class AurebeshIME extends InputMethodService
         if (ai != null) ai.cancel();
         if (runner != null) runner.release();                 // el motor es del servicio: se libera con el
         worker.shutdownNow();
+        suggester.shutdownNow();
         super.onDestroy();
     }
 
@@ -636,7 +638,7 @@ public class AurebeshIME extends InputMethodService
         final int seq = ++suggestSeq;
         try {
             suggestFutureWord = w;
-            suggestFuture = worker.submit(new Callable<Dictionary.Result>() {   // un separador puede esperar este Future
+            suggestFuture = suggester.submit(new Callable<Dictionary.Result>() {   // un separador puede esperar este Future
                 @Override public Dictionary.Result call() {
                     final Dictionary.Result r = d.suggest(w);
                     main.post(new Runnable() {
@@ -905,6 +907,9 @@ public class AurebeshIME extends InputMethodService
         if (cur == null || cur.length() < 3 || looksLikeAcronym(cur)) return;
         String lw = cur.toLowerCase(Locale.ROOT);
         if (dict.contains(lw) || shortcuts.containsKey(lw)) return;
+        // Con el predictivo activo se exige el veredicto del diccionario para esta palabra: si el resultado no llego
+        // (30 ms agotados, excepcion) o habia correccion y no se aplico (sustitucion desactivada), no se anota
+        if (autocorrect && (!cur.equals(computedWord) || pendingCorrection != null)) return;
         if (Prefs.bumpCandidate(this, lw) >= 2) {
             learnWord(cur);
             Prefs.removeCandidate(this, lw);

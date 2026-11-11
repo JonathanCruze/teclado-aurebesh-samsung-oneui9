@@ -12,12 +12,12 @@
 
 <p align="center">
   <a href="https://github.com/JonathanCruze/teclado-aurebesh-samsung-oneui9/raw/main/releases/TecladoAurebesh.apk">
-    <img src="https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20%20DESCARGAR%20APK%20%E2%80%94%20Teclado%20Aurebesh%201.9.2-1B2838?style=for-the-badge&logoColor=white&labelColor=1B2838&color=7FD3F0" alt="Descargar APK">
+    <img src="https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20%20DESCARGAR%20APK%20%E2%80%94%20Teclado%20Aurebesh%201.10-1B2838?style=for-the-badge&logoColor=white&labelColor=1B2838&color=7FD3F0" alt="Descargar APK">
   </a>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/versi%C3%B3n-1.9.2-7FD3F0?style=flat-square" alt="versión 1.9.2">
+  <img src="https://img.shields.io/badge/versi%C3%B3n-1.10-7FD3F0?style=flat-square" alt="versión 1.10">
   <img src="https://img.shields.io/badge/Android-8.0%2B-3DDC84?style=flat-square" alt="Android 8+">
   <img src="https://img.shields.io/badge/Samsung-One%20UI%209.0-1428A0?style=flat-square" alt="Samsung One UI 9.0">
   <img src="https://img.shields.io/badge/sin%20anuncios-%E2%9C%93-2E7D32?style=flat-square" alt="sin anuncios">
@@ -43,6 +43,38 @@
    momento, mantén pulsada la barra espaciadora.
 
 Para actualizar, descarga el nuevo APK e instálalo encima: conserva tus ajustes.
+
+### Novedades de la 1.10
+- **Toques que no escriben lo que no querías.** El menú de alternativas incluye la letra base, cabe en dos filas y se cancela al
+  alejar el dedo; mantener `.` o `,` da toda la puntuación (`? ¿ ! ¡ : ; - " ' @`); soltar fuera del teclado no escribe; mantener
+  Shift con un pulgar y teclear con el otro escribe en mayúsculas, y deslizar desde Shift a una letra la escribe en mayúscula.
+- **Autocorrección honesta.** Las predicciones al inicio de frase van en mayúscula; tras corregir, la barra muestra la palabra
+  original para recuperarla con un toque; el retroceso deshace la corrección sin aprender el error.
+- **Deslizar sobre la barra espaciadora** mueve el cursor (con Shift, selecciona) o cambia de idioma como en One UI; se elige en
+  Escritura inteligente. **Mantener borrar** acelera y, pasados dos segundos, borra palabras enteras.
+- **El teclado se adapta al campo sin dejar el Aurebesh:** numérico 3×4 con glifos grandes en número, teléfono y PIN (con `+ * #`
+  y pausa en teléfono, decimal y signo según el campo); `@` y `.com` en correo; `/` y `.com` en direcciones web.
+- **Tamaño y posición como "Tamaño y transparencia" de Samsung:** alto continuo del 70 al 140 % con deslizador, margen inferior
+  con botón ∨ para ocultar el teclado, modo de ajuste con tiradores desde el icono de tamaño en ?123, filas compactas en la tapa
+  del Z Flip, tope de ancho de tecla en tabletas y DeX, ancho de las mitades del dividido; una mano con máximo de 400 dp y ajustes
+  guardados aparte para la tapa y la pantalla interior de un Fold.
+- **Escritura inteligente que aprende de ti:** atajos de texto (`tqm` → `te quiero mucho`) gestionados en Ajustes, palabras
+  nuevas que repites se aprenden solas y el corrector también corrige hacia ellas, diccionario personal visible y editable,
+  emojis para las palabras cotidianas (`hola` 👋, `jajaja` 😂) también tras el espacio.
+- **Ajustes como One UI:** Pruébalo, Diseño, Tamaño y posición, Escritura inteligente, Tocar y respuesta, Portapapeles,
+  Inteligencia y Ayuda y gestos (Plegables · Galaxy Z Fold solo en pantallas anchas); texto predictivo, sustitución automática y
+  mayúsculas automáticas por separado; burbuja opcional; tema Automático que sigue el modo oscuro; retardo de pulsación larga,
+  intensidad de vibración y volumen del clic; columna centrada en el Fold.
+- **Panel ✦:** acción Traducir (español, inglés, alemán u otro idioma) y el modelo ya no se descarga al plegar o girar: un solo
+  motor vive en el servicio y una generación en curso sigue en el panel nuevo.
+- **Letras con acento a la vista:** mantener una vocal da todas sus variantes (á à â ä ã å æ, ó ò ô ö õ ø œ…), `c` da `ç`,
+  `s` da `ß`, `y` da `ý ÿ`; además la página 3/3 de ?123 muestra todas las letras con acento como teclas, con el glifo de la
+  letra base y la letra latina siempre visible. En el menú de alternativas las letras con acento ya se dibujan con su glifo.
+- **Modelo más ligero para la IA:** SmolLM2 135M (145 MB, Apache-2.0), unas tres veces más rápido que Qwen2.5 0.5B, con
+  español básico; y el motor usa hasta seis hilos en vez de cuatro. En un Z Flip 7 sigue siendo lento comparado con un
+  servidor propio.
+- **Bajo el capó:** vibración coherente en todas las bandejas, el teclado solo reacciona a las preferencias que le afectan,
+  corrección sin bloquear el hilo principal, portapapeles y bigramas en archivos propios con escritura diferida.
 
 ### Novedades de la 1.9.2
 - **Margen lateral en las teclas**, como en Samsung Keyboard: las teclas empiezan a un 3 % del ancho en teléfonos y a un 5 % en
@@ -87,7 +119,7 @@ Para actualizar, descarga el nuevo APK e instálalo encima: conserva tus ajustes
   </tr>
   <tr>
     <td align="center"><img src="screenshots/dividido_fold.png" alt="Teclado dividido"><br><b>Dividido para Galaxy Fold</b><br>Al desplegar, dos mitades con la misma geometría que Samsung Keyboard (filas escalonadas, dos espacios); se puede desactivar.</td>
-    <td align="center"><img src="screenshots/simbolos_estelar.png" alt="Signos como Samsung"><br><b>?123 como Samsung Keyboard</b><br>Misma distribución de signos; la página 2/2 añade dígrafos Aurebesh, ¿ ¡ « » y más símbolos.</td>
+    <td align="center"><img src="screenshots/simbolos_estelar.png" alt="Signos como Samsung"><br><b>?123 como Samsung Keyboard</b><br>Misma distribución de signos; la página 2/3 añade dígrafos Aurebesh, ¿ ¡ « » y más símbolos, y la 3/3 todas las letras con acento (à â ä ç ö ô ü ß…).</td>
     <td align="center"><img src="screenshots/tema_datapad.png" alt="Tema Datapad"><br><b>Cinco temas</b><br>Estelar, Noche, Datapad, Imperial y Arena; la app sigue el modo claro u oscuro del teléfono.</td>
   </tr>
 </table>
@@ -132,14 +164,14 @@ a partir de un prompt. El resultado se puede reemplazar, insertar, copiar o rein
 - **Estado de verificación.** El motor se comprobó numéricamente en el entorno de desarrollo contra una implementación de referencia
   (numpy) y con los vocabularios reales de llama.cpp, incluidos los formatos Q4_0, Q8_0, Q4_K y Q6_K. En la 1.9 la primera prueba
   en un Galaxy real falló al cargar el modelo por una bandera de expresiones regulares que Android no admite; está corregido en la
-  1.9.2 y la prueba del tokenizador lo vigila. Sigue sin haberse medido la velocidad con un modelo real en un teléfono: trátalo como
+  1.10 y la prueba del tokenizador lo vigila. Sigue sin haberse medido la velocidad con un modelo real en un teléfono: trátalo como
   experimental.
 - Galaxy AI (el de Samsung Keyboard) es exclusivo de Samsung y no se puede integrar; sigue disponible en el menú de selección de texto
   de Android mientras usas este teclado.
 
 ## Frente a Samsung Keyboard
 
-| Función | Samsung Keyboard | Teclado Aurebesh 1.9.2 |
+| Función | Samsung Keyboard | Teclado Aurebesh 1.10 |
 |---|---|---|
 | Galaxy AI / Inteligencia avanzada | Sí | Inteligencia local (modelo en el teléfono) o servidor propio |
 | Deslizar para escribir | Sí | Sí, con estela y alternativas |
@@ -184,7 +216,7 @@ Los teléfonos Samsung suelen venir sin corrector ortográfico del sistema para 
 ```
 app/src/main/java/com/aurebesh/teclado/
   AurebeshIME.java           servicio de teclado: integra todo lo demás
-  AurebeshKeyboardView.java  vista: distribuciones (es/en/de, ?123 1/2 y 2/2, dividido, una mano), barra, deslizar, dibujo, toque
+  AurebeshKeyboardView.java  vista: distribuciones (es/en/de, ?123 1/3, 2/3 y 3/3 (acentos), dividido, una mano), barra, deslizar, dibujo, toque
   SwipeDecoder.java          decodificador de trazos (índice por primera/última letra, forma y posición)
   Dictionary.java            diccionarios y autocorrección (ediciones, tildes, completado, palabras aprendidas)
   Bigrams.java               siguiente palabra y contexto (tablas + pares aprendidos)
@@ -323,7 +355,7 @@ Después, `python3 promo/make_promo.py` compone las imágenes promocionales. Nec
   Lucasfilm, Disney, Samsung, Alibaba ni Hugging Face.
 
 ## Limitaciones conocidas
-- El modelo de inteligencia local es lento (unos pocos tokens por segundo); la carga en un Galaxy real se arregló en la 1.9.2 y la
+- El modelo de inteligencia local es lento (unos pocos tokens por segundo); la carga en un Galaxy real se arregló en la 1.10 y la
   velocidad real está por medir (el botón Probar de Ajustes la muestra).
 - Sin teclado flotante; sin dictado por voz; Galaxy AI es exclusivo de Samsung Keyboard.
 - Sin soporte de TalkBack en el teclado (la vista es un `Canvas` sin nodos de accesibilidad).

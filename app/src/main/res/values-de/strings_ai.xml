@@ -111,4 +111,5 @@
     <string name="ai_testing_model">Teste… Modell wird geladen und ein Satz geschrieben</string>
     <string name="ai_test_model_ok">✓ Funktioniert · %1$.1f Token/s · geladen in %2$d s</string>
     <string name="ai_test_model_fail">✗ Funktioniert nicht: %1$s</string>
+    <string name="ai_note_fastest">Am schnellsten · einfaches Spanisch, am besten auf Englisch</string>
 </resources>

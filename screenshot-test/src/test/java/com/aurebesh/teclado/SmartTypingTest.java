@@ -83,6 +83,16 @@ public class SmartTypingTest {
     }
 
     @Test
+    public void accentedFormOfLearnedPlainWordIsKept() throws IOException {
+        Dictionary es = Dictionary.get(app, "es");
+        es.setPersonal(Arrays.asList("chevere"));             // aprendida sin tilde
+        Dictionary.Result r = es.suggest("ch\u00e9vere");       // escrita con tilde: se respeta, no se le quita
+        assertTrue("la forma con tilde se considera conocida", r.known);
+        assertNull("sin correccion: " + r.correction, r.correction);
+        es.setPersonal(null);
+    }
+
+    @Test
     public void frequentWordStillBeatsPersonalWord() throws IOException {
         Dictionary es = Dictionary.get(app, "es");
         es.setPersonal(Arrays.asList("holqs"));                // aprendida a una edicion de lo escrito

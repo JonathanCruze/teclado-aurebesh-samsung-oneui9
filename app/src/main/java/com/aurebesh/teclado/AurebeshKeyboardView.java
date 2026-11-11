@@ -114,19 +114,22 @@ public final class AurebeshKeyboardView extends View {
     /** Alternativas de cada letra (acentos y variantes); la n~ y la c con cedilla incluidas. */
     private static final java.util.Map<String, String[]> LETTER_ALTS = new java.util.HashMap<>();
     static {
-        LETTER_ALTS.put("a", new String[]{"\u00e1", "\u00e0", "\u00e4", "\u00e2", "\u00e3"});
+        LETTER_ALTS.put("a", new String[]{"\u00e1", "\u00e0", "\u00e4", "\u00e2", "\u00e3", "\u00e5", "\u00e6"});
         LETTER_ALTS.put("e", new String[]{"\u00e9", "\u00e8", "\u00eb", "\u00ea"});
         LETTER_ALTS.put("i", new String[]{"\u00ed", "\u00ec", "\u00ef", "\u00ee"});
-        LETTER_ALTS.put("o", new String[]{"\u00f3", "\u00f2", "\u00f6", "\u00f4", "\u00f5"});
+        LETTER_ALTS.put("o", new String[]{"\u00f3", "\u00f2", "\u00f6", "\u00f4", "\u00f5", "\u00f8", "\u0153"});
         LETTER_ALTS.put("u", new String[]{"\u00fa", "\u00f9", "\u00fc", "\u00fb"});
         LETTER_ALTS.put("n", new String[]{"\u00f1"});
         LETTER_ALTS.put("c", new String[]{"\u00e7"});
+        LETTER_ALTS.put("s", new String[]{"\u00df"});
+        LETTER_ALTS.put("y", new String[]{"\u00fd", "\u00ff"});
     }
 
     private Listener listener;
     private final List<List<Key>> letters = new ArrayList<>();
     private final List<List<Key>> symbols = new ArrayList<>();    // signos 1/2 (como Samsung Keyboard)
-    private final List<List<Key>> symbols2 = new ArrayList<>();   // signos 2/2: digrafos, ¿ ¡ « » y mas simbolos
+    private final List<List<Key>> symbols2 = new ArrayList<>();   // signos 2/3: digrafos, ¿ ¡ « » y mas simbolos
+    private final List<List<Key>> symbols3 = new ArrayList<>();   // letras con acento 3/3: a a a a a... c e e e e... u u u u ß
     private final List<List<Key>> numpad = new ArrayList<>();     // teclado numerico 3x4 (numero, decimal, con signo o telefono)
     private List<List<Key>> current;
 
@@ -178,6 +181,8 @@ public final class AurebeshKeyboardView extends View {
     private String highlighted;             // sugerencia que se aplicara sola (resaltada)
     private boolean toolbar = true;         // iconos sobre las teclas cuando no hay sugerencias
     private final RectF[] toolRects = new RectF[5];
+    private int toolDownId = -1;                 // herramienta bajo el dedo al bajar (se resuelve al soltar)
+    private final RectF toolDownRect = new RectF();
     private final RectF hideRect = new RectF();     // boton ∨ de la banda inferior (margen >= 24 dp)
     private final RectF sideRect = new RectF();     // flecha para cambiar de lado en modo a una mano
     private final RectF moreRect = new RectF();     // "..." que muestra los iconos sobre las sugerencias
@@ -355,8 +360,7 @@ public final class AurebeshKeyboardView extends View {
         current = numpad;
         capsLock = false;
         shift = false;
-        closePopup();
-        cancelTimers();
+        clearTouchState();
         pressed.clear();
         resetGlide(true);
         requestLayout();
@@ -377,12 +381,7 @@ public final class AurebeshKeyboardView extends View {
         resizePointer = -1;
         resizePressed = 0;
         if (on) {                                   // nada a medias al entrar: ni menu, ni repeticion, ni trazo
-            closePopup();
-            cancelTimers();
-            pressed.clear();
-            resetGlide(true);
-            toolPressed = -1;
-            toolPointer = -1;
+            clearTouchState();
             resizeEntryScale = heightScale;
             resizeEntryPad = bottomPad;
         } else {
@@ -568,10 +567,11 @@ public final class AurebeshKeyboardView extends View {
         letters.clear();
         symbols.clear();
         symbols2.clear();
+        symbols3.clear();
         numpad.clear();
         buildLayouts();
         if (numpadWas) buildNumpad();
-        current = numpadWas ? numpad : was == symbols ? symbols : was == symbols2 ? symbols2 : letters;
+        current = numpadWas ? numpad : was == symbols ? symbols : was == symbols2 ? symbols2 : was == symbols3 ? symbols3 : letters;
         closePopup();
         requestLayout();
         invalidate();
@@ -674,7 +674,7 @@ public final class AurebeshKeyboardView extends View {
                 sym("_", 1f), sym("<", 1f, "\u2264"), sym(">", 1f, "\u2265"), sym("[", 1f, "{"), sym("]", 1f, "}"));
         row(symbols, sym("!", 1f, "\u00a1"), sym("@", 1f), sym("#", 1f), sym("$", 1f, "\u20ac"), sym("%", 1f, "\u2030"),
                 sym("^", 1f), sym("&", 1f), sym("*", 1f, "\u2022"), sym("(", 1f), sym(")", 1f));
-        row(symbols, special("1/2", CODE_PAGE, 1.5f), sym("-", 1f, "\u2013"), sym("'", 1f, "\u2018"), sym("\"", 1f, "\u201c"),
+        row(symbols, special("1/3", CODE_PAGE, 1.5f), sym("-", 1f, "\u2013"), sym("'", 1f, "\u2018"), sym("\"", 1f, "\u201c"),
                 sym(":", 1f), sym(";", 1f), sym(",", 1f), sym("?", 1f, "\u00bf"), special("", CODE_DELETE, 1.5f));
         bottomRow(symbols, "abc");
 
@@ -685,9 +685,27 @@ public final class AurebeshKeyboardView extends View {
         symbols2.add(dig);
         row(symbols2, sym("\u00bf", 1f), sym("\u00a1", 1f), sym("\u00ab", 1f), sym("\u00bb", 1f), sym("{", 1f), sym("}", 1f),
                 sym("|", 1f), sym("\\", 1f), sym("~", 1f), sym("\u2022", 1f));
-        row(symbols2, special("2/2", CODE_PAGE, 1.5f), sym("\u00a3", 1f), sym("\u20ac", 1f), sym("\u00a5", 1f), sym("\u00b0", 1f),
+        row(symbols2, special("2/3", CODE_PAGE, 1.5f), sym("\u00a3", 1f), sym("\u20ac", 1f), sym("\u00a5", 1f), sym("\u00b0", 1f),
                 sym("\u00a9", 1f), sym("\u00ae", 1f), sym("\u2122", 1f), special("", CODE_DELETE, 1.5f));
         bottomRow(symbols2, "abc");
+
+        // Letras con acento 3/3: todas a la vista (ademas de la pulsacion larga sobre la vocal), con el glifo de la
+        // letra base y la letra latina siempre visible para distinguir a a a a
+        symbols3.add(digitsRow());
+        row(symbols3, accent("\u00e0"), accent("\u00e1"), accent("\u00e2"), accent("\u00e4"), accent("\u00e3"), accent("\u00e5"),
+                accent("\u00e6"), accent("\u00e7"), accent("\u00e8"), accent("\u00e9"));
+        row(symbols3, accent("\u00ea"), accent("\u00eb"), accent("\u00ec"), accent("\u00ed"), accent("\u00ee"), accent("\u00ef"),
+                accent("\u00f2"), accent("\u00f3"), accent("\u00f4"), accent("\u00f6"));
+        row(symbols3, special("3/3", CODE_PAGE, 1.5f), accent("\u00f5"), accent("\u00f8"), accent("\u00f9"), accent("\u00fa"),
+                accent("\u00fb"), accent("\u00fc"), accent("\u00df"), special("", CODE_DELETE, 1.5f));
+        bottomRow(symbols3, "abc");
+    }
+
+    /** Tecla de letra con acento: glifo de la letra base (si lo hay), la letra latina completa siempre visible. */
+    private static Key accent(String ch) {
+        String g = Glyphs.glyphKey(ch);
+        String[] alts = "\u00e6".equals(ch) ? new String[]{"\u0153"} : "\u00fc".equals(ch) ? new String[]{"\u00fd", "\u00ff"} : null;
+        return new Key(ch, g, ch, alts, CODE_TEXT, 1f);
     }
 
     /** Alternativas del punto al mantenerlo: la puntuacion completa del idioma (la primera es la que sale al soltar sin mover). */
@@ -803,7 +821,7 @@ public final class AurebeshKeyboardView extends View {
     }
 
     private boolean isDigitRow(List<List<Key>> layout, int ri) {
-        return ri == 0 && layout != numpad && (numbersShown() || layout == symbols || layout == symbols2);
+        return ri == 0 && layout != numpad && (numbersShown() || layout == symbols || layout == symbols2 || layout == symbols3);
     }
 
     /** Ancho de la caja de teclas: todo el ancho, o en modo a una mano el 78 % sin pasar de 400 dp (Fold, tabletas). */
@@ -856,6 +874,7 @@ public final class AurebeshKeyboardView extends View {
         layoutKeys(letters);
         layoutKeys(symbols);
         layoutKeys(symbols2);
+        layoutKeys(symbols3);
         if (!numpad.isEmpty()) layoutNumpad();
         warmGlide();
     }
@@ -1073,7 +1092,7 @@ public final class AurebeshKeyboardView extends View {
                     float h = r.height() * (digitRow ? 0.44f : current == numpad ? 0.58f : 0.50f);   // numerico: digitos grandes
                     if (theme.glow != 0) Glyphs.drawCentered(c, k.glyph, cx, cy, h, r.width() * 0.74f, glowPaint);
                     Glyphs.drawCentered(c, k.glyph, cx, cy, h, r.width() * 0.74f, glyphPaint);
-                    if (showHints) {
+                    if (showHints || !k.glyph.equals(k.output)) {   // con acento: la latina siempre, para distinguirlas
                         hintPaint.setTextSize(9 * sp);
                         hintPaint.setTextAlign(Paint.Align.LEFT);
                         String hint = shiftActive() ? k.label.toUpperCase() : k.label;
@@ -1296,10 +1315,11 @@ public final class AurebeshKeyboardView extends View {
                 c.drawRoundRect(tmp, 8 * dp, 8 * dp, fill);
             }
             String a = popupAlts[i];
-            String shown = shiftActive() && current == letters ? a.toUpperCase() : a;
-            if (Glyphs.has(a)) {
+            String shown = shiftActive() && (current == letters || current == symbols3) ? a.toUpperCase() : a;
+            String gk = Glyphs.glyphKey(a);                 // a a a a: glifo de la letra base y la latina debajo
+            if (gk != null) {
                 glyphPaint.setColor(sel ? theme.onAccent : theme.previewText);
-                Glyphs.drawCentered(c, a, cx, cy - 6 * dp, popupCellH * 0.42f, popupCell * 0.7f, glyphPaint);
+                Glyphs.drawCentered(c, gk, cx, cy - 6 * dp, popupCellH * 0.42f, popupCell * 0.7f, glyphPaint);
                 glyphPaint.setColor(theme.glyph);
                 textPaint.setColor(sel ? theme.onAccent : theme.previewLatin);
                 textPaint.setTextSize(10 * sp);
@@ -1645,7 +1665,8 @@ public final class AurebeshKeyboardView extends View {
         float top = stripHeight() + keysHeight(), band = bottomBand(), off = handOffset();
         float cy = top + band / 2f, cx = off + 6 * dp + 22 * dp;
         float r = Math.min(16 * dp, band / 2f - 2 * dp);
-        hideRect.set(off + 6 * dp, top, off + 6 * dp + 44 * dp, top + band);
+        float air = 4 * dp;                          // nunca pegado a la fila inferior: ahi manda la tolerancia de las teclas
+        hideRect.set(cx - r - air, Math.max(top + 3 * dp, cy - r - air), cx + r + air, Math.min(top + band, cy + r + air));
         fill.setColor(theme.specialBg);
         c.drawCircle(cx, cy, r, fill);
         if (theme.keyStroke != 0) c.drawCircle(cx, cy, r, strokePaint);
@@ -1844,9 +1865,26 @@ public final class AurebeshKeyboardView extends View {
      * El dedo se alejo de las teclas (o del menu de alternativas): la tecla pulsada pasa a ser el marcador
      * CANCELLED, se paran los temporizadores y vibra el rechazo; al soltar no se escribe nada.
      */
+    /** Deja el estado tactil limpio (modo de ajuste, numerico, ACTION_CANCEL): ni menu, ni dedos, ni temporizadores. */
+    private void clearTouchState() {
+        closePopup();
+        cancelTimers();
+        pressed.clear();
+        resetGlide(true);
+        toolPressed = -1;
+        toolPointer = -1;
+        toolDownId = -1;
+        shiftPointer = -1;
+        shiftHeldTyped = false;
+        spaceDragged = false;
+        spaceLangFired = false;
+    }
+
     private void cancelPointer(int pid) {
+        Key was = pressed.get(pid);
         pressed.put(pid, CANCELLED);
         if (pid == glidePointer) resetGlide(true);
+        if (was != null && was.code == CODE_TEXT && shift && !capsLock && shiftPointer < 0 && !autoShifted) shift = false;
         cancelTimers();
         haptic(H_REJECT);
         invalidate();
@@ -1902,6 +1940,9 @@ public final class AurebeshKeyboardView extends View {
                         if (toolRects[i] != null && toolRects[i].contains(tx, ty)) {
                             toolPressed = i;
                             toolPointer = id;
+                            int[] idsNow = tools();
+                            toolDownId = i < idsNow.length ? idsNow[i] : -1;   // se resuelve al soltar contra esta copia
+                            toolDownRect.set(toolRects[i]);
                             feedback(special("", CODE_SPACE, 1f));
                             invalidate();
                             return true;
@@ -1925,12 +1966,7 @@ public final class AurebeshKeyboardView extends View {
                 pressed.put(id, k);
                 feedback(k);
                 if (k.code == CODE_SHIFT) { shiftPointer = id; shiftHeldTyped = false; }
-                if (k.code == CODE_SPACE) {
-                    spaceDownX = e.getX(idx);
-                    spaceSteps = 0;
-                    spaceDragged = false;
-                    spaceLangFired = false;
-                }
+                if (k.code == CODE_SPACE) beginSpace(e.getX(idx));
                 if (k.code == CODE_DELETE) {
                     if (listener != null) listener.onDelete();
                     startRepeat(k);
@@ -1976,7 +2012,11 @@ public final class AurebeshKeyboardView extends View {
                         continue;
                     }
                     if (old.code == CODE_CANCELLED || old.code == CODE_DELETE) continue;
-                    if (old.code == CODE_SPACE) { spaceMove(pid, x); continue; }
+                    if (old.code == CODE_SPACE) {
+                        if (farFromKeys(x, y)) { cancelPointer(pid); continue; }   // soltar fuera no escribe (ni abre el selector)
+                        spaceMove(pid, x);
+                        continue;
+                    }
                     Key k = findKey(x, y);
                     if (k == null) {
                         if (farFromKeys(x, y)) cancelPointer(pid);    // soltar fuera no escribe
@@ -1984,6 +2024,10 @@ public final class AurebeshKeyboardView extends View {
                     }
                     if (k != old && !longPressFired) {
                         pressed.put(pid, k);
+                        if (k.code == CODE_SPACE) {
+                            beginSpace(x);                               // el gesto del espacio empieza donde entra el dedo
+                            if (pid == glidePointer) resetGlide(true);   // entrar en el espacio no es un trazo
+                        }
                         startLongPress(k);
                         invalidate();
                     }
@@ -1993,14 +2037,15 @@ public final class AurebeshKeyboardView extends View {
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_POINTER_UP: {
                 if (toolPressed >= 0 && id == toolPointer) {
-                    int t = toolPressed;
+                    int tool = toolDownId;
                     toolPressed = -1;
                     toolPointer = -1;
+                    toolDownId = -1;
                     invalidate();
-                    int[] ids = tools();
-                    if (toolRects[t] != null && t < ids.length && toolRects[t].contains(e.getX(idx), e.getY(idx))) {
-                        if (listener != null) listener.onToolbar(ids[t]);
-                        if (ids[t] == TOOL_RESIZE && !resizeMode) setResizeMode(true);   // si el oyente no lo abrio, lo abre la vista
+                    // Contra la copia tomada al bajar: los rectangulos vivos cambian si llegan chips o cambia la pagina
+                    if (tool >= 0 && toolDownRect.contains(e.getX(idx), e.getY(idx))) {
+                        if (listener != null) listener.onToolbar(tool);
+                        if (tool == TOOL_RESIZE && !resizeMode) setResizeMode(true);   // si el oyente no lo abrio, lo abre la vista
                     }
                     return true;
                 }
@@ -2023,12 +2068,21 @@ public final class AurebeshKeyboardView extends View {
                 }
                 boolean consumed = k != null && ((k == longPressKey && longPressFired) || k.code == CODE_CANCELLED
                         || (k.code == CODE_SPACE && spaceDragged));
-                cancelTimers();
-                if (fromShift && k != null && k.code == CODE_SHIFT) {
-                    // Soltar mayusculas: si se escribio algo mientras se mantenia, se apaga sin conmutar (ni bloquear)
+                boolean shiftLift = fromShift && k != null && k.code == CODE_SHIFT;
+                if (!shiftLift || pressed.size() == 0) cancelTimers();   // los temporizadores son del otro dedo, que sigue pulsado
+                if (shiftLift) {
+                    // Soltar mayusculas: si se escribio algo mientras se mantenia, se apaga sin conmutar (ni bloquear);
+                    // la letra que aun este pulsada sale en mayuscula y apaga shift al escribirse
                     shiftPointer = -1;
-                    if (shiftHeldTyped) { shift = false; autoShifted = false; shiftHeldTyped = false; lastShiftTap = 0; }
-                    else release(k);
+                    if (shiftHeldTyped) {
+                        boolean pendingLetter = false;
+                        for (int i = 0; i < pressed.size(); i++) {
+                            Key p = pressed.valueAt(i);
+                            if (p != null && p.code == CODE_TEXT) pendingLetter = true;
+                        }
+                        shift = pendingLetter;
+                        autoShifted = false; shiftHeldTyped = false; lastShiftTap = 0;
+                    } else release(k);
                 } else if (fromShift) {
                     // Deslizar desde mayusculas hasta una letra: esa letra en mayuscula, una sola
                     if (k != null && !consumed && k.code != CODE_DELETE) release(k);
@@ -2042,15 +2096,7 @@ public final class AurebeshKeyboardView extends View {
                 return true;
             }
             case MotionEvent.ACTION_CANCEL:
-                toolPressed = -1;
-                toolPointer = -1;
-                shiftPointer = -1;
-                shiftHeldTyped = false;
-                spaceDragged = false;
-                resetGlide(true);
-                pressed.clear();
-                closePopup();
-                cancelTimers();
+                clearTouchState();
                 invalidate();
                 return true;
         }
@@ -2290,6 +2336,14 @@ public final class AurebeshKeyboardView extends View {
      * mayusculas esta activa), con tic haptico; SPACE_LANG: pasada una tecla de ancho cambia de idioma una
      * vez por gesto. En ambos casos se cancela la pulsacion larga y al soltar no se escribe el espacio.
      */
+    /** Estado del gesto sobre el espacio (al bajar el dedo en el o al entrar deslizando desde una vecina). */
+    private void beginSpace(float x) {
+        spaceDownX = x;
+        spaceSteps = 0;
+        spaceDragged = false;
+        spaceLangFired = false;
+    }
+
     private void spaceMove(int pid, float x) {
         Key space = pressed.get(pid);
         if (space == null || spaceSlide == SPACE_NONE) return;
@@ -2304,7 +2358,7 @@ public final class AurebeshKeyboardView extends View {
                 longPressFired = false;
             }
             int dir = steps > spaceSteps ? 1 : -1;
-            boolean select = shiftActive();
+            boolean select = capsLock || shiftPointer >= 0 || (shift && !autoShifted);   // la mayuscula automatica no selecciona
             while (spaceSteps != steps) {
                 spaceSteps += dir;
                 if (listener != null) listener.onCursorMove(dir, select);
@@ -2433,7 +2487,7 @@ public final class AurebeshKeyboardView extends View {
         if (listener == null) return;
         switch (k.code) {
             case CODE_TEXT: {
-                String out = shiftActive() && current == letters ? k.output.toUpperCase() : k.output;
+                String out = shiftActive() && (current == letters || current == symbols3) ? k.output.toUpperCase() : k.output;
                 listener.onText(out);
                 if (shiftPointer >= 0) shiftHeldTyped = true;           // sostenida: sigue en mayusculas hasta soltarla
                 else if (shift && !capsLock) { shift = false; autoShifted = false; }
@@ -2456,7 +2510,7 @@ public final class AurebeshKeyboardView extends View {
                 requestLayout();
                 break;
             case CODE_PAGE:
-                current = current == symbols ? symbols2 : symbols;
+                current = current == symbols ? symbols2 : current == symbols2 ? symbols3 : symbols;
                 requestLayout();
                 break;
         }
