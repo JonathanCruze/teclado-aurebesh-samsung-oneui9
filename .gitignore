@@ -10,3 +10,4 @@ screenshot-test/target/
 *.keystore
 promo/out/
 __pycache__/
+screenshot-test/shots/
