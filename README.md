@@ -44,6 +44,18 @@
 
 Para actualizar, descarga el nuevo APK e instálalo encima: conserva tus ajustes.
 
+### Novedades de la 2.0.1
+- **Deslizar reconoce el léxico Star Wars:** con el diccionario Star Wars activo, trazar *coruscant*, *palpatine* o *kyber*
+  escribe Coruscant, Palpatine y kyber (antes salían *croissant*, *perdonarme* y *klinger*). Las palabras de tu diccionario
+  personal ya se reconocían; ahora las dos listas pasan por el mismo camino.
+- **Deslizado más fiel a la forma:** la puntuación incluye la mayor desviación entre el trazo y la palabra, no solo la media,
+  así una palabra frecuente ya no le gana a la que de verdad trazaste (*tenido* tapaba a un *teclado* perfecto). En la prueba de
+  60 palabras corrientes con tres grados de desvío acierta 177 de 180 a la primera; los tres restantes son *perro* sin pausa en
+  la doble erre, que sale como *pero* y ofrece *perro* en la barra.
+- **Pruebas rápidas de deslizar** (`GlideQuickTest`): palabras corrientes y del léxico con ruido de sensor y reloj reales, estela en
+  los seis colores en tema claro y oscuro, desvanecimiento medido en píxeles (cero rastro pasados 600 ms) y una variante con dedo
+  tembloroso. Capturas en `screenshots/deslizar_*.png`.
+
 ### Novedades de la 2.0
 - **Estela de sable de luz** al deslizar para escribir: curva continua con núcleo blanco, hoja de color y halo, que se desvanece
   por la cola; seis colores en Diseño: Azul (Anakin y Obi-Wan), Verde (Luke y Qui-Gon), Amarillo (Guardia del Templo), Bronce,
@@ -159,7 +171,7 @@ Para actualizar, descarga el nuevo APK e instálalo encima: conserva tus ajustes
   </tr>
 </table>
 
-- **Deslizar para escribir**: traza la palabra sobre las letras (estela en el color del tema) y aparece con sus alternativas;
+- **Deslizar para escribir**: traza la palabra sobre las letras (estela de sable del color elegido) y aparece con sus alternativas;
   retroceso justo después la borra entera. Decodificador propio al estilo SHARK2; en trayectorias sintéticas acierta a la primera
   el 98 % en español y el 96 % en inglés.
 - **Predicción de la siguiente palabra** con tablas de bigramas de corpus abiertos y los pares que tú mismo escribes (aprendidos

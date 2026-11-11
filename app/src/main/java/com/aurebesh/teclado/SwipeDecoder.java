@@ -27,6 +27,12 @@ final class SwipeDecoder {
     static final float SIGMA_LOC = 0.35f;
     /** Desviacion del canal de forma (polilineas normalizadas, adimensional). */
     static final float SIGMA_SHAPE = 0.10f;
+    /**
+     * Desviacion del canal de excursion: la mayor distancia puntual (en anchos de tecla, fuera del tunel) entre el
+     * trazo y la plantilla. Castiga a la palabra que no pasa por donde si paso el dedo (o al reves), aunque el resto
+     * coincida: con solo el error medio, "tenido" le ganaba por frecuencia a un "teclado" trazado perfecto.
+     */
+    static final float SIGMA_FAR = 1.0f;
     /** Peso de los dos primeros y los dos ultimos puntos en el canal de posicion. */
     static final float END_WEIGHT = 3f;
     /** Radio, en anchos de tecla, para elegir las posibles primera y ultima tecla del trazo. */
@@ -52,6 +58,8 @@ final class SwipeDecoder {
     static final int MAX_WORD = 24;
     /** Rango ficticio de las palabras aprendidas por el usuario. */
     static final int PERSONAL_RANK = 2000;
+    /** Rango ficticio de una entrada larga del lexico Star Wars (mas de cinco letras), como SW_LONG_SCORE del diccionario. */
+    static final int SAGA_RANK = 800;
 
     private static final int TOP = MAX_RESULTS + 4;     // candidatos conservados antes de filtrar
     private static final int MAX_DWELLS = 4;
@@ -240,36 +248,22 @@ final class SwipeDecoder {
                 }
             }
         }
-        // Palabras aprendidas: pocas, se recorren enteras con un rango ficticio
+        // Palabras aprendidas y lexico Star Wars: pocas, se recorren enteras con un rango ficticio
         Set<String> personal = dict.personal();
         if (!personal.isEmpty()) {
             float pLog = (float) Math.log(PERSONAL_RANK + 1);
             for (String p : personal) {
-                String plain = Dictionary.deaccent(p);
-                int wl = plain.length();
-                if (wl < 2 || wl > MAX_WORD || wl > maxLetters || dict.rankOf(p) >= 0) continue;
-                boolean ok = true;
-                int dbl = 0, m = 0;
-                for (int i = 0; i < wl && ok; i++) {
-                    char ch = plain.charAt(i);
-                    if (ch == '\u00df') {
-                        int k = geo.indexOf('s');
-                        if (k < 0 || m + 2 > MAX_WORD) { ok = false; break; }
-                        tmpSeq[m++] = (byte) k; tmpSeq[m++] = (byte) k; dbl++;
-                        continue;
-                    }
-                    if (ch == '\u00fc' && geo.indexOf('\u00fc') < 0) ch = 'u';
-                    int k = geo.indexOf(ch);
-                    if (k < 0 || m >= MAX_WORD || m >= maxLetters) ok = false;
-                    else { tmpSeq[m] = (byte) k; if (m > 0 && tmpSeq[m - 1] == k) dbl++; m++; }
-                }
-                wl = m;
-                if (!ok || wl < 2 || !contains(startKeys, ns, tmpSeq[0]) || !contains(endKeys, ne, tmpSeq[wl - 1])) continue;
-                float il = polylineLength(tmpSeq, wl);
-                if (Math.abs(il - len) > lenTol && !(dbl > 0 && Math.abs(il + dbl * loopLen - len) <= lenTol)) continue;
-                float s = scoreSeq(tmpSeq, 0, wl, dbl, dwells) + pLog;
-                found = insert(found, -1, p, s, lastLoc);
+                if (dict.rankOf(p) >= 0) continue;
+                found = extra(p, pLog, found, maxLetters, ns, ne, len, lenTol, loopLen, dwells);
             }
+        }
+        String[] lexicon = dict.glideLexicon();
+        for (int li = 0; li < lexicon.length; li++) {
+            String w = lexicon[li];
+            int rank = w.length() > 5 ? SAGA_RANK : PERSONAL_RANK;       // como en Dictionary: las largas pesan algo mas
+            int own = dict.rankOf(w);
+            if (own >= 0 && own <= rank) continue;                       // ya indexada con mejor rango
+            found = extra(w, (float) Math.log(rank + 1), found, maxLetters, ns, ne, len, lenTol, loopLen, dwells);
         }
         if (found == 0) return out;
         // Filtro de palabras vetadas y rechazo del gesto
@@ -419,12 +413,12 @@ final class SwipeDecoder {
         resample(tx, ty, m, rx, ry);
         normalize(rx, ry, ntx, nty, geo.keyW);
         float keyW = geo.keyW;
-        float loc = 0, wsum = 0, shape = 0;
+        float loc = 0, wsum = 0, shape = 0, far = 0;
         for (int i = 0; i < N; i++) {
             float w = (i < 2 || i >= N - 2) ? END_WEIGHT : 1f;
             float ex = (ux[i] - rx[i]) / keyW, ey = (uy[i] - ry[i]) / geo.keyY;   // en teclas, cada eje con su tamano
             float d = (float) Math.sqrt(ex * ex + ey * ey) - TUNNEL;
-            if (d > 0) loc += w * d;
+            if (d > 0) { loc += w * d; if (d > far) far = d; }
             wsum += w;
             float sx = nux[i] - ntx[i], sy = nuy[i] - nty[i];
             shape += (float) Math.sqrt(sx * sx + sy * sy);
@@ -432,8 +426,40 @@ final class SwipeDecoder {
         loc /= wsum;
         shape /= N;
         lastLoc = loc;
-        float a = loc / SIGMA_LOC, b = shape / SIGMA_SHAPE;
-        return 0.5f * (a * a + b * b);
+        float a = loc / SIGMA_LOC, b = shape / SIGMA_SHAPE, f = far / SIGMA_FAR;
+        return 0.5f * (a * a + b * b + f * f);
+    }
+
+    /**
+     * Puntua una palabra que no esta en el indice (aprendida o del lexico Star Wars) con un ln(rango) dado, si su
+     * secuencia de teclas cabe en el gesto y empieza y acaba cerca de sus extremos; devuelve el nuevo numero de mejores.
+     */
+    private int extra(String p, float pLog, int found, int maxLetters, int ns, int ne, float len, float lenTol, float loopLen, int dwells) {
+        String plain = Dictionary.deaccent(p);
+        int wl = plain.length();
+        if (wl < 2 || wl > MAX_WORD || wl > maxLetters) return found;
+        int dbl = 0, m = 0;
+        for (int i = 0; i < wl; i++) {
+            char ch = plain.charAt(i);
+            if (ch == '\u00df') {
+                int k = geo.indexOf('s');
+                if (k < 0 || m + 2 > MAX_WORD) return found;
+                tmpSeq[m++] = (byte) k; tmpSeq[m++] = (byte) k; dbl++;
+                continue;
+            }
+            if (ch == '\u00fc' && geo.indexOf('\u00fc') < 0) ch = 'u';
+            int k = geo.indexOf(ch);
+            if (k < 0 || m >= MAX_WORD || m >= maxLetters) return found;
+            tmpSeq[m] = (byte) k;
+            if (m > 0 && tmpSeq[m - 1] == k) dbl++;
+            m++;
+        }
+        wl = m;
+        if (wl < 2 || !contains(startKeys, ns, tmpSeq[0]) || !contains(endKeys, ne, tmpSeq[wl - 1])) return found;
+        float il = polylineLength(tmpSeq, wl);
+        if (Math.abs(il - len) > lenTol && !(dbl > 0 && Math.abs(il + dbl * loopLen - len) <= lenTol)) return found;
+        float s = scoreSeq(tmpSeq, 0, wl, dbl, dwells) + pLog;
+        return insert(found, -1, p, s, lastLoc);
     }
 
     /** Inserta en la lista ordenada de mejores (por puntuacion); devuelve el nuevo tamano. */

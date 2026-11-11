@@ -176,6 +176,8 @@ final class Dictionary {
      * Depende del idioma: "hoth" se reconoce en espanol, pero en ingles es "both" mal escrito.
      */
     private final HashSet<String> swCaseOnly = new HashSet<>();
+    private static final String[] NO_WORDS = new String[0];
+    private final String[] swGlide;                                      // entradas que se pueden deslizar (las de saga()), en minusculas
 
     /** Carga (o recupera de la cache) el diccionario de un idioma. Puede llamarse en segundo plano. */
     static synchronized Dictionary get(Context c, String lang) throws IOException {
@@ -257,7 +259,16 @@ final class Dictionary {
             }
             if (best <= SW_CASE_LIMIT) swCaseOnly.add(w);
         }
+        ArrayList<String> glide = new ArrayList<>();
+        for (String w : swWords) if (w.length() >= SW_MIN && !ordinary(w) && !swCaseOnly.contains(w)) glide.add(w);
+        swGlide = glide.toArray(new String[0]);
     }
+
+    /**
+     * Entradas del lexico Star Wars que el deslizado reconoce ademas de las palabras del idioma: las de {@link #saga},
+     * en minusculas y en el orden del archivo. Vacio con el lexico apagado. El IME les pone despues su forma canonica.
+     */
+    String[] glideLexicon() { return starWars ? swGlide : NO_WORDS; }
 
     /**
      * Palabras aprendidas del usuario: se aceptan como conocidas, se completan y tambien se corrige hacia ellas
