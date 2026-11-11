@@ -437,6 +437,9 @@ final class AiTray extends LinearLayout {
     }
 
     /** Abre el panel: lee el texto del campo y muestra las acciones (o el aviso de sin modelo). */
+    /** Abre el panel directamente en Traducir (icono de la cinta); por ahora abre el panel normal. */
+    void openTranslate() { show(); }
+
     void show() {
         refreshBadge();
         if (attached && runner.isBusy() && state == State.RUNNING) return;      // sigue generando: se muestra tal cual
