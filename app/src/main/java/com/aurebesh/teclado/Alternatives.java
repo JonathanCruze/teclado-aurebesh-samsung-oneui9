@@ -42,6 +42,42 @@ final class Alternatives {
         DE.put("c", new String[]{"\u00e7"});
     }
 
+    // Caracteres alternativos (la opcion homonima de Samsung Keyboard): el simbolo de la pagina ?123 que cae sobre
+    // cada letra, insinuado arriba a la derecha de la tecla y primero al mantenerla. Tomados del teclado Samsung ES(US)
+    // de un Z Fold 7 (q + w \u00d7 e \u00f7 r = t / y _ u < i > o ( p ) / a @ s # d $ f % g ^ h & j * k \u00bf l \u00a1
+    // \u00f1 ! / z - x ' c " v : b ; n , m ?); en ingles y aleman o-p dan [ ] y k-l ( ) como en su pagina de signos.
+    private static final Map<String, String> SYM_ES = new HashMap<>();
+    private static final Map<String, String> SYM_EN = new HashMap<>();
+    private static final Map<String, String> SYM_DE = new HashMap<>();
+
+    static {
+        symbols(SYM_ES, "qwertyuiop", "+\u00d7\u00f7=/_<>()");
+        symbols(SYM_ES, "asdfghjkl\u00f1", "@#$%^&*\u00bf\u00a1!");
+        symbols(SYM_ES, "zxcvbnm", "-'\":;,?");
+        symbols(SYM_EN, "qwertyuiop", "+\u00d7\u00f7=/_<>[]");
+        symbols(SYM_EN, "asdfghjkl", "@#$%^&*()");
+        symbols(SYM_EN, "zxcvbnm", "-'\":;,?");
+        symbols(SYM_DE, "qwertzuiop\u00fc", "+\u00d7\u00f7=/_<>[]{");
+        symbols(SYM_DE, "asdfghjkl\u00f6\u00e4", "@#$%^&*()!?");
+        symbols(SYM_DE, "yxcvbnm", "-'\":;,?");
+    }
+
+    private static void symbols(Map<String, String> m, String letters, String syms) {
+        for (int i = 0; i < letters.length() && i < syms.length(); i++) {
+            m.put(String.valueOf(letters.charAt(i)), String.valueOf(syms.charAt(i)));
+        }
+    }
+
+    /**
+     * Caracter alternativo de la letra en ese idioma (el simbolo que se insinua arriba a la derecha y sale primero al
+     * mantener con la opcion "Caracteres alternativos"), o null si la letra no tiene.
+     */
+    static String symbol(String lang, String letter) {
+        if (letter == null) return null;
+        Map<String, String> m = "en".equals(lang) ? SYM_EN : "de".equals(lang) ? SYM_DE : SYM_ES;
+        return m.get(letter);
+    }
+
     private static Map<String, String[]> table(String lang) {
         return "en".equals(lang) ? EN : "de".equals(lang) ? DE : ES;
     }

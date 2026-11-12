@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="alt_chars_title">Alternative characters</string>
+    <string name="alt_chars_sub">Shows each key\'s symbol in its top-right corner (q +, a @, m ?); hold the key to type it. Accents stay in the same pop-up.</string>
+    <string name="alt_chars_hint">Like Samsung Keyboard</string>
+</resources>

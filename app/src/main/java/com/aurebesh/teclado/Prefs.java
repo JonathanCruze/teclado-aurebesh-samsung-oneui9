@@ -34,6 +34,7 @@ final class Prefs {
     static final String AUTO_REPLACE = "auto_replace";   // sustitucion automatica al teclear separador (los chips siguen con AUTOCORRECT)
     static final String AUTO_CAPS = "auto_caps";         // mayuscula automatica al inicio de frase
     static final String PREVIEW = "key_preview";         // burbuja al pulsar
+    static final String ALT_CHARS = "alt_chars";         // caracteres alternativos: el simbolo de cada letra insinuado arriba a la derecha y al mantener (como Samsung)
     static final String LONGPRESS = "long_press";        // retardo de pulsacion larga: "short" 250, "medium" 380, "long" 550 ms
     static final String VIBRATION = "vibration_level";   // "system", "soft", "medium", "strong"
     static final String SOUND_VOLUME = "sound_volume";   // 0-100
@@ -123,6 +124,7 @@ final class Prefs {
     static boolean autoReplace(Context c) { return get(c).getBoolean(AUTO_REPLACE, true); }
     static boolean autoCaps(Context c) { return get(c).getBoolean(AUTO_CAPS, true); }
     static boolean preview(Context c) { return get(c).getBoolean(PREVIEW, true); }
+    static boolean altChars(Context c) { return get(c).getBoolean(ALT_CHARS, true); }
     static String spaceSlide(Context c) { return get(c).getString(SPACE_SLIDE, "auto"); }
     static String longPress(Context c) { return get(c).getString(LONGPRESS, "medium"); }
     static int longPressMs(Context c) {
@@ -233,7 +235,7 @@ final class Prefs {
             case SPLIT: case CUSTOM_SOUND: case LEARNED: case APP_LANG: case KEYBOARD_LANG:
             case SPACE_SLIDE: case AUTO_REPLACE: case AUTO_CAPS: case PREVIEW: case LONGPRESS: case VIBRATION:
             case SOUND_VOLUME: case HEIGHT_PCT: case BOTTOM_DP: case SPLIT_WIDTH: case SHORTCUTS:
-            case SABER: case STARWARS: case HINT_MODE: case TOOLBAR_ITEMS:
+            case SABER: case STARWARS: case HINT_MODE: case TOOLBAR_ITEMS: case ALT_CHARS:
             case AiModels.MODEL: case AiModels.MODE: case AiModels.REMOTE_URL: case AiModels.REMOTE_MODEL:
                 return true;
             default:
