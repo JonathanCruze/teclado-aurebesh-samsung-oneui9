@@ -1,6 +1,6 @@
 # APK publicado
 
-`TecladoAurebesh.apk` es la versión instalable de **Teclado Aurebesh 2.3.1** (versionCode 36), firmada con la clave del proyecto,
+`TecladoAurebesh.apk` es la versión instalable de **Teclado Aurebesh 2.4** (versionCode 37), firmada con la clave del proyecto,
 para Android 8.0 o superior y optimizada para Samsung Galaxy con One UI 9.0. Pesa alrededor de 1,5 MB; el modelo de inteligencia no va
 dentro y solo se descarga si lo pides desde Ajustes.
 
@@ -21,4 +21,4 @@ sha256sum TecladoAurebesh.apk
 ```
 En Windows: `certutil -hashfile TecladoAurebesh.apk SHA256`. El resultado debe coincidir con la línea siguiente.
 
-SHA-256: `1cc33c11e3e152049a86d5febe81461499fa0ca9da3398a583b555cf22db4835`
+SHA-256: `f8559b25b8dfbbed07a68ad1721c0ffbfadfc3d494880801516f663d9029d453`
