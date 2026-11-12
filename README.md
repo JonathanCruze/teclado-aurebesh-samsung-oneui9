@@ -12,12 +12,12 @@
 
 <p align="center">
   <a href="https://github.com/JonathanCruze/teclado-aurebesh-samsung-oneui9/raw/main/releases/TecladoAurebesh.apk">
-    <img src="https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20%20DESCARGAR%20APK%20%E2%80%94%20Teclado%20Aurebesh%202.2.1-1B2838?style=for-the-badge&logoColor=white&labelColor=1B2838&color=7FD3F0" alt="Descargar APK">
+    <img src="https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20%20DESCARGAR%20APK%20%E2%80%94%20Teclado%20Aurebesh%202.2.2-1B2838?style=for-the-badge&logoColor=white&labelColor=1B2838&color=7FD3F0" alt="Descargar APK">
   </a>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/versi%C3%B3n-2.2.1-7FD3F0?style=flat-square" alt="versión 2.2.1">
+  <img src="https://img.shields.io/badge/versi%C3%B3n-2.2.2-7FD3F0?style=flat-square" alt="versión 2.2.2">
   <img src="https://img.shields.io/badge/Android-8.0%2B-3DDC84?style=flat-square" alt="Android 8+">
   <img src="https://img.shields.io/badge/Samsung-One%20UI%209.0-1428A0?style=flat-square" alt="Samsung One UI 9.0">
   <img src="https://img.shields.io/badge/sin%20anuncios-%E2%9C%93-2E7D32?style=flat-square" alt="sin anuncios">
