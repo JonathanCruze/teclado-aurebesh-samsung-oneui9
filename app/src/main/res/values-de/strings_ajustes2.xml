@@ -10,13 +10,13 @@
     <string name="saber_green">Grün</string>
     <string name="saber_green_who">Luke und Qui-Gon</string>
     <string name="saber_yellow">Gelb</string>
-    <string name="saber_yellow_who">Tempelwache</string>
+    <string name="saber_yellow_who">Tempelwache und Rey</string>
     <string name="saber_orange">Bronze</string>
-    <string name="saber_orange_who">Cal Kestis</string>
+    <string name="saber_orange_who">Cal Kestis, Baylan Skoll und Shin Hati</string>
     <string name="saber_purple">Violett</string>
     <string name="saber_purple_who">Mace Windu</string>
     <string name="saber_red">Rot</string>
-    <string name="saber_red_who">Sith</string>
+    <string name="saber_red_who">Korrumpierter Kyber</string>
     <string name="aj_sum_saber">Schwert %1$s</string>
 
     <!-- Diseno: letras latinas en tres modos -->

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="top_row_title">Obere Reihe</string>
+    <string name="top_row_sub">Was über den Buchstaben steht: Zahlen, die acht Aurebesh-Digraphen oder nichts. Zahlen sind auf q bis p immer per langem Druck da.</string>
+    <string name="top_row_numbers">Zahlen</string>
+    <string name="top_row_digraphs">Digraphen</string>
+    <string name="top_row_none">Nichts</string>
+    <string name="theme_auto_group">Automatisch · folgt dem Dunkelmodus des Telefons</string>
+    <string name="theme_auto_republic">Republik</string>
+    <string name="theme_auto_republic_sub">Stellar am Tag, Nacht bei Nacht</string>
+    <string name="theme_auto_imperio">Imperium</string>
+    <string name="theme_auto_imperio_sub">Sand am Tag, Imperial bei Nacht</string>
+    <string name="theme_fixed_group">Immer gleich</string>
+    <string name="immersive_title">Alles in Aurebesh</string>
+    <string name="immersive_sub">Zeigt Getipptes und Vorschläge in Aurebesh über den Tasten</string>
+    <string name="immersive_short">alles in Aurebesh</string>
+</resources>

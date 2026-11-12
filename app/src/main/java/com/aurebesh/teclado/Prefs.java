@@ -13,6 +13,7 @@ final class Prefs {
     static final String STRIP = "show_strip";
     static final String THEME = "theme";
     static final String NUMBERS = "number_row";
+    static final String TOP_ROW = "top_row";           // fila superior: "numbers", "digraphs" o "none" (sustituye a NUMBERS; si falta, se deriva de ella)
     static final String SOUND = "sound";
     static final String HEIGHT = "keyboard_height";
     static final String AUTOCORRECT = "autocorrect";
@@ -43,7 +44,8 @@ final class Prefs {
     static final String SPLIT_WIDTH = "split_width";     // ancho de cada mitad del dividido: "narrow" 0,33, "normal" 0,375, "wide" 0,42
     static final String SHORTCUTS = "text_shortcuts";    // atajos de texto: lineas "clave\tvalor"
     static final String CANDIDATES = "candidate_words";  // palabras desconocidas vistas: lineas "palabra n" (se aprenden al repetirse)
-    static final String THEME_AUTO = "auto";             // valor de THEME: sigue el modo oscuro del telefono
+    static final String THEME_AUTO = "auto";             // valor de THEME: sigue el modo oscuro del telefono (Republica: Estelar de dia, Noche de noche)
+    static final String THEME_AUTO_IMPERIO = "auto_imperio";   // idem con Arena de dia e Imperial de noche
     // --- 2.0
     static final String SABER = "saber";                 // color de la estela del sable: blue, green, yellow, orange, purple, red
     static final String STARWARS = "starwars_dict";      // diccionario Star Wars (personajes, naves, planetas) en la correccion
@@ -63,9 +65,11 @@ final class Prefs {
     /** Tema efectivo; "auto" se resuelve con el modo oscuro del telefono (Estelar de dia, Noche de noche). */
     static String theme(Context c) {
         String t = themePref(c);
-        if (THEME_AUTO.equals(t)) {
+        if (THEME_AUTO.equals(t) || THEME_AUTO_IMPERIO.equals(t)) {
             int night = c.getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
-            return night == android.content.res.Configuration.UI_MODE_NIGHT_YES ? Themes.NOCHE.id : Themes.DEFAULT.id;
+            boolean dark = night == android.content.res.Configuration.UI_MODE_NIGHT_YES;
+            if (THEME_AUTO_IMPERIO.equals(t)) return dark ? Themes.IMPERIAL.id : Themes.ARENA.id;
+            return dark ? Themes.NOCHE.id : Themes.DEFAULT.id;
         }
         return t;
     }
@@ -84,6 +88,12 @@ final class Prefs {
         return DeviceInfo.wideScreen(c) ? base + "_wide" : base;
     }
     static boolean numbers(Context c) { return get(c).getBoolean(NUMBERS, true); }
+    /** Fila superior del teclado: "numbers", "digraphs" o "none"; sin TOP_ROW guardada se deriva del antiguo interruptor NUMBERS. */
+    static String topRow(Context c) {
+        String v = get(c).getString(TOP_ROW, null);
+        if ("numbers".equals(v) || "digraphs".equals(v) || "none".equals(v)) return v;
+        return numbers(c) ? "numbers" : "none";
+    }
     static boolean sound(Context c) { return get(c).getBoolean(SOUND, true); }
     static String height(Context c) { return get(c).getString(HEIGHT, "normal"); }
     /** Alto del teclado en % (70-140), por pantalla en plegables; migra los tamanos antiguos (compacto 85... extra 130). */
@@ -235,7 +245,7 @@ final class Prefs {
             case SPLIT: case CUSTOM_SOUND: case LEARNED: case APP_LANG: case KEYBOARD_LANG:
             case SPACE_SLIDE: case AUTO_REPLACE: case AUTO_CAPS: case PREVIEW: case LONGPRESS: case VIBRATION:
             case SOUND_VOLUME: case HEIGHT_PCT: case BOTTOM_DP: case SPLIT_WIDTH: case SHORTCUTS:
-            case SABER: case STARWARS: case HINT_MODE: case TOOLBAR_ITEMS: case ALT_CHARS:
+            case SABER: case STARWARS: case HINT_MODE: case TOOLBAR_ITEMS: case ALT_CHARS: case TOP_ROW:
             case AiModels.MODEL: case AiModels.MODE: case AiModels.REMOTE_URL: case AiModels.REMOTE_MODEL:
                 return true;
             default:

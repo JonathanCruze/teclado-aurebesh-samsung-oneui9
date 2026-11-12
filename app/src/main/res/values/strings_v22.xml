@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="top_row_title">Top row</string>
+    <string name="top_row_sub">What sits above the letters: numbers, the eight Aurebesh digraphs, or nothing. Numbers are always one long press away on q to p.</string>
+    <string name="top_row_numbers">Numbers</string>
+    <string name="top_row_digraphs">Digraphs</string>
+    <string name="top_row_none">Nothing</string>
+    <string name="theme_auto_group">Automatic · follows the phone\'s dark mode</string>
+    <string name="theme_auto_republic">Republic</string>
+    <string name="theme_auto_republic_sub">Stellar by day, Night at night</string>
+    <string name="theme_auto_imperio">Empire</string>
+    <string name="theme_auto_imperio_sub">Sand by day, Imperial at night</string>
+    <string name="theme_fixed_group">Always the same</string>
+    <string name="immersive_title">Everything in Aurebesh</string>
+    <string name="immersive_sub">Shows what you type and the suggestions in Aurebesh above the keys</string>
+    <string name="immersive_short">everything in Aurebesh</string>
+</resources>

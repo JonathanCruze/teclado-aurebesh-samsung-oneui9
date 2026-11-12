@@ -10,13 +10,13 @@
     <string name="saber_green">Green</string>
     <string name="saber_green_who">Luke and Qui-Gon</string>
     <string name="saber_yellow">Yellow</string>
-    <string name="saber_yellow_who">Temple Guard</string>
+    <string name="saber_yellow_who">Temple Guard and Rey</string>
     <string name="saber_orange">Bronze</string>
-    <string name="saber_orange_who">Cal Kestis</string>
+    <string name="saber_orange_who">Cal Kestis, Baylan Skoll and Shin Hati</string>
     <string name="saber_purple">Purple</string>
     <string name="saber_purple_who">Mace Windu</string>
     <string name="saber_red">Red</string>
-    <string name="saber_red_who">Sith</string>
+    <string name="saber_red_who">Corrupted kyber</string>
     <string name="aj_sum_saber">%1$s saber</string>
 
     <!-- Diseno: letras latinas en tres modos -->

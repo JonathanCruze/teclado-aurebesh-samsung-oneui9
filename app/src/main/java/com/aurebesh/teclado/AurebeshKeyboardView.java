@@ -388,6 +388,26 @@ public final class AurebeshKeyboardView extends View {
      * onStartInputView en vez de showSymbols). {@code phone}: + * # y pausa; {@code decimal}: separador
      * decimal del idioma; {@code signed}: teclas − y +. Sin deslizado, sin dividir y con la cinta de ?123.
      */
+    /** Como {@link #showNumpad(boolean, boolean, boolean)}; {@code pin}: campo de PIN (solo digitos, sin simbolos). */
+    void showNumpad(boolean phone, boolean decimal, boolean signed, boolean pin) {
+        numpadPin = pin;
+        showNumpad(phone, decimal, signed);
+    }
+    private boolean numpadPin = false;
+
+    /**
+     * Fila superior de la pagina de letras: "numbers" (digitos), "digraphs" (los ocho digrafos Aurebesh en el sitio de
+     * los digitos, que pasan a la pulsacion larga de q..p) o "none" (nada; los digitos tambien en la pulsacion larga).
+     */
+    void setTopRow(String mode) {
+        String m = "digraphs".equals(mode) ? "digraphs" : "none".equals(mode) ? "none" : "numbers";
+        if (m.equals(topRow)) return;
+        topRow = m;
+        numberRow = !"none".equals(m);
+        rebuildLayouts();
+    }
+    private String topRow = "numbers";
+
     void showNumpad(boolean phone, boolean decimal, boolean signed) {
         numpadPhone = phone;
         numpadDecimal = decimal;
