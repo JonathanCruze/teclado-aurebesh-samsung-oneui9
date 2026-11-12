@@ -31,8 +31,8 @@
     <string name="theme_contraste">Contraste</string>
     <string name="opt_hints">Letra latina en las teclas</string>
     <string name="opt_hints_sub">Letra latina pequeña en la esquina de cada tecla, útil mientras aprendes el alfabeto</string>
-    <string name="opt_strip">Barra de traducción</string>
-    <string name="opt_strip_sub">Muestra lo escrito en Aurebesh sobre las teclas</string>
+    <string name="opt_strip">Todo en Aurebesh</string>
+    <string name="opt_strip_sub">Muestra lo escrito y las sugerencias en Aurebesh sobre las teclas</string>
     <string name="opt_toolbar">Barra de herramientas</string>
     <string name="opt_toolbar_sub">Añade una fila sobre las teclas con ✦ inteligencia, 😊 emojis, 📋 portapapeles y modo a una mano, y ⚙ ajustes en ?123; sin ella el teclado es más bajo</string>
 

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="cat_list_title">Ajustes</string>
+    <string name="cat_keys">Idiomas y teclas</string>
+    <string name="cat_style">Estilo</string>
+    <string name="cat_size">Tamaño y distribución</string>
+    <string name="cat_touch">Deslizar, tocar y respuesta</string>
+    <string name="cat_privacy">Privacidad y datos</string>
+    <string name="aj_back">Atrás</string>
+    <string name="aj_open_page">Abre la página %1$s</string>
+
+    <string name="sum_top_row">fila superior: %1$s</string>
+    <string name="sum_top_row_none">sin fila superior</string>
+    <string name="sum_digraphs">dígrafos</string>
+    <string name="sum_alt_chars">caracteres alternativos</string>
+    <string name="sum_longpress">pulsación larga %1$s</string>
+
+    <string name="aj_toolbar_icons_note">Qué iconos lleva la barra y en qué orden se elige desde el propio teclado: ··· › Editar</string>
+    <string name="aj_theme_auto_badge">automático, sigue el modo oscuro del teléfono</string>
+</resources>

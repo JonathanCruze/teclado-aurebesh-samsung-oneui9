@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="cat_list_title">Einstellungen</string>
+    <string name="cat_keys">Sprachen und Tasten</string>
+    <string name="cat_style">Stil</string>
+    <string name="cat_size">Größe und Anordnung</string>
+    <string name="cat_touch">Wischen, Tippen und Feedback</string>
+    <string name="cat_privacy">Datenschutz und Daten</string>
+    <string name="aj_back">Zurück</string>
+    <string name="aj_open_page">Öffnet die Seite %1$s</string>
+
+    <string name="sum_top_row">obere Reihe: %1$s</string>
+    <string name="sum_top_row_none">ohne obere Reihe</string>
+    <string name="sum_digraphs">Digraphen</string>
+    <string name="sum_alt_chars">alternative Zeichen</string>
+    <string name="sum_longpress">langer Druck %1$s</string>
+
+    <string name="aj_toolbar_icons_note">Welche Symbole die Leiste zeigt und in welcher Reihenfolge, wählst du auf der Tastatur selbst: ··· › Bearbeiten</string>
+    <string name="aj_theme_auto_badge">automatisch, folgt dem Dunkelmodus des Telefons</string>
+</resources>

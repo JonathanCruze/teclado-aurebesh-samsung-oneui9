@@ -133,9 +133,8 @@ public final class AurebeshKeyboardView extends View {
     private Listener listener;
     private final List<List<Key>> letters = new ArrayList<>();
     private final List<List<Key>> symbols = new ArrayList<>();    // signos 1/2 (como Samsung Keyboard)
-    private final List<List<Key>> symbols2 = new ArrayList<>();   // signos 2/3: digrafos, ¿ ¡ « » y mas simbolos
-    private final List<List<Key>> symbols3 = new ArrayList<>();   // letras con acento 3/3: a a a a a... c e e e e... u u u u ß
-    private final List<List<Key>> numpad = new ArrayList<>();     // teclado numerico 3x4 (numero, decimal, con signo o telefono)
+    private final List<List<Key>> symbols2 = new ArrayList<>();   // signos 2/2: digrafos, ¿ ¡ « » y mas simbolos
+    private final List<List<Key>> numpad = new ArrayList<>();     // teclado numerico 5x4 (numero o telefono, con simbolos) o 4x4 (PIN)
     private List<List<Key>> current;
 
     private boolean shift = false;
@@ -169,7 +168,6 @@ public final class AurebeshKeyboardView extends View {
     private boolean vibrate = true;
     private boolean showStrip = false;
     private boolean useDigraphs = true;
-    private boolean numberRow = true;
     private boolean altChars = true;        // caracteres alternativos: el simbolo de cada letra arriba a la derecha y primero al mantener (como Samsung)
     private boolean sound = true;
     private float heightScale = 1f;
@@ -343,9 +341,9 @@ public final class AurebeshKeyboardView extends View {
         }
         theme = Themes.byId(themeId);
         applyTheme();
-        if (numberRow != numbers) {
-            numberRow = numbers;
-            rebuildLayouts();
+        if (!topRowSet) {                                   // compatibilidad: true -> "numbers", false -> "none"; setTopRow manda si se llamo
+            String m = numbers ? "numbers" : "none";
+            if (!m.equals(topRow)) { topRow = m; rebuildLayouts(); }
         }
         if (showStrip != strip) {
             showStrip = strip;
@@ -383,16 +381,8 @@ public final class AurebeshKeyboardView extends View {
     void setFieldVariant(int variant) { if (fieldVariant != variant) { fieldVariant = variant; rebuildLayouts(); } }
     private int fieldVariant = FIELD_NONE;
 
-    /**
-     * Teclado numerico 3x4 con glifos Aurebesh para campos de numero, telefono y PIN (el IME lo abre en
-     * onStartInputView en vez de showSymbols). {@code phone}: + * # y pausa; {@code decimal}: separador
-     * decimal del idioma; {@code signed}: teclas − y +. Sin deslizado, sin dividir y con la cinta de ?123.
-     */
-    /** Como {@link #showNumpad(boolean, boolean, boolean)}; {@code pin}: campo de PIN (solo digitos, sin simbolos). */
-    void showNumpad(boolean phone, boolean decimal, boolean signed, boolean pin) {
-        numpadPin = pin;
-        showNumpad(phone, decimal, signed);
-    }
+    /** Como {@link #showNumpad(boolean, boolean, boolean, boolean)} sin PIN (sin deslizado, sin dividir y con la cinta de ?123). */
+    void showNumpad(boolean phone, boolean decimal, boolean signed) { showNumpad(phone, decimal, signed, false); }
     private boolean numpadPin = false;
 
     /**
@@ -400,15 +390,27 @@ public final class AurebeshKeyboardView extends View {
      * los digitos, que pasan a la pulsacion larga de q..p) o "none" (nada; los digitos tambien en la pulsacion larga).
      */
     void setTopRow(String mode) {
+        topRowSet = true;                            // desde ahora el booleano de applyPrefs ya no toca la fila
         String m = "digraphs".equals(mode) ? "digraphs" : "none".equals(mode) ? "none" : "numbers";
         if (m.equals(topRow)) return;
         topRow = m;
-        numberRow = !"none".equals(m);
         rebuildLayouts();
     }
     private String topRow = "numbers";
+    private boolean topRowSet = false;              // setTopRow ya mando: applyPrefs deja de tocar la fila superior
 
-    void showNumpad(boolean phone, boolean decimal, boolean signed) {
+    /** Fila superior actual: "numbers", "digraphs" o "none" (para pruebas). */
+    String topRow() { return topRow; }
+
+    /**
+     * Teclado numerico con glifos Aurebesh grandes en el centro y simbolos a los lados, como la calculadora o el
+     * telefono de Samsung (el IME lo abre en onStartInputView en vez de showSymbols). {@code phone}: ( ) + - / * #
+     * y pausa; numero: ( ) - + * / y los dos separadores (el decimal del idioma y el de miles); {@code pin}: solo
+     * digitos, borrar e intro en cuatro columnas. {@code decimal} y {@code signed} se aceptan por compatibilidad:
+     * los separadores y los signos se ofrecen siempre (muchas apps los aceptan aunque el campo no los declare).
+     */
+    void showNumpad(boolean phone, boolean decimal, boolean signed, boolean pin) {
+        numpadPin = pin;
         numpadPhone = phone;
         numpadDecimal = decimal;
         numpadSigned = signed;
@@ -457,8 +459,8 @@ public final class AurebeshKeyboardView extends View {
     private int resizeDrag = 0;                 // 0 nada, 1 tirador superior (alto), 2 tirador inferior (margen)
     private int resizePointer = -1;             // dedo que arrastra o que tiene pulsado un boton
     private int resizePressed = 0;              // 1 Listo, 2 Restablecer (pulsado)
-    private float resizeDragY0;                 // y en pantalla donde empezo el arrastre
-    private float resizeLastY;                  // y en pantalla de la ultima aplicacion (se aplica cada ~4 dp)
+    private float resizeDragY0;                 // y en pantalla (getRawY) donde empezo el arrastre
+    private int resizePreviewPct, resizePreviewDp;   // vista previa durante el arrastre: alto y margen que se aplicaran al soltar
     private float resizeScale0, resizePad0;     // alto y margen al empezar el arrastre
     private float resizeEntryScale = 1f, resizeEntryPad = 0f;   // alto y margen al entrar (se restauran si se cancela)
     private final RectF resizeTopRect = new RectF(), resizeBottomRect = new RectF();
@@ -790,11 +792,10 @@ public final class AurebeshKeyboardView extends View {
         letters.clear();
         symbols.clear();
         symbols2.clear();
-        symbols3.clear();
         numpad.clear();
         buildLayouts();
         if (numpadWas) buildNumpad();
-        current = numpadWas ? numpad : was == symbols ? symbols : was == symbols2 ? symbols2 : was == symbols3 ? symbols3 : letters;
+        current = numpadWas ? numpad : was == symbols ? symbols : was == symbols2 ? symbols2 : letters;
         closePopup();
         requestLayout();
         invalidate();
@@ -888,6 +889,13 @@ public final class AurebeshKeyboardView extends View {
         return nums;
     }
 
+    /** Fila de los ocho digrafos Aurebesh (peso 1,25: ocupan las diez unidades), en la pagina 2/2 o como fila superior. */
+    private List<Key> digraphsRow() {
+        List<Key> dig = new ArrayList<>();
+        for (String d : Glyphs.DIGRAPHS) dig.add(new Key(d, d, d, null, CODE_TEXT, 1.25f));
+        return dig;
+    }
+
     /**
      * Tecla de letra del aleman: la vocal con diaeresis (o la eszett en la s) pasa a ser la primera alternativa,
      * solo por detras del simbolo de los caracteres alternativos si lo lleva (simbolo, diaeresis, el resto).
@@ -914,9 +922,10 @@ public final class AurebeshKeyboardView extends View {
     private void buildLayouts() {
         boolean de = "de".equals(language);     // QWERTZ: qwertzuiopü / asdfghjklöä / yxcvbnm
         if (numbersShown()) letters.add(digitsRow());
+        else if (digraphsShown()) letters.add(digraphsRow());   // fila superior de digrafos en el sitio de los digitos
         if (de) germanRow(letters, "qwertzuiop\u00fc"); else lettersRow(letters, "qwertyuiop");
         if (!numbersShown()) {                    // sin fila de numeros: q..p dan 1..0 en pulsacion larga
-            List<Key> top = letters.get(0);
+            List<Key> top = letters.get(letters.size() - 1);
             for (int i = 0; i < 10 && i < top.size(); i++) {
                 String c = top.get(i).output;     // el digito manda y la tecla no lleva su simbolo (como Samsung): el menu no se llena
                 Key plain = de ? germanLetter(c, false) : letter(c, false);
@@ -939,38 +948,20 @@ public final class AurebeshKeyboardView extends View {
                 sym("_", 1f), sym("<", 1f, "\u2264"), sym(">", 1f, "\u2265"), sym("[", 1f, "{"), sym("]", 1f, "}"));
         row(symbols, sym("!", 1f, "\u00a1"), sym("@", 1f), sym("#", 1f), sym("$", 1f, "\u20ac"), sym("%", 1f, "\u2030"),
                 sym("^", 1f), sym("&", 1f), sym("*", 1f, "\u2022"), sym("(", 1f), sym(")", 1f));
-        row(symbols, special("1/3", CODE_PAGE, 1.5f), sym("-", 1f, "\u2013"), sym("'", 1f, "\u2018"), sym("\"", 1f, "\u201c"),
+        row(symbols, special("1/2", CODE_PAGE, 1.5f), sym("-", 1f, "\u2013"), sym("'", 1f, "\u2018"), sym("\"", 1f, "\u201c"),
                 sym(":", 1f), sym(";", 1f), sym(",", 1f), sym("?", 1f, "\u00bf"), special("", CODE_DELETE, 1.5f));
         bottomRow(symbols, "abc");
 
         // Signos 2/2: digrafos Aurebesh, signos del espanol y simbolos menos frecuentes
         symbols2.add(digitsRow());
-        List<Key> dig = new ArrayList<>();
-        for (String d : Glyphs.DIGRAPHS) dig.add(new Key(d, d, d, null, CODE_TEXT, 1.25f));
-        symbols2.add(dig);
+        symbols2.add(digraphsRow());
         row(symbols2, sym("\u00bf", 1f), sym("\u00a1", 1f), sym("\u00ab", 1f), sym("\u00bb", 1f), sym("{", 1f), sym("}", 1f),
                 sym("|", 1f), sym("\\", 1f), sym("~", 1f), sym("\u2022", 1f));
-        row(symbols2, special("2/3", CODE_PAGE, 1.5f), sym("\u00a3", 1f), sym("\u20ac", 1f), sym("\u00a5", 1f), sym("\u00b0", 1f),
+        row(symbols2, special("2/2", CODE_PAGE, 1.5f), sym("\u00a3", 1f), sym("\u20ac", 1f), sym("\u00a5", 1f), sym("\u00b0", 1f),
                 sym("\u00a9", 1f), sym("\u00ae", 1f), sym("\u2122", 1f), special("", CODE_DELETE, 1.5f));
         bottomRow(symbols2, "abc");
-
-        // Letras con acento 3/3: todas a la vista (ademas de la pulsacion larga sobre la vocal), con el glifo de la
-        // letra base y la letra latina siempre visible para distinguir a a a a
-        symbols3.add(digitsRow());
-        row(symbols3, accent("\u00e0"), accent("\u00e1"), accent("\u00e2"), accent("\u00e4"), accent("\u00e3"), accent("\u00e5"),
-                accent("\u00e6"), accent("\u00e7"), accent("\u00e8"), accent("\u00e9"));
-        row(symbols3, accent("\u00ea"), accent("\u00eb"), accent("\u00ec"), accent("\u00ed"), accent("\u00ee"), accent("\u00ef"),
-                accent("\u00f2"), accent("\u00f3"), accent("\u00f4"), accent("\u00f6"));
-        row(symbols3, special("3/3", CODE_PAGE, 1.5f), accent("\u00f5"), accent("\u00f8"), accent("\u00f9"), accent("\u00fa"),
-                accent("\u00fb"), accent("\u00fc"), accent("\u00df"), special("", CODE_DELETE, 1.5f));
-        bottomRow(symbols3, "abc");
-    }
-
-    /** Tecla de letra con acento: glifo de la letra base (si lo hay), la letra latina completa siempre visible. */
-    private static Key accent(String ch) {
-        String g = Glyphs.glyphKey(ch);
-        String[] alts = "\u00e6".equals(ch) ? new String[]{"\u0153"} : "\u00fc".equals(ch) ? new String[]{"\u00fd", "\u00ff"} : null;
-        return new Key(ch, g, ch, alts, CODE_TEXT, 1f);
+        // Las letras con acento (la antigua pagina 3/3) viven en la pulsacion larga de cada letra ({@link Alternatives}):
+        // ae y oe en la a y la o inglesas y alemanas, o con barra en la o, eszett en la s alemana, cedilla en la c inglesa y alemana
     }
 
     /** Alternativas del punto al mantenerlo: la puntuacion completa del idioma (la primera es la que sale al soltar sin mover). */
@@ -1016,27 +1007,37 @@ public final class AurebeshKeyboardView extends View {
     }
 
     /**
-     * Teclado numerico, 4 columnas x 4 filas con los digitos en glifos Aurebesh grandes. Numero:
-     * 1 2 3 / 4 5 6 / 7 8 9 / [separador] 0 borrar, y una columna derecha con \u2212 y + (campos con signo) e
-     * intro alto. Telefono: * 0 # en la ultima fila y a la derecha borrar, +, pausa (,) e intro. Las celdas
-     * sin tecla llevan CODE_GAP; {@link #layoutNumpad} coloca las teclas y estira intro sobre las celdas vacias.
+     * Teclado numerico como la calculadora o el telefono de Samsung: cinco columnas con los digitos en glifos
+     * Aurebesh grandes en las tres del centro y simbolos ({@link #sym}, con su leyenda abajo a la derecha) a los
+     * lados. Numero: ( 1 2 3 borrar / ) 4 5 6 - / * 7 8 9 + / "/" [decimal] 0 [miles] intro, con el separador
+     * decimal del idioma (coma en espanol y aleman, punto en ingles) y el de miles (el otro) como alternativa
+     * mutua; ambos y los signos se ofrecen siempre, declare lo que declare el campo. Telefono: ( 1 2 3 borrar /
+     * ) 4 5 6 + / - 7 8 9 pausa / "/" * 0 # intro. PIN: solo 1-9, 0, borrar e intro en cuatro columnas; las
+     * celdas libres llevan CODE_GAP y {@link #layoutNumpad} estira intro sobre las que quedan bajo el.
      */
     private void buildNumpad() {
-        boolean en = "en".equals(language);
-        if (numpadPhone) {
-            String pause = getContext().getString(R.string.numpad_pause);
-            row(numpad, sym("1", 1f), sym("2", 1f), sym("3", 1f), special("", CODE_DELETE, 1f));
-            row(numpad, sym("4", 1f), sym("5", 1f), sym("6", 1f), sym("+", 1f));
-            row(numpad, sym("7", 1f), sym("8", 1f), sym("9", 1f), new Key(",", null, pause, new String[]{";"}, CODE_TEXT, 1f));
-            row(numpad, sym("*", 1f), sym("0", 1f), sym("#", 1f), special("", CODE_ENTER, 1f));
+        if (numpadPin) {
+            row(numpad, sym("1", 1f), sym("2", 1f), sym("3", 1f), special("", CODE_GAP, 1f));
+            row(numpad, sym("4", 1f), sym("5", 1f), sym("6", 1f), special("", CODE_GAP, 1f));
+            row(numpad, sym("7", 1f), sym("8", 1f), sym("9", 1f), special("", CODE_ENTER, 1f));
+            row(numpad, special("", CODE_GAP, 1f), sym("0", 1f), special("", CODE_DELETE, 1f), special("", CODE_GAP, 1f));
             return;
         }
-        Key sep = !numpadDecimal ? special("", CODE_GAP, 1f)
-                : en ? sym(".", 1f, ",") : sym(",", 1f, ".");
-        row(numpad, sym("1", 1f), sym("2", 1f), sym("3", 1f), numpadSigned ? sym("-", 1f, "\u2212") : special("", CODE_GAP, 1f));
-        row(numpad, sym("4", 1f), sym("5", 1f), sym("6", 1f), numpadSigned ? sym("+", 1f) : special("", CODE_GAP, 1f));
-        row(numpad, sym("7", 1f), sym("8", 1f), sym("9", 1f), special("", CODE_ENTER, 1f));
-        row(numpad, sep, sym("0", 1f), special("", CODE_DELETE, 1f), special("", CODE_GAP, 1f));
+        if (numpadPhone) {
+            String pause = getContext().getString(R.string.numpad_pause);
+            row(numpad, sym("(", 1f), sym("1", 1f), sym("2", 1f), sym("3", 1f), special("", CODE_DELETE, 1f));
+            row(numpad, sym(")", 1f), sym("4", 1f), sym("5", 1f), sym("6", 1f), sym("+", 1f));
+            row(numpad, sym("-", 1f), sym("7", 1f), sym("8", 1f), sym("9", 1f), new Key(",", null, pause, new String[]{";"}, CODE_TEXT, 1f));
+            row(numpad, sym("/", 1f), sym("*", 1f), sym("0", 1f), sym("#", 1f), special("", CODE_ENTER, 1f));
+            return;
+        }
+        boolean en = "en".equals(language);
+        Key decimal = en ? sym(".", 1f, ",") : sym(",", 1f, ".");      // separador decimal del idioma
+        Key thousands = en ? sym(",", 1f, ".") : sym(".", 1f, ",");    // el otro: separador de miles
+        row(numpad, sym("(", 1f), sym("1", 1f), sym("2", 1f), sym("3", 1f), special("", CODE_DELETE, 1f));
+        row(numpad, sym(")", 1f), sym("4", 1f), sym("5", 1f), sym("6", 1f), sym("-", 1f, "\u2212"));
+        row(numpad, sym("*", 1f, "\u00d7", "^"), sym("7", 1f), sym("8", 1f), sym("9", 1f), sym("+", 1f, "="));
+        row(numpad, sym("/", 1f, "\u00f7", "%"), decimal, sym("0", 1f), thousands, special("", CODE_ENTER, 1f));
     }
 
     /** Tecla de funcion del teclado actual con ese codigo (para pruebas). */
@@ -1123,7 +1124,13 @@ public final class AurebeshKeyboardView extends View {
     }
 
     /** Fila de numeros efectiva: la preferencia, salvo en pantallas muy bajas, donde se oculta aunque este activada. */
-    private boolean numbersShown() { return numberRow && !compact; }
+    private boolean numbersShown() { return "numbers".equals(topRow) && !compact; }
+
+    /** Fila superior de digrafos efectiva (preferencia "digraphs"), oculta igualmente en pantallas muy bajas. */
+    private boolean digraphsShown() { return "digraphs".equals(topRow) && !compact; }
+
+    /** Hay fila superior en la pagina de letras (digitos o digrafos): ocupa el paso de la fila de numeros. */
+    private boolean topRowShown() { return numbersShown() || digraphsShown(); }
     private boolean compact = false;            // clase 0: filas de 36/30 dp, cinta de 32 dp y sin fila de numeros
 
     /** Sigue la clase de alto (giro, tapa del plegable) y reconstruye las filas si cambia la fila de numeros efectiva. */
@@ -1135,8 +1142,9 @@ public final class AurebeshKeyboardView extends View {
         return true;
     }
 
+    /** Fila con el paso de la fila de numeros (56 dp): la de digitos de las paginas de signos y la superior de letras (digitos o digrafos). */
     private boolean isDigitRow(List<List<Key>> layout, int ri) {
-        return ri == 0 && layout != numpad && (numbersShown() || layout == symbols || layout == symbols2 || layout == symbols3);
+        return ri == 0 && layout != numpad && (layout != letters || topRowShown());
     }
 
     /** Ancho de la caja de teclas: todo el ancho, o en modo a una mano el 78 % sin pasar de 400 dp (Fold, tabletas). */
@@ -1167,11 +1175,11 @@ public final class AurebeshKeyboardView extends View {
     /** Factor (0,5-1) que reduce los pasos de fila cuando el teclado no cabe en el tope de la pantalla real; 1 si cabe. */
     private float fitScale = 1f;
 
-    /** Ancho en px de una tecla de peso 1 de cada pagina (letras, signos 1/2/3, numerico), guardado al colocarlas; 0 sin medir. */
-    private final float[] pageUnit = new float[5];
+    /** Ancho en px de una tecla de peso 1 de cada pagina (letras, signos 1/2 y 2/2, numerico), guardado al colocarlas; 0 sin medir. */
+    private final float[] pageUnit = new float[4];
 
     private int pageIndex(List<List<Key>> layout) {
-        return layout == letters ? 0 : layout == symbols ? 1 : layout == symbols2 ? 2 : layout == symbols3 ? 3 : 4;
+        return layout == letters ? 0 : layout == symbols ? 1 : layout == symbols2 ? 2 : 3;
     }
 
     /**
@@ -1223,7 +1231,6 @@ public final class AurebeshKeyboardView extends View {
         layoutKeys(letters);
         layoutKeys(symbols);
         layoutKeys(symbols2);
-        layoutKeys(symbols3);
         if (!numpad.isEmpty()) layoutNumpad();
         warmGlide();
     }
@@ -1281,7 +1288,7 @@ public final class AurebeshKeyboardView extends View {
         float boxW = unit * 5.5f;                   // ancho real de cada mitad; con el tope, menor que la caja
         float x0 = pad, x1 = full - pad - boxW;
         float y = stripHeight();
-        int homeRow = layout == letters ? (numbersShown() ? 2 : 1) : -1;
+        int homeRow = layout == letters ? (topRowShown() ? 2 : 1) : -1;
         for (int ri = 0; ri < layout.size(); ri++) {
             List<Key> row = layout.get(ri);
             float rh = rowHeight(layout, ri);
@@ -1330,8 +1337,9 @@ public final class AurebeshKeyboardView extends View {
     }
 
     /**
-     * Teclado numerico: rejilla de 4 columnas que llena el ancho util (unidad maxima de 120 dp, centrada),
-     * nunca dividida; intro se estira hacia abajo sobre las celdas vacias (CODE_GAP) de su columna.
+     * Teclado numerico: rejilla de tantas columnas como tenga la fila mas larga (cinco con simbolos, cuatro en
+     * PIN) que llena el ancho util (unidad maxima de 120 dp, centrada), nunca dividida; intro se estira hacia
+     * abajo sobre las celdas vacias (CODE_GAP) de su columna.
      */
     private void layoutNumpad() {
         float w = handWidth(), off = handOffset(), pad = keyMargin();
@@ -1476,11 +1484,19 @@ public final class AurebeshKeyboardView extends View {
                 boolean symbolKey = current != letters && k.glyph != null && !digitRow
                         && k.label.length() == 1 && !Character.isLetterOrDigit(k.label.charAt(0));   // signo de la pagina ?123
                 if (k.glyph != null) {
-                    float h = r.height() * (digitRow ? 0.44f : current == numpad ? 0.58f : 0.50f);   // numerico: digitos grandes
-                    if (theme.glow != 0) Glyphs.drawFitted(c, k.glyph, cx, cy, h, r.width() * 0.74f, glowPaint);
-                    Glyphs.drawFitted(c, k.glyph, cx, cy, h, r.width() * 0.74f, glyphPaint);
-                    // Letra latina abajo a la derecha de la cara (la leyenda del signo en ?123 va igual y siempre), lejos de
-                    // la alternativa de pulsacion larga, que va arriba a la derecha; con acento siempre visible, para distinguirlas
+                    boolean numpadDigit = current == numpad && k.label.length() == 1 && Character.isDigit(k.label.charAt(0));
+                    boolean digraph = k.glyph.length() == 2;                    // los ocho digrafos: glifos anchos y bajos
+                    float h = r.height() * (digitRow ? 0.44f : numpadDigit ? 0.58f : 0.50f);   // numerico: digitos grandes
+                    float maxW = r.width() * 0.74f;
+                    // Fila de numeros, digrafos y numerico: sin alternativa arriba, el glifo sube 3 dp y deja la pista libre
+                    boolean lifted = digitRow || digraph || current == numpad;
+                    float gy = lifted ? cy - 3 * dp : cy;
+                    float[] g = glyphBox;
+                    glyphClear(k.glyph, cx, gy, h, maxW, r, lifted, g);         // g: centro y, alto de letra y ancho maximo
+                    if (theme.glow != 0) Glyphs.drawFitted(c, k.glyph, cx, g[0], g[1], g[2], glowPaint);
+                    Glyphs.drawFitted(c, k.glyph, cx, g[0], g[1], g[2], glyphPaint);
+                    // Letra latina abajo a la derecha de la cara (la leyenda del signo en ?123 y en el numerico va igual y siempre),
+                    // lejos de la alternativa de pulsacion larga, que va arriba a la derecha; con acento siempre visible, para distinguirlas
                     float ha = symbolKey || !k.glyph.equals(k.output) ? 1f : hintAlpha(k.output);
                     if (ha > 0f) {
                         int base = hintPaint.getColor();
@@ -1533,12 +1549,62 @@ public final class AurebeshKeyboardView extends View {
         }
     }
 
+    /** Lado del cuadrado inferior derecho de la cara reservado a la pista latina: el glifo nunca entra en el. */
+    static final float HINT_CLEAR_DP = 12f;
+    private final float[] glyphBox = new float[3];
+
+    /** Alto de letra (em) con que {@link Glyphs#drawFitted} pinta el glifo: h, salvo que el ancho maximo lo reduzca. */
+    private static float fittedEm(String glyph, float h, float maxW) {
+        float w = Glyphs.width(glyph);
+        if (w <= 0) return 0;
+        float em = Math.min(h, maxW * 10f / Glyphs.LETTER_MAX_W);
+        float scaledW = w * em / 10f;
+        if (scaledW > maxW) em = em * maxW / scaledW;
+        return em;
+    }
+
+    /**
+     * Coloca el glifo de modo que el cuadrado de {@link #HINT_CLEAR_DP} dp inferior derecho de la cara {@code r}
+     * quede libre (ahi va la pista latina): si el glifo (centrado en cx, gy, alto h, ancho maximo maxW) lo invade,
+     * en las teclas ya subidas ({@code lifted}) el alto baja un 10 %; despues sube hasta 4 dp (sin pegarse al borde
+     * superior) y, si aun hace falta, se encoge lo justo. Deja en {@code out} el centro y, el alto y el ancho maximo
+     * con que llamar a drawFitted (el ancho maximo se reduce en la misma proporcion que el alto para que el em final
+     * sea el calculado).
+     */
+    private void glyphClear(String glyph, float cx, float gy, float h, float maxW, RectF r, boolean lifted, float[] out) {
+        float clearX = r.right - HINT_CLEAR_DP * dp, clearY = r.bottom - (HINT_CLEAR_DP + 1) * dp;   // 1 dp de holgura: ni el borde suavizado
+        float em = fittedEm(glyph, h, maxW);
+        float half = Glyphs.width(glyph) * em / 20f;                          // mitad del ancho pintado
+        if (em > 0 && cx + half > clearX && gy + em / 2f > clearY) {
+            if (lifted) {                                                     // 10 % menos, como pide la fila de numeros
+                h *= 0.9f;
+                em = fittedEm(glyph, h, maxW);
+                half = Glyphs.width(glyph) * em / 20f;
+            }
+            float need = gy + em / 2f - clearY;
+            if (cx + half > clearX && need > 0) {
+                float room = Math.max(0, gy - em / 2f - (r.top + 4 * dp));
+                float lift = Math.min(need, Math.min(room, 4 * dp));
+                gy -= lift;
+                need -= lift;
+                if (need > 0) {                                               // encoger con el centro fijo: el borde inferior sube need
+                    float em2 = Math.max(em * 0.7f, em - 2 * need);
+                    maxW = maxW * em2 / em;
+                    h = em2;
+                }
+            }
+        }
+        out[0] = gy;
+        out[1] = h;
+        out[2] = maxW;
+    }
+
     /**
      * Alternativa que se insinua arriba a la derecha de la cara, o null si ninguna: el digito oculto de la fila
      * superior (siempre); en las letras (la n~ incluida) su caracter alternativo ({@link Alternatives#symbol}) si
      * la opcion esta activa y la letra lo tiene, y si no lo que diga {@link Alternatives#hint} para el idioma (en
-     * espanol la vocal con tilde; nada en la s ni en la c, que no llevan eszett ni cedilla); en el resto (signos,
-     * la pagina de acentos 3/3) su primera alternativa, como siempre.
+     * espanol la vocal con tilde; nada en la s ni en la c, que no llevan eszett ni cedilla); en el resto (signos y
+     * teclado numerico) su primera alternativa, como siempre.
      */
     private String faceAlt(Key k, boolean digitRow) {
         if (k.alts == null || digitRow) return null;
@@ -1695,7 +1761,7 @@ public final class AurebeshKeyboardView extends View {
                 c.drawRoundRect(tmp, 8 * dp, 8 * dp, fill);
             }
             String a = popupAlts[i];
-            String shown = shiftActive() && (current == letters || current == symbols3) ? a.toUpperCase() : a;
+            String shown = shiftActive() && current == letters ? a.toUpperCase() : a;
             String gk = Glyphs.glyphKey(a);                 // a a a a: glifo de la letra base y la latina debajo
             if (gk != null) {
                 // La latina segun el modo (en aprendiendo siempre); con acento siempre, que el glifo es el de la base;
@@ -2017,6 +2083,10 @@ public final class AurebeshKeyboardView extends View {
      * Modo de ajuste: velo del color del fondo sobre teclas y banda, marco alrededor de las teclas con una
      * pastilla arriba (tirador del alto) y otra abajo (tirador del margen, sin salirse de la vista), el valor
      * actual y los botones Restablecer y Listo en el centro. Las zonas de toque se guardan para onTouchEvent.
+     * Mientras se arrastra, el alto real no cambia (la ventana del IME se quedaria bailando bajo el dedo): se
+     * dibuja una vista previa, con el valor en vivo, de donde quedaran el borde superior y el inferior de las
+     * filas (velo translucido del acento y una linea con su tirador; si el borde previsto sale por arriba de la
+     * vista, la linea se queda en el borde con una flecha), y al soltar se aplica de una vez.
      */
     private void drawResize(Canvas c) {
         float top = stripHeight(), bottom = top + keysHeight(), h = getHeight();
@@ -2039,17 +2109,52 @@ public final class AurebeshKeyboardView extends View {
         float grab = 24 * dp;                                     // zona de agarre generosa a ambos lados del borde
         resizeTopRect.set(left, Math.max(0, cyTop - grab), right, cyTop + grab);
         resizeBottomRect.set(left, cyBottom - grab, right, Math.min(h, cyBottom + grab));
+        int pct = heightPct(), m = bottomDp();
+        if (resizeDrag != 0) {                                    // vista previa: valores que se aplicaran al soltar
+            pct = resizePreviewPct;
+            m = resizePreviewDp;
+            drawResizePreview(c, left, right, top, bottom, pct, m, ink);
+        }
         float bw = Math.min(140 * dp, (right - left - 24 * dp) / 2f), bh = 40 * dp, gap = 12 * dp;
         float cy = (top + bottom) / 2f + 8 * dp;
         resizeResetRect.set(cx - gap / 2f - bw, cy - bh / 2f, cx - gap / 2f, cy + bh / 2f);
         resizeDoneRect.set(cx + gap / 2f, cy - bh / 2f, cx + gap / 2f + bw, cy + bh / 2f);
         textPaint.setTextSize(14 * sp);
         textPaint.setColor(theme.glyph);
-        c.drawText(heightPct() + " % \u00b7 " + bottomDp() + " dp", cx, cy - bh / 2f - 12 * dp, textPaint);
+        c.drawText(pct + " % \u00b7 " + m + " dp", cx, cy - bh / 2f - 12 * dp, textPaint);
         drawResizeButton(c, resizeResetRect, getContext().getString(R.string.resize_reset), false, resizePressed == 2, ink);
         drawResizeButton(c, resizeDoneRect, getContext().getString(R.string.resize_done), true, resizePressed == 1, ink);
         textPaint.setColor(theme.glyph);
         iconPaint.setColor(theme.icon);
+    }
+
+    /**
+     * Vista previa del arrastre, en coordenadas de la vista actual (la ventana del IME crece hacia arriba): el
+     * borde inferior de las filas sube lo que crezca el margen y el superior ademas lo que crezcan las filas.
+     * Velo translucido entre ambos, linea de 2 dp con un tirador en el que se mueve (el que se arrastra) y, si el
+     * borde superior previsto queda fuera de la vista, la linea en el borde y una flecha hacia arriba.
+     */
+    private void drawResizePreview(Canvas c, float left, float right, float top, float bottom, int pct, int m, int ink) {
+        float keysNew = keysHeight(pct / 100f), padNew = Math.max(6 * dp, m * dp);
+        float dPad = padNew - bottomBand();
+        float pTop = top - (keysNew - keysHeight()) - dPad, pBottom = bottom - dPad;
+        fill.setColor((ink & 0x00FFFFFF) | 0x30000000);
+        c.drawRect(left, Math.max(0, pTop), right, Math.min(getHeight(), pBottom), fill);
+        float y = resizeDrag == 1 ? pTop : pBottom;
+        boolean clipped = y < 2 * dp;
+        float ly = Math.max(2 * dp, Math.min(getHeight() - 2 * dp, y));
+        iconPaint.setStrokeWidth(2 * dp);
+        c.drawLine(left, ly, right, ly, iconPaint);
+        float pw = 64 * dp, ph = 8 * dp, cx = (left + right) / 2f;
+        fill.setColor(ink);
+        tmp.set(cx - pw / 2f, ly - ph / 2f, cx + pw / 2f, ly + ph / 2f);
+        c.drawRoundRect(tmp, ph / 2f, ph / 2f, fill);
+        if (clipped) {                                            // el borde previsto sale por arriba: flecha
+            float s = 6 * dp, ay = ly + 14 * dp;
+            c.drawLine(cx, ay + s, cx, ay - s, iconPaint);
+            c.drawLine(cx - s * 0.7f, ay - s * 0.3f, cx, ay - s, iconPaint);
+            c.drawLine(cx + s * 0.7f, ay - s * 0.3f, cx, ay - s, iconPaint);
+        }
     }
 
     /** Pastilla con texto latino: Listo relleno del acento, Restablecer como una tecla de funcion. */
@@ -2067,7 +2172,10 @@ public final class AurebeshKeyboardView extends View {
      * las palabras separadas por lineas verticales finas; solo la que se aplicara sola lleva su pastilla de acento
      * dentro de la banda. Las celdas se reparten el ancho a partes iguales cuando todas caben asi (como Samsung
      * Keyboard); si no, cada una con su ancho medido (y el sobrante repartido) y, si ni asi caben, las ultimas se
-     * omiten. Los emojis conservan su tamano. Las zonas de toque son las celdas completas, contiguas.
+     * omiten. Los emojis conservan su tamano. Las zonas de toque son las celdas completas, contiguas. Con la cinta de
+     * lo escrito en Aurebesh activa ({@code showStrip}) las palabras (la pastilla de autocorreccion incluida) van en
+     * glifos Aurebesh con el alto de letra de {@link #drawTranslation} y recortadas con "..." si no caben en su celda;
+     * con la cinta apagada van en latino. Los emojis y el chip Pegar no cambian.
      */
     private void drawSuggestions(Canvas c, float h, float top, float right) {
         int n = suggestions.size();
@@ -2078,7 +2186,7 @@ public final class AurebeshKeyboardView extends View {
         for (int i = 0; i < n; i++) {
             String word = suggestions.get(i);
             emojiAt[i] = isEmoji(word);
-            List<Glyphs.Token> tk = showHints || emojiAt[i] ? null : Glyphs.tokenize(word, useDigraphs);
+            List<Glyphs.Token> tk = !showStrip || emojiAt[i] ? null : Glyphs.tokenize(word, useDigraphs);
             tokens.add(tk);
             float tw = 0;
             if (tk != null) {
@@ -2094,6 +2202,10 @@ public final class AurebeshKeyboardView extends View {
         suggestionBand.set(stripLeft, inset, right - 2 * dp, stripHeight() - inset);
         float avail = suggestionBand.width();
         if (avail <= 0) { suggestionBand.setEmpty(); return; }
+        for (int i = 0; i < n; i++) {                                           // en Aurebesh una palabra larga no se come la banda:
+            float cap = n > 1 ? avail / 2f : avail;                             // su celda se recorta con "..." al dibujarla
+            if (tokens.get(i) != null && widths[i] > cap) widths[i] = cap;
+        }
         // Si no cabe todo, se sacrifican palabras por el final (nunca la primera ni la resaltada) para que los emojis se vean
         boolean[] show = new boolean[n];
         java.util.Arrays.fill(show, true);
@@ -2114,6 +2226,16 @@ public final class AurebeshKeyboardView extends View {
             show[drop] = false;
         }
         if (shown == 0) { suggestionBand.setEmpty(); return; }
+        if (total > avail) {                                                     // sin emojis que sacrificar: todas caben repartiendo
+            float fixed = 0;                                                     // el ancho y recortando cada palabra con "..."
+            for (int i = 0; i < n; i++) if (show[i] && emojiAt[i]) fixed += widths[i];
+            float scalable = total - fixed;
+            if (scalable > 0 && avail > fixed) {
+                float k = (avail - fixed) / scalable;
+                for (int i = 0; i < n; i++) if (show[i] && !emojiAt[i]) widths[i] *= k;
+                total = avail;
+            }
+        }
         float widest = 0;
         for (int i = 0; i < n; i++) if (show[i]) widest = Math.max(widest, widths[i]);
         boolean equal = widest * shown <= avail;                                 // a partes iguales si la mas ancha cabe en la suya
@@ -2149,7 +2271,25 @@ public final class AurebeshKeyboardView extends View {
             float gx = cell.centerX() - textW[i] / 2f;                          // centrada en su celda
             List<Glyphs.Token> tk = tokens.get(i);
             if (tk != null) {
-                for (Glyphs.Token t : tk) gx += Glyphs.drawToken(c, t, gx, top, h, glyphPaint, textPaint);
+                float limit = cell.width() - 6 * dp;
+                if (textW[i] > limit) {                                          // no cabe: tokens enteros y "..."
+                    textPaint.setTextSize(h * 1.15f);                            // el cuerpo de los literales de drawToken
+                    float dots = textPaint.measureText("...");
+                    float used = 0;
+                    int keep = 0;
+                    while (keep < tk.size()) {
+                        float tw = Glyphs.tokenWidth(tk.get(keep), h, textPaint);
+                        if (used + tw + dots > limit) break;
+                        used += tw;
+                        keep++;
+                    }
+                    gx = cell.centerX() - (used + dots) / 2f;
+                    for (int j = 0; j < keep; j++) gx += Glyphs.drawToken(c, tk.get(j), gx, top, h, glyphPaint, textPaint);
+                    textPaint.setTextSize(h * 1.15f);
+                    c.drawText("...", gx, top + h, textPaint);
+                } else {
+                    for (Glyphs.Token t : tk) gx += Glyphs.drawToken(c, t, gx, top, h, glyphPaint, textPaint);
+                }
             } else {
                 textPaint.setTextSize(emoji ? 19 * sp : 14 * sp);
                 c.drawText(word, gx, cell.centerY() + (emoji ? 7 : 5) * dp, textPaint);
@@ -2754,6 +2894,9 @@ public final class AurebeshKeyboardView extends View {
     /**
      * Toque en el modo de ajuste: un dedo cada vez; bajar sobre un tirador empieza a arrastrar (el superior
      * cambia el alto, el inferior el margen), bajar y soltar sobre un boton lo acciona. Ninguna tecla responde.
+     * Durante el arrastre solo se actualiza la vista previa (ni alto real ni requestLayout: si la ventana del IME
+     * cambiara de alto bajo el dedo, cada lectura saldria desfasada y el teclado rebotaria); el valor se aplica
+     * una sola vez al soltar. Se mide con la y en pantalla del evento ({@link #rawY}), ajena a donde este la vista.
      */
     private boolean resizeTouch(MotionEvent e) {
         int action = e.getActionMasked();
@@ -2772,18 +2915,24 @@ public final class AurebeshKeyboardView extends View {
                 else if (resizeTopRect.contains(x, y)) resizeDrag = 1;
                 else if (resizeBottomRect.contains(x, y)) resizeDrag = 2;
                 if (resizePressed != 0 || resizeDrag != 0) haptic(H_PRESS);
-                resizeDragY0 = resizeLastY = screenY(e, idx);
+                resizeDragY0 = rawY(e, idx);
                 resizeScale0 = heightScale;
                 resizePad0 = bottomPad;
+                resizePreviewPct = heightPct();
+                resizePreviewDp = bottomDp();
                 invalidate();
                 return true;
             case MotionEvent.ACTION_MOVE: {
                 int i = e.findPointerIndex(resizePointer);
                 if (i < 0 || resizeDrag == 0) return true;
-                float sy = screenY(e, i);
-                if (Math.abs(sy - resizeLastY) < 4 * dp) return true;     // se aplica (y se vuelve a medir) cada ~4 dp
-                resizeLastY = sy;
-                applyResizeDrag(sy - resizeDragY0);
+                float dy = rawY(e, i) - resizeDragY0;
+                int pct = resizeDrag == 1 ? dragPct(dy) : heightPct();
+                int m = resizeDrag == 2 ? dragDp(dy) : bottomDp();
+                if (pct != resizePreviewPct || m != resizePreviewDp) {   // solo la vista previa; nada se mide
+                    resizePreviewPct = pct;
+                    resizePreviewDp = m;
+                    invalidate();
+                }
                 return true;
             }
             case MotionEvent.ACTION_UP:
@@ -2791,7 +2940,7 @@ public final class AurebeshKeyboardView extends View {
                 if (id != resizePointer) return true;
                 resizePointer = -1;
                 if (resizeDrag != 0) {
-                    applyResizeDrag(screenY(e, idx) - resizeDragY0);      // valor exacto al soltar
+                    applyResizeDrag(rawY(e, idx) - resizeDragY0);         // se aplica una sola vez, al soltar
                     resizeDrag = 0;
                 } else if (resizePressed == 1 && resizeDoneRect.contains(x, y)) {
                     finishResize();
@@ -2814,27 +2963,38 @@ public final class AurebeshKeyboardView extends View {
         return true;
     }
 
-    /** Coordenada y en pantalla: estable aunque la vista cambie de alto durante el arrastre (su borde superior se mueve). */
-    private float screenY(MotionEvent e, int i) {
-        getLocationOnScreen(screenLoc);
-        return e.getY(i) + screenLoc[1];
+    /**
+     * Coordenada y del dedo {@code i} en pantalla: la del evento (getRawY, del primer dedo) mas la diferencia entre
+     * ese dedo y el pedido, que comparten el desplazamiento de la vista. No depende de donde este la vista.
+     */
+    private static float rawY(MotionEvent e, int i) { return e.getY(i) + (e.getRawY() - e.getY()); }
+
+    /** Alto en % que corresponde al arrastre del tirador superior (dy en px, negativo hacia arriba): 70-140 (100 en pantallas bajas). */
+    private int dragPct(float dy) {
+        float base = keysHeight(1f);
+        if (base <= 0) return heightPct();
+        int maxPct = heightClass() == 2 ? 140 : 100;
+        int pct = Math.round((resizeScale0 * base - dy) / base * 100f);
+        return Math.max(70, Math.min(maxPct, pct));
+    }
+
+    /** Margen inferior en dp que corresponde al arrastre del tirador inferior: 0-40. */
+    private int dragDp(float dy) {
+        int m = Math.round((resizePad0 - dy) / dp);
+        return Math.max(0, Math.min(40, m));
     }
 
     /**
-     * Aplica el arrastre (dy en px, negativo hacia arriba): el tirador superior cambia el alto en % del alto de
-     * las filas al 100 % (en pantallas bajas no pasa del 100 %, que es lo que se ve); el inferior, el margen en dp.
+     * Aplica el arrastre (dy en px, negativo hacia arriba) de una vez, al soltar: el tirador superior cambia el
+     * alto en % del alto de las filas al 100 % (en pantallas bajas no pasa del 100 %, que es lo que se ve); el
+     * inferior, el margen en dp. Solo aqui se vuelve a medir la vista.
      */
     private void applyResizeDrag(float dy) {
         if (resizeDrag == 1) {
-            float base = keysHeight(1f);
-            if (base <= 0) return;
-            int maxPct = heightClass() == 2 ? 140 : 100;
-            int pct = Math.round((resizeScale0 * base - dy) / base * 100f);
-            pct = Math.max(70, Math.min(maxPct, pct));
+            int pct = dragPct(dy);
             if (pct != heightPct()) { heightScale = pct / 100f; requestLayout(); }
         } else if (resizeDrag == 2) {
-            int m = Math.round((resizePad0 - dy) / dp);
-            m = Math.max(0, Math.min(40, m));
+            int m = dragDp(dy);
             if (m != bottomDp()) { bottomPad = m * dp; requestLayout(); }
         }
         invalidate();
@@ -2859,7 +3019,7 @@ public final class AurebeshKeyboardView extends View {
         List<List<Key>> page = current;
         switch (k.code) {
             case CODE_TEXT: {
-                String out = shiftActive() && (current == letters || current == symbols3) ? k.output.toUpperCase() : k.output;
+                String out = shiftActive() && current == letters ? k.output.toUpperCase() : k.output;
                 listener.onText(out);
                 if (current == letters && singleLetter(k)) countHint(k.output);   // aprendiendo: una pulsacion mas de la letra
                 if (shiftPointer >= 0) shiftHeldTyped = true;           // sostenida: sigue en mayusculas hasta soltarla
@@ -2883,7 +3043,7 @@ public final class AurebeshKeyboardView extends View {
                 requestLayout();
                 break;
             case CODE_PAGE:
-                current = current == symbols ? symbols2 : current == symbols2 ? symbols3 : symbols;
+                current = current == symbols ? symbols2 : symbols;
                 requestLayout();
                 break;
         }
@@ -3172,7 +3332,7 @@ public final class AurebeshKeyboardView extends View {
         switch (k.code) {
             case CODE_TEXT: {
                 String s = k.label != null && !k.label.isEmpty() ? k.label : k.output;   // la pausa del telefono se llama "Pausa"
-                return shiftActive() && (current == letters || current == symbols3) ? s.toUpperCase() : s;
+                return shiftActive() && current == letters ? s.toUpperCase() : s;
             }
             case CODE_SPACE: {
                 String s = ctx.getString(R.string.a11y_space);

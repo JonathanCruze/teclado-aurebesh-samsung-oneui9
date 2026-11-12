@@ -39,8 +39,8 @@
     <string name="theme_contraste">Contrast</string>
     <string name="opt_hints">Latin letters on the keys</string>
     <string name="opt_hints_sub">Small Latin letter in the corner of each key, handy while you learn the alphabet</string>
-    <string name="opt_strip">Translation bar</string>
-    <string name="opt_strip_sub">Shows what you type in Aurebesh above the keys</string>
+    <string name="opt_strip">Everything in Aurebesh</string>
+    <string name="opt_strip_sub">Shows what you type and the suggestions in Aurebesh above the keys</string>
     <string name="opt_toolbar">Toolbar</string>
     <string name="opt_toolbar_sub">Adds a row above the keys with ✦ intelligence, 😊 emoji, 📋 clipboard and one-handed mode, and ⚙ settings in ?123; without it the keyboard is shorter</string>
 

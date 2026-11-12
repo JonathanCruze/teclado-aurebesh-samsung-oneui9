@@ -267,6 +267,7 @@ public class AurebeshIME extends InputMethodService
         if (view != null) {
             view.applyPrefs(Prefs.hints(this), Prefs.vibrate(this), stripOn, Prefs.digraphs(this),
                     theme.id, Prefs.numbers(this), Prefs.sound(this), Prefs.heightScale(this));
+            view.setTopRow(Prefs.topRow(this));                // numeros / digrafos / nada (manda sobre el booleano NUMBERS de applyPrefs)
             view.setHintMode(Prefs.hintModeInt(this));         // nunca / siempre / aprendiendo (manda sobre el booleano antiguo)
             view.setSaber(Prefs.saberArgb(this));              // color de la estela al deslizar
             view.setToolbar(Prefs.toolbar(this));
@@ -399,8 +400,9 @@ public class AurebeshIME extends InputMethodService
         if (!restarting) {
             if (cls == InputType.TYPE_CLASS_NUMBER || cls == InputType.TYPE_CLASS_PHONE) {     // teclado numerico Aurebesh
                 boolean number = cls == InputType.TYPE_CLASS_NUMBER;
+                boolean pin = number && variation == InputType.TYPE_NUMBER_VARIATION_PASSWORD;   // PIN: solo digitos, borrar e intro
                 view.showNumpad(!number, number && (info.inputType & InputType.TYPE_NUMBER_FLAG_DECIMAL) != 0,
-                        number && (info.inputType & InputType.TYPE_NUMBER_FLAG_SIGNED) != 0);
+                        number && (info.inputType & InputType.TYPE_NUMBER_FLAG_SIGNED) != 0, pin);
             } else {
                 view.resetToLetters();
             }

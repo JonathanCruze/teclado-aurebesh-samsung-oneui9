@@ -18,7 +18,7 @@
     <string name="tools_label_edit">Text editing</string>
     <string name="tools_label_translate">Translate</string>
     <string name="tools_label_split">Split</string>
-    <string name="tools_label_strip">Translation bar</string>
+    <string name="tools_label_strip">Everything in Aurebesh</string>
     <string name="tools_label_lang">Language</string>
     <string name="tools_label_resize">Size and position</string>
     <string name="tools_label_hide">Hide keyboard</string>

@@ -300,7 +300,7 @@ final class ToolsTray extends LinearLayout {
             case AurebeshKeyboardView.TOOL_EDIT: return R.string.tools_label_edit;
             case AurebeshKeyboardView.TOOL_TRANSLATE: return R.string.tools_label_translate;
             case AurebeshKeyboardView.TOOL_SPLIT: return R.string.tools_label_split;
-            case AurebeshKeyboardView.TOOL_STRIP: return R.string.tools_label_strip;
+            case AurebeshKeyboardView.TOOL_STRIP: return R.string.immersive_title;   // "Todo en Aurebesh" (antes barra de traduccion)
             case AurebeshKeyboardView.TOOL_LANG: return R.string.tools_label_lang;
             case AurebeshKeyboardView.TOOL_RESIZE: return R.string.tools_label_resize;
             case AurebeshKeyboardView.TOOL_HIDE: return R.string.tools_label_hide;

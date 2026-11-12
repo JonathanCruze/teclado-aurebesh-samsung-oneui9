@@ -56,7 +56,11 @@ final class Glyphs {
         return key != null && PATHS.containsKey(key);
     }
 
-    /** Clave del glifo que representa a ch: el propio si existe o, para letras con acento, el de la letra base; null si no hay. */
+    /**
+     * Clave del glifo que representa a ch: el propio si existe (las letras con acento que tienen glifo, como las
+     * vocales con tilde, grave, dieresis o circunflejo, la n~ y la o con barra, devuelven la propia letra) o, para
+     * letras con acento sin glifo, el de la letra base; null si no hay.
+     */
     static String glyphKey(String ch) {
         if (ch == null || ch.isEmpty()) return null;
         if (has(ch)) return ch;
@@ -139,8 +143,8 @@ final class Glyphs {
 
     /**
      * Convierte texto latino en glifos. Los caracteres con glifo propio (n con virgulilla, vocales
-     * con tilde) se conservan; el resto pierde los diacriticos. Si useDigraphs, "ch", "sh", "th"...
-     * usan su glifo propio.
+     * con acento, o con barra) se conservan; el resto pierde los diacriticos. Si useDigraphs, "ch",
+     * "sh", "th"... usan su glifo propio.
      */
     static List<Token> tokenize(CharSequence text, boolean useDigraphs) {
         String raw = Normalizer.normalize(text.toString(), Normalizer.Form.NFC).toLowerCase(Locale.ROOT);

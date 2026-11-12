@@ -26,11 +26,12 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 /**
- * Pantalla de ajustes 2.0: el tema Contraste existe y se guarda desde la fila de temas; los chips del sable
- * guardan Prefs.SABER; las letras latinas tienen tres modos (y migran el booleano antiguo); el buscador oculta
- * las secciones sin coincidencias, muestra la fila buscada sin distinguir acentos y lo restaura todo al vaciarse;
- * "Restablecer ajustes" no toca el diccionario personal ni los atajos; y "Exportar ajustes" produce un JSON con la
- * clave del tema y sin la clave del servidor propio (salvo con la casilla), que al importarse valida los tipos.
+ * Pantalla de ajustes 2.0 (y paginas por categoria de 2.2): el tema Contraste existe y se guarda desde la fila de
+ * temas de la pagina Estilo; los chips del sable guardan Prefs.SABER; las letras latinas (Idiomas y teclas) tienen
+ * tres modos (y migran el booleano antiguo); el buscador esconde la lista y muestra una tarjeta de resultados con la
+ * fila buscada (sin distinguir acentos) y la pagina donde vive, que se abre al tocarla, y lo restaura todo al
+ * vaciarse; "Restablecer ajustes" no toca el diccionario personal ni los atajos; y "Exportar ajustes" produce un
+ * JSON con la clave del tema y sin la clave del servidor propio (salvo con la casilla), que al importarse valida los tipos.
  */
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 35, qualifiers = "es-rES-w411dp-h914dp-xxhdpi")
@@ -91,15 +92,9 @@ public class Settings2Test {
         return true;
     }
 
-    /** Tarjeta de una seccion: la cabecera pulsable cuyo titulo es {@code title}, y de ahi su padre. */
-    private static View sectionCard(MainActivity a, String title) {
-        for (View v : all(a)) {
-            if (!(v instanceof TextView) || !title.equals(((TextView) v).getText().toString())) continue;
-            if (!(v.getParent() instanceof View) || !(v.getParent().getParent() instanceof View)) continue;
-            View header = (View) v.getParent().getParent();
-            if (header.hasOnClickListeners() && header.getParent() instanceof View) return (View) header.getParent();
-        }
-        return null;
+    /** Fila de resultado del buscador para la fila {@code label} de la pagina {@code pageTitle}, o null. */
+    private static View resultRow(MainActivity a, String label, String pageTitle) {
+        return byDescription(a, label + ". " + a.getString(R.string.aj_open_page, pageTitle));
     }
 
     /** Chip con el texto {@code label} en la misma fila que {@code chip}, o null. */
@@ -137,6 +132,7 @@ public class Settings2Test {
         assertFalse(Themes.CONTRASTE.shadow);
 
         MainActivity a = create();
+        SettingsTest.openCategory(a, R.string.cat_style, MainActivity.PAGE_STYLE);
         View item = byDescription(a, a.getString(R.string.theme_contraste));
         assertNotNull("muestra Contraste en la fila de temas", item);
         item.performClick();
@@ -144,7 +140,9 @@ public class Settings2Test {
         assertEquals(Themes.CONTRASTE.id, Prefs.theme(app));
         assertTrue(item.isSelected());
         ShadowLooper.shadowMainLooper().idle();   // el oyente de preferencias rehace los resumenes
-        assertTrue("el resumen de Diseno nombra el tema", textContains(a, a.getString(R.string.theme_contraste) + " · "));
+        assertTrue("el resumen de la categoria Estilo nombra el tema", textContains(a, a.getString(R.string.theme_contraste) + " · "));
+        View row = SettingsTest.categoryRow(a, R.string.cat_style);
+        assertTrue("y su descripcion accesible tambien", row.getContentDescription().toString().contains(a.getString(R.string.theme_contraste)));
     }
 
     /** Algun TextView cuyo texto contiene {@code s} (resumenes compuestos). */
@@ -160,6 +158,7 @@ public class Settings2Test {
     @Test
     public void saberChipSavesPrefAndUpdatesSummary() {
         MainActivity a = create();
+        SettingsTest.openCategory(a, R.string.cat_style, MainActivity.PAGE_STYLE);
         assertEquals("azul de fabrica", "blue", Prefs.saber(app));
         String red = a.getString(R.string.saber_red) + " · " + a.getString(R.string.saber_red_who);
         View chip = byDescription(a, red);
@@ -170,7 +169,7 @@ public class Settings2Test {
         assertTrue(chip.isSelected());
         assertTrue("bajo los chips se dice de quien es", hasText(a, red));
         ShadowLooper.shadowMainLooper().idle();
-        assertTrue("el resumen de Diseno lleva el sable",
+        assertTrue("el resumen de Estilo lleva el sable",
                 textContains(a, a.getString(R.string.aj_sum_saber, a.getString(R.string.saber_red).toLowerCase())));
         // Cambiado desde fuera (el IME), la pantalla sigue
         Prefs.get(app).edit().putString(Prefs.SABER, "purple").apply();
@@ -189,13 +188,14 @@ public class Settings2Test {
         assertEquals("on", Prefs.hintMode(app));
         assertEquals(1, Prefs.hintModeInt(app));
         MainActivity a = create();
+        SettingsTest.openCategory(a, R.string.cat_keys, MainActivity.PAGE_KEYS);
         TextView learning = textView(a, a.getString(R.string.aj_hint_learning));
         assertNotNull("chip Aprendiendo", learning);
         learning.performClick();
         assertEquals("learning", Prefs.get(app).getString(Prefs.HINT_MODE, null));
         assertEquals(2, Prefs.hintModeInt(app));
         assertTrue("el booleano antiguo sigue en paralelo", Prefs.hints(app));
-        TextView never = sibling(learning, a.getString(R.string.aj_hint_off));   // "Nunca" tambien es un chip del dividido
+        TextView never = sibling(learning, a.getString(R.string.aj_hint_off));   // "Nunca" tambien es un chip del dividido (en Tamano)
         assertNotNull(never);
         never.performClick();
         assertEquals("off", Prefs.hintMode(app));
@@ -211,48 +211,62 @@ public class Settings2Test {
     // ------------------------------------------------------------------ buscador
 
     @Test
-    public void searchHidesSectionsWithoutMatchesAndShowsTheRow() {
+    public void searchShowsResultCardAndOpensThePage() {
         MainActivity a = create();
         EditText field = searchField(a);
         assertNotNull("campo Buscar ajuste", field);
-        View design = sectionCard(a, a.getString(R.string.aj_sec_design));
-        View touch = sectionCard(a, a.getString(R.string.aj_sec_touch));
-        View more = sectionCard(a, a.getString(R.string.aj_sec_more));
-        assertNotNull(design);
-        assertNotNull(touch);
-        assertNotNull("hay seccion Mas ajustes", more);
-        TextView saber = textView(a, a.getString(R.string.aj_saber));
-        TextView vibrate = textView(a, a.getString(R.string.opt_vibrate));
-        assertNotNull(saber);
-        assertNotNull(vibrate);
-        assertFalse("Diseno empieza cerrada", visibleUpToRoot(saber));
+        TextView listTitle = textView(a, a.getString(R.string.cat_list_title));
+        TextView tryTitle = textView(a, a.getString(R.string.try_title));
+        assertNotNull(listTitle);
+        assertNotNull(tryTitle);
+        assertTrue(visibleUpToRoot(listTitle));
+        String style = a.getString(R.string.cat_style), touch = a.getString(R.string.cat_touch);
+        String saber = a.getString(R.string.aj_saber), vibrate = a.getString(R.string.opt_vibrate);
+        assertEquals(null, resultRow(a, saber, style));
 
+        // "sable": la lista y Pruebalo se esconden y aparece una tarjeta con la fila Sable de luz y su pagina (Estilo)
         field.setText("sable");
-        assertEquals(View.VISIBLE, design.getVisibility());
-        assertEquals("sin coincidencias, la seccion se oculta", View.GONE, touch.getVisibility());
-        assertEquals(View.GONE, more.getVisibility());
-        assertTrue("la seccion con coincidencias se abre y la fila se ve", visibleUpToRoot(saber));
-        assertFalse(visibleUpToRoot(vibrate));
-        assertFalse("sin abrir Diseno de forma permanente", Prefs.ui(app).getBoolean("sec_design", false));
-
-        field.setText("vibracion");   // sin acento: encuentra "Vibración al pulsar"
-        assertEquals(View.GONE, design.getVisibility());
-        assertEquals(View.VISIBLE, touch.getVisibility());
-        assertTrue(visibleUpToRoot(vibrate));
-        assertFalse(visibleUpToRoot(saber));
-
-        field.setText("xyzzy");
-        assertEquals(View.GONE, design.getVisibility());
-        assertEquals(View.GONE, touch.getVisibility());
-        assertTrue(hasText(a, a.getString(R.string.aj_search_none)));
-        assertTrue(visibleUpToRoot(textView(a, a.getString(R.string.aj_search_none))));
-
-        field.setText("");
-        assertEquals(View.VISIBLE, design.getVisibility());
-        assertEquals(View.VISIBLE, touch.getVisibility());
-        assertEquals(View.VISIBLE, more.getVisibility());
-        assertFalse("vacio restaura: Diseno vuelve a estar cerrada", visibleUpToRoot(saber));
+        assertFalse("la lista de categorias se esconde", visibleUpToRoot(listTitle));
+        assertFalse("Pruebalo tambien", visibleUpToRoot(tryTitle));
+        View hit = resultRow(a, saber, style);
+        assertNotNull("resultado Sable de luz · Estilo", hit);
+        assertTrue(visibleUpToRoot(hit));
+        assertTrue("el resultado muestra el titulo de la fila", hasText(a, saber));
+        assertEquals("sin resultados de otras paginas", null, resultRow(a, vibrate, touch));
         assertFalse(visibleUpToRoot(textView(a, a.getString(R.string.aj_search_none))));
+        assertEquals("buscar no abre ninguna pagina por si solo", null, a.openPageKey());
+        assertFalse("ni escribe en las preferencias", Prefs.ui(app).contains("sec_design"));
+
+        // "vibracion" sin acento encuentra "Vibración al pulsar" en Deslizar, tocar y respuesta
+        field.setText("vibracion");
+        assertNotNull(resultRow(a, vibrate, touch));
+        assertEquals(null, resultRow(a, saber, style));
+
+        // Sin coincidencias: el aviso; vacio: vuelve la lista y el aviso se va
+        field.setText("xyzzy");
+        assertEquals(null, resultRow(a, vibrate, touch));
+        assertTrue(visibleUpToRoot(textView(a, a.getString(R.string.aj_search_none))));
+        field.setText("");
+        assertTrue("vacio restaura la lista", visibleUpToRoot(listTitle));
+        assertTrue(visibleUpToRoot(tryTitle));
+        assertFalse(visibleUpToRoot(textView(a, a.getString(R.string.aj_search_none))));
+        assertEquals(null, resultRow(a, saber, style));
+
+        // Tocar un resultado abre su pagina con la fila a la vista
+        field.setText("sable");
+        hit = resultRow(a, saber, style);
+        assertNotNull(hit);
+        hit.performClick();
+        ShadowLooper.shadowMainLooper().idle();
+        assertEquals("se abre Estilo", MainActivity.PAGE_STYLE, a.openPageKey());
+        TextView saberRow = null;
+        for (View v : all(a)) {
+            if (v instanceof TextView && saber.equals(((TextView) v).getText().toString()) && visibleUpToRoot(v)
+                    && resultRow(a, saber, style) != v.getParent()) saberRow = (TextView) v;
+        }
+        assertNotNull("la fila Sable de luz se ve en la pagina", saberRow);
+        a.onBackPressed();
+        assertEquals(null, a.openPageKey());
         assertEquals("vibracion al pulsar", MainActivity.normalize("Vibración  AL pulsar "));
         assertEquals("diseno", MainActivity.normalize("Diseño"));
     }

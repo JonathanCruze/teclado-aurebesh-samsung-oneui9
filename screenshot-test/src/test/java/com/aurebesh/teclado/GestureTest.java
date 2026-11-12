@@ -156,21 +156,36 @@ public class GestureTest {
         check(kb.keyFor("s").alts == null, "sin caracteres alternativos, en espanol la s no lleva nada (ni eszett)");
         kb.setAltChars(true);
         layout(kb, W);
-        // Pagina 3/3: todas las letras con acento a la vista; shift las escribe en mayuscula
+        // Desde 2.2 ya no hay pagina 3/3 de acentos: las letras con acento viven en la pulsacion larga de cada letra y
+        // la pagina de signos solo tiene 1/2 y 2/2 (la segunda con los digrafos y los signos del espanol)
         tap(kb, kb.keyFor(AurebeshKeyboardView.CODE_MODE));
         layout(kb, W);
+        check(kb.keyFor(AurebeshKeyboardView.CODE_PAGE).label, "1/2", "la pagina de signos se llama 1/2");
+        check(kb.keyFor("+") != null && kb.keyFor("ch") == null, "1/2: signos, sin digrafos");
         tap(kb, kb.keyFor(AurebeshKeyboardView.CODE_PAGE));
         layout(kb, W);
-        tap(kb, kb.keyFor(AurebeshKeyboardView.CODE_PAGE));
-        layout(kb, W);
-        for (String ch : new String[]{"\u00e0", "\u00e2", "\u00e4", "\u00e7", "\u00f2", "\u00f4", "\u00f6", "\u00fc", "\u00df"}) check(kb.keyFor(ch) != null, "pagina 3/3 sin " + ch);
-        rec.reset();
-        tap(kb, kb.keyFor("\u00f6"));
-        check(rec.typed.toString(), "\u00f6", "escribe o con dieresis");
+        check(kb.keyFor(AurebeshKeyboardView.CODE_PAGE).label, "2/2", "la segunda pagina se llama 2/2");
+        for (String ch : new String[]{"ch", "sh", "th", "\u00bf", "\u00a1", "\u00ab", "\u00bb", "\u00a3", "\u20ac"}) check(kb.keyFor(ch) != null, "pagina 2/2 sin " + ch);
+        for (String ch : new String[]{"\u00e0", "\u00e2", "\u00e4", "\u00e7", "\u00f2", "\u00f6", "\u00fc", "\u00df"}) check(kb.keyFor(ch) == null, "ya no hay tecla propia para " + ch);
         save(render(kb, W), "gestos_acentos.png");
         tap(kb, kb.keyFor(AurebeshKeyboardView.CODE_PAGE));
         layout(kb, W);
-        check(kb.keyFor("\u00f6") == null && kb.keyFor("+") != null, "3/3 vuelve a la pagina 1");
+        check(kb.keyFor("ch") == null && kb.keyFor("+") != null, "2/2 vuelve a 1/2 (ciclo de dos paginas)");
+        tap(kb, kb.keyFor(AurebeshKeyboardView.CODE_MODE));
+        layout(kb, W);
+        // La o con dieresis se escribe desde el menu de la o (en espanol tambien, como alternativa)
+        AurebeshKeyboardView.Key ko = kb.keyFor("o");
+        check(ko != null, "de vuelta a las letras");
+        down(kb, ko.rect.centerX(), ko.rect.centerY());
+        idle(450);
+        String[] opts = kb.popupOptions();
+        check(opts != null && Arrays.asList(opts).contains("\u00f6"), "el menu de la o ofrece la o con dieresis: " + Arrays.toString(opts));
+        int at = Arrays.asList(opts).indexOf("\u00f6");
+        RectF cell = kb.popupCellRect(at);
+        rec.reset();
+        move(kb, cell.centerX(), cell.centerY());
+        up(kb, cell.centerX(), cell.centerY());
+        check(rec.typed.toString(), "\u00f6", "escribe o con dieresis desde el menu");
     }
 
     @Test
@@ -498,15 +513,25 @@ public class GestureTest {
         Recorder rec = new Recorder();
         kb.setListener(rec);
 
-        // Telefono: + * # y pausa, borrar e intro; cuatro filas iguales de 64 dp (el paso de fila de letras)
+        // Telefono (2.2, cinco columnas): ( ) + - / * # y pausa, borrar e intro; cuatro filas iguales de 64 dp (el paso de fila de letras)
         kb.showNumpad(true, false, false);
         layout(kb, W);
         check(kb.isNumpad(), "numerico activo");
-        for (String k : new String[]{"1", "5", "0", "*", "#", "+", ","}) check(kb.keyFor(k) != null, "telefono sin " + k);
+        for (String k : new String[]{"1", "5", "0", "*", "#", "+", ",", "(", ")", "-", "/"}) check(kb.keyFor(k) != null, "telefono sin " + k);
         check(kb.keyFor(AurebeshKeyboardView.CODE_DELETE) != null && kb.keyFor(AurebeshKeyboardView.CODE_ENTER) != null, "borrar e intro");
         near("fila de 64 dp", kb.keyFor("1").rect.height(), 64 * dp);
         near("la primera fila no es la franja de numeros", kb.keyFor("1").rect.height(), kb.keyFor("4").rect.height());
-        check(kb.keyFor("1").rect.width() > 1.3f * kb.keyFor("1").rect.height(), "teclas anchas: 4 columnas llenan el ancho");
+        // Cinco columnas: ( 1 2 3 borrar en la primera fila, de izquierda a derecha y a la misma altura, mas anchas que altas
+        AurebeshKeyboardView.Key[] row1 = {kb.keyFor("("), kb.keyFor("1"), kb.keyFor("2"), kb.keyFor("3"), kb.keyFor(AurebeshKeyboardView.CODE_DELETE)};
+        for (int i = 1; i < row1.length; i++) {
+            check(row1[i].rect.left >= row1[i - 1].rect.right - 1f, "5 columnas: " + row1[i].label + " a la derecha de " + row1[i - 1].label);
+            near("5 columnas: misma fila", row1[i].rect.top, row1[0].rect.top);
+            near("5 columnas: mismo ancho", row1[i].rect.width(), row1[0].rect.width());
+        }
+        check(kb.keyFor("1").rect.width() > kb.keyFor("1").rect.height(), "teclas mas anchas que altas (68,8 x 64 dp en 360 dp)");
+        check(kb.keyFor("1").rect.width() < 1.3f * kb.keyFor("1").rect.height(), "pero no tanto como con 4 columnas");
+        float unit = Math.min(120 * dp, (W - 2 * kb.keyMargin()) / 5f);
+        check(Math.abs(kb.keyFor("1").rect.width() - unit) <= 4f * dp, "la unidad es un quinto del ancho util (tope 120 dp): " + kb.keyFor("1").rect.width() + " vs " + unit);
         save(render(kb, W), "gestos_numpad_telefono.png");
         tap(kb, kb.keyFor("5"));
         tap(kb, kb.keyFor("#"));
@@ -517,12 +542,18 @@ public class GestureTest {
         check(rec.typed.toString(), "<tool" + AurebeshKeyboardView.TOOL_MORE + ">", "cinta del numerico: " + rec.typed);
         rec.reset();
 
-        // Decimal con signo: separador del idioma (coma en espanol), − y +, sin * ni #; intro alto
+        // Numero (decimal con signo): ( ) - + * / y los dos separadores (el decimal del idioma a la izquierda del 0 y el de
+        // miles a la derecha); sin # ni pausa; intro de una fila (la rejilla de 5 x 4 no deja hueco debajo)
         kb.showNumpad(false, true, true);
         layout(kb, W);
-        check(kb.keyFor(",") != null && kb.keyFor("-") != null && kb.keyFor("+") != null, "decimal con signo");
-        check(kb.keyFor("*") == null && kb.keyFor("#") == null, "sin teclas de telefono");
-        near("intro de dos filas", kb.keyFor(AurebeshKeyboardView.CODE_ENTER).rect.height(), 2 * kb.keyFor("1").rect.height());
+        for (String k : new String[]{",", ".", "-", "+", "*", "/", "(", ")"}) check(kb.keyFor(k) != null, "numero sin " + k);
+        check(kb.keyFor("#") == null, "sin la almohadilla del telefono");
+        near("intro de una fila", kb.keyFor(AurebeshKeyboardView.CODE_ENTER).rect.height(), kb.keyFor("1").rect.height());
+        check(kb.keyFor(",").rect.right <= kb.keyFor("0").rect.left + 1f, "espanol: la coma decimal a la izquierda del 0");
+        check(kb.keyFor(".").rect.left >= kb.keyFor("0").rect.right - 1f, "espanol: el punto de miles a la derecha del 0");
+        check(Arrays.asList(kb.keyFor(",").alts).contains("."), "la coma ofrece el punto al mantenerla");
+        check(Arrays.asList(kb.keyFor("-").alts).contains("\u2212"), "el menos ofrece el signo menos tipografico");
+        check(Arrays.asList(kb.keyFor("*").alts).contains("\u00d7") && Arrays.asList(kb.keyFor("/").alts).contains("\u00f7"), "por y entre como alternativas");
         save(render(kb, W), "gestos_numpad_decimal.png");
         tap(kb, kb.keyFor("3"));
         tap(kb, kb.keyFor(","));
@@ -530,15 +561,30 @@ public class GestureTest {
         check(rec.typed.toString(), "3,1", "decimal");
         rec.reset();
 
-        // Entero sin signo: ni separador ni signos; en ingles el separador decimal es el punto
+        // Entero sin signo: los separadores y los signos se ofrecen igual (muchas apps los aceptan aunque el campo no los declare)
         kb.showNumpad(false, false, false);
         layout(kb, W);
-        check(kb.keyFor(",") == null && kb.keyFor(".") == null && kb.keyFor("-") == null, "entero sin signo");
+        check(kb.keyFor(",") != null && kb.keyFor(".") != null && kb.keyFor("-") != null && kb.keyFor("+") != null, "entero sin signo: misma rejilla");
+        // En ingles el separador decimal es el punto (a la izquierda del 0) y la coma pasa a ser el de miles
         kb.setLanguage("en");
         kb.showNumpad(false, true, false);
         layout(kb, W);
-        check(kb.keyFor(".") != null && kb.keyFor(",") == null, "separador decimal ingles");
+        check(kb.keyFor(".") != null && kb.keyFor(",") != null, "ingles: punto y coma");
+        check(kb.keyFor(".").rect.right <= kb.keyFor("0").rect.left + 1f, "ingles: el punto decimal a la izquierda del 0");
+        check(kb.keyFor(",").rect.left >= kb.keyFor("0").rect.right - 1f, "ingles: la coma de miles a la derecha del 0");
         kb.setLanguage("es");
+
+        // PIN: solo digitos, borrar e intro, en cuatro columnas; la sobrecarga de tres parametros vuelve a quitar el PIN
+        kb.showNumpad(false, false, false, true);
+        layout(kb, W);
+        for (String k : new String[]{"1", "5", "9", "0"}) check(kb.keyFor(k) != null, "PIN sin " + k);
+        for (String k : new String[]{",", ".", "-", "+", "*", "/", "(", ")", "#"}) check(kb.keyFor(k) == null, "PIN con " + k);
+        check(kb.keyFor(AurebeshKeyboardView.CODE_DELETE) != null && kb.keyFor(AurebeshKeyboardView.CODE_ENTER) != null, "PIN: borrar e intro");
+        check(kb.keyFor("1").rect.width() > 1.1f * kb.keyFor("1").rect.height(), "PIN: cuatro columnas, teclas mas anchas");
+        save(render(kb, W), "gestos_numpad_pin.png");
+        kb.showNumpad(false, false, false);
+        layout(kb, W);
+        check(kb.keyFor("(") != null, "sin PIN vuelve la rejilla de simbolos");
 
         // Volver a letras
         kb.resetToLetters();

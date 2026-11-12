@@ -291,19 +291,76 @@ final class AiRunner {
 
     private boolean current(int id, AtomicBoolean flag) { return seq.get() == id && !flag.get(); }
 
+    /** Temperatura de la segunda pasada de Traducir (traductor profesional en ingles). */
+    static final float RETRY_TEMPERATURE = 0.45f;
+
     private void work(final Request req, final int id, final AtomicBoolean flag,
                       boolean useRemote, final Runnable watchdog) {
-        final StringBuilder raw = new StringBuilder();
-        final long start = System.currentTimeMillis();
-        final int[] tokens = {0};
-        final long[] lastPost = {0};
-        final boolean[] firstToken = {false};
         // Idioma del mensaje: el del teclado (Redactor), el del destino (Traducir) o el detectado en el texto
         String textLang = req.action == Action.COMPOSE ? req.lang
                 : req.action == Action.TRANSLATE ? promptLang(req) : detectLanguage(req.source, req.lang);
         String source = truncate(req.source, useRemote ? REMOTE_MAX_CHARS : LOCAL_MAX_CHARS);
         List<ChatMessage> messages = messages(req, source, textLang);
         LlmEngine.Options o = options(req.action, source.length(), req.retries);
+        Attempt at = generate(req, id, flag, useRemote, messages, o, app.getString(R.string.ai_reading));
+        if (at == null || seq.get() != id) return;      // ya se aviso del error, u otra peticion tomo el relevo
+        if (flag.get()) { finishCancelled(id, at.raw, req, watchdog); return; }
+        int untranslatedRes = 0;
+        if (at.error == null && req.action == Action.TRANSLATE && untranslated(req, at.text(), source)) {
+            // El modelo devolvio el original (o siguio en su idioma): una segunda pasada, mas caliente y con un
+            // traductor profesional en ingles; si tampoco traduce, error propio en vez de un resultado inutil.
+            // Mismo vigilante total que la primera pasada y misma cancelacion (id y bandera).
+            restart(id, flag, app.getString(R.string.ia4_translating_again));
+            LlmEngine.Options again = options(req.action, source.length(), req.retries);
+            again.temperature = Math.max(RETRY_TEMPERATURE, o.temperature);
+            at = generate(req, id, flag, useRemote, retryMessages(req, source), again,
+                    app.getString(R.string.ia4_translating_again));
+            if (at == null || seq.get() != id) return;
+            if (flag.get()) { finishCancelled(id, at.raw, req, watchdog); return; }
+            if (at.error == null && untranslated(req, at.text(), source)) untranslatedRes = R.string.ai_err_untranslated;
+        }
+        final String text = at.text();
+        final CharSequence err = at.error;
+        final ErrorKind kind = at.kind;
+        final int weakRes = untranslatedRes;
+        main.post(new Runnable() {
+            @Override public void run() {
+                main.removeCallbacks(watchdog);
+                if (seq.get() != id) return;
+                busy = false;
+                if (err != null) { emitError(kind, err); return; }
+                if (weakRes != 0) { emitError(ErrorKind.WEAK, app.getString(weakRes)); return; }
+                Cleaned c = cleanChecked(req.action, text, req.source);
+                if (c.errorRes != 0) { emitError(ErrorKind.WEAK, app.getString(c.errorRes)); return; }
+                emitDone(c.text, c.weak);
+            }
+        });
+    }
+
+    /** Una pasada de generacion: texto crudo acumulado, respuesta completa del motor y error, si lo hubo. */
+    private static final class Attempt {
+        final StringBuilder raw = new StringBuilder();
+        String result;
+        CharSequence error;
+        ErrorKind kind;
+        /** Texto completo: la respuesta del motor, o lo acumulado si es mas largo (o no hubo respuesta). */
+        String text() { return result != null && result.length() >= raw.length() ? result : raw.toString(); }
+    }
+
+    /**
+     * Una pasada de generacion en el hilo de trabajo: manda los mensajes al motor (local o remoto), reparte fases y
+     * trozos al hilo principal y devuelve lo generado con su error, si lo hubo; quien llama decide el final (cancelado,
+     * error, segunda pasada o resultado). Devuelve null si ya se aviso del final (el modelo no cargo).
+     * {@code readingLabel} es la fase mientras el motor local lee el prompt.
+     */
+    private Attempt generate(final Request req, final int id, final AtomicBoolean flag, boolean useRemote,
+                             List<ChatMessage> messages, LlmEngine.Options o, final CharSequence readingLabel) {
+        final Attempt at = new Attempt();
+        final StringBuilder raw = at.raw;
+        final long start = System.currentTimeMillis();
+        final int[] tokens = {0};
+        final long[] lastPost = {0};
+        final boolean[] firstToken = {false};
         final Runnable firstWatch = new Runnable() {
             @Override public void run() {
                 if (!current(id, flag) || firstToken[0]) return;
@@ -373,9 +430,9 @@ final class AiRunner {
                 }
             } else {
                 LlmEngine e = ensureEngine(id, flag);
-                if (e == null) return;              // ya se aviso del error o se cancelo
-                if (!current(id, flag)) { finishCancelled(id, raw, req, watchdog); return; }
-                phase(id, flag, app.getString(R.string.ai_reading));
+                if (e == null) return null;         // ya se aviso del error o se cancelo
+                if (!current(id, flag)) return at;  // cancelado antes de empezar: quien llama avisa
+                phase(id, flag, readingLabel);
                 main.postDelayed(firstWatch, LOCAL_FIRST_MS);
                 if (e.architecture() != null && e.architecture().toLowerCase(Locale.ROOT).contains("qwen3")) {
                     messages = noThink(messages);
@@ -409,20 +466,20 @@ final class AiRunner {
         } finally {
             main.removeCallbacks(firstWatch);
         }
-        if (seq.get() != id) return;                // otra peticion tomo el relevo
-        if (flag.get()) { finishCancelled(id, raw, req, watchdog); return; }
-        final String text = result != null && result.length() >= raw.length() ? result : raw.toString();
-        final CharSequence err = error;
-        final ErrorKind kind = errKind;
+        at.result = result;
+        at.error = error;
+        at.kind = errKind;
+        return at;
+    }
+
+    /** Segunda pasada: vacia en el panel el texto de la primera, avisa de la fase y deja ver otra vez el progreso de lectura. */
+    private void restart(final int id, final AtomicBoolean flag, final CharSequence label) {
         main.post(new Runnable() {
             @Override public void run() {
-                main.removeCallbacks(watchdog);
-                if (seq.get() != id) return;
-                busy = false;
-                if (err != null) { emitError(kind, err); return; }
-                Cleaned c = cleanChecked(req.action, text, req.source);
-                if (c.errorRes != 0) { emitError(ErrorKind.WEAK, app.getString(c.errorRes)); return; }
-                emitDone(c.text, c.weak);
+                if (!current(id, flag)) return;
+                emitPiece("", 0, 0);
+                lastPiece = null;
+                emitPhase(label);
             }
         });
     }
@@ -569,6 +626,36 @@ final class AiRunner {
         return fb;
     }
 
+    /** Idioma del texto solo si esta claro ("es", "en" o "de"); null si no se puede decir. */
+    static String detectedLanguage(String text) {
+        String a = detectLanguage(text, "es");
+        return a.equals(detectLanguage(text, "en")) ? a : null;
+    }
+
+    /** Mismo texto sin contar mayusculas, espacios ni la puntuacion final. */
+    static boolean sameText(String a, String b) {
+        return a != null && b != null && !a.trim().isEmpty() && loose(a).equals(loose(b));
+    }
+
+    private static String loose(String s) {
+        return s.toLowerCase(Locale.ROOT).replaceAll("\\s+", " ").trim().replaceAll("[\\p{Punct}¡¿…«»“”‘’\\s]+$", "");
+    }
+
+    /**
+     * Traducir: el modelo no tradujo. El resultado limpio es el original (sin contar mayusculas, espacios ni
+     * puntuacion final) o sigue en el idioma del original cuando el destino es otro de los tres. Un texto que ya
+     * estaba en el idioma destino no cuenta: no habia nada que traducir.
+     */
+    static boolean untranslated(Request req, String rawText, String source) {
+        Cleaned c = cleanChecked(Action.TRANSLATE, rawText, source);
+        if (c.errorRes != 0 || c.text.trim().isEmpty()) return false;
+        String target = targetCode(req.target);
+        String srcLang = detectedLanguage(source);
+        if (target != null && target.equals(srcLang)) return false;
+        if (sameText(c.text, source)) return true;
+        return target != null && srcLang != null && srcLang.equals(detectedLanguage(c.text));
+    }
+
     // ------------------------------------------------------------------ mensajes
 
     static String systemPrompt(String lang) {
@@ -589,6 +676,24 @@ final class AiRunner {
                 + "Begrüßung, ohne Anführungszeichen, ohne Titel oder Anmerkungen.";
         return "Eres un traductor. Respondes únicamente con la traducción: sin explicaciones, sin saludos, sin comillas, "
                 + "sin títulos ni notas.";
+    }
+
+    /**
+     * Segunda pasada de Traducir: traductor profesional, en ingles (el idioma en que mejor obedece un modelo pequeno),
+     * que solo emite la traduccion.
+     */
+    static String retryTranslatorPrompt() {
+        return "You are a professional translator. You output only the translation of the text you receive, written in "
+                + "the requested language, and nothing else: no explanations, no greetings, no quotes, no notes, and "
+                + "never the original text.";
+    }
+
+    /** Mensajes de la segunda pasada de Traducir: sistema e instruccion en ingles, mismo destino y mismo texto. */
+    static List<ChatMessage> retryMessages(Request req, String source) {
+        List<ChatMessage> out = new ArrayList<>(2);
+        out.add(new ChatMessage("system", retryTranslatorPrompt()));
+        out.add(new ChatMessage("user", userPrompt(req, source, "en")));
+        return out;
     }
 
     /** Codigo del idioma destino si es uno de los tres de la interfaz ("es", "en", "de"); null si es otro o no hay. */
@@ -678,20 +783,37 @@ final class AiRunner {
                         : de ? ("es".equals(code) ? "ins Spanische" : "en".equals(code) ? "ins Englische"
                         : "de".equals(code) ? "ins Deutsche" : "in die Sprache „" + other + "“")
                         : ("es".equals(code) ? "español" : "en".equals(code) ? "inglés" : "de".equals(code) ? "alemán" : other);
+                // Ejemplo de una linea en el idioma del mensaje; solo con un destino de los tres (hay que saber escribirlo)
+                String exSrc = "en".equals(code) ? "Buenos días" : "Good morning";
+                String exOut = "en".equals(code) ? "Good morning" : "es".equals(code) ? "Buenos días" : "Guten Morgen";
+                String example = code == null ? ""
+                        : en ? " Example:\nText: " + exSrc + "\nTranslation: " + exOut
+                        : de ? " Beispiel:\nText: " + exSrc + "\nÜbersetzung: " + exOut
+                        : " Ejemplo:\nTexto: " + exSrc + "\nTraducción: " + exOut;
                 return (en ? "Translate the following text into " + into + ". Keep the meaning, the tone and the line breaks. "
-                        + "Return only the translation, with no explanations."
+                        + "Reply only with the translation: no quotes, no comments, no explanations."
                         : de ? "Übersetze den folgenden Text " + into + ". Behalte Bedeutung, Ton und Zeilenumbrüche bei. "
-                        + "Gib nur die Übersetzung zurück, ohne Erklärungen."
+                        + "Antworte nur mit der Übersetzung: ohne Anführungszeichen, ohne Kommentare, ohne Erklärungen."
                         : "Traduce el siguiente texto al " + into + ". Mantén el significado, el tono y los saltos de línea. "
-                        + "Devuelve solo la traducción, sin explicaciones.") + tail;
+                        + "Responde solo con la traducción: sin comillas, sin comentarios, sin explicaciones.") + example + tail;
             }
             case BULLETS:
-                return (en ? "Turn the following text into a bulleted list. Each bullet starts with \"• \" and holds one idea "
-                        + "in a short sentence. Write nothing before or after the list."
-                        : de ? "Wandle den folgenden Text in eine Aufzählung um. Jeder Punkt beginnt mit \"• \" und enthält "
-                        + "einen Gedanken in einem kurzen Satz. Schreibe nichts vor oder nach der Liste."
-                        : "Convierte el siguiente texto en una lista de puntos. Cada punto empieza con \"• \" y contiene una "
-                        + "sola idea en una frase corta. No escribas nada antes ni después de la lista.") + tail;
+                // Lista de verdad: titulo corto con dos puntos y un elemento por linea con "- "; el ejemplo fija el formato
+                return (en ? "Turn the following text into a list. First line: a short title that sums up what the list is "
+                        + "about, ending with a colon. Below it, one item per line, each starting with \"- \" (dash and space). "
+                        + "Separate the items even if they come in a single sentence joined by commas or \"and\". "
+                        + "Format example:\nWeekend plans:\n- Go to the movies\n- Dinner with the family\n"
+                        + "Write nothing before or after the list."
+                        : de ? "Wandle den folgenden Text in eine Liste um. Erste Zeile: ein kurzer Titel, der zusammenfasst, "
+                        + "worum es in der Liste geht, mit Doppelpunkt am Ende. Darunter ein Element pro Zeile, jedes beginnt "
+                        + "mit \"- \" (Bindestrich und Leerzeichen). Trenne die Elemente auch dann, wenn sie in einem einzigen "
+                        + "Satz durch Kommas oder \"und\" verbunden sind. Formatbeispiel:\nPläne fürs Wochenende:\n"
+                        + "- Ins Kino gehen\n- Abendessen mit der Familie\nSchreibe nichts vor oder nach der Liste."
+                        : "Convierte el siguiente texto en una lista. Primera línea: un título corto que resuma de qué va la "
+                        + "lista, terminado en dos puntos. Debajo, un elemento por línea, cada uno empezando con \"- \" (guion "
+                        + "y espacio). Separa los elementos aunque vengan en una sola frase unidos por comas o por \"y\". "
+                        + "Ejemplo de formato:\nPlanes del fin de semana:\n- Ir al cine\n- Cenar con la familia\n"
+                        + "No escribas nada antes ni después de la lista.") + tail;
             case TABLE:
                 return (en ? "Organize the information in the following text as a Markdown table: a header row, a dash "
                         + "separator row and one row per item, columns separated by \"|\". Return only the table."
@@ -751,8 +873,9 @@ final class AiRunner {
                 o.maxTokens = Math.min(60 * sentenceBudget(srcChars) + 20, 200);
                 break;
             case BULLETS:
+                // Titulo, "- " y salto por elemento: algo mas de margen que el texto original
                 o.temperature = 0.20f; o.repeatPenalty = 1.10f;
-                o.maxTokens = Math.min((int) Math.ceil(srcTokens * 1.4) + 24, 350);
+                o.maxTokens = Math.min((int) Math.ceil(srcTokens * 1.6) + 40, 400);
                 break;
             case TABLE:
                 o.temperature = 0.15f; o.repeatPenalty = 1.05f;
@@ -791,9 +914,40 @@ final class AiRunner {
             "(?iu)^((texto corregido|corrected text|texto reescrito|rewritten text|resumen|summary|zusammenfassung|korrigierter text|"
             + "tabla|table|tabelle|respuesta|answer|antwort)|"
             + "(traducci[oó]n|translation|texto traducido|translated text|übersetzung|übersetzter text)( [^:\\n]{1,25})?)\\s*:\\s*");
-    /** Parrafo final de aclaracion que un traductor suele colar ("Nota: ...", "(Note: ...)"). */
+    /** Parrafo o linea final de aclaracion que un traductor suele colar ("Nota: ...", "This translation keeps..."). */
     private static final Pattern TRAILING_NOTE = Pattern.compile(
-            "(?isu)^[(\\[]?(nota|note|notes|hinweis|anmerkung|translation note|nota de traducción)\\b.*");
+            "(?isu)^[(\\[]?(nota|note|notes|hinweis|anmerkung|translation note|nota de traducción|please note|ten en cuenta|"
+            + "bitte beachte|(this|the|my) translation (keeps|maintains|preserves|retains|captures|conveys|reflects|uses|is|has)|"
+            + "(esta|la) traducción (mantiene|conserva|respeta|refleja|usa|es|está|tiene)|"
+            + "(diese|die) übersetzung (behält|bewahrt|erhält|gibt|ist|hat|verwendet)|"
+            + "i hope|let me know|feel free|if you (need|want|have|would)|espero que|si necesitas|si quieres|si deseas|avísame|"
+            + "ich hoffe|lass es mich wissen|wenn du|bei fragen)\\b.*");
+    /** Traducir: interjeccion sola en su linea ("Sure!", "¡Claro!") delante de la traduccion o de su etiqueta. */
+    private static final Pattern CHATTY_LINE = Pattern.compile(
+            "(?iu)^¡?(sure|certainly|of course|absolutely|claro|por supuesto|desde luego|gerne?|natürlich|klar|sicher)[!.,:]?[ \\t]*\\n");
+    /**
+     * Traducir: preambulo charlatan hasta sus dos puntos (o su salto de linea), "Sure! Here is the translation of "..."
+     * into English:", saltando las comillas interiores: el original citado puede llevar dos puntos.
+     */
+    private static final Pattern CHATTY_PREAMBLE = Pattern.compile(
+            "(?iu)^(?:¡?(?:sure|certainly|of course|absolutely|claro|por supuesto|desde luego|gerne?|natürlich|klar|sicher)[!.,:]?\\s*)?"
+            + "(?:here(?:'s| is| are| you go)|this is|the following is|below is|(?:the|this) translation (?:of|into|to|is)|"
+            + "aquí (?:tienes|está|están|va|te dejo)|esta es|a continuación|la traducción (?:de|del|al|es)|"
+            + "hier (?:ist|sind|hast du)|das ist|die übersetzung (?:von|des|ins|lautet))\\b"
+            + "(?:\"[^\"\\n]*\"|“[^”\\n]*”|«[^»\\n]*»|„[^“\\n]*“|[^:\\n\"“«„])*(?::\\s*|[ \\t]*\\n\\s*)");
+    /**
+     * Vinetas: linea inicial que es preambulo y no titulo ("Aquí tienes la lista:", "Lista de puntos:"); las demas lineas
+     * terminadas en dos puntos ("Lista de compras de mamá:") son el titulo que se pide y se conservan.
+     */
+    private static final Pattern BULLETS_LABEL = Pattern.compile(
+            "(?iu)^(aquí (está|tienes)|here (is|are)|hier (ist|sind)|sure|claro|por supuesto|certainly|of course|respuesta|answer|"
+            + "antwort|resultado|result|lista de (puntos|viñetas|vinetas)|bullet(ed)? (list|points)|aufzählung|stichpunkte)[^\\n]{0,60}:$");
+    /** Vineta o numero al principio de un elemento de lista. */
+    private static final Pattern BULLET_MARK = Pattern.compile("^([-*·–—•▪◦●]|\\d{1,2}[.)])\\s*");
+    /** Separadores de elementos dentro de una misma linea: vinetas sueltas, " - " y punto y coma. */
+    private static final Pattern INLINE_SEP = Pattern.compile("\\s*[•·▪◦●]\\s*|\\s+[-–—]\\s+|;\\s*");
+    /** Conjuncion que une los dos ultimos elementos de una enumeracion ("Pan y Tortillas"). */
+    private static final Pattern LAST_CONJ = Pattern.compile("(?iu)^(.+?)\\s+(y|e|and|und|o|or|oder)\\s+(.+)$");
     private static final Pattern THINK = Pattern.compile("(?s)<think>.*?(</think>|$)");
 
     /** Limpieza general sin comprobaciones (para resultados parciales). */
@@ -812,18 +966,29 @@ final class AiRunner {
         s = s.replaceAll("(?m)^```[A-Za-z0-9_-]*[ \\t]*\\n?", "");
         s = s.replace("```", "");
         s = s.trim();
+        // 3a. Traducir: interjeccion y preambulo charlatan ("Sure! Here is the translation of "..." into English:")
+        if (a == Action.TRANSLATE) {
+            s = CHATTY_LINE.matcher(s).replaceFirst("").trim();
+            Matcher cm = CHATTY_PREAMBLE.matcher(s);
+            if (cm.find() && cm.end() < s.length()) s = s.substring(cm.end()).trim();
+        }
         // 3. Linea de etiqueta inicial y prefijos
         int nl = s.indexOf('\n');
         if (nl > 0 && nl <= 60) {
             String first = s.substring(0, nl).trim();
-            if (LABEL_LINE.matcher(first).matches()) s = s.substring(nl + 1).trim();
+            Pattern label = a == Action.BULLETS ? BULLETS_LABEL : LABEL_LINE;    // Vinetas: el titulo pedido no es etiqueta
+            if (label.matcher(first).matches()) s = s.substring(nl + 1).trim();
         }
         Matcher pm = INLINE_PREFIX.matcher(s);
         if (pm.find()) s = s.substring(pm.end()).trim();
-        // 3b. Traducir: fuera el parrafo final de aclaracion, si lo hay (antes de mirar las comillas exteriores)
+        // 3b. Traducir: fuera los parrafos (o la linea) finales de aclaracion, y si queda un bloque entre comillas
+        // seguido solo de una aclaracion ("Hello" This translation keeps...), nos quedamos con el (antes de las comillas)
         if (a == Action.TRANSLATE) {
-            int cut = s.lastIndexOf("\n\n");
-            if (cut > 0 && TRAILING_NOTE.matcher(s.substring(cut + 2).trim()).matches()) s = s.substring(0, cut).trim();
+            s = stripTrailingNotes(s);
+            if (!quoted(source)) {
+                String inner = quotedBlock(s);
+                if (inner != null) s = stripTrailingNotes(inner);
+            }
         }
         // 4. Comillas exteriores (si el original no venia entrecomillado)
         s = s.trim();
@@ -842,16 +1007,7 @@ final class AiRunner {
         int errorRes = 0;
         switch (a) {
             case BULLETS: {
-                StringBuilder b = new StringBuilder();
-                for (String line : s.split("\n")) {
-                    String t = line.trim();
-                    if (t.isEmpty()) continue;
-                    t = t.replaceFirst("^([-*·–—•]|\\d{1,2}[.)])\\s*", "");
-                    if (t.isEmpty()) continue;
-                    if (b.length() > 0) b.append('\n');
-                    b.append("• ").append(t);
-                }
-                s = b.toString();
+                s = bulletList(s);
                 if (s.isEmpty()) errorRes = R.string.ai_weak_result;
                 break;
             }
@@ -896,7 +1052,7 @@ final class AiRunner {
                 int src = source == null ? 0 : source.trim().length();
                 if (s.isEmpty()) errorRes = R.string.ai_weak_result;
                 else if (src > 0 && (s.length() > 3 * src + 20 || (a == Action.FIX && s.length() < 0.3 * src))) weak = true;
-                else if (a == Action.TRANSLATE && src > 0 && s.trim().equalsIgnoreCase(source.trim())) weak = true;   // no tradujo nada
+                else if (a == Action.TRANSLATE && src > 0 && sameText(s, source)) weak = true;   // no tradujo nada
                 // 7. Espacio o salto final igual que el original
                 if (source != null && !source.isEmpty() && errorRes == 0) {
                     String trail = trailingWs(source);
@@ -915,6 +1071,113 @@ final class AiRunner {
             if (i >= 0 && i < cut) cut = i;
         }
         return cut < s.length() ? s.substring(0, cut) : s;
+    }
+
+    /** Quita del final los parrafos de aclaracion y, despues, la ultima linea si tambien lo es; siempre queda algo delante. */
+    static String stripTrailingNotes(String s) {
+        int cut = s.lastIndexOf("\n\n");
+        while (cut > 0 && TRAILING_NOTE.matcher(s.substring(cut + 2).trim()).matches()) {
+            s = s.substring(0, cut).trim();
+            cut = s.lastIndexOf("\n\n");
+        }
+        int nl = s.lastIndexOf('\n');
+        if (nl > 0 && TRAILING_NOTE.matcher(s.substring(nl + 1).trim()).matches()) s = s.substring(0, nl).trim();
+        return s;
+    }
+
+    /**
+     * Texto entre la comilla inicial y su pareja cuando lo que sigue es nada o solo una aclaracion ("Hello" This
+     * translation keeps...); null si no empieza por comilla, la pareja no aparece o despues sigue mas texto normal.
+     */
+    static String quotedBlock(String s) {
+        if (s == null || s.length() < 2) return null;
+        char f = s.charAt(0);
+        char close = f == '"' ? '"' : f == '“' ? '”' : f == '«' ? '»' : f == '„' ? '“' : f == '\'' ? '\'' : 0;
+        if (close == 0) return null;
+        int end = s.indexOf(close, 1);
+        if (end < 0) return null;
+        String rest = s.substring(end + 1).trim();
+        if (!rest.isEmpty() && !TRAILING_NOTE.matcher(rest).matches()) return null;
+        return s.substring(1, end).trim();
+    }
+
+    /**
+     * Lista de verdad a partir de lo que devolvio el modelo: titulo (primera linea terminada en dos puntos, o sin vineta
+     * seguida de lineas con vineta) y un elemento por linea con "- ". Si todo vino en una linea se parte por las vinetas,
+     * los " - ", los ";" o las comas (y la conjuncion final). Sin lineas en blanco; si no hay titulo no se inventa.
+     */
+    static String bulletList(String s) {
+        List<String> lines = new ArrayList<>();
+        for (String line : s.split("\n")) {
+            String t = line.replace("**", "").trim();     // negritas Markdown fuera
+            if (!t.isEmpty()) lines.add(t);
+        }
+        if (lines.isEmpty()) return "";
+        String title = null;
+        List<String> items = new ArrayList<>();
+        if (lines.size() == 1) {
+            // Todo en una linea: "Lista de compras: Huevo, Leche, Pan y Tortillas" o "• Huevo • Leche • Pan"
+            String only = lines.get(0);
+            boolean separators = INLINE_SEP.matcher(only).find();
+            if (!BULLET_MARK.matcher(only).find()) {
+                int colon = only.indexOf(": ");
+                if (colon > 0 && colon <= 60 && !INLINE_SEP.matcher(only.substring(0, colon)).find()) {
+                    title = only.substring(0, colon + 1).trim();
+                    if (BULLETS_LABEL.matcher(title).matches()) title = null;   // "Aquí tienes la lista:" no es titulo
+                    only = only.substring(colon + 1).trim();
+                } else if (only.endsWith(":") && !separators) {
+                    return "";                           // solo un titulo, sin elementos
+                }
+            }
+            items.addAll(splitItems(only, true));
+        } else {
+            String first = lines.get(0);
+            boolean othersMarked = false;
+            for (int i = 1; i < lines.size(); i++) if (BULLET_MARK.matcher(lines.get(i)).find()) { othersMarked = true; break; }
+            int from = 0;
+            if (first.endsWith(":") || (!BULLET_MARK.matcher(first).find() && othersMarked)) {
+                String t = BULLET_MARK.matcher(first).replaceFirst("").replaceAll("[.:;,]+$", "").trim();
+                if (!t.isEmpty()) { title = BULLETS_LABEL.matcher(t + ":").matches() ? null : t + ":"; from = 1; }
+            }
+            for (int i = from; i < lines.size(); i++) items.addAll(splitItems(lines.get(i), false));
+        }
+        if (items.isEmpty()) return "";
+        StringBuilder b = new StringBuilder();
+        if (title != null) b.append(title);
+        for (String it : items) {
+            if (b.length() > 0) b.append('\n');
+            b.append("- ").append(it);
+        }
+        return b.toString();
+    }
+
+    /**
+     * Elementos de una linea de lista: fuera la vineta inicial; partida por vinetas sueltas, " - " o ";", por "1. ... 2. ..."
+     * si la linea venia numerada y, si era la unica linea, por comas (la conjuncion final separa los dos ultimos).
+     */
+    private static List<String> splitItems(String line, boolean single) {
+        List<String> out = new ArrayList<>();
+        String t = BULLET_MARK.matcher(line).replaceFirst("").trim();
+        String[] parts;
+        if (INLINE_SEP.matcher(t).find()) parts = INLINE_SEP.split(t);
+        else if (line.matches("^\\d{1,2}[.)]\\s.*") && t.matches(".*\\s\\d{1,2}[.)]\\s.*")) parts = t.split("\\s+\\d{1,2}[.)]\\s+");
+        else if (single && t.contains(", ")) parts = t.split(",\\s+");
+        else parts = new String[]{t};
+        boolean enumeration = single && parts.length > 1 && t.contains(", ");
+        for (int i = 0; i < parts.length; i++) {
+            String p = BULLET_MARK.matcher(parts[i].trim()).replaceFirst("").trim();
+            if (single && parts.length > 1) p = p.replaceAll("\\.+$", "");     // el punto final de la frase enumerada
+            p = p.replaceAll("[,;]+$", "").replaceAll("(?iu)\\s+(y|e|and|und)$", "").trim();
+            if (p.isEmpty()) continue;
+            Matcher m = enumeration && i == parts.length - 1 ? LAST_CONJ.matcher(p) : null;
+            if (m != null && m.matches()) {
+                out.add(m.group(1).trim());
+                out.add(m.group(3).trim());
+            } else {
+                out.add(p);
+            }
+        }
+        return out;
     }
 
     private static boolean quoted(String source) {

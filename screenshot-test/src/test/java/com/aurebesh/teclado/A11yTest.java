@@ -256,7 +256,7 @@ public class A11yTest {
         layout(kb, W);
         check(kb.keyFor("+") != null, "pagina de signos abierta");
         check(desc(p, kb.a11yIdOf(kb.keyFor(AurebeshKeyboardView.CODE_MODE))), "Letras", "abc se llama Letras");
-        check(desc(p, kb.a11yIdOf(kb.keyFor(AurebeshKeyboardView.CODE_PAGE))), "Más símbolos, 1/3", "pagina de signos con su numero");
+        check(desc(p, kb.a11yIdOf(kb.keyFor(AurebeshKeyboardView.CODE_PAGE))), "Más símbolos, 1/2", "pagina de signos con su numero (solo 1/2 y 2/2 desde 2.2)");
         check(desc(p, kb.a11yIdOf(kb.keyFor("+"))), "+", "el signo mas se lee tal cual");
         check(click(p, kb.a11yIdOf(kb.keyFor("+"))), "clic en +");
         check(rec.typed.toString().endsWith("+"), "el + se escribe");

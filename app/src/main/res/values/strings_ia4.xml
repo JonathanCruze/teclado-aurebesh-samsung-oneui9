@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Panel "Intelligence" 2.2: real lists (title + "- " items) and a second translation pass when the model echoes the original -->
+    <string name="ai_err_untranslated">The model didn\'t translate the text. Try again, with another model or with a server.</string>
+    <string name="ia4_translating_again">Translating again…</string>
+</resources>

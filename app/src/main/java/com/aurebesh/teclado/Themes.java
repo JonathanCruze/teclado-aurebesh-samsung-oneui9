@@ -2,7 +2,8 @@ package com.aurebesh.teclado;
 
 /**
  * Temas del teclado. Cada tema cambia la construccion de la tecla (relleno, borde, esquina,
- * sombra, halo), no solo la paleta, para que se distingan de un vistazo.
+ * sombra, halo), no solo la paleta, para que se distingan de un vistazo. Ademas de los seis fijos hay dos
+ * automaticos (Republica e Imperio) que no son temas sino parejas dia/noche: Prefs.theme los resuelve.
  */
 final class Themes {
     private Themes() {}
@@ -92,5 +93,35 @@ final class Themes {
     static Theme byId(String id) {
         for (Theme t : ALL) if (t.id.equals(id)) return t;
         return DEFAULT;
+    }
+
+    // ------------------------------------------------------------------ automaticos (siguen el modo oscuro del telefono)
+
+    /** Los dos valores guardados que no son un tema fijo: Republica ("auto") e Imperio ("auto_imperio"). */
+    static final String[] AUTOS = {Prefs.THEME_AUTO, Prefs.THEME_AUTO_IMPERIO};
+
+    /** True si el valor guardado en Prefs.THEME es uno de los automaticos (Prefs.theme lo resuelve). */
+    static boolean isAuto(String pref) {
+        return Prefs.THEME_AUTO.equals(pref) || Prefs.THEME_AUTO_IMPERIO.equals(pref);
+    }
+
+    /** Tema de dia de un automatico: Arena para Imperio, Estelar para Republica (y para cualquier otro valor). */
+    static Theme autoDay(String pref) {
+        return Prefs.THEME_AUTO_IMPERIO.equals(pref) ? ARENA : ESTELAR;
+    }
+
+    /** Tema de noche de un automatico: Imperial para Imperio, Noche para Republica. */
+    static Theme autoNight(String pref) {
+        return Prefs.THEME_AUTO_IMPERIO.equals(pref) ? IMPERIAL : NOCHE;
+    }
+
+    /** Nombre visible (recurso) de un automatico. */
+    static int autoName(String pref) {
+        return Prefs.THEME_AUTO_IMPERIO.equals(pref) ? R.string.theme_auto_imperio : R.string.theme_auto_republic;
+    }
+
+    /** Subtitulo (recurso) de un automatico: "Estelar de dia, Noche de noche" / "Arena de dia, Imperial de noche". */
+    static int autoSub(String pref) {
+        return Prefs.THEME_AUTO_IMPERIO.equals(pref) ? R.string.theme_auto_imperio_sub : R.string.theme_auto_republic_sub;
     }
 }

@@ -18,7 +18,7 @@
     <string name="tools_label_edit">Textbearbeitung</string>
     <string name="tools_label_translate">Übersetzen</string>
     <string name="tools_label_split">Teilen</string>
-    <string name="tools_label_strip">Übersetzungsleiste</string>
+    <string name="tools_label_strip">Alles in Aurebesh</string>
     <string name="tools_label_lang">Sprache</string>
     <string name="tools_label_resize">Größe und Position</string>
     <string name="tools_label_hide">Tastatur ausblenden</string>

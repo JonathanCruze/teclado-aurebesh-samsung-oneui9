@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
 """Construye el juego de glifos del teclado y la fuente "Aurek Teclado":
-   base: font/base-silvinor-Aurebesh.ttf (OFL 1.1, SilvinoR) -> letras, numerales, puntuacion, digrafos (ligaduras)
-   propios (al grosor de la base, 1.55): n~ con cuadrado y vocales con tilde; los signos son los de la fuente
+   base: font/base-silvinor-Aurebesh.ttf (OFL 1.1, SilvinoR) -> letras, numerales, puntuacion, signos, digrafos (ligaduras)
+   propios (glyph_compose.py, al grosor de la base, 1.55): n~ con virgulilla, vocales con tilde aguda, grave, dieresis y
+   circunflejo, a/o con virgulilla, o con barra, distinto y por mil; la barra invertida es el espejo de la /
+   previa (sin integrar hasta que se aprueben, bandera INCLUDE_TIMES_DIVIDE): por (x) y entre
 Salidas: tools/glyphs.json, promo/glyphs.json, app/.../GlyphData.java, font/AurekTeclado.ttf
 Uso: python3 tools/build_font_set.py   (requiere fonttools, numpy, opencv)"""
 import json, math, os, sys, shutil, numpy as np, cv2
 from fontTools.ttLib import TTFont
 from fontTools.pens.recordingPen import RecordingPen
+sys.path.insert(0,os.path.dirname(os.path.abspath(__file__)))
+from glyph_compose import mirror_x, accents, symbols, times_divide
 ROOT=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC=os.path.join(ROOT,'font','base-silvinor-Aurebesh.ttf')
-T=1.55   # grosor de la base, para las marcas propias
+INCLUDE_TIMES_DIVIDE=False   # por (x) y entre: disenados y en la previa (tools/preview_glyphs.py); se integran al aprobarse
 
 # ---------------- base: extraer contornos y metricas a unidades (altura de mayusculas = 10, y hacia abajo)
 f=TTFont(SRC); upm=f['head'].unitsPerEm; cap=f['OS/2'].sCapHeight; U=10.0/cap
@@ -40,8 +44,10 @@ def to_units(polys, adv):
     return {'w':round((xmax-xmin)*U,3),'p':[[[round((x-xmin)*U,3),round((cap-y)*U,3)] for x,y in poly] for poly in polys],
             'lsb':round(xmin*U,3),'adv':round(adv*U,3)}
 G={}
-for ch in 'abcdefghijklmnopqrstuvwxyz0123456789,.?!:;-()/$"\'`¿¡«»[]_|~@#%&*+=<>{}^':
+for ch in 'abcdefghijklmnopqrstuvwxyz0123456789,.?!:;-()/$"\'`¿¡«»[]_|~@#%&*+=<>{}^\\±£¥°©®™':
     gn=cmap.get(ord(ch)); G[ch]=to_units(contours(gn), hmtx[gn][0])
+# la barra invertida de la fuente es la / en espejo pero 0.25 unidades mas alta: se usa el espejo exacto de la /
+G['\\']=dict(G['/'], p=mirror_x(G['/']['p'], G['/']['w']/2))
 for lk in f['GSUB'].table.LookupList.Lookup:
     for st in lk.SubTable:
         st=getattr(st,'ExtSubTable',st)
@@ -54,17 +60,10 @@ for lk in f['GSUB'].table.LookupList.Lookup:
 G['“']=G['”']=G['"']; G['‘']=G['`']; G['’']=G["'"]; del G['`']
 SPACE_ADV=round(hmtx[cmap[32]][0]*U,3)
 
-# ---------------- propios: solo lo que la fuente no tiene (n~ con cuadrado, vocales con tilde)
-def apex_x(g):
-    pts=[p for poly in g['p'] for p in poly]; top=min(p[1] for p in pts)
-    xs=[p[0] for p in pts if p[1]<=top+0.6]; return (min(xs)+max(xs))/2
-def with_mark(base, marks): g=dict(base); g['p']=[[list(p) for p in poly] for poly in base['p']]+marks; return g
-n=G['n']; ax=apex_x(n); s=1.9
-G['ñ']=with_mark(n,[[[ax-s/2,-3.0],[ax+s/2,-3.0],[ax+s/2,-3.0+s],[ax-s/2,-3.0+s]]])
-def acute(w):
-    cx_,cy_,L,t=0.64*w,-2.0,3.0,T; dx=L/2*0.7071; dy=L/2*0.7071; x0,y0,x1,y1=cx_-dx,cy_+dy,cx_+dx,cy_-dy; h=t/0.7071/2
-    return [[[x0,y0-h],[x1,y1-h],[x1,y1+h],[x0,y0+h]]]
-for v,acc in zip('aeiou','áéíóú'): G[acc]=with_mark(G[v],acute(G[v]['w']))
+# ---------------- propios: solo lo que la fuente no tiene (glyph_compose.py)
+G.update(accents(G))          # n~, vocales con tilde aguda, grave, dieresis, circunflejo; a/o con virgulilla
+G.update(symbols(G))          # o con barra, distinto, por mil
+if INCLUDE_TIMES_DIVIDE: G.update(times_divide(G))
 
 # ---------------- salidas: json, GlyphData.java
 for p in ('tools/glyphs.json','promo/glyphs.json'): json.dump(G,open(os.path.join(ROOT,p),'w'))
@@ -73,7 +72,8 @@ keys=list(G)
 def data(g):   # "w;lsb;adv;x,y x,y ...;x,y ..." (un poligono por campo)
     return ';'.join([str(g['w']),str(g['lsb']),str(g['adv'])]+[' '.join('%s,%s'%(x,y) for x,y in poly) for poly in g['p']])
 out=["package com.aurebesh.teclado;","","/** Glifos Aurebesh vectorizados (unidades: 0 = borde superior, 10 = linea base; las marcas van por encima de 0).",
-     " *  Base: fuente Aurebesh de SilvinoR (OFL 1.1) + n~ y vocales con tilde propias. Generado por tools/build_font_set.py.",
+     " *  Base: fuente Aurebesh de SilvinoR (OFL 1.1) + marcas (n~, tildes, dieresis, circunflejo, virgulilla) y signos",
+     " *  compuestos propios (o con barra, distinto, por mil). Generado por tools/build_font_set.py.",
      " *  DATA[i] = \"ancho;margenIzq;avance;poligono;poligono...\" con cada poligono como \"x,y x,y ...\". */",
      "final class GlyphData {","    private GlyphData() {}",
      "    static final float SPACE_ADV = %sf;"%SPACE_ADV,

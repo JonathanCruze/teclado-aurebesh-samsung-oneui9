@@ -1,5 +1,9 @@
 package com.aurebesh.teclado;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.animation.ArgbEvaluator;
+import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
@@ -9,9 +13,11 @@ import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.graphics.Typeface;
+import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.RippleDrawable;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.provider.OpenableColumns;
 import android.provider.Settings;
@@ -22,6 +28,7 @@ import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.inputmethod.InputMethodInfo;
 import android.view.inputmethod.InputMethodManager;
@@ -45,11 +52,14 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 /**
- * Pantalla de la app: configurar el teclado en dos pasos, probarlo con una copia funcional del teclado y
- * ajustar las opciones en secciones colapsables como las de One UI (Diseno, Tamano y posicion, Escritura
- * inteligente, Tocar y respuesta, Portapapeles, Inteligencia, Mas ajustes, Ayuda y gestos; Plegables solo en
- * pantallas anchas). Sigue el modo claro/oscuro del sistema; en pantallas anchas el contenido va en una columna
- * centrada. Un buscador sobre la fila "Ir a" filtra las filas por titulo y subtitulo (sin acentos ni mayusculas).
+ * Pantalla de la app, al estilo Ajustes de One UI. La pantalla principal lleva la tarjeta de idiomas y activacion,
+ * el buscador, "Pruebalo" (copia funcional del teclado y campos con el teclado del sistema) y una lista de
+ * categorias: cada fila tiene icono, titulo y un resumen de una linea con el estado actual, y al tocarla abre su
+ * propia pagina dentro de esta misma Activity (barra superior con flecha atras y titulo; el boton o gesto atras
+ * vuelve a la lista; la pagina abierta sobrevive al giro). Las paginas se construyen al abrirlas, no al arrancar.
+ * El buscador lista las filas que coinciden (sin acentos ni mayusculas) y, al elegir una, abre su pagina, baja
+ * hasta la fila y la resalta un momento. Sigue el modo claro/oscuro del sistema; en pantallas anchas el contenido
+ * va en una columna centrada.
  */
 public final class MainActivity extends Activity {
 
@@ -60,30 +70,40 @@ public final class MainActivity extends Activity {
     private int surface, card, ink, secondary, divider, thumbOff, trackOff;
     private Typeface medium;
     private boolean wide;                                // pantalla interior de un plegable o tableta (>= 600 dp)
+    private int screenWidthDp;
     private int contentWidth;                            // ancho util de la columna en px (reparto de las muestras de tema)
 
     private TextView topStatus;                          // estado del teclado bajo el boton de arriba
     private Button keyboardButton;                       // "Elegir teclado" / "Activar el teclado"
-    private ScrollView scroll;
 
-    /** Seccion colapsable: tarjeta con cabecera (titulo, resumen, flecha) y cuerpo que se muestra u oculta. */
-    private static final class Section {
-        final String key, title;
-        final LinearLayout outer, body;
-        final View header;
-        final TextView summary, chevron;
-        Section(String key, String title, LinearLayout outer, View header, LinearLayout body, TextView summary, TextView chevron) {
-            this.key = key; this.title = title; this.outer = outer; this.header = header; this.body = body;
-            this.summary = summary; this.chevron = chevron;
-        }
-        boolean open() { return body.getVisibility() == View.VISIBLE; }
+    /** Las dos pantallas: la principal (lista) y la pagina abierta, dentro del contenedor de contenido de la ventana. */
+    private FrameLayout rootFrame;
+    private ScrollView scroll;                           // pantalla principal
+    private LinearLayout pageView;                       // barra superior + pageScroll
+    private ScrollView pageScroll;
+    private LinearLayout pageContent;                    // columna donde se coloca la tarjeta de la pagina abierta
+    private TextView pageTitle;
+    private View topCard, tryCard, listCard, footCard, compatCard;   // tarjetas de la principal (se ocultan al buscar)
+    private LinearLayout searchResults;                  // tarjeta con los resultados del buscador
+
+    /**
+     * Categoria de la lista principal: su fila (icono, titulo, resumen) y su pagina, que se construye la primera
+     * vez que se abre (o cuando el buscador necesita sus filas).
+     */
+    private static final class Page {
+        final String key;
+        final int titleRes;
+        final String icon;
+        LinearLayout body;                               // tarjeta con las filas; null hasta construirse
+        View row;                                        // fila de la lista principal
+        TextView summary;                                // resumen de una linea bajo el titulo de la fila
+        Page(String key, int titleRes, String icon) { this.key = key; this.titleRes = titleRes; this.icon = icon; }
     }
-    private final java.util.LinkedHashMap<String, Section> sections = new java.util.LinkedHashMap<>();
-    /** Secciones de la fila "Ir a" (sin Pruebalo); "fold" solo existe en pantallas anchas. */
-    private static final String[] NAV_KEYS = {"design", "fold", "size", "smart", "touch", "clipboard", "ai", "more", "help"};
-    private static final int[] NAV_TITLES = {R.string.aj_sec_design, R.string.fold_section, R.string.aj_sec_size,
-            R.string.aj_sec_smart, R.string.aj_sec_touch, R.string.aj_sec_clipboard, R.string.ai_section,
-            R.string.aj_sec_more, R.string.aj_sec_help};
+    private final java.util.LinkedHashMap<String, Page> pages = new java.util.LinkedHashMap<>();
+    private Page openPage;                               // pagina abierta, o null en la lista
+    private Page building;                               // pagina en construccion: register apunta sus filas
+    private int pendingHomeScroll = -1, pendingPageScroll = -1;   // desplazamientos a restaurar tras el giro
+
     /** Cualquier cambio de preferencia (desde aqui, desde la copia del teclado o desde el IME) pone al dia la pantalla. */
     private final SharedPreferences.OnSharedPreferenceChangeListener summaryListener =
             new SharedPreferences.OnSharedPreferenceChangeListener() {
@@ -100,6 +120,7 @@ public final class MainActivity extends Activity {
     private View aiCard;
     private final java.util.List<View> themeItems = new java.util.ArrayList<>();
     private final java.util.List<String> themeIds = new java.util.ArrayList<>();   // paralelo a themeItems
+    private final java.util.List<View> autoCards = new java.util.ArrayList<>();    // tarjetas Republica e Imperio (dentro de themeItems)
     private final java.util.List<ChipGroup> chipGroups = new java.util.ArrayList<>();
     private final java.util.List<View> saberChips = new java.util.ArrayList<>();   // paralelo a Prefs.SABERS
     private TextView saberWho;                           // "Azul · Anakin y Obi-Wan" bajo los chips del sable
@@ -107,15 +128,14 @@ public final class MainActivity extends Activity {
     private Slider heightSlider, volumeSlider;
     private int liveHeightPct;                           // alto que se esta arrastrando en el deslizador (0 = el guardado)
     private TextView learnedTitle, shortcutsTitle;       // "Diccionario personal · N" y "Atajos de texto · N"
-    private int gestureCount;                            // filas de Ayuda y gestos, para el resumen
     private TextView soundCurrent;                       // "Actual: nombre" del sonido personalizado
 
-    /** Fila registrada para el buscador: su vista, el cuerpo de seccion donde vive y su texto normalizado. */
+    /** Fila registrada para el buscador: su vista, la pagina donde vive, su titulo visible y su texto normalizado. */
     private static final class Row {
         final View view;
-        final LinearLayout parent;
-        final String text;
-        Row(View view, LinearLayout parent, String text) { this.view = view; this.parent = parent; this.text = text; }
+        final Page page;
+        final String label, text;
+        Row(View view, Page page, String label, String text) { this.view = view; this.page = page; this.label = label; this.text = text; }
     }
     private final java.util.List<Row> rows = new java.util.ArrayList<>();
     private EditText searchField;
@@ -137,6 +157,13 @@ public final class MainActivity extends Activity {
     private static final long MAX_IMPORT_BYTES = 4L * 1024 * 1024;
     private static final String EXPORT_APP = "aurebesh";   // marca del JSON de ajustes
     private static final int EXPORT_FORMAT = 1;
+    private static final String STATE_PAGE = "page";
+    private static final String STATE_HOME_SCROLL = "home_scroll";
+    private static final String STATE_PAGE_SCROLL = "page_scroll";
+
+    /** Claves de las paginas (categorias), en el orden de la lista. */
+    static final String PAGE_KEYS = "keys", PAGE_STYLE = "style", PAGE_SIZE = "size", PAGE_SMART = "smart", PAGE_TOUCH = "touch",
+            PAGE_CLIPBOARD = "clipboard", PAGE_AI = "ai", PAGE_PRIVACY = "privacy", PAGE_HELP = "help";
 
     @Override
     protected void attachBaseContext(Context base) {
@@ -156,78 +183,78 @@ public final class MainActivity extends Activity {
         trackOff = getColor(R.color.switch_track_off);
         medium = Typeface.create("sans-serif-medium", Typeface.NORMAL);
         wide = DeviceInfo.wideScreen(this);
-        migrateSectionState();
+        screenWidthDp = getResources().getConfiguration().screenWidthDp;
+        contentWidth = (screenWidthDp >= 700 ? Math.min(px(640), Math.round(screenWidthDp * 0.8f * dp)) : px(screenWidthDp)) - px(40);
+        cleanSectionState();
+        declarePages();
 
-        scroll = new ScrollView(this);
-        scroll.setBackgroundColor(surface);
-        scroll.setVerticalScrollBarEnabled(false);
+        // Pantalla principal
         LinearLayout root = column();
         root.setPadding(px(20), px(28), px(20), px(32));
-        int screenWidthDp = getResources().getConfiguration().screenWidthDp;
-        if (screenWidthDp >= 700) {
-            // Pantalla ancha: columna centrada de min(640 dp, 80 %) en vez de filas de borde a borde
-            int w = Math.min(px(640), Math.round(screenWidthDp * 0.8f * dp));
-            FrameLayout frame = new FrameLayout(this);
-            FrameLayout.LayoutParams fp = new FrameLayout.LayoutParams(w, WRAP);
-            fp.gravity = Gravity.CENTER_HORIZONTAL;
-            frame.addView(root, fp);
-            scroll.addView(frame, new ViewGroup.LayoutParams(MATCH, WRAP));
-            contentWidth = w - px(40);
-        } else {
-            scroll.addView(root, new ViewGroup.LayoutParams(MATCH, WRAP));
-            contentWidth = px(screenWidthDp) - px(40);
-        }
-
+        scroll = scroller(root);
         buildHeader(root);
-        buildTop(root);
+        topCard = buildTop(root);
         buildSearch(root);
-        buildNav(root);
-        buildCompat(root);
+        compatCard = buildCompat(root);
+        tryCard = buildTryCard(root);
+        listCard = buildCategoryList(root);
+        footCard = buildFooter(root);
 
-        // Cada seccion es una tarjeta colapsable con resumen; solo "Pruebalo" empieza abierta
-        LinearLayout tryBody = section(root, "try", R.string.try_title);
-        buildTry(tryBody);
-        buildRealFields(tryBody);
-        buildDesign(root);
-        if (wide) buildFold(root);
-        buildSize(root);
-        buildSmart(root);
-        buildTouch(root);
-        buildClipboard(root);
+        // Pagina abierta: barra superior (atras + titulo) y su propia columna desplazable
+        buildPageView();
 
-        // Inteligencia: modelo local o servidor propio
-        LinearLayout aiBody = section(root, "ai", R.string.ai_section);
-        aiCard = AiSettingsCard.build(this, ink, secondary, card, divider);
-        aiBody.addView(aiCard, block(0));
-        accessibleRadios(aiCard);
-        register(aiCard, aiBody, getString(R.string.ai_section));
+        // Las dos pantallas cuelgan del contenedor de contenido de la ventana: la principal (ScrollView) como primer
+        // hijo y la pagina encima, oculta hasta que se abre una
+        setContentView(scroll);
+        rootFrame = (FrameLayout) findViewById(android.R.id.content);
+        pageView.setVisibility(View.GONE);
+        rootFrame.addView(pageView, new FrameLayout.LayoutParams(MATCH, MATCH));
 
-        buildMore(root);
-        buildHelp(root);
         refreshControls();
-        refreshDataCard();
         Prefs.get(this).registerOnSharedPreferenceChangeListener(summaryListener);
 
-        LinearLayout foot = column();
-        foot.setGravity(Gravity.CENTER_HORIZONTAL);
-        TextView footer = text(getString(R.string.footer, getString(R.string.version)), 13, secondary, false);
-        footer.setGravity(Gravity.CENTER_HORIZONTAL);
-        foot.addView(footer, block(0));
-        TextView compat = text(getString(DeviceInfo.optimized() ? R.string.footer_compat_ok : R.string.footer_compat_other,
-                DeviceInfo.label()), 12, secondary, false);
-        compat.setGravity(Gravity.CENTER_HORIZONTAL);
-        foot.addView(compat, block(6));
-        TextView credits = text(getString(R.string.credits), 12, secondary, false);
-        credits.setGravity(Gravity.CENTER_HORIZONTAL);
-        foot.addView(credits, block(6));
-        root.addView(foot, block(28));
-
-        setContentView(scroll);
-        String want = getIntent().getStringExtra("section");   // desde el engrane del teclado: "ai" abierta
-        if (want != null) {
-            Section s = sections.get(want);
-            if (s != null) setOpen(s, true, true);
+        // Pagina a abrir: la guardada antes del giro, o la que pide el engrane del teclado ("ai")
+        String want = savedInstanceState != null ? savedInstanceState.getString(STATE_PAGE) : null;
+        if (want == null) want = pageKeyFor(getIntent().getStringExtra("section"));
+        if (savedInstanceState != null) {
+            pendingHomeScroll = savedInstanceState.getInt(STATE_HOME_SCROLL, -1);
+            pendingPageScroll = savedInstanceState.getInt(STATE_PAGE_SCROLL, -1);
         }
+        Page p = want == null ? null : pages.get(want);
+        if (p != null) openPage(p, false);
+        if (pendingHomeScroll > 0) {
+            scroll.post(new Runnable() {
+                @Override public void run() { scroll.scrollTo(0, pendingHomeScroll); pendingHomeScroll = -1; }
+            });
+        }
+    }
+
+    /** Clave de pagina para el extra "section" del intent (el engrane del teclado manda "ai"; se aceptan las secciones antiguas). */
+    static String pageKeyFor(String section) {
+        if (section == null) return null;
+        switch (section) {
+            case "design": return PAGE_STYLE;
+            case "fold": return PAGE_SIZE;
+            case "more": return PAGE_PRIVACY;
+            case PAGE_KEYS: case PAGE_STYLE: case PAGE_SIZE: case PAGE_SMART: case PAGE_TOUCH:
+            case PAGE_CLIPBOARD: case PAGE_AI: case PAGE_PRIVACY: case PAGE_HELP:
+                return section;
+            default: return null;
+        }
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle out) {
+        super.onSaveInstanceState(out);
+        if (openPage != null) out.putString(STATE_PAGE, openPage.key);
+        if (scroll != null) out.putInt(STATE_HOME_SCROLL, scroll.getScrollY());
+        if (pageScroll != null) out.putInt(STATE_PAGE_SCROLL, pageScroll.getScrollY());
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (openPage != null) { closePage(true); return; }
+        super.onBackPressed();
     }
 
     @Override
@@ -257,23 +284,40 @@ public final class MainActivity extends Activity {
     }
 
     /**
-     * Las claves sec_* (seccion abierta o cerrada) vivian junto a las del teclado; ahora van en Prefs.ui para no
-     * despertar al IME cada vez que se pliega una tarjeta. Se copian una vez y se borran de las antiguas.
+     * Las claves sec_* (seccion abierta o cerrada de la pantalla antigua) ya no se usan: se borran de las preferencias
+     * del teclado (para no despertar al IME) y de las de la pantalla.
      */
-    private void migrateSectionState() {
-        SharedPreferences old = Prefs.get(this);
-        SharedPreferences ui = Prefs.ui(this);
-        SharedPreferences.Editor clean = null, copy = null;
-        for (java.util.Map.Entry<String, ?> e : old.getAll().entrySet()) {
-            if (!e.getKey().startsWith("sec_")) continue;
-            if (clean == null) { clean = old.edit(); copy = ui.edit(); }
-            if (e.getValue() instanceof Boolean && !ui.contains(e.getKey())) copy.putBoolean(e.getKey(), (Boolean) e.getValue());
-            clean.remove(e.getKey());
+    private void cleanSectionState() {
+        for (SharedPreferences p : new SharedPreferences[]{Prefs.get(this), Prefs.ui(this)}) {
+            SharedPreferences.Editor clean = null;
+            for (String k : p.getAll().keySet()) {
+                if (!k.startsWith("sec_")) continue;
+                if (clean == null) clean = p.edit();
+                clean.remove(k);
+            }
+            if (clean != null) clean.apply();
         }
-        if (clean != null) { copy.apply(); clean.apply(); }
     }
 
-    // ------------------------------------------------------------------ secciones
+    /** ScrollView de pantalla completa; en pantallas anchas el contenido va en una columna centrada de min(640 dp, 80 %). */
+    private ScrollView scroller(LinearLayout content) {
+        ScrollView sv = new ScrollView(this);
+        sv.setBackgroundColor(surface);
+        sv.setVerticalScrollBarEnabled(false);
+        if (screenWidthDp >= 700) {
+            int w = Math.min(px(640), Math.round(screenWidthDp * 0.8f * dp));
+            FrameLayout frame = new FrameLayout(this);
+            FrameLayout.LayoutParams fp = new FrameLayout.LayoutParams(w, WRAP);
+            fp.gravity = Gravity.CENTER_HORIZONTAL;
+            frame.addView(content, fp);
+            sv.addView(frame, new ViewGroup.LayoutParams(MATCH, WRAP));
+        } else {
+            sv.addView(content, new ViewGroup.LayoutParams(MATCH, WRAP));
+        }
+        return sv;
+    }
+
+    // ------------------------------------------------------------------ pantalla principal
 
     private void buildHeader(LinearLayout root) {
         AurebeshTextView mark = new AurebeshTextView(this, 14, ink);
@@ -284,20 +328,21 @@ public final class MainActivity extends Activity {
     }
 
     /** Aviso solo fuera de Samsung One UI 9.x: el teclado se probo ahi; en otros dispositivos es experimental. */
-    private void buildCompat(LinearLayout root) {
-        if (DeviceInfo.optimized()) return;
+    private View buildCompat(LinearLayout root) {
+        if (DeviceInfo.optimized()) return null;
         LinearLayout c = cardColumn();
         c.setPadding(px(20), px(16), px(20), px(18));
         c.addView(text(getString(R.string.compat_title), 15, ink, true), block(0));
         c.addView(text(getString(R.string.compat_body, DeviceInfo.label()), 13, secondary, false), block(4));
-        root.addView(c, block(20));
+        root.addView(c, block(16));
+        return c;
     }
 
     /**
      * Lo primero de la app: los tres idiomas (cambian a la vez la app y el teclado) y el boton para
      * elegir el teclado, con el estado de la activacion debajo.
      */
-    private void buildTop(LinearLayout root) {
+    private View buildTop(LinearLayout root) {
         LinearLayout c = cardColumn();
         c.setPadding(px(20), px(18), px(20), px(20));
         c.addView(text(getString(R.string.top_lang_title), 13, secondary, true), block(0));
@@ -339,6 +384,38 @@ public final class MainActivity extends Activity {
         topStatus = text("", 13, secondary, false);
         c.addView(topStatus, block(8));
         root.addView(c, block(24));
+        return c;
+    }
+
+    /** Tarjeta "Pruebalo": titulo con su explicacion, la copia del teclado y los campos con el teclado del sistema. */
+    private View buildTryCard(LinearLayout root) {
+        LinearLayout c = cardColumn();
+        LinearLayout head = column();
+        head.setPadding(px(18), px(16), px(18), px(4));
+        head.addView(text(getString(R.string.try_title), 17, ink, true), block(0));
+        head.addView(text(getString(R.string.sum_try), 13, secondary, false), block(2));
+        c.addView(head, block(0));
+        buildTry(c);
+        buildRealFields(c);
+        root.addView(c, block(16));
+        return c;
+    }
+
+    private View buildFooter(LinearLayout root) {
+        LinearLayout foot = column();
+        foot.setGravity(Gravity.CENTER_HORIZONTAL);
+        TextView footer = text(getString(R.string.footer, getString(R.string.version)), 13, secondary, false);
+        footer.setGravity(Gravity.CENTER_HORIZONTAL);
+        foot.addView(footer, block(0));
+        TextView compat = text(getString(DeviceInfo.optimized() ? R.string.footer_compat_ok : R.string.footer_compat_other,
+                DeviceInfo.label()), 12, secondary, false);
+        compat.setGravity(Gravity.CENTER_HORIZONTAL);
+        foot.addView(compat, block(6));
+        TextView credits = text(getString(R.string.credits), 12, secondary, false);
+        credits.setGravity(Gravity.CENTER_HORIZONTAL);
+        foot.addView(credits, block(6));
+        root.addView(foot, block(28));
+        return foot;
     }
 
     private void buildTry(LinearLayout root) {
@@ -351,7 +428,7 @@ public final class MainActivity extends Activity {
         input.setTextColor(ink);
         input.setHintTextColor(secondary);
         input.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17);
-        input.setPadding(px(18), px(16), px(18), px(6));
+        input.setPadding(px(18), px(10), px(18), px(6));
         input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE
                 | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
         input.setMaxLines(4);
@@ -437,11 +514,225 @@ public final class MainActivity extends Activity {
         input.requestFocus();
     }
 
-    /** Diseno: tema (con Automatico y Contraste), sable, letras latinas por modo, barra, digrafos, cinta, numeros, modo y dividido. */
-    private void buildDesign(LinearLayout root) {
-        LinearLayout design = section(root, "design", R.string.aj_sec_design);
-        themeRow(design);
-        saberRow(design);
+    /** Campos que usan el teclado del sistema (el elegido en Ajustes): texto normal y PIN numerico (campo privado). */
+    private void buildRealFields(LinearLayout root) {
+        root.addView(dividerLine());
+        LinearLayout c = column();
+        c.setPadding(0, px(14), 0, px(4));
+        TextView title = text(getString(R.string.real_title), 16, ink, false);
+        title.setPadding(px(18), 0, px(18), 0);
+        c.addView(title, block(0));
+        TextView sub = text(getString(R.string.real_sub), 13, secondary, false);
+        sub.setPadding(px(18), 0, px(18), px(8));
+        c.addView(sub, block(2));
+        c.addView(dividerLine());
+        EditText plain = realField(R.string.real_text_hint,
+                InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
+        plain.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH);
+        c.addView(plain, block(0));
+        c.addView(dividerLine());
+        EditText pin = realField(R.string.real_pin_hint,
+                InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_VARIATION_PASSWORD);   // teclado numerico, tratado como contrasena
+        pin.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_DONE);
+        c.addView(pin, block(0));
+        root.addView(c, block(0));
+    }
+
+    private EditText realField(int hint, int inputType) {
+        EditText e = new EditText(this);
+        e.setBackground(null);
+        e.setHint(hint);
+        e.setTextColor(ink);
+        e.setHintTextColor(secondary);
+        e.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        e.setPadding(px(18), px(14), px(18), px(14));
+        e.setSingleLine(true);
+        e.setInputType(inputType);   // despues de setSingleLine para conservar el enmascarado del PIN
+        return e;
+    }
+
+    // ------------------------------------------------------------------ categorias y paginas
+
+    /** Las categorias, en el orden de la lista. Cada icono es un signo monocromo (decorativo). */
+    private void declarePages() {
+        pages.put(PAGE_KEYS, new Page(PAGE_KEYS, R.string.cat_keys, "⌨︎"));         // teclado
+        pages.put(PAGE_STYLE, new Page(PAGE_STYLE, R.string.cat_style, "◐"));           // circulo medio lleno (tema claro/oscuro)
+        pages.put(PAGE_SIZE, new Page(PAGE_SIZE, R.string.cat_size, "⤢"));              // flecha diagonal doble
+        pages.put(PAGE_SMART, new Page(PAGE_SMART, R.string.aj_sec_smart, "✎"));        // lapiz
+        pages.put(PAGE_TOUCH, new Page(PAGE_TOUCH, R.string.cat_touch, "◎"));           // diana (toque)
+        pages.put(PAGE_CLIPBOARD, new Page(PAGE_CLIPBOARD, R.string.aj_sec_clipboard, "▣"));   // cuadrado con relleno
+        pages.put(PAGE_AI, new Page(PAGE_AI, R.string.ai_section, "✦"));                // ✦, el signo de inteligencia del teclado
+        pages.put(PAGE_PRIVACY, new Page(PAGE_PRIVACY, R.string.cat_privacy, "⨡"));     // cuadrado con punto (caja fuerte)
+        pages.put(PAGE_HELP, new Page(PAGE_HELP, R.string.aj_sec_help, "?"));
+    }
+
+    /** Tarjeta con una fila por categoria: icono, titulo, resumen de una linea y ›; tocarla abre su pagina. */
+    private View buildCategoryList(LinearLayout root) {
+        LinearLayout c = cardColumn();
+        TextView title = text(getString(R.string.cat_list_title), 13, secondary, true);
+        title.setPadding(px(18), px(14), px(18), px(4));
+        c.addView(title, block(0));
+        for (Page p : pages.values()) categoryRow(c, p);
+        root.addView(c, block(16));
+        return c;
+    }
+
+    private void categoryRow(LinearLayout parent, final Page p) {
+        separator(parent);
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setMinimumHeight(px(64));
+        row.setPadding(px(16), px(10), px(14), px(10));
+        row.setBackground(ripple(0x00000000));
+        TextView icon = text(p.icon, 17, ink, false);
+        icon.setGravity(Gravity.CENTER);
+        icon.setIncludeFontPadding(false);
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(divider);
+        bg.setCornerRadius(px(12));
+        icon.setBackground(bg);
+        icon.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        row.addView(icon, new LinearLayout.LayoutParams(px(40), px(40)));
+        LinearLayout col = column();
+        col.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
+        col.addView(text(getString(p.titleRes), 16, ink, false), block(0));
+        TextView summary = text("", 13, secondary, false);
+        summary.setMaxLines(1);
+        summary.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        col.addView(summary, block(2));
+        LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(0, WRAP, 1f);
+        cp.leftMargin = px(14);
+        row.addView(col, cp);
+        TextView chevron = text("›", 22, secondary, false);
+        chevron.setPadding(px(12), 0, px(6), 0);
+        chevron.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        row.addView(chevron, new LinearLayout.LayoutParams(WRAP, WRAP));
+        row.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { openPage(p, true); }
+        });
+        a11y(row, Button.class, false, null);
+        p.row = row;
+        p.summary = summary;
+        describeRow(p);
+        parent.addView(row, block(0));
+    }
+
+    /** Descripcion accesible de la fila de categoria: "Estilo. Republica (Noche) · sable azul · barra de herramientas". */
+    private void describeRow(Page p) {
+        if (p.row == null) return;
+        String summary = p.summary.getText().toString();
+        p.row.setContentDescription(getString(p.titleRes) + (summary.isEmpty() ? "" : ". " + summary));
+    }
+
+    /** Pantalla de pagina: barra superior con la flecha atras y el titulo, y debajo la columna desplazable de la pagina. */
+    private void buildPageView() {
+        pageView = column();
+        pageView.setBackgroundColor(surface);
+        LinearLayout bar = new LinearLayout(this);
+        bar.setOrientation(LinearLayout.HORIZONTAL);
+        bar.setGravity(Gravity.CENTER_VERTICAL);
+        bar.setPadding(px(8), px(8), px(20), px(8));
+        TextView back = text("←", 22, ink, false);
+        back.setGravity(Gravity.CENTER);
+        back.setContentDescription(getString(R.string.aj_back));
+        back.setBackground(ripple(0x00000000));
+        a11y(back, Button.class, false, null);
+        back.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { closePage(true); }
+        });
+        bar.addView(back, new LinearLayout.LayoutParams(px(48), px(48)));
+        pageTitle = text("", 20, ink, true);
+        pageTitle.setMaxLines(1);
+        pageTitle.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(0, WRAP, 1f);
+        tp.leftMargin = px(8);
+        bar.addView(pageTitle, tp);
+        pageView.addView(bar, block(0));
+        pageContent = column();
+        pageContent.setPadding(px(20), px(8), px(20), px(32));
+        pageScroll = scroller(pageContent);
+        pageView.addView(pageScroll, new LinearLayout.LayoutParams(MATCH, 0, 1f));
+    }
+
+    /** Construye la pagina si hace falta (sus filas quedan registradas para el buscador y sus controles al dia). */
+    private void buildPage(Page p) {
+        if (p.body != null) return;
+        building = p;
+        LinearLayout body = cardColumn();
+        p.body = body;
+        switch (p.key) {
+            case PAGE_KEYS: buildKeys(body); break;
+            case PAGE_STYLE: buildStyle(body); break;
+            case PAGE_SIZE: buildSize(body); break;
+            case PAGE_SMART: buildSmart(body); break;
+            case PAGE_TOUCH: buildTouch(body); break;
+            case PAGE_CLIPBOARD: buildClipboard(body); break;
+            case PAGE_AI: buildAi(body); break;
+            case PAGE_PRIVACY: buildPrivacy(body); break;
+            case PAGE_HELP: buildHelp(body); break;
+            default: break;
+        }
+        building = null;
+        refreshControls();
+        if (p.key.equals(PAGE_PRIVACY)) refreshDataCard();
+    }
+
+    /** Abre una pagina: la construye si es la primera vez, la coloca en la columna y entra con un deslizamiento corto. */
+    void openPage(final Page p, boolean animate) {
+        buildPage(p);
+        pageContent.removeAllViews();
+        pageContent.addView(p.body, block(8));
+        pageTitle.setText(p.titleRes);
+        openPage = p;
+        pageView.animate().cancel();
+        pageView.setVisibility(View.VISIBLE);
+        scroll.setVisibility(View.GONE);
+        if (Build.VERSION.SDK_INT >= 28) pageView.setAccessibilityPaneTitle(getString(p.titleRes));
+        if (animate) {
+            pageView.setAlpha(0.5f);
+            pageView.setTranslationX(px(40));
+            pageView.animate().alpha(1f).translationX(0f).setDuration(180).start();
+            pageScroll.scrollTo(0, 0);
+        } else {
+            pageView.setAlpha(1f);
+            pageView.setTranslationX(0f);
+            if (pendingPageScroll > 0) {
+                pageScroll.post(new Runnable() {
+                    @Override public void run() { pageScroll.scrollTo(0, pendingPageScroll); pendingPageScroll = -1; }
+                });
+            }
+        }
+        pageTitle.sendAccessibilityEvent(AccessibilityEvent.TYPE_VIEW_FOCUSED);
+    }
+
+    /** Vuelve a la lista (boton o gesto atras, flecha de la barra); la principal reaparece con un fundido corto. */
+    void closePage(boolean animate) {
+        if (openPage == null) return;
+        openPage = null;
+        pageView.animate().cancel();
+        pageView.setVisibility(View.GONE);
+        scroll.setVisibility(View.VISIBLE);
+        if (Build.VERSION.SDK_INT >= 28) pageView.setAccessibilityPaneTitle(null);
+        if (animate) {
+            scroll.setAlpha(0.6f);
+            scroll.animate().alpha(1f).setDuration(160).start();
+        } else {
+            scroll.setAlpha(1f);
+        }
+    }
+
+    /** Pagina abierta, o null en la lista (para pruebas). */
+    String openPageKey() { return openPage == null ? null : openPage.key; }
+
+    // ------------------------------------------------------------------ paginas
+
+    /** Idiomas y teclas: idioma del teclado, fila superior, digrafos, caracteres alternativos, letras latinas y Todo en Aurebesh. */
+    private void buildKeys(LinearLayout body) {
+        chipRow(body, R.string.top_lang_title, getString(R.string.top_lang_hint), langGroup());
+        chipRow(body, R.string.top_row_title, getString(R.string.top_row_sub), topRowGroup());
+        optionRow(body, R.string.opt_digraphs, R.string.opt_digraphs_sub, Prefs.DIGRAPHS, Prefs.digraphs(this));
+        optionRow(body, R.string.alt_chars_title, R.string.alt_chars_sub, R.string.alt_chars_hint, Prefs.ALT_CHARS, Prefs.altChars(this));
         TextView reset = chipButton(R.string.aj_hint_reset, new View.OnClickListener() {
             @Override public void onClick(View v) {
                 // Vuelven a verse todas las pistas: contadores fuera de las preferencias y de la copia del teclado
@@ -453,15 +744,164 @@ public final class MainActivity extends Activity {
         LinearLayout resetRow = new LinearLayout(this);
         resetRow.setOrientation(LinearLayout.HORIZONTAL);
         resetRow.addView(reset, new LinearLayout.LayoutParams(WRAP, WRAP));
-        chipRow(design, R.string.opt_hints, getString(R.string.aj_hint_mode_sub), hintGroup(), resetRow);
-        optionRow(design, R.string.opt_strip, R.string.opt_strip_sub, Prefs.STRIP, Prefs.strip(this));
-        optionRow(design, R.string.opt_digraphs, R.string.opt_digraphs_sub, Prefs.DIGRAPHS, Prefs.digraphs(this));
-        optionRow(design, R.string.opt_toolbar, R.string.opt_toolbar_sub, Prefs.TOOLBAR, Prefs.toolbar(this));
-        optionRow(design, R.string.opt_numbers, R.string.opt_numbers_sub, Prefs.NUMBERS, Prefs.numbers(this));
-        optionRow(design, R.string.alt_chars_title, R.string.alt_chars_sub, R.string.alt_chars_hint, Prefs.ALT_CHARS, Prefs.altChars(this));
-        chipRow(design, R.string.aj_mode, getString(R.string.aj_mode_sub), handGroup());
-        if (!wide) splitRows(design);   // en telefonos el dividido va aqui; en pantallas anchas, en Plegables
+        chipRow(body, R.string.opt_hints, getString(R.string.aj_hint_mode_sub), hintGroup(), resetRow);
+        optionRow(body, R.string.immersive_title, R.string.immersive_sub, Prefs.STRIP, Prefs.strip(this));
     }
+
+    /** Estilo: temas (automaticos y fijos), sable de luz y barra de herramientas (sus iconos se eligen desde el teclado). */
+    private void buildStyle(LinearLayout body) {
+        themeRow(body);
+        saberRow(body);
+        optionRow(body, R.string.opt_toolbar, R.string.opt_toolbar_sub, Prefs.TOOLBAR, Prefs.toolbar(this));
+        noteRow(body, R.string.aj_toolbar_icons_note);
+    }
+
+    /** Tamano y distribucion: alto, margen inferior, modo (una mano), dividido (con Plegables en pantallas anchas) y la nota del modo de ajuste. */
+    private void buildSize(LinearLayout body) {
+        heightSlider = sliderRow(body, R.string.aj_height, R.string.aj_height_sub, 70, 140, Prefs.heightPct(this), PCT,
+                new SliderListener() {
+                    @Override public void onLive(int value) { liveHeightPct = value; applyPreviewPrefs(); }
+                    @Override public void onSave(int value) {
+                        liveHeightPct = 0;
+                        Prefs.setHeightPct(MainActivity.this, value);
+                        applyPreviewPrefs();
+                    }
+                });
+        chipRow(body, R.string.aj_bottom, getString(R.string.aj_bottom_sub), bottomGroup());
+        chipRow(body, R.string.aj_mode, getString(R.string.aj_mode_sub), handGroup());
+        if (wide) {
+            separator(body);
+            LinearLayout foldText = column();
+            foldText.setPadding(px(18), px(14), px(18), px(4));
+            foldText.addView(text(getString(R.string.fold_section), 16, ink, false), block(0));
+            foldText.addView(text(getString(R.string.fold_title), 14, ink, false), block(6));
+            foldText.addView(text(getString(R.string.fold_body), 13, secondary, false), block(4));
+            body.addView(foldText, block(0));
+            register(foldText, getString(R.string.fold_section), getString(R.string.fold_section) + " " + getString(R.string.fold_title) + " " + getString(R.string.fold_body));
+        }
+        splitRows(body);
+        separator(body);
+        LinearLayout notes = column();
+        notes.setPadding(px(18), px(12), px(18), px(16));
+        notes.addView(text(getString(R.string.aj_size_from_keyboard), 13, secondary, false), block(0));
+        String which = null;
+        if (wide || DeviceInfo.family().startsWith("Galaxy Z Fold")) {
+            // En plegables alto, margen y una mano se guardan por pantalla: decir cual se esta ajustando
+            which = wide ? getString(R.string.aj_size_screen_inner, DeviceInfo.smallestWidthDp(this))
+                    : getString(R.string.aj_size_screen_cover);
+            notes.addView(text(which, 13, secondary, true), block(6));
+        }
+        body.addView(notes, block(0));
+        register(notes, getString(R.string.aj_size_from_keyboard), getString(R.string.aj_size_from_keyboard) + (which == null ? "" : " " + which));
+    }
+
+    /** Filas del teclado dividido: modo (con la linea de deteccion de la pantalla) y ancho de las mitades. */
+    private void splitRows(LinearLayout parent) {
+        int sw = DeviceInfo.smallestWidthDp(this);
+        String detected = getString(wide ? R.string.fold_detected_wide : R.string.fold_detected_phone, sw);
+        chipRow(parent, R.string.opt_split, getString(R.string.aj_split_sub) + "\n" + detected,
+                prefGroup(Prefs.SPLIT, "auto", SPLITS, SPLIT_NAMES));
+        splitWidthRow = chipRow(parent, R.string.aj_split_width, getString(R.string.aj_split_width_sub),
+                prefGroup(Prefs.SPLIT_WIDTH, "normal", SPLIT_WIDTHS, SPLIT_WIDTH_NAMES));
+        refreshSplitWidth();
+    }
+
+    /** "Ancho de las mitades" solo tiene sentido donde el teclado se divide: pantalla ancha o dividido en Siempre. */
+    private void refreshSplitWidth() {
+        if (splitWidthRow == null) return;
+        boolean show = wide || "on".equals(Prefs.splitPref(this));
+        splitWidthRow.setVisibility(show ? View.VISIBLE : View.GONE);
+    }
+
+    /** Escritura inteligente: predictivo, sustitucion, mayusculas, doble espacio, aprendizaje, Star Wars, diccionario y atajos. */
+    private void buildSmart(LinearLayout body) {
+        optionRow(body, R.string.opt_autocorrect, R.string.opt_autocorrect_sub, Prefs.AUTOCORRECT, Prefs.autocorrect(this));
+        optionRow(body, R.string.aj_auto_replace, R.string.aj_auto_replace_sub, Prefs.AUTO_REPLACE, Prefs.autoReplace(this));
+        optionRow(body, R.string.aj_auto_caps, R.string.aj_auto_caps_sub, Prefs.AUTO_CAPS, Prefs.autoCaps(this));
+        optionRow(body, R.string.opt_double_space, R.string.opt_double_space_sub, Prefs.DOUBLE_SPACE, Prefs.doubleSpace(this));
+        optionRow(body, R.string.opt_learn, R.string.opt_learn_sub, Prefs.LEARN, Prefs.learn(this));
+        optionRow(body, R.string.aj_starwars, R.string.aj_starwars_sub, Prefs.STARWARS, Prefs.starWars(this));
+        learnedTitle = linkRow(body, R.string.aj_learned_title, R.string.aj_learned_sub, new View.OnClickListener() {
+            @Override public void onClick(View v) { showLearnedDialog(); }
+        });
+        shortcutsTitle = linkRow(body, R.string.aj_shortcuts_title, R.string.aj_shortcuts_sub, new View.OnClickListener() {
+            @Override public void onClick(View v) { showShortcutsDialog(); }
+        });
+        refreshCounts();
+    }
+
+    /** Deslizar, tocar y respuesta: deslizar para escribir, el espacio, burbuja, pulsacion larga, sonido (con el personalizado y su volumen) y vibracion. */
+    private void buildTouch(LinearLayout body) {
+        optionRow(body, R.string.opt_glide, R.string.opt_glide_sub, Prefs.GLIDE, Prefs.glide(this));
+        chipRow(body, R.string.aj_space_slide, getString(R.string.aj_space_slide_sub),
+                prefGroup(Prefs.SPACE_SLIDE, "auto", SPACE_SLIDES, SPACE_SLIDE_NAMES));
+        optionRow(body, R.string.aj_preview, R.string.aj_preview_sub, Prefs.PREVIEW, Prefs.preview(this));
+        chipRow(body, R.string.aj_longpress, getString(R.string.aj_longpress_sub),
+                prefGroup(Prefs.LONGPRESS, "medium", LONGPRESSES, LONGPRESS_NAMES));
+        optionRow(body, R.string.opt_sound, R.string.aj_sound_sub, Prefs.SOUND, Prefs.sound(this));
+        customSoundRow(body);
+        volumeSlider = sliderRow(body, R.string.aj_volume, R.string.aj_volume_sub, 0, 100, Prefs.soundVolume(this), PCT,
+                new SliderListener() {
+                    @Override public void onLive(int value) {
+                        KeySound.get(MainActivity.this).setVolume(value);   // se oye una muestra al nivel elegido
+                        KeySound.get(MainActivity.this).play(0);
+                    }
+                    @Override public void onSave(int value) {
+                        KeySound.get(MainActivity.this).setVolume(value);
+                        Prefs.get(MainActivity.this).edit().putInt(Prefs.SOUND_VOLUME, value).apply();
+                    }
+                });
+        optionRow(body, R.string.opt_vibrate, R.string.aj_vibrate_sub, Prefs.VIBRATE, Prefs.vibrate(this));
+        chipRow(body, R.string.aj_vibration, getString(R.string.aj_vibration_sub),
+                prefGroup(Prefs.VIBRATION, "system", VIBRATIONS, VIBRATION_NAMES));
+    }
+
+    /** Portapapeles: que se guarda y la fila de capturas de pantalla (permiso opcional de fotos). */
+    private void buildClipboard(LinearLayout body) {
+        TextView text = text(getString(R.string.aj_clipboard_body), 13, secondary, false);
+        text.setPadding(px(18), px(14), px(18), px(4));
+        body.addView(text, block(0));
+        register(text, getString(R.string.aj_sec_clipboard), getString(R.string.aj_clipboard_body));
+        body.addView(dividerLine());
+        View shots = ScreenshotSettingsRow.build(this, ink, secondary, thumbOff, trackOff);
+        body.addView(shots, block(0));
+        register(shots, getString(R.string.shots_title), getString(R.string.shots_title) + " " + getString(R.string.shots_sub));
+    }
+
+    /** Inteligencia: modelo local o servidor propio. */
+    private void buildAi(LinearLayout body) {
+        aiCard = AiSettingsCard.build(this, ink, secondary, card, divider);
+        body.addView(aiCard, block(0));
+        accessibleRadios(aiCard);
+        register(aiCard, getString(R.string.ai_section), getString(R.string.ai_section) + " " + getString(R.string.sum_ai_none)
+                + " " + getString(R.string.sum_ai_remote, ""));
+    }
+
+    /** Ayuda y gestos: pares gesto / resultado, de la escritura a los paneles y el modo de ajuste. */
+    private void buildHelp(LinearLayout body) {
+        for (int i = 0; i < GESTURES.length; i += 2) gestureRow(body, GESTURES[i], GESTURES[i + 1]);
+    }
+
+    /** Parejas gesto / resultado de "Ayuda y gestos" (su numero sale en el resumen antes de construir la pagina). */
+    private static final int[] GESTURES = {
+            R.string.gesture_accent, R.string.gesture_accent_result,
+            R.string.gesture_enye, R.string.gesture_enye_result,
+            R.string.gesture_marks, R.string.gesture_marks_result,              // mantener el punto
+            R.string.aj_gesture_comma, R.string.aj_gesture_comma_result,
+            R.string.gesture_caps, R.string.gesture_caps_result,
+            R.string.aj_gesture_shift_hold, R.string.aj_gesture_shift_hold_result,
+            R.string.aj_gesture_delete_hold, R.string.aj_gesture_delete_hold_result,
+            R.string.gesture_symbols, R.string.gesture_symbols_result,
+            R.string.aj_gesture_space, R.string.aj_gesture_space_result,
+            R.string.gesture_picker, R.string.gesture_picker_result,
+            R.string.gesture_switch, R.string.gesture_switch_result,
+            R.string.gesture_glide, R.string.gesture_glide_result,
+            R.string.gesture_emoji, R.string.gesture_emoji_result,
+            R.string.gesture_clipboard, R.string.gesture_clipboard_result,
+            R.string.gesture_ai, R.string.gesture_ai_result,
+            R.string.gesture_gear, R.string.gesture_gear_result,
+            R.string.aj_gesture_resize, R.string.aj_gesture_resize_result,
+            R.string.aj_gesture_hide, R.string.aj_gesture_hide_result};
 
     /**
      * Fila "Sable de luz": un chip por color (circulo del color + nombre) y, debajo, a quien pertenece el elegido
@@ -523,7 +963,7 @@ public final class MainActivity extends Activity {
         col.addView(saberWho, block(10));
         refreshSaber();
         parent.addView(col, block(0));
-        register(col, parent, searchable.toString());
+        register(col, getString(R.string.aj_saber), searchable.toString());
     }
 
     /** Marca el chip del sable guardado (tambien si lo cambio el IME) y pone a quien pertenece. */
@@ -543,131 +983,16 @@ public final class MainActivity extends Activity {
         }
     }
 
-    /** Plegables (solo pantallas anchas): explicacion, deteccion y las filas del dividido; Diseno no las repite. */
-    private void buildFold(LinearLayout root) {
-        LinearLayout fold = section(root, "fold", R.string.fold_section);
-        LinearLayout foldText = column();
-        foldText.setPadding(px(18), px(14), px(18), px(4));
-        foldText.addView(text(getString(R.string.fold_title), 16, ink, false), block(0));
-        foldText.addView(text(getString(R.string.fold_body), 13, secondary, false), block(4));
-        fold.addView(foldText, block(0));
-        register(foldText, fold, getString(R.string.fold_title) + " " + getString(R.string.fold_body));
-        splitRows(fold);
-    }
-
-    /** Filas del teclado dividido: modo (con la linea de deteccion de la pantalla) y ancho de las mitades. */
-    private void splitRows(LinearLayout parent) {
-        int sw = DeviceInfo.smallestWidthDp(this);
-        String detected = getString(wide ? R.string.fold_detected_wide : R.string.fold_detected_phone, sw);
-        chipRow(parent, R.string.opt_split, getString(R.string.aj_split_sub) + "\n" + detected,
-                prefGroup(Prefs.SPLIT, "auto", SPLITS, SPLIT_NAMES));
-        splitWidthRow = chipRow(parent, R.string.aj_split_width, getString(R.string.aj_split_width_sub),
-                prefGroup(Prefs.SPLIT_WIDTH, "normal", SPLIT_WIDTHS, SPLIT_WIDTH_NAMES));
-        refreshSplitWidth();
-    }
-
-    /** "Ancho de las mitades" solo tiene sentido donde el teclado se divide: pantalla ancha o dividido en Siempre. */
-    private void refreshSplitWidth() {
-        if (splitWidthRow == null) return;
-        boolean show = wide || "on".equals(Prefs.splitPref(this));
-        if (show && !query.isEmpty()) show = matches(rowOf(splitWidthRow));   // con una busqueda, ademas tiene que coincidir
-        splitWidthRow.setVisibility(show ? View.VISIBLE : View.GONE);
-    }
-
-    /** Tamano y posicion: alto en % (deslizador), margen inferior (chips) y como ajustarlo desde el propio teclado. */
-    private void buildSize(LinearLayout root) {
-        LinearLayout size = section(root, "size", R.string.aj_sec_size);
-        heightSlider = sliderRow(size, R.string.aj_height, R.string.aj_height_sub, 70, 140, Prefs.heightPct(this), PCT,
-                new SliderListener() {
-                    @Override public void onLive(int value) { liveHeightPct = value; applyPreviewPrefs(); }
-                    @Override public void onSave(int value) {
-                        liveHeightPct = 0;
-                        Prefs.setHeightPct(MainActivity.this, value);
-                        applyPreviewPrefs();
-                    }
-                });
-        chipRow(size, R.string.aj_bottom, getString(R.string.aj_bottom_sub), bottomGroup());
-        separator(size);
-        LinearLayout notes = column();
-        notes.setPadding(px(18), px(12), px(18), px(16));
-        notes.addView(text(getString(R.string.aj_size_from_keyboard), 13, secondary, false), block(0));
-        String which = null;
-        if (wide || DeviceInfo.family().startsWith("Galaxy Z Fold")) {
-            // En plegables alto, margen y una mano se guardan por pantalla: decir cual se esta ajustando
-            which = wide ? getString(R.string.aj_size_screen_inner, DeviceInfo.smallestWidthDp(this))
-                    : getString(R.string.aj_size_screen_cover);
-            notes.addView(text(which, 13, secondary, true), block(6));
-        }
-        size.addView(notes, block(0));
-        register(notes, size, getString(R.string.aj_size_from_keyboard) + (which == null ? "" : " " + which));
-    }
-
-    /** Escritura inteligente: predictivo, sustitucion, mayusculas, deslizar, doble espacio, aprendizaje, Star Wars, diccionario, atajos y espacio. */
-    private void buildSmart(LinearLayout root) {
-        LinearLayout smart = section(root, "smart", R.string.aj_sec_smart);
-        optionRow(smart, R.string.opt_autocorrect, R.string.opt_autocorrect_sub, Prefs.AUTOCORRECT, Prefs.autocorrect(this));
-        optionRow(smart, R.string.aj_auto_replace, R.string.aj_auto_replace_sub, Prefs.AUTO_REPLACE, Prefs.autoReplace(this));
-        optionRow(smart, R.string.aj_auto_caps, R.string.aj_auto_caps_sub, Prefs.AUTO_CAPS, Prefs.autoCaps(this));
-        optionRow(smart, R.string.opt_glide, R.string.opt_glide_sub, Prefs.GLIDE, Prefs.glide(this));
-        optionRow(smart, R.string.opt_double_space, R.string.opt_double_space_sub, Prefs.DOUBLE_SPACE, Prefs.doubleSpace(this));
-        optionRow(smart, R.string.opt_learn, R.string.opt_learn_sub, Prefs.LEARN, Prefs.learn(this));
-        optionRow(smart, R.string.aj_starwars, R.string.aj_starwars_sub, Prefs.STARWARS, Prefs.starWars(this));
-        learnedTitle = linkRow(smart, R.string.aj_learned_title, R.string.aj_learned_sub, new View.OnClickListener() {
-            @Override public void onClick(View v) { showLearnedDialog(); }
-        });
-        shortcutsTitle = linkRow(smart, R.string.aj_shortcuts_title, R.string.aj_shortcuts_sub, new View.OnClickListener() {
-            @Override public void onClick(View v) { showShortcutsDialog(); }
-        });
-        chipRow(smart, R.string.aj_space_slide, getString(R.string.aj_space_slide_sub),
-                prefGroup(Prefs.SPACE_SLIDE, "auto", SPACE_SLIDES, SPACE_SLIDE_NAMES));
-    }
-
-    /** Tocar y respuesta: burbuja, pulsacion larga, sonido (con el personalizado y su volumen) y vibracion con intensidad. */
-    private void buildTouch(LinearLayout root) {
-        LinearLayout touch = section(root, "touch", R.string.aj_sec_touch);
-        optionRow(touch, R.string.aj_preview, R.string.aj_preview_sub, Prefs.PREVIEW, Prefs.preview(this));
-        chipRow(touch, R.string.aj_longpress, getString(R.string.aj_longpress_sub),
-                prefGroup(Prefs.LONGPRESS, "medium", LONGPRESSES, LONGPRESS_NAMES));
-        optionRow(touch, R.string.opt_sound, R.string.aj_sound_sub, Prefs.SOUND, Prefs.sound(this));
-        customSoundRow(touch);
-        volumeSlider = sliderRow(touch, R.string.aj_volume, R.string.aj_volume_sub, 0, 100, Prefs.soundVolume(this), PCT,
-                new SliderListener() {
-                    @Override public void onLive(int value) {
-                        KeySound.get(MainActivity.this).setVolume(value);   // se oye una muestra al nivel elegido
-                        KeySound.get(MainActivity.this).play(0);
-                    }
-                    @Override public void onSave(int value) {
-                        KeySound.get(MainActivity.this).setVolume(value);
-                        Prefs.get(MainActivity.this).edit().putInt(Prefs.SOUND_VOLUME, value).apply();
-                    }
-                });
-        optionRow(touch, R.string.opt_vibrate, R.string.aj_vibrate_sub, Prefs.VIBRATE, Prefs.vibrate(this));
-        chipRow(touch, R.string.aj_vibration, getString(R.string.aj_vibration_sub),
-                prefGroup(Prefs.VIBRATION, "system", VIBRATIONS, VIBRATION_NAMES));
-    }
-
-    /** Portapapeles: que se guarda y la fila de capturas de pantalla (permiso opcional de fotos). */
-    private void buildClipboard(LinearLayout root) {
-        LinearLayout clip = section(root, "clipboard", R.string.aj_sec_clipboard);
-        TextView body = text(getString(R.string.aj_clipboard_body), 13, secondary, false);
-        body.setPadding(px(18), px(14), px(18), px(4));
-        clip.addView(body, block(0));
-        register(body, clip, getString(R.string.aj_clipboard_body));
-        clip.addView(dividerLine());
-        View shots = ScreenshotSettingsRow.build(this, ink, secondary, thumbOff, trackOff);
-        clip.addView(shots, block(0));
-        register(shots, clip, getString(R.string.shots_title) + " " + getString(R.string.shots_sub));
-    }
-
-    // ------------------------------------------------------------------ Mas ajustes
+    // ------------------------------------------------------------------ Privacidad y datos
 
     /**
      * Claves que "Restablecer ajustes" devuelve a fabrica (y las que viajan en "Exportar ajustes"). Lista blanca
      * explicita: nunca el diccionario personal, las candidatas, los atajos, los pares, el portapapeles, los emojis
-     * recientes, las claves ai_* ni el sonido personalizado. "dark_theme" es el tema oscuro antiguo (Prefs lo migra).
+     * recientes, las claves ai_* ni el sonido personalizado. "dark_theme" es el tema oscuro antiguo (Prefs lo migra);
+     * NUMBERS es el interruptor antiguo de la fila de numeros, que TOP_ROW sustituye (se mantiene en paralelo).
      */
     static final String[] RESET_KEYS = {Prefs.HINTS, Prefs.HINT_MODE, Prefs.VIBRATE, Prefs.DIGRAPHS, Prefs.STRIP,
-            Prefs.THEME, "dark_theme", Prefs.NUMBERS, Prefs.SOUND, Prefs.HEIGHT, Prefs.HEIGHT_PCT, Prefs.HEIGHT_PCT + "_wide",
+            Prefs.THEME, "dark_theme", Prefs.NUMBERS, Prefs.TOP_ROW, Prefs.SOUND, Prefs.HEIGHT, Prefs.HEIGHT_PCT, Prefs.HEIGHT_PCT + "_wide",
             Prefs.BOTTOM_DP, Prefs.BOTTOM_DP + "_wide", Prefs.AUTOCORRECT, Prefs.AUTO_REPLACE, Prefs.AUTO_CAPS, Prefs.PREVIEW,
             Prefs.HAND, Prefs.HAND + "_wide", Prefs.HAND_LAST, Prefs.TOOLBAR, Prefs.TOOLBAR_ITEMS, Prefs.LEARN,
             Prefs.DOUBLE_SPACE, Prefs.GLIDE, Prefs.SCREENSHOTS, Prefs.APP_LANG, Prefs.KEYBOARD_LANG, Prefs.SPACE_SLIDE,
@@ -692,7 +1017,7 @@ public final class MainActivity extends Activity {
                 return TYPE_INT;
             case Prefs.HINT_MODE: case Prefs.THEME: case Prefs.HEIGHT: case Prefs.HAND: case Prefs.HAND_LAST:
             case Prefs.TOOLBAR_ITEMS: case Prefs.APP_LANG: case Prefs.KEYBOARD_LANG: case Prefs.SPACE_SLIDE:
-            case Prefs.LONGPRESS: case Prefs.VIBRATION: case Prefs.SPLIT: case Prefs.SPLIT_WIDTH: case Prefs.SABER:
+            case Prefs.LONGPRESS: case Prefs.VIBRATION: case Prefs.SPLIT: case Prefs.SPLIT_WIDTH: case Prefs.SABER: case Prefs.TOP_ROW:
             case AiModels.MODE: case AiModels.REMOTE_URL: case AiModels.REMOTE_MODEL: case AiModels.REMOTE_KEY:
                 return TYPE_STRING;
             default:
@@ -708,20 +1033,19 @@ public final class MainActivity extends Activity {
         return false;
     }
 
-    /** Mas ajustes: restablecer, borrar datos personales, que hay guardado en el telefono y exportar/importar. */
-    private void buildMore(LinearLayout root) {
-        LinearLayout more = section(root, "more", R.string.aj_sec_more);
-        actionRow(more, R.string.aj_reset, R.string.aj_reset_sub, new View.OnClickListener() {
+    /** Privacidad y datos: restablecer, borrar datos personales, que hay guardado en el telefono y exportar/importar. */
+    private void buildPrivacy(LinearLayout body) {
+        actionRow(body, R.string.aj_reset, R.string.aj_reset_sub, new View.OnClickListener() {
             @Override public void onClick(View v) { confirmReset(); }
         });
-        actionRow(more, R.string.aj_wipe, R.string.aj_wipe_sub, new View.OnClickListener() {
+        actionRow(body, R.string.aj_wipe, R.string.aj_wipe_sub, new View.OnClickListener() {
             @Override public void onClick(View v) { confirmWipe(); }
         });
-        dataCard(more);
-        actionRow(more, R.string.aj_export_settings, R.string.aj_export_settings_sub, new View.OnClickListener() {
+        dataCard(body);
+        actionRow(body, R.string.aj_export_settings, R.string.aj_export_settings_sub, new View.OnClickListener() {
             @Override public void onClick(View v) { askExportSettings(); }
         });
-        actionRow(more, R.string.aj_import_settings, R.string.aj_import_settings_sub, new View.OnClickListener() {
+        actionRow(body, R.string.aj_import_settings, R.string.aj_import_settings_sub, new View.OnClickListener() {
             @Override public void onClick(View v) {
                 Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
                 i.addCategory(Intent.CATEGORY_OPENABLE);
@@ -752,7 +1076,7 @@ public final class MainActivity extends Activity {
         row.setOnClickListener(onClick);
         a11y(row, Button.class, false, null);
         parent.addView(row, block(0));
-        register(row, parent, getString(title) + " " + getString(sub));
+        register(row, getString(title), getString(title) + " " + getString(sub));
         return row;
     }
 
@@ -839,8 +1163,8 @@ public final class MainActivity extends Activity {
         dataModels = text("", 14, ink, false);
         dataLine(col, dataModels, R.string.aj_view, new View.OnClickListener() {
             @Override public void onClick(View v) {
-                Section ai = sections.get("ai");
-                if (ai != null) setOpen(ai, true, true);
+                Page ai = pages.get(PAGE_AI);
+                if (ai != null) openPage(ai, true);
             }
         });
         dataSound = text("", 14, ink, false);
@@ -850,7 +1174,7 @@ public final class MainActivity extends Activity {
         TextView local = text(getString(R.string.aj_data_local), 13, secondary, true);
         col.addView(local, block(10));
         parent.addView(col, block(0));
-        register(col, parent, getString(R.string.aj_data_title) + " " + getString(R.string.aj_data_clip, 0, "")
+        register(col, getString(R.string.aj_data_title), getString(R.string.aj_data_title) + " " + getString(R.string.aj_data_clip, 0, "")
                 + " " + getString(R.string.aj_data_dict, 0, 0) + " " + getString(R.string.aj_data_models, 0, "")
                 + " " + getString(R.string.aj_data_sound, "") + " " + getString(R.string.aj_data_local));
     }
@@ -1096,29 +1420,6 @@ public final class MainActivity extends Activity {
         Bigrams.unload();
     }
 
-    /** Ayuda y gestos: todo lo que se hace con las teclas, de la escritura a los paneles y el modo de ajuste. */
-    private void buildHelp(LinearLayout root) {
-        LinearLayout help = section(root, "help", R.string.aj_sec_help);
-        gestureRow(help, R.string.gesture_accent, R.string.gesture_accent_result);
-        gestureRow(help, R.string.gesture_enye, R.string.gesture_enye_result);
-        gestureRow(help, R.string.gesture_marks, R.string.gesture_marks_result);              // mantener el punto
-        gestureRow(help, R.string.aj_gesture_comma, R.string.aj_gesture_comma_result);
-        gestureRow(help, R.string.gesture_caps, R.string.gesture_caps_result);
-        gestureRow(help, R.string.aj_gesture_shift_hold, R.string.aj_gesture_shift_hold_result);
-        gestureRow(help, R.string.aj_gesture_delete_hold, R.string.aj_gesture_delete_hold_result);
-        gestureRow(help, R.string.gesture_symbols, R.string.gesture_symbols_result);
-        gestureRow(help, R.string.aj_gesture_space, R.string.aj_gesture_space_result);
-        gestureRow(help, R.string.gesture_picker, R.string.gesture_picker_result);
-        gestureRow(help, R.string.gesture_switch, R.string.gesture_switch_result);
-        gestureRow(help, R.string.gesture_glide, R.string.gesture_glide_result);
-        gestureRow(help, R.string.gesture_emoji, R.string.gesture_emoji_result);
-        gestureRow(help, R.string.gesture_clipboard, R.string.gesture_clipboard_result);
-        gestureRow(help, R.string.gesture_ai, R.string.gesture_ai_result);
-        gestureRow(help, R.string.gesture_gear, R.string.gesture_gear_result);
-        gestureRow(help, R.string.aj_gesture_resize, R.string.aj_gesture_resize_result);
-        gestureRow(help, R.string.aj_gesture_hide, R.string.aj_gesture_hide_result);
-    }
-
     // ------------------------------------------------------------------ estado
 
     private void updateSetup() {
@@ -1164,7 +1465,8 @@ public final class MainActivity extends Activity {
         if (preview == null) return;
         float scale = liveHeightPct > 0 ? liveHeightPct / 100f : Prefs.heightScale(this);
         preview.applyPrefs(Prefs.hints(this), Prefs.vibrate(this), Prefs.strip(this), Prefs.digraphs(this),
-                Prefs.theme(this), Prefs.numbers(this), Prefs.sound(this), scale);
+                Prefs.theme(this), Prefs.numbers(this), Prefs.sound(this), scale);   // Prefs.theme resuelve los automaticos
+        preview.setTopRow(Prefs.topRow(this));              // numeros / digrafos / nada (manda sobre el booleano antiguo)
         preview.setHintMode(Prefs.hintModeInt(this));      // nunca / siempre / aprendiendo (manda sobre el booleano antiguo)
         preview.setSaber(Prefs.saberArgb(this));
         preview.setHandMode(Prefs.handMode(this));
@@ -1255,6 +1557,8 @@ public final class MainActivity extends Activity {
     private static final int[] TOP_LANG_NAMES = {R.string.app_lang_es, R.string.app_lang_en, R.string.app_lang_de};
     private static final String[] HINT_MODES = {"off", "on", "learning"};
     private static final int[] HINT_MODE_NAMES = {R.string.aj_hint_off, R.string.aj_hint_on, R.string.aj_hint_learning};
+    static final String[] TOP_ROWS = {"numbers", "digraphs", "none"};
+    private static final int[] TOP_ROW_NAMES = {R.string.top_row_numbers, R.string.top_row_digraphs, R.string.top_row_none};
     /** Paralelos a Prefs.SABERS: nombre del color y a quien pertenece. */
     private static final int[] SABER_NAMES = {R.string.saber_blue, R.string.saber_green, R.string.saber_yellow,
             R.string.saber_orange, R.string.saber_purple, R.string.saber_red};
@@ -1338,6 +1642,31 @@ public final class MainActivity extends Activity {
         };
     }
 
+    /**
+     * Fila superior: Numeros / Digrafos / Nada en Prefs.TOP_ROW (sin ella Prefs.topRow deriva del interruptor NUMBERS
+     * antiguo, que se mantiene en paralelo: true solo con los numeros).
+     */
+    private ChipGroup topRowGroup() {
+        return new ChipGroup(Prefs.TOP_ROW, "numbers", TOP_ROWS, TOP_ROW_NAMES) {
+            @Override String current() { return Prefs.topRow(MainActivity.this); }
+            @Override void pick(String id) {
+                Prefs.get(MainActivity.this).edit().putString(Prefs.TOP_ROW, id).putBoolean(Prefs.NUMBERS, "numbers".equals(id)).apply();
+            }
+        };
+    }
+
+    /** Idioma del teclado (y de la app): los mismos tres de la tarjeta de arriba; cambiarlo rehace la pantalla. */
+    private ChipGroup langGroup() {
+        return new ChipGroup(Prefs.APP_LANG, "es", TOP_LANGS, TOP_LANG_NAMES) {
+            @Override String current() { return AppLocale.current(MainActivity.this); }
+            @Override void pick(String id) {
+                if (id.equals(current())) return;
+                Prefs.setLanguage(MainActivity.this, id);   // app y teclado a la vez
+                recreate();
+            }
+        };
+    }
+
     private View chipRow(LinearLayout parent, int title, String sub, final ChipGroup g) {
         return chipRow(parent, title, sub, g, null);
     }
@@ -1388,7 +1717,7 @@ public final class MainActivity extends Activity {
         StringBuilder searchable = new StringBuilder(getString(title));
         if (sub != null) searchable.append(' ').append(sub);
         for (String l : g.labels) searchable.append(' ').append(l);
-        register(outer, parent, searchable.toString());
+        register(outer, getString(title), searchable.toString());
         return outer;
     }
 
@@ -1414,10 +1743,6 @@ public final class MainActivity extends Activity {
         boolean tracking;
         Slider(SeekBar bar, TextView value, int min) { this.bar = bar; this.value = value; this.min = min; }
         void set(int v) { if (!tracking) bar.setProgress(v - min); }   // onProgressChanged actualiza la etiqueta
-    }
-
-    private Slider sliderRow(LinearLayout parent, int title, int min, int max, int current, String unitSuffix, SliderListener l) {
-        return sliderRow(parent, title, 0, min, max, current, unitSuffix, l);
     }
 
     /**
@@ -1463,50 +1788,16 @@ public final class MainActivity extends Activity {
         });
         col.addView(bar, block(6));
         parent.addView(col, block(0));
-        register(col, parent, getString(title) + (sub != 0 ? " " + getString(sub) : ""));
+        register(col, getString(title), getString(title) + (sub != 0 ? " " + getString(sub) : ""));
         return s;
     }
 
-    /** Campos que usan el teclado del sistema (el elegido en Ajustes): texto normal y PIN numerico (campo privado). */
-    private void buildRealFields(LinearLayout root) {
-        root.addView(dividerLine());
-        LinearLayout c = column();
-        c.setPadding(0, px(14), 0, px(4));
-        TextView title = text(getString(R.string.real_title), 16, ink, false);
-        title.setPadding(px(18), 0, px(18), 0);
-        c.addView(title, block(0));
-        TextView sub = text(getString(R.string.real_sub), 13, secondary, false);
-        sub.setPadding(px(18), 0, px(18), px(8));
-        c.addView(sub, block(2));
-        c.addView(dividerLine());
-        EditText plain = realField(R.string.real_text_hint,
-                InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
-        plain.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH);
-        c.addView(plain, block(0));
-        c.addView(dividerLine());
-        EditText pin = realField(R.string.real_pin_hint,
-                InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_VARIATION_PASSWORD);   // teclado numerico, tratado como contrasena
-        pin.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_DONE);
-        c.addView(pin, block(0));
-        root.addView(c, block(0));
-    }
-
-    private EditText realField(int hint, int inputType) {
-        EditText e = new EditText(this);
-        e.setBackground(null);
-        e.setHint(hint);
-        e.setTextColor(ink);
-        e.setHintTextColor(secondary);
-        e.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-        e.setPadding(px(18), px(14), px(18), px(14));
-        e.setSingleLine(true);
-        e.setInputType(inputType);   // despues de setSingleLine para conservar el enmascarado del PIN
-        return e;
-    }
-
     /**
-     * Fila "Tema": muestras de cada tema (Contraste incluido) mas "Automatico" (sigue el modo oscuro del telefono:
-     * Estelar de dia, Noche de noche); la copia del teclado cambia al instante. En telefonos, dos filas.
+     * Fila "Tema". Arriba, destacado, el grupo "Automaticos · siguen el modo oscuro del telefono" con dos tarjetas,
+     * Republica (Estelar de dia, Noche de noche; valor "auto") e Imperio (Arena de dia, Imperial de noche; valor
+     * "auto_imperio"), cada una con su muestra doble (mitad clara, mitad oscura) y el distintivo de automatico; la
+     * seleccionada lleva un borde de acento. Debajo, "Siempre el mismo" con los seis temas fijos. La copia del
+     * teclado cambia al instante al tema efectivo (Prefs.theme).
      */
     private void themeRow(LinearLayout parent) {
         LinearLayout col = column();
@@ -1514,24 +1805,48 @@ public final class MainActivity extends Activity {
         TextView title = text(getString(R.string.opt_theme), 16, ink, false);
         title.setPadding(px(8), 0, px(8), 0);
         col.addView(title, block(0));
-
-        int night = getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
-        Themes.Theme autoShown = night == Configuration.UI_MODE_NIGHT_YES ? Themes.NOCHE : Themes.DEFAULT;
-        int n = Themes.ALL.length + 1;
-        int perRow = contentWidth - px(20) >= px(78) * n ? n : (n + 1) / 2;
-        String current = Prefs.themePref(this);
         StringBuilder searchable = new StringBuilder(getString(R.string.opt_theme));
+        String current = Prefs.themePref(this);
+
+        // Automaticos
+        TextView autoGroup = text(getString(R.string.theme_auto_group), 13, secondary, true);
+        autoGroup.setPadding(px(8), 0, px(8), 0);
+        col.addView(autoGroup, block(10));
+        searchable.append(' ').append(getString(R.string.theme_auto_group));
+        boolean sideBySide = contentWidth - px(20) >= px(300);
+        LinearLayout autoRow = new LinearLayout(this);
+        autoRow.setOrientation(sideBySide ? LinearLayout.HORIZONTAL : LinearLayout.VERTICAL);
+        for (int i = 0; i < Themes.AUTOS.length; i++) {
+            final String id = Themes.AUTOS[i];
+            String name = getString(Themes.autoName(id)), sub = getString(Themes.autoSub(id));
+            searchable.append(' ').append(name).append(' ').append(sub);
+            View cardView = autoCard(id, name, sub, id.equals(current));
+            LinearLayout.LayoutParams cp = sideBySide ? new LinearLayout.LayoutParams(0, MATCH, 1f) : new LinearLayout.LayoutParams(MATCH, WRAP);
+            if (i > 0) { if (sideBySide) cp.leftMargin = px(8); else cp.topMargin = px(8); }
+            autoRow.addView(cardView, cp);
+            themeItems.add(cardView);
+            themeIds.add(id);
+            autoCards.add(cardView);
+        }
+        col.addView(autoRow, block(8));
+
+        // Fijos
+        TextView fixedGroup = text(getString(R.string.theme_fixed_group), 13, secondary, true);
+        fixedGroup.setPadding(px(8), 0, px(8), 0);
+        col.addView(fixedGroup, block(16));
+        searchable.append(' ').append(getString(R.string.theme_fixed_group));
+        int n = Themes.ALL.length;
+        int perRow = contentWidth - px(20) >= px(78) * n ? n : (n + 1) / 2;
         LinearLayout row = null;
         for (int i = 0; i < n; i++) {
             if (i % perRow == 0) {
                 row = new LinearLayout(this);
                 row.setOrientation(LinearLayout.HORIZONTAL);
-                col.addView(row, block(i == 0 ? 10 : 4));
+                col.addView(row, block(i == 0 ? 8 : 4));
             }
-            boolean auto = i == Themes.ALL.length;
-            final String id = auto ? Prefs.THEME_AUTO : Themes.ALL[i].id;
-            Themes.Theme shown = auto ? autoShown : Themes.ALL[i];
-            String label = auto ? getString(R.string.aj_theme_auto) : getString(shown.name);
+            Themes.Theme t = Themes.ALL[i];
+            final String id = t.id;
+            String label = getString(t.name);
             searchable.append(' ').append(label);
             final LinearLayout item = column();
             item.setGravity(Gravity.CENTER_HORIZONTAL);
@@ -1539,34 +1854,84 @@ public final class MainActivity extends Activity {
             item.setBackground(ripple(0x00000000));
             item.setContentDescription(label);
             a11y(item, RadioButton.class, true, null);
-            item.addView(new ThemeSwatchView(this, shown, ink), new LinearLayout.LayoutParams(px(56), px(56)));
+            item.addView(new ThemeSwatchView(this, t, ink), new LinearLayout.LayoutParams(px(56), px(56)));
             TextView name = text(label, 12, secondary, false);
             name.setGravity(Gravity.CENTER_HORIZONTAL);
             name.setMaxLines(1);
             item.addView(name, block(4));
             item.setSelected(id.equals(current));
-            item.setOnClickListener(new View.OnClickListener() {
-                @Override public void onClick(View v) {
-                    Prefs.get(MainActivity.this).edit().putString(Prefs.THEME, id).apply();
-                    refreshThemeItems();
-                    applyPreviewPrefs();
-                }
-            });
+            item.setOnClickListener(themePicker(id));
             row.addView(item, new LinearLayout.LayoutParams(0, WRAP, 1f));
             themeItems.add(item);
             themeIds.add(id);
         }
         for (int i = n; i % perRow != 0; i++) row.addView(new View(this), new LinearLayout.LayoutParams(0, 0, 1f));   // huecos de la ultima fila
-        TextView hint = text(getString(R.string.aj_theme_auto_hint), 13, secondary, false);
-        hint.setPadding(px(8), 0, px(8), 0);
-        col.addView(hint, block(8));
         parent.addView(col, block(0));
-        register(col, parent, searchable.append(' ').append(getString(R.string.aj_theme_auto_hint)).toString());
+        register(col, getString(R.string.opt_theme), searchable.toString());
+    }
+
+    /** Guarda el tema (fijo o automatico) y lo refleja en las muestras y en la copia del teclado. */
+    private View.OnClickListener themePicker(final String id) {
+        return new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                Prefs.get(MainActivity.this).edit().putString(Prefs.THEME, id).apply();
+                refreshThemeItems();
+                applyPreviewPrefs();
+            }
+        };
+    }
+
+    /**
+     * Tarjeta de un automatico: muestra doble (dia arriba a la izquierda, noche abajo a la derecha, con el distintivo),
+     * nombre y "Estelar de dia, Noche de noche". Se lee como un boton de opcion con los tres textos.
+     */
+    private View autoCard(String id, String name, String sub, boolean selected) {
+        LinearLayout cardView = new LinearLayout(this);
+        cardView.setOrientation(LinearLayout.HORIZONTAL);
+        cardView.setGravity(Gravity.CENTER_VERTICAL);
+        cardView.setPadding(px(8), px(8), px(10), px(8));
+        cardView.addView(new ThemeSwatchView(this, Themes.autoDay(id), Themes.autoNight(id), ink), new LinearLayout.LayoutParams(px(56), px(56)));
+        LinearLayout textCol = column();
+        TextView title = text(name, 14, ink, true);
+        title.setMaxLines(1);
+        textCol.addView(title, block(0));
+        TextView subtitle = text(sub, 11, secondary, false);
+        subtitle.setMaxLines(3);
+        textCol.addView(subtitle, block(2));
+        LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(0, WRAP, 1f);
+        tp.leftMargin = px(8);
+        cardView.addView(textCol, tp);
+        cardView.setContentDescription(name + ". " + sub + ". " + getString(R.string.aj_theme_auto_badge));
+        a11y(cardView, RadioButton.class, true, null);
+        cardView.setSelected(selected);
+        styleAutoCard(cardView);
+        cardView.setOnClickListener(themePicker(id));
+        return cardView;
+    }
+
+    /** Fondo de la tarjeta de automatico: relleno suave y, seleccionada, borde de acento de 2 dp. */
+    private void styleAutoCard(View cardView) {
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor((divider & 0x00FFFFFF) | 0x66000000);
+        bg.setCornerRadius(px(14));
+        if (cardView.isSelected()) bg.setStroke(px(2), ink);
+        cardView.setBackground(new RippleDrawable(ColorStateList.valueOf((ink & 0x00FFFFFF) | 0x1A000000), bg, null));
     }
 
     private void refreshThemeItems() {
         String cur = Prefs.themePref(this);
-        for (int i = 0; i < themeItems.size(); i++) themeItems.get(i).setSelected(themeIds.get(i).equals(cur));
+        for (int i = 0; i < themeItems.size(); i++) {
+            View item = themeItems.get(i);
+            boolean sel = themeIds.get(i).equals(cur);
+            if (item.isSelected() == sel) continue;
+            item.setSelected(sel);
+            if (autoCards.contains(item)) styleAutoCard(item);
+            // La muestra (hija) pinta el anillo segun el estado seleccionado de su tarjeta
+            if (item instanceof ViewGroup) {
+                ViewGroup g = (ViewGroup) item;
+                for (int j = 0; j < g.getChildCount(); j++) if (g.getChildAt(j) instanceof ThemeSwatchView) g.getChildAt(j).setSelected(sel);
+            }
+        }
     }
 
     private void optionRow(LinearLayout parent, int label, int sub, final String key, boolean value) {
@@ -1608,7 +1973,7 @@ public final class MainActivity extends Activity {
             @Override public void onCheckedChanged(CompoundButton b, boolean checked) {
                 Prefs.get(MainActivity.this).edit().putBoolean(key, checked).apply();
                 applyPreviewPrefs();
-                if (Prefs.DIGRAPHS.equals(key)) translation.setDigraphs(checked);
+                if (Prefs.DIGRAPHS.equals(key) && translation != null) translation.setDigraphs(checked);
             }
         });
         LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(WRAP, WRAP);
@@ -1618,7 +1983,7 @@ public final class MainActivity extends Activity {
             @Override public void onClick(View v) { sw.toggle(); }
         });
         parent.addView(row, block(0));
-        register(row, parent, getString(label) + (sub != 0 ? " " + getString(sub) : "") + (hint != 0 ? " " + getString(hint) : ""));
+        register(row, getString(label), getString(label) + (sub != 0 ? " " + getString(sub) : "") + (hint != 0 ? " " + getString(hint) : ""));
     }
 
     /**
@@ -1645,7 +2010,7 @@ public final class MainActivity extends Activity {
         row.setOnClickListener(onClick);
         a11y(row, Button.class, false, null);
         parent.addView(row, block(0));
-        register(row, parent, getString(titleRes) + " " + getString(sub));
+        register(row, getString(titleRes), getString(titleRes) + " " + getString(sub));
         return title;
     }
 
@@ -1661,8 +2026,16 @@ public final class MainActivity extends Activity {
         col.addView(text(getString(gesture), 16, ink, false), block(0));
         col.addView(text(getString(result), 13, secondary, false), block(2));
         parent.addView(col, block(0));
-        register(col, parent, getString(gesture) + " " + getString(result));
-        gestureCount++;
+        register(col, getString(gesture), getString(gesture) + " " + getString(result));
+    }
+
+    /** Nota explicativa de una linea o dos (letra pequena), registrada para el buscador. */
+    private void noteRow(LinearLayout parent, int textRes) {
+        separator(parent);
+        TextView note = text(getString(textRes), 13, secondary, false);
+        note.setPadding(px(18), px(12), px(18), px(14));
+        parent.addView(note, block(0));
+        register(note, getString(textRes), getString(textRes));
     }
 
     /** Boton de texto con el estilo de los chips. */
@@ -1711,7 +2084,7 @@ public final class MainActivity extends Activity {
         row.addView(reset, rp);
         col.addView(row, block(10));
         parent.addView(col, block(0));
-        register(col, parent, getString(R.string.opt_custom_sound) + " " + getString(R.string.opt_custom_sound_sub)
+        register(col, getString(R.string.opt_custom_sound), getString(R.string.opt_custom_sound) + " " + getString(R.string.opt_custom_sound_sub)
                 + " " + getString(R.string.sound_choose) + " " + getString(R.string.sound_default));
     }
 
@@ -2149,126 +2522,9 @@ public final class MainActivity extends Activity {
         return p;
     }
 
-    /**
-     * Seccion colapsable: tarjeta con cabecera pulsable (titulo, resumen de una linea y flecha) y un cuerpo
-     * al que el llamante anade sus filas. El estado abierto/cerrado se recuerda por seccion en Prefs.ui (no
-     * despierta al teclado); al principio solo "Pruebalo" esta abierta. Para accesibilidad la cabecera se lee
-     * como una unidad (titulo, resumen y expandida/contraida) con las acciones expandir y contraer. Devuelve el cuerpo.
-     */
-    private LinearLayout section(LinearLayout root, final String key, int titleRes) {
-        LinearLayout outer = cardColumn();
-        LinearLayout header = new LinearLayout(this);
-        header.setOrientation(LinearLayout.HORIZONTAL);
-        header.setGravity(Gravity.CENTER_VERTICAL);
-        header.setPadding(px(18), px(16), px(12), px(16));
-        header.setBackground(ripple(0));
-        LinearLayout col = column();
-        col.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
-        col.addView(text(getString(titleRes), 17, ink, true), block(0));
-        TextView summary = text("", 13, secondary, false);
-        summary.setMaxLines(1);
-        summary.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        col.addView(summary, block(2));
-        header.addView(col, new LinearLayout.LayoutParams(0, WRAP, 1f));
-        TextView chevron = text("▾", 20, secondary, false);   // ▾ cerrado, ▴ abierto
-        chevron.setPadding(px(12), 0, px(6), 0);
-        chevron.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-        header.addView(chevron, new LinearLayout.LayoutParams(WRAP, WRAP));
-        LinearLayout body = column();
-        body.addView(dividerLine());
-        outer.addView(header, block(0));
-        outer.addView(body, block(0));
-        final Section sec = new Section(key, getString(titleRes), outer, header, body, summary, chevron);
-        sections.put(key, sec);
-        boolean open = Prefs.ui(this).getBoolean("sec_" + key, "try".equals(key));
-        body.setVisibility(open ? View.VISIBLE : View.GONE);
-        chevron.setText(open ? "▴" : "▾");
-        header.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) {
-                if (sec.outer.getLayoutTransition() == null) sec.outer.setLayoutTransition(new android.animation.LayoutTransition());
-                setOpen(sec, !sec.open(), false);
-            }
-        });
-        header.setAccessibilityDelegate(new View.AccessibilityDelegate() {
-            @Override public void onInitializeAccessibilityNodeInfo(View host, AccessibilityNodeInfo info) {
-                super.onInitializeAccessibilityNodeInfo(host, info);
-                info.setClassName(Button.class.getName());
-                info.addAction(sec.open() ? AccessibilityNodeInfo.AccessibilityAction.ACTION_COLLAPSE
-                        : AccessibilityNodeInfo.AccessibilityAction.ACTION_EXPAND);
-            }
-            @Override public boolean performAccessibilityAction(View host, int action, Bundle args) {
-                if (action == AccessibilityNodeInfo.ACTION_EXPAND) { setOpen(sec, true, true); return true; }
-                if (action == AccessibilityNodeInfo.ACTION_COLLAPSE) { setOpen(sec, false, false); return true; }
-                return super.performAccessibilityAction(host, action, args);
-            }
-        });
-        describeHeader(sec);
-        root.addView(outer, block(16));
-        return body;
-    }
-
-    /** Descripcion accesible de la cabecera: "Diseno. Estelar · letras latinas. Contraida". */
-    private void describeHeader(Section sec) {
-        String summary = sec.summary.getText().toString();
-        String state = getString(sec.open() ? R.string.aj_a11y_expanded : R.string.aj_a11y_collapsed);
-        sec.header.setContentDescription(sec.title + (summary.isEmpty() ? "" : ". " + summary) + ". " + state);
-    }
-
-    /** Abre o cierra una seccion (y lo recuerda); con scroll, la lleva arriba de la pantalla. */
-    private void setOpen(final Section sec, boolean open, boolean scrollTo) {
-        showBody(sec, open);
-        Prefs.ui(this).edit().putBoolean("sec_" + sec.key, open).apply();
-        if (scrollTo && scroll != null) {
-            scroll.post(new Runnable() {
-                @Override public void run() { scroll.smoothScrollTo(0, Math.max(0, sec.outer.getTop() - px(12))); }
-            });
-        }
-    }
-
-    /** Muestra u oculta el cuerpo sin recordarlo (el buscador abre las secciones con coincidencias). */
-    private void showBody(Section sec, boolean open) {
-        sec.body.setVisibility(open ? View.VISIBLE : View.GONE);
-        sec.chevron.setText(open ? "▴" : "▾");
-        describeHeader(sec);
-    }
-
-    /** Fila "Ir a" con un chip por seccion (sin Pruebalo): la abre y la lleva arriba, sin recorrer toda la pantalla. */
-    private void buildNav(LinearLayout root) {
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        TextView label = text(getString(R.string.nav_go), 13, secondary, true);
-        label.setPadding(px(4), 0, px(10), 0);
-        row.addView(label, new LinearLayout.LayoutParams(WRAP, WRAP));
-        boolean first = true;
-        for (int i = 0; i < NAV_KEYS.length; i++) {
-            final String key = NAV_KEYS[i];
-            if ("fold".equals(key) && !wide) continue;
-            TextView chip = text(getString(NAV_TITLES[i]), 13, ink, true);
-            chip.setPadding(px(12), px(7), px(12), px(7));
-            chip.setSelected(false);
-            styleChip(chip);
-            a11y(chip, Button.class, false, null);
-            chip.setOnClickListener(new View.OnClickListener() {
-                @Override public void onClick(View v) {
-                    Section sec = sections.get(key);
-                    if (sec != null) setOpen(sec, true, true);
-                }
-            });
-            LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(WRAP, WRAP);
-            cp.leftMargin = px(first ? 0 : 6);
-            first = false;
-            row.addView(chip, cp);
-        }
-        android.widget.HorizontalScrollView hs = new android.widget.HorizontalScrollView(this);
-        hs.setHorizontalScrollBarEnabled(false);
-        hs.addView(row, new ViewGroup.LayoutParams(WRAP, WRAP));
-        root.addView(hs, block(14));
-    }
-
     // ------------------------------------------------------------------ buscador
 
-    /** Campo "Buscar ajuste" sobre la fila "Ir a", con × para borrar y la linea "Ningun ajuste coincide". */
+    /** Campo "Buscar ajuste" con × para borrar; debajo, la tarjeta de resultados y la linea "Ningun ajuste coincide". */
     private void buildSearch(LinearLayout root) {
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.HORIZONTAL);
@@ -2304,6 +2560,9 @@ public final class MainActivity extends Activity {
         searchClear = clear;
         box.addView(clear, new LinearLayout.LayoutParams(WRAP, WRAP));
         root.addView(box, block(20));
+        searchResults = cardColumn();
+        searchResults.setVisibility(View.GONE);
+        root.addView(searchResults, block(12));
         searchNone = text(getString(R.string.aj_search_none), 13, secondary, false);
         searchNone.setPadding(px(4), 0, px(4), 0);
         searchNone.setVisibility(View.GONE);
@@ -2333,67 +2592,97 @@ public final class MainActivity extends Activity {
         return b.toString();
     }
 
-    /** Apunta una fila para el buscador: su vista, el cuerpo de seccion donde vive y los textos por los que se encuentra. */
-    private void register(View view, LinearLayout parent, String text) {
-        rows.add(new Row(view, parent, normalize(text)));
+    /**
+     * Apunta una fila para el buscador: su vista, la pagina en construccion donde vive, el titulo que se mostrara
+     * en los resultados y los textos (normalizados) por los que se encuentra.
+     */
+    private void register(View view, String label, String text) {
+        if (building == null) return;
+        rows.add(new Row(view, building, label, normalize(text)));
     }
 
-    private Row rowOf(View view) {
-        for (Row r : rows) if (r.view == view) return r;
-        return null;
-    }
-
-    private boolean matches(Row r) {
-        return query.isEmpty() || (r != null && r.text.contains(query));
-    }
-
-    private Section sectionOf(LinearLayout body) {
-        for (Section s : sections.values()) if (s.body == body) return s;
-        return null;
+    /** Todas las paginas construidas (el buscador necesita sus filas; cada una se construye una sola vez). */
+    private void ensureAllBuilt() {
+        for (Page p : pages.values()) buildPage(p);
     }
 
     /**
-     * Filtra la pantalla: con texto, solo quedan las filas cuyo titulo o subtitulo lo contienen (sin acentos ni
-     * mayusculas), sus secciones se abren y las demas se ocultan; si coincide el titulo de una seccion, se ve entera.
-     * Vacio, todo vuelve a su estado (filas visibles y secciones abiertas o cerradas como estaban guardadas).
+     * Busca: con texto, la pantalla principal deja solo el buscador y una tarjeta con las filas cuyo titulo,
+     * subtitulo o etiquetas lo contienen (sin acentos ni mayusculas), cada una con el nombre de su pagina; al tocar
+     * una se abre la pagina, se baja hasta la fila y se resalta un momento. Vacio, vuelve la pantalla normal.
      */
     void search(String raw) {
         query = normalize(raw);
-        if (searchClear != null) searchClear.setVisibility(query.isEmpty() ? View.GONE : View.VISIBLE);
-        java.util.HashMap<Section, Boolean> hit = new java.util.HashMap<>();
-        for (Section s : sections.values()) hit.put(s, query.isEmpty() || normalize(s.title).contains(query));
-        for (Row r : rows) {
-            Section s = sectionOf(r.parent);
-            boolean whole = s != null && hit.get(s);
-            boolean show = whole || r.text.contains(query);
-            r.view.setVisibility(show ? View.VISIBLE : View.GONE);
-            if (show && s != null) hit.put(s, true);
+        boolean on = !query.isEmpty();
+        if (searchClear != null) searchClear.setVisibility(on ? View.VISIBLE : View.GONE);
+        if (on) ensureAllBuilt();
+        int shown = on ? View.GONE : View.VISIBLE;
+        for (View v : new View[]{topCard, tryCard, listCard, footCard, compatCard}) if (v != null) v.setVisibility(shown);
+        searchResults.removeAllViews();
+        int n = 0;
+        if (on) {
+            for (Row r : rows) {
+                if (!r.text.contains(query)) continue;
+                if (r.view.getVisibility() == View.GONE) continue;   // p. ej. "Ancho de las mitades" donde no se divide
+                resultRow(r);
+                n++;
+            }
         }
-        boolean any = false;
-        for (Section s : sections.values()) {
-            boolean h = hit.get(s);
-            s.outer.setVisibility(h ? View.VISIBLE : View.GONE);
-            if (query.isEmpty()) showBody(s, Prefs.ui(this).getBoolean("sec_" + s.key, "try".equals(s.key)));
-            else if (h) showBody(s, true);
-            tidyDividers(s.body);
-            any |= h;
-        }
-        refreshSplitWidth();
-        if (searchNone != null) searchNone.setVisibility(any || query.isEmpty() ? View.GONE : View.VISIBLE);
+        searchResults.setVisibility(on && n > 0 ? View.VISIBLE : View.GONE);
+        if (searchNone != null) searchNone.setVisibility(on && n == 0 ? View.VISIBLE : View.GONE);
     }
 
-    /** Una linea divisoria solo se ve si la fila que la sigue se ve (y la que abre el cuerpo, siempre). */
-    private void tidyDividers(LinearLayout body) {
-        for (int i = 0; i < body.getChildCount(); i++) {
-            View v = body.getChildAt(i);
-            if (!"divider".equals(v.getTag())) continue;
-            if (i == 0) { v.setVisibility(View.VISIBLE); continue; }
-            View next = null;
-            for (int j = i + 1; j < body.getChildCount(); j++) {
-                if (!"divider".equals(body.getChildAt(j).getTag())) { next = body.getChildAt(j); break; }
+    /** Fila de resultado: titulo de la fila encontrada y, debajo, la pagina donde esta; tocarla la abre y la resalta. */
+    private void resultRow(final Row r) {
+        separator(searchResults);
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setMinimumHeight(px(56));
+        row.setPadding(px(18), px(12), px(14), px(12));
+        row.setBackground(ripple(0x00000000));
+        LinearLayout col = column();
+        col.addView(text(r.label, 16, ink, false), block(0));
+        col.addView(text(getString(r.page.titleRes), 13, secondary, false), block(2));
+        row.addView(col, new LinearLayout.LayoutParams(0, WRAP, 1f));
+        TextView chevron = text("›", 22, secondary, false);
+        chevron.setPadding(px(12), 0, px(6), 0);
+        chevron.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        row.addView(chevron, new LinearLayout.LayoutParams(WRAP, WRAP));
+        row.setContentDescription(r.label + ". " + getString(R.string.aj_open_page, getString(r.page.titleRes)));
+        a11y(row, Button.class, false, null);
+        row.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { showRow(r); }
+        });
+        searchResults.addView(row, block(0));
+    }
+
+    /** Abre la pagina de la fila, baja hasta ella y la resalta un momento. */
+    void showRow(final Row r) {
+        openPage(r.page, true);
+        pageScroll.post(new Runnable() {
+            @Override public void run() {
+                int y = 0;
+                for (View p = r.view; p != null && p != pageScroll; p = p.getParent() instanceof View ? (View) p.getParent() : null) y += p.getTop();
+                pageScroll.smoothScrollTo(0, Math.max(0, y - px(12)));
+                flash(r.view);
             }
-            v.setVisibility(next != null && next.getVisibility() == View.VISIBLE ? View.VISIBLE : View.GONE);
-        }
+        });
+    }
+
+    /** Resalta una fila: fondo del color de la tinta muy transparente que se desvanece en algo menos de un segundo. */
+    private void flash(final View v) {
+        final Drawable old = v.getBackground();
+        ValueAnimator a = ValueAnimator.ofObject(new ArgbEvaluator(), (ink & 0x00FFFFFF) | 0x33000000, (ink & 0x00FFFFFF));
+        a.setStartDelay(150);
+        a.setDuration(900);
+        a.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            @Override public void onAnimationUpdate(ValueAnimator anim) { v.setBackgroundColor((Integer) anim.getAnimatedValue()); }
+        });
+        a.addListener(new AnimatorListenerAdapter() {
+            @Override public void onAnimationEnd(Animator anim) { v.setBackground(old); }
+        });
+        a.start();
     }
 
     // ------------------------------------------------------------------ accesibilidad
@@ -2438,73 +2727,75 @@ public final class MainActivity extends Activity {
 
     // ------------------------------------------------------------------ resumenes
 
-    /** Resumen de una linea bajo el titulo de cada seccion, con los valores actuales (y la descripcion accesible). */
+    /** Resumen de una linea bajo el titulo de cada categoria, con los valores actuales (y la descripcion accesible). */
     private void updateSummaries() {
-        Section s;
-        if ((s = sections.get("try")) != null) s.summary.setText(R.string.sum_try);
-        if ((s = sections.get("design")) != null) {
+        Page p;
+        if ((p = pages.get(PAGE_KEYS)) != null) {
             java.util.List<String> parts = new java.util.ArrayList<>();
-            parts.add(themeLabel());
-            parts.add(getString(R.string.aj_sum_saber, lower(SABER_NAMES[saberIndex()])));
+            parts.add(getString(nameOf(TOP_LANGS, TOP_LANG_NAMES, AppLocale.current(this))));
+            String top = Prefs.topRow(this);
+            parts.add("none".equals(top) ? getString(R.string.sum_top_row_none)
+                    : getString(R.string.sum_top_row, lower(nameOf(TOP_ROWS, TOP_ROW_NAMES, top))));
+            if (Prefs.digraphs(this)) parts.add(getString(R.string.sum_digraphs));
+            if (Prefs.altChars(this)) parts.add(getString(R.string.sum_alt_chars));
             String hints = Prefs.hintMode(this);
             if ("on".equals(hints)) parts.add(getString(R.string.sum_hints));
             else if ("learning".equals(hints)) parts.add(getString(R.string.aj_sum_hints_learning));
-            if (Prefs.strip(this)) parts.add(getString(R.string.sum_strip));
-            if (Prefs.toolbar(this)) parts.add(getString(R.string.sum_toolbar));
-            String hand = Prefs.hand(this);
-            if (!"none".equals(hand)) parts.add(getString(R.string.sum_hand, getString(nameOf(HANDS, HAND_NAMES, hand))));
-            String split = Prefs.splitPref(this);
-            if (!wide && !"auto".equals(split)) parts.add(getString(R.string.aj_sum_split, getString(nameOf(SPLITS, SPLIT_NAMES, split))));
-            s.summary.setText(join(parts));
+            if (Prefs.strip(this)) parts.add(getString(R.string.immersive_short));
+            p.summary.setText(join(parts));
         }
-        if ((s = sections.get("fold")) != null) {
+        if ((p = pages.get(PAGE_STYLE)) != null) {
             java.util.List<String> parts = new java.util.ArrayList<>();
-            parts.add(getString(nameOf(SPLITS, SPLIT_NAMES, Prefs.splitPref(this))));
-            parts.add(getString(nameOf(SPLIT_WIDTHS, SPLIT_WIDTH_NAMES, Prefs.splitWidth(this))).toLowerCase(java.util.Locale.getDefault()));
-            parts.add(getString(R.string.sum_wide));
-            s.summary.setText(join(parts));
+            parts.add(themeLabel());
+            parts.add(getString(R.string.aj_sum_saber, lower(SABER_NAMES[saberIndex()])));
+            if (Prefs.toolbar(this)) parts.add(getString(R.string.sum_toolbar));
+            p.summary.setText(join(parts));
         }
-        if ((s = sections.get("size")) != null) {
+        if ((p = pages.get(PAGE_SIZE)) != null) {
             java.util.List<String> parts = new java.util.ArrayList<>();
             parts.add(Prefs.heightPct(this) + PCT);
             parts.add(getString(R.string.aj_sum_margin, Prefs.bottomDp(this)));
-            s.summary.setText(join(parts));
+            String hand = Prefs.hand(this);
+            if (!"none".equals(hand)) parts.add(getString(R.string.sum_hand, getString(nameOf(HANDS, HAND_NAMES, hand))));
+            String split = Prefs.splitPref(this);
+            if (wide || !"auto".equals(split)) parts.add(getString(R.string.aj_sum_split, getString(nameOf(SPLITS, SPLIT_NAMES, split))));
+            p.summary.setText(join(parts));
         }
-        if ((s = sections.get("smart")) != null) {
+        if ((p = pages.get(PAGE_SMART)) != null) {
             java.util.List<String> parts = new java.util.ArrayList<>();
             if (Prefs.autocorrect(this)) parts.add(getString(R.string.sum_autocorrect));
             if (Prefs.autoReplace(this)) parts.add(getString(R.string.aj_sum_replace));
-            if (Prefs.glide(this)) parts.add(getString(R.string.sum_glide));
             if (Prefs.learn(this)) parts.add(getString(R.string.sum_learn));
             if (Prefs.starWars(this)) parts.add(getString(R.string.aj_sum_starwars));
             int n = Prefs.shortcuts(this).size();
             parts.add(getResources().getQuantityString(R.plurals.aj_sum_shortcuts, n, n));
-            s.summary.setText(join(parts));
+            p.summary.setText(join(parts));
         }
-        if ((s = sections.get("touch")) != null) {
+        if ((p = pages.get(PAGE_TOUCH)) != null) {
             java.util.List<String> parts = new java.util.ArrayList<>();
+            if (Prefs.glide(this)) parts.add(getString(R.string.sum_glide));
             if (Prefs.preview(this)) parts.add(getString(R.string.aj_sum_bubble));
-            parts.add(lower(nameOf(LONGPRESSES, LONGPRESS_NAMES, Prefs.longPress(this))));
+            parts.add(getString(R.string.sum_longpress, lower(nameOf(LONGPRESSES, LONGPRESS_NAMES, Prefs.longPress(this)))));
             if (Prefs.sound(this)) parts.add(getString(R.string.sum_sound));
             if (Prefs.vibrate(this)) {
                 String level = Prefs.vibration(this);
                 parts.add("system".equals(level) ? getString(R.string.sum_vibrate)
                         : getString(R.string.aj_sum_vibration, lower(nameOf(VIBRATIONS, VIBRATION_NAMES, level))));
             }
-            s.summary.setText(join(parts));
+            p.summary.setText(join(parts));
         }
-        if ((s = sections.get("clipboard")) != null) {
-            s.summary.setText(Prefs.screenshots(this) ? R.string.aj_sum_shots_on : R.string.aj_sum_shots_off);
+        if ((p = pages.get(PAGE_CLIPBOARD)) != null) {
+            p.summary.setText(Prefs.screenshots(this) ? R.string.aj_sum_shots_on : R.string.aj_sum_shots_off);
         }
-        if ((s = sections.get("ai")) != null) {
+        if ((p = pages.get(PAGE_AI)) != null) {
             String name = AiModels.engineShortName(this);
-            if (AiModels.remote(this)) s.summary.setText(getString(R.string.sum_ai_remote, name == null ? "—" : name));
-            else if (name != null) s.summary.setText(getString(R.string.sum_ai_ready, name));
-            else s.summary.setText(R.string.sum_ai_none);
+            if (AiModels.remote(this)) p.summary.setText(getString(R.string.sum_ai_remote, name == null ? "—" : name));
+            else if (name != null) p.summary.setText(getString(R.string.sum_ai_ready, name));
+            else p.summary.setText(R.string.sum_ai_none);
         }
-        if ((s = sections.get("more")) != null) s.summary.setText(R.string.aj_sum_more);
-        if ((s = sections.get("help")) != null) s.summary.setText(getString(R.string.sum_gestures, gestureCount));
-        for (Section sec : sections.values()) describeHeader(sec);
+        if ((p = pages.get(PAGE_PRIVACY)) != null) p.summary.setText(R.string.aj_sum_more);
+        if ((p = pages.get(PAGE_HELP)) != null) p.summary.setText(getString(R.string.sum_gestures, GESTURES.length / 2));
+        for (Page page : pages.values()) describeRow(page);
     }
 
     /** Indice en Prefs.SABERS del color guardado (0 si no se reconoce). */
@@ -2514,10 +2805,11 @@ public final class MainActivity extends Activity {
         return 0;
     }
 
-    /** Nombre del tema para el resumen; con Automatico, tambien el que esta en uso: "Automatico (Noche)". */
+    /** Nombre del tema para el resumen; con un automatico, tambien el que esta en uso: "Republica (Noche)". */
     private String themeLabel() {
         String name = getString(Themes.byId(Prefs.theme(this)).name);
-        return Prefs.THEME_AUTO.equals(Prefs.themePref(this)) ? getString(R.string.aj_theme_auto) + " (" + name + ")" : name;
+        String pref = Prefs.themePref(this);
+        return Themes.isAuto(pref) ? getString(Themes.autoName(pref)) + " (" + name + ")" : name;
     }
 
     private String lower(int res) { return getString(res).toLowerCase(java.util.Locale.getDefault()); }
@@ -2546,7 +2838,7 @@ public final class MainActivity extends Activity {
         return t;
     }
 
-    /** Linea entre filas, salvo si la fila anterior ya es una linea (p. ej. la que sigue a la cabecera de la seccion). */
+    /** Linea entre filas, salvo si la fila anterior ya es una linea (o la tarjeta esta vacia). */
     private void separator(LinearLayout parent) {
         int n = parent.getChildCount();
         if (n > 0 && !"divider".equals(parent.getChildAt(n - 1).getTag())) parent.addView(dividerLine());

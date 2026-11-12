@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Panel "Inteligencia" 2.2: listas de verdad (titulo + elementos con "- ") y segunda pasada de Traducir cuando el modelo repite el original -->
+    <string name="ai_err_untranslated">El modelo no tradujo el texto. Prueba de nuevo, con otro modelo o con un servidor.</string>
+    <string name="ia4_translating_again">Traduciendo de nuevo…</string>
+</resources>

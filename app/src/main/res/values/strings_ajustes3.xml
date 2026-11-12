@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Pantalla de ajustes 2.2: lista de categorias al estilo One UI, cada una con su pagina. -->
+    <string name="cat_list_title">Settings</string>
+    <string name="cat_keys">Languages and keys</string>
+    <string name="cat_style">Style</string>
+    <string name="cat_size">Size and layout</string>
+    <string name="cat_touch">Swipe, touch and feedback</string>
+    <string name="cat_privacy">Privacy and data</string>
+    <string name="aj_back">Back</string>
+    <string name="aj_open_page">Opens the %1$s page</string>
+
+    <!-- Resumenes nuevos -->
+    <string name="sum_top_row">top row: %1$s</string>
+    <string name="sum_top_row_none">no top row</string>
+    <string name="sum_digraphs">digraphs</string>
+    <string name="sum_alt_chars">alternative characters</string>
+    <string name="sum_longpress">long press %1$s</string>
+
+    <!-- Estilo -->
+    <string name="aj_toolbar_icons_note">Which icons the bar shows, and in what order, is chosen from the keyboard itself: ··· › Edit</string>
+    <string name="aj_theme_auto_badge">automatic, follows the phone\'s dark mode</string>
+</resources>

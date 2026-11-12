@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Panel "Intelligenz" 2.2: echte Listen (Titel + Elemente mit "- ") und zweiter Übersetzungsdurchgang, wenn das Modell das Original wiederholt -->
+    <string name="ai_err_untranslated">Das Modell hat den Text nicht übersetzt. Versuche es noch einmal, mit einem anderen Modell oder mit einem Server.</string>
+    <string name="ia4_translating_again">Übersetze noch einmal…</string>
+</resources>

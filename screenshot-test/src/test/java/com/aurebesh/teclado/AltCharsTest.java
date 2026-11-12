@@ -468,22 +468,34 @@ public class AltCharsTest {
         Bitmap b = render(kb, W);
         save(b, "qwertz_umlauts.png");
         float sq = 12 * dp;
+        // Desde 2.2 las vocales con dieresis tienen glifo propio (la vocal con dos cuadrados encima): la tecla dibuja ese
+        // glifo, no el de la letra base, y sin pistas no hace falta la letra latina para distinguirlas de la vocal simple
         for (String u : new String[]{"ü", "ö", "ä"}) {
             AurebeshKeyboardView.Key k = kb.keyFor(u);
             check(k != null, "de: falta la tecla " + u);
-            check(k.glyph != null && !k.glyph.equals(k.output), "de: la " + u + " dibuja el glifo de la letra base: " + k.glyph);
+            check(Glyphs.has(u), "de: la " + u + " tiene glifo propio");
+            check(k.glyph != null && k.glyph.equals(k.output), "de: la " + u + " dibuja su propio glifo con dieresis: " + k.glyph);
             check(k.glyph.equals(Glyphs.glyphKey(u)), "de: el glifo de la " + u + " es el de Glyphs.glyphKey: " + k.glyph);
             RectF f = face(k, dp);
             check(dist(pixel(b, f.left + 7 * dp, f.top + 7 * dp), t.keyBg) <= 24, "de: muestra del fondo de la " + u);
             int mid = inkCount(b, middle(f), t);
             check(mid >= 12, "de: la " + u + " tiene el glifo en el centro de la cara (" + mid + " px)");
             int br = inkCount(b, bottomRight(f, sq), t);
-            check(br >= 12, "de: la " + u + " latina abajo a la derecha aunque no haya pistas (" + br + " px)");
+            check(br == 0, "de: sin pistas la esquina inferior derecha de la " + u + " queda limpia (" + br + " px)");
         }
-        // La u normal, sin pistas, no lleva letra latina (solo las que comparten glifo la necesitan para distinguirse)
+        // La u normal, sin pistas, tampoco lleva letra latina
         RectF fu = face(kb.keyFor("u"), dp);
         check(inkCount(b, bottomRight(fu, sq), t) == 0, "de: la u sin pistas no lleva letra latina");
         check(inkCount(b, middle(fu), t) >= 12, "de: la u con su glifo");
+        // Con pistas (siempre) la letra latina de la u con dieresis va abajo a la derecha, como en todas
+        kb.setHintMode(1);
+        Bitmap hb = render(kb, W);
+        save(hb, "qwertz_umlauts_pistas.png");
+        for (String u : new String[]{"ü", "ö", "ä", "u"}) {
+            int br = inkCount(hb, bottomRight(face(kb.keyFor(u), dp), sq), t);
+            check(br >= 12, "de: con pistas la " + u + " latina abajo a la derecha (" + br + " px)");
+        }
+        kb.setHintMode(0);
         // Y la u con dieresis insinua su simbolo { arriba a la derecha
         check(inkCount(b, topRight(face(kb.keyFor("ü"), dp), sq), t) >= 6, "de: la u con dieresis insinua {");
         // La fila superior tiene 11 teclas: la u con dieresis a la derecha de la p, al margen

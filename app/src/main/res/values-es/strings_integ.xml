@@ -37,7 +37,7 @@
     <string name="sum_try">Escribe con la copia del teclado; abajo, campos con el teclado del sistema</string>
     <string name="sum_hints">letras latinas</string>
     <string name="sum_toolbar">barra de herramientas</string>
-    <string name="sum_strip">barra de traducción</string>
+    <string name="sum_strip">todo en Aurebesh</string>
     <string name="sum_glide">deslizar</string>
     <string name="sum_autocorrect">predictivo</string>
     <string name="sum_learn">aprende palabras</string>

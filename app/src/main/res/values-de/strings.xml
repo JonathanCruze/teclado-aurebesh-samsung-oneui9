@@ -31,8 +31,8 @@
     <string name="theme_contraste">Kontrast</string>
     <string name="opt_hints">Lateinische Buchstaben auf den Tasten</string>
     <string name="opt_hints_sub">Kleiner lateinischer Buchstabe in der Ecke jeder Taste, praktisch, während du das Alphabet lernst</string>
-    <string name="opt_strip">Übersetzungsleiste</string>
-    <string name="opt_strip_sub">Zeigt über den Tasten, was du in Aurebesh schreibst</string>
+    <string name="opt_strip">Alles in Aurebesh</string>
+    <string name="opt_strip_sub">Zeigt Getipptes und Vorschläge in Aurebesh über den Tasten</string>
     <string name="opt_toolbar">Symbolleiste</string>
     <string name="opt_toolbar_sub">Fügt über den Tasten eine Reihe mit ✦ Intelligenz, 😊 Emojis, 📋 Zwischenablage und Einhandmodus hinzu, in ?123 auch ⚙ Einstellungen; ohne sie ist die Tastatur niedriger</string>
 

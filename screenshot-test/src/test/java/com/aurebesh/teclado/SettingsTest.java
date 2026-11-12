@@ -33,11 +33,13 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 /**
- * Pantalla de ajustes (1.10): la actividad se crea con las secciones como One UI, el tema Automatico se guarda
- * como "auto" y se resuelve con el modo oscuro, los atajos de texto van y vienen desde Prefs, el deslizador de
- * alto guarda el porcentaje al soltar, en un telefono no hay seccion Plegables (el dividido va en Diseno) y los campos
- * de prueba son uno de texto normal y uno de PIN numerico (ya no hay campo de contrasena de texto). Desde 2.1 Diseno
- * lleva el interruptor "Caracteres alternativos" (Prefs.ALT_CHARS, activo de fabrica).
+ * Pantalla de ajustes (2.2, estilo Ajustes de One UI): la pantalla principal lleva la tarjeta "Pruebalo" y una lista
+ * con una fila por categoria (titulo, resumen de una linea y ›) que abre su pagina dentro de la misma actividad; cada
+ * pagina se construye al abrirla. Los temas automaticos (Republica e Imperio) se guardan como "auto" y "auto_imperio"
+ * y se resuelven con el modo oscuro; los atajos de texto van y vienen desde Prefs; el deslizador de alto (pagina
+ * Tamano y distribucion) guarda el porcentaje al soltar; en un telefono no hay Plegables (el dividido va en Tamano);
+ * la pagina abierta sobrevive al giro y el boton atras la cierra; y los campos de prueba son uno de texto normal y uno
+ * de PIN numerico. "Caracteres alternativos" (Prefs.ALT_CHARS, activo de fabrica) vive en Idiomas y teclas.
  */
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 35, qualifiers = "es-rES-w411dp-h914dp-xxhdpi")
@@ -97,25 +99,92 @@ public class SettingsTest {
         return null;
     }
 
+    /** Primera vista pulsable cuya descripcion accesible empieza por {@code prefix} (las filas de categoria y las tarjetas de tema). */
+    static View clickableStartingWith(MainActivity a, String prefix) {
+        for (View v : all(a)) {
+            if (v.getContentDescription() == null || !v.hasOnClickListeners()) continue;
+            if (v.getContentDescription().toString().startsWith(prefix)) return v;
+        }
+        return null;
+    }
+
+    /** Fila de la lista principal de la categoria con ese titulo (descripcion "Titulo. resumen"). */
+    static View categoryRow(MainActivity a, int titleRes) {
+        return clickableStartingWith(a, a.getString(titleRes) + ".");
+    }
+
+    /** Abre la pagina de esa categoria tocando su fila de la lista principal y comprueba que queda abierta. */
+    static void openCategory(MainActivity a, int titleRes, String pageKey) {
+        View row = categoryRow(a, titleRes);
+        assertNotNull("fila de categoria " + a.getString(titleRes), row);
+        row.performClick();
+        ShadowLooper.shadowMainLooper().idle();
+        assertEquals("la pagina abierta", pageKey, a.openPageKey());
+    }
+
     // ------------------------------------------------------------------ secciones
 
     @Test
-    public void activityShowsTheNewSections() {
+    public void activityShowsTheCategoryList() {
         MainActivity a = create();
-        int[] titles = {R.string.try_title, R.string.aj_sec_design, R.string.aj_sec_size, R.string.aj_sec_smart,
-                R.string.aj_sec_touch, R.string.aj_sec_clipboard, R.string.ai_section, R.string.aj_sec_help};
-        for (int res : titles) assertTrue("falta la seccion " + a.getString(res), hasText(a, a.getString(res)));
-        // La fila "Ir a" existe y el resumen de Ayuda cuenta las filas de gestos
-        assertTrue(hasText(a, a.getString(R.string.nav_go)));
+        // Pantalla principal: "Pruebalo", el titulo de la lista y una fila por categoria, en este orden
+        assertTrue("falta la tarjeta Pruebalo", hasText(a, a.getString(R.string.try_title)));
+        assertTrue("falta el titulo de la lista", hasText(a, a.getString(R.string.cat_list_title)));
+        int[] titles = {R.string.cat_keys, R.string.cat_style, R.string.cat_size, R.string.aj_sec_smart, R.string.cat_touch,
+                R.string.aj_sec_clipboard, R.string.ai_section, R.string.cat_privacy, R.string.aj_sec_help};
+        String[] keys = {MainActivity.PAGE_KEYS, MainActivity.PAGE_STYLE, MainActivity.PAGE_SIZE, MainActivity.PAGE_SMART,
+                MainActivity.PAGE_TOUCH, MainActivity.PAGE_CLIPBOARD, MainActivity.PAGE_AI, MainActivity.PAGE_PRIVACY, MainActivity.PAGE_HELP};
+        List<View> order = all(a);
+        int last = -1;
+        for (int i = 0; i < titles.length; i++) {
+            String title = a.getString(titles[i]);
+            assertTrue("falta la categoria " + title, hasText(a, title));
+            View row = categoryRow(a, titles[i]);
+            assertNotNull("fila pulsable de " + title, row);
+            assertTrue("se lee como boton", row.isClickable() || row.hasOnClickListeners());
+            int at = order.indexOf(row);
+            assertTrue("las categorias van en orden: " + title, at > last);
+            last = at;
+        }
+        // Las secciones antiguas ya no son titulos: ni Diseno ni Mas ajustes ni los chips "Ir a"
+        assertFalse(hasText(a, a.getString(R.string.aj_sec_design)));
+        assertFalse(hasText(a, a.getString(R.string.nav_go)));
+        // El resumen de Ayuda cuenta las filas de gestos y el de Idiomas y teclas dice la fila superior
         assertTrue(hasText(a, a.getString(R.string.sum_gestures, 18)));
+        assertTrue(textContains(a, a.getString(R.string.sum_top_row, a.getString(R.string.top_row_numbers).toLowerCase())));
+        // La descripcion accesible de cada fila es "Titulo. resumen"
+        View help = categoryRow(a, R.string.aj_sec_help);
+        assertEquals(a.getString(R.string.aj_sec_help) + ". " + a.getString(R.string.sum_gestures, 18), help.getContentDescription().toString());
+        // Ninguna pagina esta abierta ni construida hasta que se toca su fila
+        assertEquals(null, a.openPageKey());
+        assertFalse("las filas de las paginas no se construyen de antemano", hasText(a, a.getString(R.string.aj_saber)));
+        for (int i = 0; i < titles.length; i++) {
+            openCategory(a, titles[i], keys[i]);
+            assertTrue("la barra de la pagina lleva su titulo", hasText(a, a.getString(titles[i])));
+            a.onBackPressed();
+            assertEquals("atras cierra la pagina", null, a.openPageKey());
+        }
+        openCategory(a, R.string.cat_style, MainActivity.PAGE_STYLE);
+        assertTrue("con Estilo abierta, sus filas estan en el arbol", hasText(a, a.getString(R.string.aj_saber)));
+        openCategory(a, R.string.cat_size, MainActivity.PAGE_SIZE);
+        assertFalse("solo la pagina abierta cuelga de la columna", hasText(a, a.getString(R.string.aj_saber)));
+        a.onBackPressed();
+        // El extra "section" del intent abre la pagina pedida (el engrane del teclado manda "ai"; se aceptan las antiguas)
+        assertEquals(MainActivity.PAGE_AI, MainActivity.pageKeyFor("ai"));
+        assertEquals(MainActivity.PAGE_STYLE, MainActivity.pageKeyFor("design"));
+        assertEquals(MainActivity.PAGE_SIZE, MainActivity.pageKeyFor("fold"));
+        assertEquals(null, MainActivity.pageKeyFor("xyzzy"));
+        android.content.Intent intent = new android.content.Intent(app, MainActivity.class).putExtra("section", "ai");
+        MainActivity b = Robolectric.buildActivity(MainActivity.class, intent).setup().get();
+        assertEquals("el engrane abre Inteligencia", MainActivity.PAGE_AI, b.openPageKey());
     }
 
     @Test
-    public void phoneHasNoFoldSectionButKeepsSplitRowInDesign() {
-        Prefs.ui(app).edit().putBoolean("sec_design", true).apply();   // Diseno abierta: solo asi se ve su contenido
+    public void phoneHasNoFoldSectionButKeepsSplitRowInSize() {
         MainActivity a = create();
-        assertFalse("en un telefono no hay seccion Plegables", hasText(a, a.getString(R.string.fold_section)));
-        assertTrue("el dividido va dentro de Diseno", hasText(a, a.getString(R.string.opt_split)));
+        openCategory(a, R.string.cat_size, MainActivity.PAGE_SIZE);   // las paginas se construyen al abrirlas
+        assertFalse("en un telefono no hay Plegables", hasText(a, a.getString(R.string.fold_section)));
+        assertTrue("el dividido va dentro de Tamano y distribucion", hasText(a, a.getString(R.string.opt_split)));
         assertTrue("con la linea de deteccion de la pantalla", textContains(a, a.getString(R.string.fold_detected_phone, 411)));
         // "Ancho de las mitades" solo se ve con el dividido en Siempre
         TextView width = textView(a, a.getString(R.string.aj_split_width));
@@ -131,7 +200,9 @@ public class SettingsTest {
     public void wideScreenHasFoldSection() {
         MainActivity a = create();
         assertTrue(DeviceInfo.wideScreen(a));
-        assertTrue(hasText(a, a.getString(R.string.fold_section)));
+        assertFalse("Plegables no es una categoria propia", categoryRow(a, R.string.fold_section) != null);
+        openCategory(a, R.string.cat_size, MainActivity.PAGE_SIZE);
+        assertTrue("Plegables va dentro de Tamano y distribucion", hasText(a, a.getString(R.string.fold_section)));
         assertTrue(hasText(a, a.getString(R.string.aj_split_width)));
         assertTrue(textContains(a, a.getString(R.string.fold_detected_wide, 800)));   // va en el subtitulo de la fila de dividido
     }
@@ -144,21 +215,25 @@ public class SettingsTest {
         return true;
     }
 
+    /** La pagina abierta no se guarda en preferencias (ya no hay claves sec_*): sobrevive al giro por el estado de la actividad. */
     @Test
-    public void sectionStateLivesInUiPrefsNotKeyboardPrefs() {
-        MainActivity a = create();
-        View header = null;
-        for (View v : all(a)) {                                // el primer "Diseno" es el chip de "Ir a"; la cabecera cuelga de una fila pulsable
-            if (!(v instanceof TextView) || !a.getString(R.string.aj_sec_design).equals(((TextView) v).getText().toString())) continue;
-            if (!(v.getParent() instanceof View) || !(v.getParent().getParent() instanceof View)) continue;
-            View h = (View) v.getParent().getParent();
-            if (h.hasOnClickListeners()) { header = h; break; }
-        }
-        assertNotNull(header);
-        header.performClick();
-        assertTrue(Prefs.ui(app).getBoolean("sec_design", false));
-        assertFalse("las claves sec_* no deben despertar al teclado", Prefs.get(app).contains("sec_design"));
+    public void openPageSurvivesRotationWithoutTouchingPrefs() {
+        Prefs.ui(app).edit().putBoolean("sec_design", true).apply();   // resto de una instalacion antigua
+        org.robolectric.android.controller.ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).setup();
+        MainActivity a = c.get();
+        openCategory(a, R.string.cat_style, MainActivity.PAGE_STYLE);
+        assertFalse("abrir una pagina no escribe en las preferencias del teclado", Prefs.get(app).contains("sec_design"));
+        assertFalse("ni en las de la pantalla (las claves sec_* se limpian)", Prefs.ui(app).contains("sec_design"));
         assertFalse(Prefs.affectsKeyboard("sec_design"));
+        // Giro: el estado guardado reabre la misma pagina en la actividad nueva
+        android.os.Bundle state = new android.os.Bundle();
+        c.saveInstanceState(state);
+        MainActivity b = Robolectric.buildActivity(MainActivity.class).setup(state).get();
+        assertEquals("la pagina abierta sobrevive al giro", MainActivity.PAGE_STYLE, b.openPageKey());
+        assertTrue(hasText(b, a.getString(R.string.aj_saber)));
+        b.onBackPressed();
+        assertEquals(null, b.openPageKey());
+        assertTrue("de vuelta en la lista", hasText(b, a.getString(R.string.cat_list_title)));
     }
 
     // ------------------------------------------------------------------ caracteres alternativos
@@ -173,15 +248,15 @@ public class SettingsTest {
 
     @Test
     public void altCharsSwitchReflectsAndTogglesThePreference() {
-        Prefs.ui(app).edit().putBoolean("sec_design", true).apply();   // Diseno abierta
         MainActivity a = create();
+        openCategory(a, R.string.cat_keys, MainActivity.PAGE_KEYS);
         String title = a.getString(R.string.alt_chars_title);
-        assertTrue("la fila Caracteres alternativos esta en Diseno", hasText(a, title));
+        assertTrue("la fila Caracteres alternativos esta en Idiomas y teclas", hasText(a, title));
         assertTrue("con su subtitulo", hasText(a, a.getString(R.string.alt_chars_sub)));
         assertTrue("y su nota", hasText(a, a.getString(R.string.alt_chars_hint)));
         Switch sw = switchFor(a, title);
         assertNotNull("interruptor de caracteres alternativos", sw);
-        assertTrue("la fila se ve con Diseno abierta", visibleUpToRoot(sw));
+        assertTrue("la fila se ve con la pagina abierta", visibleUpToRoot(sw));
         assertTrue("activo de fabrica", Prefs.altChars(app));
         assertTrue("el interruptor refleja la preferencia (activa)", sw.isChecked());
         String spoken = sw.getContentDescription().toString();
@@ -207,11 +282,12 @@ public class SettingsTest {
         // Con la preferencia apagada de antemano, la actividad arranca con el interruptor apagado
         Prefs.get(app).edit().putBoolean(Prefs.ALT_CHARS, false).apply();
         MainActivity b = create();
+        openCategory(b, R.string.cat_keys, MainActivity.PAGE_KEYS);
         Switch sw2 = switchFor(b, title);
         assertNotNull(sw2);
         assertFalse("refleja la preferencia apagada", sw2.isChecked());
 
-        // Restablecer, Exportar e Importar la tratan como las demas booleanas de Diseno
+        // Restablecer, Exportar e Importar la tratan como las demas booleanas
         boolean listed = false;
         for (String k : MainActivity.RESET_KEYS) if (Prefs.ALT_CHARS.equals(k)) listed = true;
         assertTrue("en la lista blanca de Restablecer y Exportar", listed);
@@ -223,9 +299,16 @@ public class SettingsTest {
     @Test
     public void automaticThemeIsSavedAsAutoAndFollowsNightMode() {
         MainActivity a = create();
-        View auto = byDescription(a, a.getString(R.string.aj_theme_auto));
-        assertNotNull("muestra Automatico en la fila de temas", auto);
+        openCategory(a, R.string.cat_style, MainActivity.PAGE_STYLE);
+        // Grupo de automaticos con dos tarjetas (Republica e Imperio) y, debajo, los fijos
+        assertTrue(hasText(a, a.getString(R.string.theme_auto_group)));
+        assertTrue(hasText(a, a.getString(R.string.theme_fixed_group)));
+        assertFalse("el chip Automatico antiguo ya no esta", byDescription(a, a.getString(R.string.aj_theme_auto)) != null);
+        View auto = clickableStartingWith(a, a.getString(R.string.theme_auto_republic) + ". " + a.getString(R.string.theme_auto_republic_sub));
+        assertNotNull("tarjeta Republica", auto);
+        assertTrue("se lee como automatico", auto.getContentDescription().toString().endsWith(a.getString(R.string.aj_theme_auto_badge)));
         auto.performClick();
+        assertTrue(auto.isSelected());
         assertEquals("auto", Prefs.get(app).getString(Prefs.THEME, null));
         assertEquals(Prefs.THEME_AUTO, Prefs.themePref(app));
         // De dia (los calificadores no llevan "night") Automatico es Estelar
@@ -236,9 +319,25 @@ public class SettingsTest {
         Context nightContext = app.createConfigurationContext(night);
         assertEquals(Themes.NOCHE.id, Prefs.theme(nightContext));
         assertEquals(Prefs.THEME_AUTO, Prefs.themePref(nightContext));
-        // Un tema fijo no depende del modo
-        Prefs.get(app).edit().putString(Prefs.THEME, Themes.ARENA.id).apply();
+        // Imperio: Arena de dia e Imperial de noche
+        View imperio = clickableStartingWith(a, a.getString(R.string.theme_auto_imperio) + ". " + a.getString(R.string.theme_auto_imperio_sub));
+        assertNotNull("tarjeta Imperio", imperio);
+        imperio.performClick();
+        assertTrue(imperio.isSelected());
+        assertFalse("Republica deja de estar seleccionada", auto.isSelected());
+        assertEquals(Prefs.THEME_AUTO_IMPERIO, Prefs.get(app).getString(Prefs.THEME, null));
+        assertEquals(Themes.ARENA.id, Prefs.theme(app));
+        assertEquals(Themes.IMPERIAL.id, Prefs.theme(nightContext));
+        ShadowLooper.shadowMainLooper().idle();
+        assertTrue("el resumen de Estilo nombra el automatico", textContains(a, a.getString(R.string.theme_auto_imperio)));
+        // Un tema fijo no depende del modo; su muestra se selecciona y las automaticas no
+        View arena = byDescription(a, a.getString(R.string.theme_arena));
+        assertNotNull("muestra Arena entre los fijos", arena);
+        arena.performClick();
         assertEquals(Themes.ARENA.id, Prefs.theme(nightContext));
+        assertTrue(arena.isSelected());
+        assertFalse(imperio.isSelected());
+        for (Themes.Theme t : Themes.ALL) assertNotNull("muestra fija " + t.id, byDescription(a, a.getString(t.name)));
     }
 
     // ------------------------------------------------------------------ atajos de texto
@@ -251,6 +350,7 @@ public class SettingsTest {
         assertEquals(1, Prefs.shortcuts(app).size());
 
         MainActivity a = create();
+        openCategory(a, R.string.aj_sec_smart, MainActivity.PAGE_SMART);
         assertTrue("la fila muestra el contador", hasText(a, a.getString(R.string.aj_shortcuts_row, 1)));
 
         Prefs.removeShortcut(app, "ahr");
@@ -272,6 +372,7 @@ public class SettingsTest {
     @Test
     public void heightSliderSavesPercentOnRelease() {
         MainActivity a = create();
+        openCategory(a, R.string.cat_size, MainActivity.PAGE_SIZE);
         assertEquals(100, Prefs.heightPct(app));
         SeekBar bar = null;
         for (View v : all(a)) {

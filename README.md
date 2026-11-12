@@ -12,12 +12,12 @@
 
 <p align="center">
   <a href="https://github.com/JonathanCruze/teclado-aurebesh-samsung-oneui9/raw/main/releases/TecladoAurebesh.apk">
-    <img src="https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20%20DESCARGAR%20APK%20%E2%80%94%20Teclado%20Aurebesh%202.1-1B2838?style=for-the-badge&logoColor=white&labelColor=1B2838&color=7FD3F0" alt="Descargar APK">
+    <img src="https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20%20DESCARGAR%20APK%20%E2%80%94%20Teclado%20Aurebesh%202.2-1B2838?style=for-the-badge&logoColor=white&labelColor=1B2838&color=7FD3F0" alt="Descargar APK">
   </a>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/versi%C3%B3n-2.1-7FD3F0?style=flat-square" alt="versión 2.1">
+  <img src="https://img.shields.io/badge/versi%C3%B3n-2.2-7FD3F0?style=flat-square" alt="versión 2.2">
   <img src="https://img.shields.io/badge/Android-8.0%2B-3DDC84?style=flat-square" alt="Android 8+">
   <img src="https://img.shields.io/badge/Samsung-One%20UI%209.0-1428A0?style=flat-square" alt="Samsung One UI 9.0">
   <img src="https://img.shields.io/badge/sin%20anuncios-%E2%9C%93-2E7D32?style=flat-square" alt="sin anuncios">
@@ -66,6 +66,9 @@ Para actualizar, descarga el nuevo APK e instálalo encima: conserva tus ajustes
   preámbulos y, si el modelo repite el original, reintenta una vez antes de avisar.
 - **Sables:** bronce para Cal Kestis, Baylan Skoll y Shin Hati; amarillo para la Guardia del Templo y Rey; el rojo pasa a
   "Kyber corrompido". Reva lleva rojo de Inquisidor y Quinlan Vos verde, así que no cambian de color.
+- **Pruebas:** 150 en total; Lote22Test cubre el ajuste sin rebote, la fila superior, el numérico, los glifos nuevos, Todo en
+  Aurebesh y los temas automáticos. Capturas en `screenshots/`: `app_claro.png`, `ajustes_estilo.png`, `numerico_simbolos.png`,
+  `numerico_telefono.png`, `todo_en_aurebesh.png`, `glifos_nuevos_teclado.png`, `tamano_ajuste_arrastrado.png`.
 
 ### Novedades de la 2.1
 - **Teclas y márgenes como Samsung Keyboard**, medidos en un Galaxy Z Flip 7 y un Z Fold 7: margen lateral del 2,1 % (5 % en
