@@ -209,8 +209,8 @@ def euro(G):
     p0,p1=(0.75,2.3),(3.5,9.5); ys=(5.5-_D,5.5+_D)
     return _hticks_aligned(G['e'],[(_arm_x(y,p0,p1),y) for y in ys],1.62)
 def yen(G):
-    """Yen: los palitos en el brazo derecho de la y, hacia la mitad."""
-    p0,p1=(7.65,2.32),(4.43,10.0); ys=(6.3-_D,6.3+_D)
+    """Yen: los palitos en el brazo derecho de la y, por encima de la mitad."""
+    p0,p1=(7.65,2.32),(4.43,10.0); ys=(5.0-_D,5.0+_D)   # subidos a peticion del usuario (antes a 6.3)
     return _hticks_aligned(G['y'],[(_arm_x(y,p0,p1),y) for y in ys],1.62)
 def currency(G, pound_where='l_vertical'):
     return {'\u20ac':euro(G), '\u00a5':yen(G), '\u00a3':pound(G,pound_where)}
