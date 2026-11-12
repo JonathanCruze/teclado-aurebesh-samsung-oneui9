@@ -44,6 +44,14 @@
 
 Para actualizar, descarga el nuevo APK e instálalo encima: conserva tus ajustes.
 
+### Novedades de la 2.3
+- **Tema Pazaak:** mesa de fieltro azul verdoso, teclas como cartas claras de esquinas casi rectas con borde, intro y mayúsculas
+  en el verde de las cartas positivas. Séptimo tema fijo; los automáticos no cambian.
+- **Viñetas siempre devuelve una lista:** si el modelo repite el texto o lo deja en una línea, el teclado construye la lista a
+  partir del original: la frase sin enumeración es el título y cada elemento separado por comas o por "y" va en su línea con
+  guion. Nunca vuelve vacío.
+- **¥** con los palitos por encima de la mitad del brazo derecho.
+
 ### Novedades de la 2.2.2
 - **Símbolos elegidos sobre las previas:** × son las dos T del + en espejo, desplazadas un tercio de barra y giradas 45°; ÷ es
   el * boca abajo con un punto debajo; £, € y ¥ llevan dos palitos finos horizontales que cruzan un solo trazo, como los del

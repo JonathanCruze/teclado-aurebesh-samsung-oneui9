@@ -8,7 +8,7 @@
     <string name="lang_es" translatable="false">Español</string>
     <string name="lang_en" translatable="false">English</string>
     <string name="lang_de" translatable="false">Deutsch</string>
-    <string name="version" translatable="false">2.2.2</string>
+    <string name="version" translatable="false">2.3</string>
 
     <string name="tagline">The Star Wars alphabet on your keyboard. What you type is sent as normal letters, so anyone can read it.</string>
 
