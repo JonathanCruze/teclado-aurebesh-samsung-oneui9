@@ -44,6 +44,28 @@
 
 Para actualizar, descarga el nuevo APK e instálalo encima: conserva tus ajustes.
 
+### Novedades de la 2.2
+- **Ajustes reorganizados al estilo One UI:** pantalla principal con idiomas, buscador, "Pruébalo" y una lista de categorías con
+  su resumen (Idiomas y teclas, Estilo, Tamaño y distribución, Escritura inteligente, Deslizar, tocar y respuesta, Portapapeles,
+  Inteligencia, Privacidad y datos, Ayuda y gestos); cada una abre su propia página y el buscador lleva a la fila exacta.
+- **Ajuste de tamaño sin rebotes:** al arrastrar el tirador se ve una vista previa del borde y el porcentaje; el alto se aplica
+  una sola vez al soltar. Antes cada cambio movía la ventana del teclado y el arrastre se medía contra una posición desfasada.
+- **Dos automáticos:** República (Estelar de día, Noche de noche) e Imperio (Arena de día, Imperial de noche), destacados en un
+  grupo propio que deja claro que siguen el modo oscuro del teléfono.
+- **Fila superior a elegir:** números, los ocho dígrafos Aurebesh en su lugar, o nada; los números siguen a una pulsación larga.
+- **Teclado numérico completo:** paréntesis, operadores y separador en los campos numéricos; + * # ( ) - / y pausa en teléfono;
+  el PIN sigue siendo solo dígitos.
+- **Pistas latinas abajo al centro** y el glifo algo más alto en números y dígrafos, para que nunca se tapen.
+- **Todo en Aurebesh** (antes "barra de traducción"): con la opción activa, también las sugerencias y la corrección se muestran
+  en glifos.
+- **Glifos nuevos:** la barra invertida y ± £ ¥ ° © ® ™ de la fuente original, ø, ≠ y ‰ compuestos a partir de o, = y %, y las
+  vocales con acento grave, diéresis, circunflejo y tilde con marcas propias (la de la ñ, un 50 % más larga). La página 3/3 de
+  acentos desaparece: los acentos viven en la pulsación larga de cada vocal, por idioma. × y ÷ esperan tu visto bueno a la previa.
+- **Inteligencia:** Viñetas devuelve un título y un elemento por línea con "- "; Traducir responde solo con la traducción, limpia
+  preámbulos y, si el modelo repite el original, reintenta una vez antes de avisar.
+- **Sables:** bronce para Cal Kestis, Baylan Skoll y Shin Hati; amarillo para la Guardia del Templo y Rey; el rojo pasa a
+  "Kyber corrompido". Reva lleva rojo de Inquisidor y Quinlan Vos verde, así que no cambian de color.
+
 ### Novedades de la 2.1
 - **Teclas y márgenes como Samsung Keyboard**, medidos en un Galaxy Z Flip 7 y un Z Fold 7: margen lateral del 2,1 % (5 % en
   plegables desplegados), paso de columna de 40 dp con cara de 34 dp, filas de 64 dp con la cara 7,25 dp más corta por arriba y
