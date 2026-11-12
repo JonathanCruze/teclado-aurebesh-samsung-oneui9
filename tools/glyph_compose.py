@@ -204,14 +204,52 @@ def pound(G, where='l_vertical'):
         return _metrics(union([g['p']]+[[t] for t in out]),g)
     if where=='p_vertical': return _hticks_aligned(G['p'],[(5.57,5.8-_D),(5.57,5.8+_D)],1.52)
     return _hticks_aligned(G['l'],[(5.2,5.8-_D),(5.2,5.8+_D)],1.54)
+def _hticks_follow(letter_glyph, centers, cut):
+    """Dos palitos horizontales de la misma longitud, cada uno centrado en su (x,y) (siguen el trazo si es diagonal)."""
+    half=(cut+2*TICK_OUT)/2
+    bars_=[rect(x-half,y-TICK_W/2,x+half,y+TICK_W/2) for x,y in centers]
+    return _metrics(union([letter_glyph['p']]+[[b] for b in bars_]),letter_glyph)
+def _overlap_area(letter_glyph, centers, cut, S=40):
+    """Area (en unidades cuadradas) en que los palitos pisan la letra: solo deben cruzar su trazo (cut x grosor cada uno)."""
+    half=(cut+2*TICK_OUT)/2; x0,y0,x1,y1=bbox(letter_glyph['p']); pad=4
+    W=int((x1-x0+2)*S)+2*pad; H=int((y1-y0+2)*S)+2*pad
+    def mk(polys, evenodd):
+        m=np.zeros((H,W),np.uint8)
+        for poly in polys:
+            pm=np.zeros_like(m); cv2.fillPoly(pm,[np.array([[pad+(x-x0+1)*S,pad+(y-y0+1)*S] for x,y in poly],np.int32)],1)
+            if evenodd: m^=pm
+            else: m|=pm
+        return m
+    letter=mk(letter_glyph['p'],True)
+    ticks_=mk([rect(x-half,y-TICK_W/2,x+half,y+TICK_W/2) for x,y in centers],False)
+    return float((letter&ticks_).sum())/(S*S)
+def _clear(letter_glyph, centers, cut, margin=0.5):
+    """True si los palitos solo cruzan su trazo: el area pisada no supera la del cruce (con holgura) y, ensanchados
+    margin a cada lado, tampoco tocan otro trazo."""
+    base=2*TICK_W*cut
+    if _overlap_area(letter_glyph,centers,cut)>base*1.25: return False
+    wide=[(x,y) for x,y in centers]
+    old=globals()['TICK_OUT']; globals()['TICK_OUT']=old+margin
+    try: grown=_overlap_area(letter_glyph,wide,cut)
+    finally: globals()['TICK_OUT']=old
+    return grown<=base*1.25
+def _highest_clear(letter_glyph, p0, p1, cut, top, bottom, step=0.1):
+    """Centro mas alto del par de palitos entre top y bottom que no pisa otro trazo de la letra."""
+    c=top
+    while c<=bottom:
+        centers=[(_arm_x(c-_D,p0,p1),c-_D),(_arm_x(c+_D,p0,p1),c+_D)]
+        if _clear(letter_glyph,centers,cut): return c,centers
+        c+=step
+    centers=[(_arm_x(bottom-_D,p0,p1),bottom-_D),(_arm_x(bottom+_D,p0,p1),bottom+_D)]
+    return bottom,centers
 def euro(G):
-    """Euro: los palitos en el brazo izquierdo de la e, en su mitad alta."""
-    p0,p1=(0.75,2.3),(3.5,9.5); ys=(5.5-_D,5.5+_D)
-    return _hticks_aligned(G['e'],[(_arm_x(y,p0,p1),y) for y in ys],1.62)
+    """Euro: los palitos en el brazo izquierdo de la e, en su mitad alta, sin pisar el otro brazo."""
+    p0,p1=(0.75,2.3),(3.5,9.5); c,centers=_highest_clear(G['e'],p0,p1,1.62,5.5,7.0)   # desde la mitad alta, donde la aprobo el usuario
+    return _hticks_follow(G['e'],centers,1.62)
 def yen(G):
-    """Yen: los palitos en el brazo derecho de la y, por encima de la mitad."""
-    p0,p1=(7.65,2.32),(4.43,10.0); ys=(5.0-_D,5.0+_D)   # subidos a peticion del usuario (antes a 6.3)
-    return _hticks_aligned(G['y'],[(_arm_x(y,p0,p1),y) for y in ys],1.62)
+    """Yen: los palitos en el brazo derecho de la y, tan arriba como deje el trazo interior (sin montarse sobre el)."""
+    p0,p1=(7.65,2.32),(4.43,10.0); c,centers=_highest_clear(G['y'],p0,p1,1.62,4.6,7.0)
+    return _hticks_follow(G['y'],centers,1.62)
 def currency(G, pound_where='l_vertical'):
     return {'\u20ac':euro(G), '\u00a5':yen(G), '\u00a3':pound(G,pound_where)}
 def times_divide(G):
