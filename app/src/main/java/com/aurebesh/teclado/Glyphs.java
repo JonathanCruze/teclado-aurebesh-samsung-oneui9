@@ -23,8 +23,11 @@ final class Glyphs {
     private static final HashMap<String, Float> ADV = new HashMap<>();
     private static final Matrix MATRIX = new Matrix();
     private static final Path TMP = new Path();
+    /** Ancho (en unidades, alto de letra = 10) del glifo de letra mas ancho: fija la escala uniforme de las teclas. */
+    static final float LETTER_MAX_W;
 
     static {
+        float maxW = 0;
         for (int i = 0; i < GlyphData.KEYS.length; i++) {
             String[] f = GlyphData.DATA[i].split(";");
             Path path = new Path();
@@ -43,7 +46,10 @@ final class Glyphs {
             WIDTHS.put(GlyphData.KEYS[i], Float.parseFloat(f[0]));
             LSB.put(GlyphData.KEYS[i], Float.parseFloat(f[1]));
             ADV.put(GlyphData.KEYS[i], Float.parseFloat(f[2]));
+            String k = GlyphData.KEYS[i];
+            if (k.length() == 1 && Character.isLetter(k.charAt(0))) maxW = Math.max(maxW, Float.parseFloat(f[0]));
         }
+        LETTER_MAX_W = maxW > 0 ? maxW : 10f;
     }
 
     static boolean has(String key) {
@@ -99,6 +105,24 @@ final class Glyphs {
             scaledW = maxW;
         }
         draw(c, key, cx - scaledW / 2f, cy - h / 2f, h, p);
+    }
+
+    /**
+     * Dibuja el glifo centrado en (cx, cy) con la escala uniforme de las teclas: el alto de letra es h salvo que la
+     * letra mas ancha del alfabeto ({@link #LETTER_MAX_W}) no cupiera en maxW, y entonces todas las letras se reducen
+     * por igual. Asi todas las teclas comparten la misma relacion de aspecto, como una fuente: la i, la l o la m no
+     * salen mas altas que la w. Un glifo mas ancho que la letra mas ancha (digrafos) se reduce ademas el solo.
+     */
+    static void drawFitted(Canvas c, String key, float cx, float cy, float h, float maxW, Paint p) {
+        float w = width(key);
+        if (w <= 0) return;
+        float em = Math.min(h, maxW * 10f / LETTER_MAX_W);
+        float scaledW = w * em / 10f;
+        if (scaledW > maxW) {
+            em = em * maxW / scaledW;
+            scaledW = maxW;
+        }
+        draw(c, key, cx - scaledW / 2f, cy - em / 2f, em, p);
     }
 
     /** Token de texto: glifo Aurebesh (glyph != null) o caracter literal sin glifo. */
