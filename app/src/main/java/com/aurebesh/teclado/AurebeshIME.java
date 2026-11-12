@@ -271,6 +271,7 @@ public class AurebeshIME extends InputMethodService
             view.setSaber(Prefs.saberArgb(this));              // color de la estela al deslizar
             view.setToolbar(Prefs.toolbar(this));
             view.setToolbarItems(Prefs.toolbarItems(this));    // iconos de la cinta elegidos en "..."
+            view.setAltChars(Prefs.altChars(this));            // simbolo de cada letra arriba a la derecha y al mantener (como Samsung)
             view.setSuggestionBar(autocorrect);
             view.setHandMode(Prefs.handMode(this));
             view.setSplitMode(Prefs.splitMode(this));

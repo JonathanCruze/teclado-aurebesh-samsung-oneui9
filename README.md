@@ -12,12 +12,12 @@
 
 <p align="center">
   <a href="https://github.com/JonathanCruze/teclado-aurebesh-samsung-oneui9/raw/main/releases/TecladoAurebesh.apk">
-    <img src="https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20%20DESCARGAR%20APK%20%E2%80%94%20Teclado%20Aurebesh%202.0.1-1B2838?style=for-the-badge&logoColor=white&labelColor=1B2838&color=7FD3F0" alt="Descargar APK">
+    <img src="https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20%20DESCARGAR%20APK%20%E2%80%94%20Teclado%20Aurebesh%202.1-1B2838?style=for-the-badge&logoColor=white&labelColor=1B2838&color=7FD3F0" alt="Descargar APK">
   </a>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/versi%C3%B3n-2.0.1-7FD3F0?style=flat-square" alt="versión 2.0.1">
+  <img src="https://img.shields.io/badge/versi%C3%B3n-2.1-7FD3F0?style=flat-square" alt="versión 2.1">
   <img src="https://img.shields.io/badge/Android-8.0%2B-3DDC84?style=flat-square" alt="Android 8+">
   <img src="https://img.shields.io/badge/Samsung-One%20UI%209.0-1428A0?style=flat-square" alt="Samsung One UI 9.0">
   <img src="https://img.shields.io/badge/sin%20anuncios-%E2%9C%93-2E7D32?style=flat-square" alt="sin anuncios">
@@ -61,6 +61,10 @@ Para actualizar, descarga el nuevo APK e instálalo encima: conserva tus ajustes
   teléfonos apaisados se usa el editor a pantalla completa, como Samsung.
 - **PIN numérico** en lugar de contraseña en los campos de prueba de la app: enseña el teclado numérico y se trata como campo
   privado (sin vista previa, sin aprendizaje, sin inteligencia).
+- **Pruebas:** GeometriaTest y AltCharsTest nuevas (Flip apaisado, métricas Samsung, pistas, glifos uniformes, alternativas,
+  caracteres alternativos, umlauts, fila de números, aire en el Fold), 141 pruebas en total. Capturas en `screenshots/`:
+  `geometria_samsung.png`, `caracteres_alternativos.png`, `pistas_abajo_derecha.png`, `qwertz_umlauts.png`,
+  `tamano_flip_apaisado.png`, `aire_fold_dividido.png`.
 
 ### Novedades de la 2.0.1
 - **Deslizar reconoce el léxico Star Wars:** con el diccionario Star Wars activo, trazar *coruscant*, *palpatine* o *kyber*

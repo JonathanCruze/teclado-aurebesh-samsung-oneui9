@@ -10,6 +10,7 @@ import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
 import android.widget.EditText;
 import android.widget.SeekBar;
+import android.widget.Switch;
 import android.widget.TextView;
 import org.junit.Before;
 import org.junit.Test;
@@ -35,7 +36,8 @@ import static org.junit.Assert.assertTrue;
  * Pantalla de ajustes (1.10): la actividad se crea con las secciones como One UI, el tema Automatico se guarda
  * como "auto" y se resuelve con el modo oscuro, los atajos de texto van y vienen desde Prefs, el deslizador de
  * alto guarda el porcentaje al soltar, en un telefono no hay seccion Plegables (el dividido va en Diseno) y los campos
- * de prueba son uno de texto normal y uno de PIN numerico (ya no hay campo de contrasena de texto).
+ * de prueba son uno de texto normal y uno de PIN numerico (ya no hay campo de contrasena de texto). Desde 2.1 Diseno
+ * lleva el interruptor "Caracteres alternativos" (Prefs.ALT_CHARS, activo de fabrica).
  */
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 35, qualifiers = "es-rES-w411dp-h914dp-xxhdpi")
@@ -157,6 +159,63 @@ public class SettingsTest {
         assertTrue(Prefs.ui(app).getBoolean("sec_design", false));
         assertFalse("las claves sec_* no deben despertar al teclado", Prefs.get(app).contains("sec_design"));
         assertFalse(Prefs.affectsKeyboard("sec_design"));
+    }
+
+    // ------------------------------------------------------------------ caracteres alternativos
+
+    /** Primer interruptor cuya descripcion empieza por el titulo de su fila (optionRow encadena titulo, subtitulo y nota). */
+    private static Switch switchFor(MainActivity a, String title) {
+        for (View v : all(a)) {
+            if (v instanceof Switch && String.valueOf(v.getContentDescription()).startsWith(title)) return (Switch) v;
+        }
+        return null;
+    }
+
+    @Test
+    public void altCharsSwitchReflectsAndTogglesThePreference() {
+        Prefs.ui(app).edit().putBoolean("sec_design", true).apply();   // Diseno abierta
+        MainActivity a = create();
+        String title = a.getString(R.string.alt_chars_title);
+        assertTrue("la fila Caracteres alternativos esta en Diseno", hasText(a, title));
+        assertTrue("con su subtitulo", hasText(a, a.getString(R.string.alt_chars_sub)));
+        assertTrue("y su nota", hasText(a, a.getString(R.string.alt_chars_hint)));
+        Switch sw = switchFor(a, title);
+        assertNotNull("interruptor de caracteres alternativos", sw);
+        assertTrue("la fila se ve con Diseno abierta", visibleUpToRoot(sw));
+        assertTrue("activo de fabrica", Prefs.altChars(app));
+        assertTrue("el interruptor refleja la preferencia (activa)", sw.isChecked());
+        String spoken = sw.getContentDescription().toString();
+        assertTrue("la descripcion lleva el subtitulo", spoken.contains(a.getString(R.string.alt_chars_sub)));
+        assertTrue("la descripcion lleva la nota", spoken.contains(a.getString(R.string.alt_chars_hint)));
+
+        sw.performClick();
+        assertFalse("al tocarlo se apaga la preferencia", Prefs.altChars(app));
+        assertFalse(Prefs.get(app).getBoolean(Prefs.ALT_CHARS, true));
+        assertFalse(sw.isChecked());
+        assertTrue("la clave despierta al teclado abierto", Prefs.affectsKeyboard(Prefs.ALT_CHARS));
+        sw.performClick();
+        assertTrue("otro toque la vuelve a encender", Prefs.altChars(app));
+        assertTrue(sw.isChecked());
+
+        // Tocar la fila entera tambien conmuta el interruptor
+        View row = (View) sw.getParent();
+        assertTrue("la fila es pulsable", row.hasOnClickListeners());
+        row.performClick();
+        assertFalse("tocar la fila apaga la preferencia", Prefs.altChars(app));
+        assertFalse(sw.isChecked());
+
+        // Con la preferencia apagada de antemano, la actividad arranca con el interruptor apagado
+        Prefs.get(app).edit().putBoolean(Prefs.ALT_CHARS, false).apply();
+        MainActivity b = create();
+        Switch sw2 = switchFor(b, title);
+        assertNotNull(sw2);
+        assertFalse("refleja la preferencia apagada", sw2.isChecked());
+
+        // Restablecer, Exportar e Importar la tratan como las demas booleanas de Diseno
+        boolean listed = false;
+        for (String k : MainActivity.RESET_KEYS) if (Prefs.ALT_CHARS.equals(k)) listed = true;
+        assertTrue("en la lista blanca de Restablecer y Exportar", listed);
+        assertEquals(MainActivity.TYPE_BOOL, MainActivity.keyType(Prefs.ALT_CHARS));
     }
 
     // ------------------------------------------------------------------ tema Automatico

@@ -141,13 +141,21 @@ public class GestureTest {
         AurebeshKeyboardView kb = view(app, W);
         Recorder rec = new Recorder();
         kb.setListener(rec);
-        // Pulsacion larga en espanol: la o da sus acentos (sin la o nordica ni la oe, que no son del espanol) y la c y
-        // la s no tienen alternativas (ni cedilla ni eszett); en ingles y aleman las dan (ver GeometriaTest)
+        // Pulsacion larga en espanol: la o da su caracter alternativo y sus acentos (sin la o nordica ni la oe, que no
+        // son del espanol) y la c y la s solo su caracter alternativo (" y #): ni cedilla ni eszett; en ingles y aleman
+        // las dan (ver GeometriaTest). Sin la opcion de caracteres alternativos la c y la s no tienen menu.
         String o = Arrays.toString(kb.keyFor("o").alts);
+        check(o.startsWith("[("), "la o del espanol empieza por su simbolo: " + o);
         for (String ch : new String[]{"\u00f3", "\u00f2", "\u00f6", "\u00f4", "\u00f5"}) check(o.contains(ch), "falta " + ch + " en la o: " + o);
         check(!o.contains("\u00f8") && !o.contains("\u0153"), "la o del espanol no ofrece la o nordica ni la oe: " + o);
-        check(kb.keyFor("c").alts == null, "en espanol la c no lleva cedilla");
-        check(kb.keyFor("s").alts == null, "en espanol la s no lleva eszett");
+        check(Arrays.toString(kb.keyFor("c").alts), "[\"]", "en espanol la c solo lleva su simbolo, sin cedilla");
+        check(Arrays.toString(kb.keyFor("s").alts), "[#]", "en espanol la s solo lleva su simbolo, sin eszett");
+        kb.setAltChars(false);
+        layout(kb, W);
+        check(kb.keyFor("c").alts == null, "sin caracteres alternativos, en espanol la c no lleva nada (ni cedilla)");
+        check(kb.keyFor("s").alts == null, "sin caracteres alternativos, en espanol la s no lleva nada (ni eszett)");
+        kb.setAltChars(true);
+        layout(kb, W);
         // Pagina 3/3: todas las letras con acento a la vista; shift las escribe en mayuscula
         tap(kb, kb.keyFor(AurebeshKeyboardView.CODE_MODE));
         layout(kb, W);
@@ -172,13 +180,13 @@ public class GestureTest {
         Recorder rec = new Recorder();
         kb.setListener(rec);
 
-        // Mantener "e": acentos y, de ultima celda, la propia e; soltar ahi escribe "e"
+        // Mantener "e": su caracter alternativo (÷), los acentos y, de ultima celda, la propia e; soltar ahi escribe "e"
         AurebeshKeyboardView.Key e = kb.keyFor("e");
         down(kb, e.rect.centerX(), e.rect.centerY());
         idle(450);
         String[] opts = kb.popupOptions();
         check(opts != null, "menu de la e abierto");
-        check(Arrays.asList(opts).toString(), "[é, è, ê, ë, e]", "opciones de la e");
+        check(Arrays.asList(opts).toString(), "[\u00f7, é, è, ê, ë, e]", "opciones de la e");
         save(render(kb, W), "gestos_menu_e.png");
         RectF last = kb.popupCellRect(opts.length - 1);
         move(kb, last.centerX(), last.centerY());

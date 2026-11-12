@@ -24,7 +24,9 @@ import java.util.Arrays;
  * 3 dp por dentro a los lados y 7,25 dp arriba y abajo. Ademas: la pista latina va abajo a la derecha de la cara y
  * la alternativa de pulsacion larga arriba a la derecha; los glifos comparten escala (la i, la l y la m no salen
  * mas altas que la w, tampoco al agrandar el teclado); y las alternativas dependen del idioma (en espanol ni
- * cedilla ni eszett). Con el calificador xxhdpi de Robolectric la densidad es 3: 1080 px son 360 dp.
+ * cedilla ni eszett). Desde 2.1 los caracteres alternativos (activos de fabrica) ponen el simbolo de cada letra
+ * delante de sus alternativas y lo insinuan arriba a la derecha; aqui se apagan donde la premisa era la antigua
+ * (AltCharsTest los cubre). Con el calificador xxhdpi de Robolectric la densidad es 3: 1080 px son 360 dp.
  */
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 35, qualifiers = "es-rES-w411dp-h914dp-xxhdpi")
@@ -248,15 +250,32 @@ public class GeometriaTest {
         check(n >= 12, "con pistas: la q latina va abajo a la derecha de la cara (" + n + " px de tinta en 12 dp)");
         check(inkCount(on, qTL, t) == 0, "con pistas: la esquina superior izquierda queda limpia");
         check(inkCount(on, qBL, t) == 0, "con pistas: la esquina inferior izquierda queda limpia");
-        check(inkCount(on, qTR, t) == 0, "la q no tiene alternativa en espanol: arriba a la derecha nada");
+        // Con los caracteres alternativos (activos de fabrica) la q insinua su simbolo (+) y la a el suyo (@) arriba a la derecha
+        check(kb.altChars(), "los caracteres alternativos vienen activos de fabrica");
+        check(inkCount(on, qTR, t) >= 6, "caracteres alternativos: la q insinua el + arriba a la derecha");
         check(inkCount(on, aBR, t) >= 12, "la a latina abajo a la derecha");
-        check(inkCount(on, aTR, t) >= 12, "la a con tilde (alternativa al mantener) arriba a la derecha, lejos de la letra latina");
+        check(inkCount(on, aTR, t) >= 12, "la a con su simbolo (@, alternativa al mantener) arriba a la derecha, lejos de la letra latina");
 
+        // Sin pistas los simbolos siguen (son informacion funcional, sin desvanecido): la letra latina se va, el @ y el + no
         kb.setHintMode(0);
         Bitmap off = render(kb, W);
         check(inkCount(off, qBR, t) == 0, "sin pistas: la esquina inferior derecha de la q queda limpia");
-        check(inkCount(off, aBR, t) == 0 && inkCount(off, aTR, t) == 0, "sin pistas: la a sin letra latina ni tilde");
+        check(inkCount(off, aBR, t) == 0, "sin pistas: la a sin letra latina");
+        check(inkCount(off, aTR, t) >= 6 && inkCount(off, qTR, t) >= 6, "sin pistas: los simbolos de la a y la q se insinuan igual");
         check(inkCount(off, fq, t) > 0, "sin pistas sigue el glifo");
+
+        // Con la opcion apagada vuelve la premisa anterior: la q sin alternativa en espanol y la a con la tilde, que si sigue a las pistas
+        kb.setAltChars(false);
+        kb.setHintMode(1);
+        Bitmap plain = render(kb, W);
+        check(inkCount(plain, qTR, t) == 0, "sin caracteres alternativos: la q no tiene alternativa en espanol: arriba a la derecha nada");
+        check(inkCount(plain, aTR, t) >= 12, "sin caracteres alternativos: la a con tilde (alternativa al mantener) arriba a la derecha");
+        check(inkCount(plain, qBR, t) >= 12 && inkCount(plain, aBR, t) >= 12, "sin caracteres alternativos: las letras latinas siguen abajo a la derecha");
+        kb.setHintMode(0);
+        Bitmap none = render(kb, W);
+        check(inkCount(none, aBR, t) == 0 && inkCount(none, aTR, t) == 0, "sin pistas ni caracteres alternativos: la a sin letra latina ni tilde");
+        check(inkCount(none, qTR, t) == 0 && inkCount(none, qBR, t) == 0, "sin pistas ni caracteres alternativos: la q limpia en las dos esquinas de la derecha");
+        check(inkCount(none, fq, t) > 0, "sin pistas sigue el glifo");
     }
 
     // ------------------------------------------------------------------ glifos uniformes
@@ -268,8 +287,10 @@ public class GeometriaTest {
         Themes.Theme t = Themes.NOCHE;
         AurebeshKeyboardView kb = view(app, W, t.id);
         // Sin pistas en la cara queda solo el glifo: la franja de 14 dp del enunciado no cabe en una cara de 28 x 49,5 dp
-        // sin comerse el glifo (que ocupa el 50 % del alto), asi que las pistas se excluyen apagandolas
+        // sin comerse el glifo (que ocupa el 50 % del alto), asi que las pistas se excluyen apagandolas. Tambien los
+        // caracteres alternativos: el simbolo (el > de la i) se insinua con alfa 1 aunque no haya pistas y entraria en la caja de tinta
         kb.setHintMode(0);
+        kb.setAltChars(false);
         String[] letters = {"i", "l", "m", "w"};
         float[][] box100 = null;
         float face100 = 0;
@@ -332,9 +353,13 @@ public class GeometriaTest {
         check(Alternatives.hint("de", "a") == null, "hint de a: nada (la a con dieresis tiene tecla)");
         check(Alternatives.alts("es", null) == null && Alternatives.hint("es", null) == null, "null tolerado");
 
-        // En la vista, por idioma
+        // En la vista, por idioma, sin los caracteres alternativos (activos de fabrica, ponen el simbolo de cada letra
+        // delante: lo cubre AltCharsTest): las alternativas son las de la tabla
         Application app = (Application) RuntimeEnvironment.getApplication();
         AurebeshKeyboardView kb = view(app, W, Themes.ESTELAR.id);
+        check(kb.altChars(), "los caracteres alternativos vienen activos de fabrica");
+        kb.setAltChars(false);
+        check(!kb.altChars(), "setAltChars(false) apaga la opcion");
         kb.setLanguage("es");
         layout(kb, W);
         check(kb.keyFor("s").alts == null, "vista es: la s sin alternativas");
@@ -360,9 +385,17 @@ public class GeometriaTest {
             check("1".equals(cover.keyFor("q").alts[0]), "tapa: la q da 1");
             check("0".equals(cover.keyFor("p").alts[0]), "tapa: la p da 0");
             String[] e = cover.keyFor("e").alts;
-            check("3".equals(e[0]) && "é".equals(e[1]), "tapa: la e da 3 y luego e con tilde: " + Arrays.toString(e));
+            check("3".equals(e[0]) && "é".equals(e[1]), "tapa: la e da 3 y luego e con tilde (el digito manda, sin simbolo): " + Arrays.toString(e));
+            // Con los caracteres alternativos (de fabrica) la s y la a, fuera de la fila superior, empiezan por su simbolo...
+            check("#".equals(cover.keyFor("s").alts[0]), "tapa: la s da su simbolo: " + Arrays.toString(cover.keyFor("s").alts));
+            String[] a = cover.keyFor("a").alts;
+            check("@".equals(a[0]) && "á".equals(a[1]), "tapa: la a da @ y luego a con tilde: " + Arrays.toString(a));
+            // ...y sin ellos siguen como la tabla, con los digitos intactos
+            cover.setAltChars(false);
+            layout(cover, W);
             check(cover.keyFor("s").alts == null, "tapa: la s sigue sin alternativas");
             check("á".equals(cover.keyFor("a").alts[0]), "tapa: la a sigue dando a con tilde");
+            check("1".equals(cover.keyFor("q").alts[0]) && "0".equals(cover.keyFor("p").alts[0]), "tapa sin caracteres alternativos: q y p siguen dando 1 y 0");
         } finally {
             RuntimeEnvironment.setQualifiers(PHONE);
         }

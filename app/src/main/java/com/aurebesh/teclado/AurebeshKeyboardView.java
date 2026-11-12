@@ -170,6 +170,7 @@ public final class AurebeshKeyboardView extends View {
     private boolean showStrip = false;
     private boolean useDigraphs = true;
     private boolean numberRow = true;
+    private boolean altChars = true;        // caracteres alternativos: el simbolo de cada letra arriba a la derecha y primero al mantener (como Samsung)
     private boolean sound = true;
     private float heightScale = 1f;
 
@@ -669,6 +670,18 @@ public final class AurebeshKeyboardView extends View {
         warmGlide();
     }
 
+    /**
+     * Caracteres alternativos (la opcion homonima de Samsung Keyboard): el simbolo de cada letra insinuado arriba a
+     * la derecha de la tecla y primero al mantenerla. Reconstruye las teclas si cambia.
+     */
+    void setAltChars(boolean on) {
+        if (altChars == on) return;
+        altChars = on;
+        rebuildLayouts();          // vuelve a medir y a pintar
+    }
+
+    boolean altChars() { return altChars; }
+
     /** Tecla del globo visible o no; reconstruye la fila inferior. */
     void setLanguageSwitch(boolean on) {
         if (languageSwitch == on) return;
@@ -801,7 +814,34 @@ public final class AurebeshKeyboardView extends View {
     // ------------------------------------------------------------------ distribucion
 
     /** Tecla de letra con las alternativas de pulsacion larga que tiene en el idioma actual ({@link Alternatives#alts}). */
-    private Key letter(String c) { return new Key(c, c, c, Alternatives.alts(language, c), CODE_TEXT, 1f); }
+    private Key letter(String c) { return letter(c, true); }
+
+    /**
+     * Tecla de letra: el glifo es el propio o, si no lo tiene (u o a con dieresis del QWERTZ), el de la letra base
+     * ({@link Glyphs#glyphKey}), con la letra latina completa siempre visible como en la pagina de acentos. Las
+     * alternativas son las de {@link Alternatives#alts}; con los caracteres alternativos activos y {@code withSymbol},
+     * su simbolo ({@link Alternatives#symbol}) va primero.
+     */
+    private Key letter(String c, boolean withSymbol) {
+        String g = Glyphs.glyphKey(c);
+        return new Key(c, g != null ? g : c, c, letterAlts(c, withSymbol), CODE_TEXT, 1f);
+    }
+
+    /** Simbolo de la letra si los caracteres alternativos estan activos y se pide; null si no. */
+    private String symbolOf(String c, boolean withSymbol) {
+        return withSymbol && altChars ? Alternatives.symbol(language, c) : null;
+    }
+
+    /** Alternativas de la letra en el idioma actual, con su simbolo delante si toca; null si no tiene ninguna. */
+    private String[] letterAlts(String c, boolean withSymbol) {
+        String[] base = Alternatives.alts(language, c);
+        String symbol = symbolOf(c, withSymbol);
+        if (symbol == null) return base;
+        String[] a = new String[(base == null ? 0 : base.length) + 1];
+        a[0] = symbol;
+        if (base != null) System.arraycopy(base, 0, a, 1, base.length);
+        return a;
+    }
 
     /** Signo, con alternativas opcionales por pulsacion larga. */
     private static Key sym(String out, float w, String... alts) {
@@ -828,21 +868,26 @@ public final class AurebeshKeyboardView extends View {
         return nums;
     }
 
-    /** Tecla de letra del aleman: la vocal con diaeresis (o la eszett en la s) pasa a ser la primera alternativa. */
-    private Key germanLetter(String c) {
-        Key k = letter(c);
+    /**
+     * Tecla de letra del aleman: la vocal con diaeresis (o la eszett en la s) pasa a ser la primera alternativa,
+     * solo por detras del simbolo de los caracteres alternativos si lo lleva (simbolo, diaeresis, el resto).
+     */
+    private Key germanLetter(String c, boolean withSymbol) {
+        Key k = letter(c, withSymbol);
         String first = "s".equals(c) ? "\u00df" : "a".equals(c) ? "\u00e4" : "o".equals(c) ? "\u00f6" : "u".equals(c) ? "\u00fc" : null;
         if (first == null) return k;
+        String symbol = symbolOf(c, withSymbol);
         List<String> a = new ArrayList<>();
+        if (symbol != null) a.add(symbol);
         a.add(first);
-        if (k.alts != null) for (String x : k.alts) if (!x.equals(first)) a.add(x);
-        return new Key(c, c, c, a.toArray(new String[0]), CODE_TEXT, 1f);
+        if (k.alts != null) for (String x : k.alts) if (!x.equals(first) && !x.equals(symbol)) a.add(x);
+        return new Key(c, k.glyph, c, a.toArray(new String[0]), CODE_TEXT, 1f);
     }
 
     /** Fila de letras del aleman (QWERTZ): las alternativas de a, o, u y s empiezan por ä, ö, ü y ß. */
     private void germanRow(List<List<Key>> layout, String chars) {
         List<Key> r = new ArrayList<>();
-        for (int i = 0; i < chars.length(); i++) r.add(germanLetter(String.valueOf(chars.charAt(i))));
+        for (int i = 0; i < chars.length(); i++) r.add(germanLetter(String.valueOf(chars.charAt(i)), true));
         layout.add(r);
     }
 
@@ -852,14 +897,18 @@ public final class AurebeshKeyboardView extends View {
         if (de) germanRow(letters, "qwertzuiop\u00fc"); else lettersRow(letters, "qwertyuiop");
         if (!numbersShown()) {                    // sin fila de numeros: q..p dan 1..0 en pulsacion larga
             List<Key> top = letters.get(0);
-            for (int i = 0; i < 10 && i < top.size(); i++) top.set(i, top.get(i).withFirstAlt(String.valueOf((i + 1) % 10)));
+            for (int i = 0; i < 10 && i < top.size(); i++) {
+                String c = top.get(i).output;     // el digito manda y la tecla no lleva su simbolo (como Samsung): el menu no se llena
+                Key plain = de ? germanLetter(c, false) : letter(c, false);
+                top.set(i, plain.withFirstAlt(String.valueOf((i + 1) % 10)));
+            }
         }
         if (de) germanRow(letters, "asdfghjkl\u00f6\u00e4"); else lettersRow(letters, "asdfghjkl");
-        if ("es".equals(language)) letters.get(letters.size() - 1).add(new Key("ñ", "ñ", "ñ", null, CODE_TEXT, 1f));
+        if ("es".equals(language)) letters.get(letters.size() - 1).add(letter("ñ"));   // sin acentos; con el simbolo (!) si toca
         List<Key> r3 = new ArrayList<>();
         r3.add(special("", CODE_SHIFT, 1.5f));
         String z = de ? "yxcvbnm" : "zxcvbnm";
-        for (int i = 0; i < z.length(); i++) r3.add(de ? germanLetter(String.valueOf(z.charAt(i))) : letter(String.valueOf(z.charAt(i))));
+        for (int i = 0; i < z.length(); i++) r3.add(de ? germanLetter(String.valueOf(z.charAt(i)), true) : letter(String.valueOf(z.charAt(i))));
         r3.add(special("", CODE_DELETE, 1.5f));
         letters.add(r3);
         bottomRow(letters, "?123");
@@ -1098,8 +1147,23 @@ public final class AurebeshKeyboardView extends View {
     /** Factor (0,5-1) que reduce los pasos de fila cuando el teclado no cabe en el tope de la pantalla real; 1 si cabe. */
     private float fitScale = 1f;
 
-    /** Aire horizontal de la cara de la tecla dentro de su celda: 3 dp por lado (6 dp entre caras, como Samsung). */
-    private float insetX() { return 3 * dp; }
+    /** Ancho en px de una tecla de peso 1 de cada pagina (letras, signos 1/2/3, numerico), guardado al colocarlas; 0 sin medir. */
+    private final float[] pageUnit = new float[5];
+
+    private int pageIndex(List<List<Key>> layout) {
+        return layout == letters ? 0 : layout == symbols ? 1 : layout == symbols2 ? 2 : layout == symbols3 ? 3 : 4;
+    }
+
+    /**
+     * Aire horizontal de la cara de la tecla dentro de su celda: 3 dp por lado (6 dp entre caras, como Samsung) por
+     * debajo de 600 dp de ancho; en pantallas anchas el 11 % de la unidad de la pagina actual, entre 3 y 7 dp
+     * (Fold desplegado: paso de 60 dp, 6,6 dp por lado y caras casi cuadradas, como Samsung Keyboard).
+     */
+    private float insetX() {
+        float unit = pageUnit[pageIndex(current)];
+        if (getWidth() / dp < 600 || unit <= 0) return 3 * dp;
+        return Math.max(3 * dp, Math.min(7 * dp, unit * 0.11f));
+    }
 
     /** Aire vertical de la cara: 7,25 dp por lado en pantallas normales (cara de 49,5 dp en el paso de 64) y 2,5 dp en las bajas. */
     private float insetY() { return (heightClass() == 2 ? 7.25f : 2.5f) * dp; }
@@ -1161,12 +1225,14 @@ public final class AurebeshKeyboardView extends View {
         float offset = handOffset();
         float pad = keyMargin();
         float y = stripHeight();
+        float minUnit = 0;
         for (int ri = 0; ri < layout.size(); ri++) {
             List<Key> row = layout.get(ri);
             float rh = rowHeight(layout, ri);
             float total = 0;
             for (Key k : row) total += k.weight;
             float unit = Math.min((w - 2 * pad) / Math.max(10f, total), 72 * dp);   // tope de 72 dp (tabletas, DeX)
+            if (minUnit == 0 || unit < minUnit) minUnit = unit;                    // la fila mas apretada (11 teclas en QWERTZ)
             float x = offset + pad + ((w - 2 * pad) - unit * total) / 2f;           // bloque centrado
             for (Key k : row) {
                 float kw = unit * k.weight;
@@ -1175,6 +1241,7 @@ public final class AurebeshKeyboardView extends View {
             }
             y += rh;
         }
+        pageUnit[pageIndex(layout)] = minUnit;
     }
 
     /**
@@ -1190,6 +1257,7 @@ public final class AurebeshKeyboardView extends View {
         float pad = keyMargin();
         float box = full * splitBox;                // sobre el ancho completo: el margen se come hueco, no teclas
         float unit = Math.min(box / 5.5f, 64 * dp); // tope de 64 dp por tecla (tabletas, DeX)
+        pageUnit[pageIndex(layout)] = unit;
         float boxW = unit * 5.5f;                   // ancho real de cada mitad; con el tope, menor que la caja
         float x0 = pad, x1 = full - pad - boxW;
         float y = stripHeight();
@@ -1251,6 +1319,7 @@ public final class AurebeshKeyboardView extends View {
         for (List<Key> row : numpad) cols = Math.max(cols, row.size());
         if (cols == 0) return;
         float unit = Math.min((w - 2 * pad) / cols, 120 * dp);
+        pageUnit[pageIndex(numpad)] = unit;
         float x0 = off + pad + ((w - 2 * pad) - unit * cols) / 2f;
         float[] top = new float[numpad.size() + 1];
         top[0] = stripHeight();
@@ -1288,21 +1357,18 @@ public final class AurebeshKeyboardView extends View {
                 boolean isPressed = pressed.indexOfValue(k) >= 0 || k == repeatKey;
                 boolean function = k.code != CODE_TEXT && k.code != CODE_SPACE;
                 boolean inkFilled = k.code == CODE_ENTER || (k.code == CODE_SHIFT && (shift || capsLock));
-                Integer bg;
-                if (isDigitRow(current, ri)) bg = null;       // fila de numeros: franja sin tecla
-                else if (inkFilled) bg = theme.accent;
+                int bg;                                       // la fila de numeros lleva fondo de tecla como las letras (Samsung)
+                if (inkFilled) bg = theme.accent;
                 else if (function) bg = theme.specialBg;
                 else bg = theme.keyBg;
                 if (isPressed) bg = theme.pressed;
-                if (bg != null) {
-                    if (theme.shadow && !isPressed && !inkFilled) {
-                        fill.setColor((theme.glyph & 0x00FFFFFF) | 0x1A000000);   // sombra de 1 px
-                        c.drawRoundRect(tmp.left, tmp.top + dp, tmp.right, tmp.bottom + dp, radius, radius, fill);
-                    }
-                    fill.setColor(bg);
-                    c.drawRoundRect(tmp, radius, radius, fill);
-                    if (theme.keyStroke != 0 && !inkFilled) c.drawRoundRect(tmp, radius, radius, strokePaint);
+                if (theme.shadow && !isPressed && !inkFilled) {
+                    fill.setColor((theme.glyph & 0x00FFFFFF) | 0x1A000000);   // sombra de 1 px
+                    c.drawRoundRect(tmp.left, tmp.top + dp, tmp.right, tmp.bottom + dp, radius, radius, fill);
                 }
+                fill.setColor(bg);
+                c.drawRoundRect(tmp, radius, radius, fill);
+                if (theme.keyStroke != 0 && !inkFilled) c.drawRoundRect(tmp, radius, radius, strokePaint);
                 drawKeyFace(c, k, tmp, isDigitRow(current, ri));
             }
         }
@@ -1382,15 +1448,6 @@ public final class AurebeshKeyboardView extends View {
         else if (glideState == GLIDE_NONE) strokeN = 0;              // ya se desvanecio del todo
     }
 
-    /** True si dos colores apenas se distinguen (diferencia de luminancia pequena): la tinta no se veria sobre ese fondo. */
-    private static boolean lowContrast(int a, int b) {
-        return Math.abs(luma(a) - luma(b)) < 0.25f;
-    }
-
-    private static float luma(int argb) {
-        return (0.299f * ((argb >> 16) & 0xFF) + 0.587f * ((argb >> 8) & 0xFF) + 0.114f * (argb & 0xFF)) / 255f;
-    }
-
     private void drawKeyFace(Canvas c, Key k, RectF r, boolean digitRow) {
         float cx = r.centerX();
         float cy = r.centerY();
@@ -1401,10 +1458,7 @@ public final class AurebeshKeyboardView extends View {
                 if (k.glyph != null) {
                     float h = r.height() * (digitRow ? 0.44f : current == numpad ? 0.58f : 0.50f);   // numerico: digitos grandes
                     if (theme.glow != 0) Glyphs.drawFitted(c, k.glyph, cx, cy, h, r.width() * 0.74f, glowPaint);
-                    boolean dimInk = digitRow && lowContrast(theme.glyph, theme.bg);   // franja sin tecla sobre un fondo del color de la tinta (tema Contraste)
-                    if (dimInk) glyphPaint.setColor(theme.keyBg);
                     Glyphs.drawFitted(c, k.glyph, cx, cy, h, r.width() * 0.74f, glyphPaint);
-                    if (dimInk) glyphPaint.setColor(theme.glyph);
                     // Letra latina abajo a la derecha de la cara (la leyenda del signo en ?123 va igual y siempre), lejos de
                     // la alternativa de pulsacion larga, que va arriba a la derecha; con acento siempre visible, para distinguirlas
                     float ha = symbolKey || !k.glyph.equals(k.output) ? 1f : hintAlpha(k.output);
@@ -1425,7 +1479,10 @@ public final class AurebeshKeyboardView extends View {
                 String first = faceAlt(k, digitRow);
                 if (first != null) {                             // alternativa insinuada arriba a la derecha
                     boolean digit = first.length() == 1 && Character.isDigit(first.charAt(0));
-                    float aa = digit ? 1f : hintAlpha(k.output);   // los numeros ocultos siempre se insinuan; el resto sigue a su letra
+                    boolean symbol = !digit && altChars && current == letters && first.equals(Alternatives.symbol(language, k.output));
+                    // Los numeros ocultos y los caracteres alternativos se insinuan siempre (son informacion funcional,
+                    // sin el desvanecido de aprendiendo); el resto sigue a su letra
+                    float aa = digit || symbol ? 1f : hintAlpha(k.output);
                     if (aa > 0f) {
                         int base = hintPaint.getColor();
                         if (aa < 1f) hintPaint.setColor(fade(base, aa));
@@ -1458,15 +1515,19 @@ public final class AurebeshKeyboardView extends View {
 
     /**
      * Alternativa que se insinua arriba a la derecha de la cara, o null si ninguna: el digito oculto de la fila
-     * superior (siempre); en las letras lo que diga {@link Alternatives#hint} para el idioma (en espanol la vocal
-     * con tilde; nada en la s ni en la c, que no llevan eszett ni cedilla); en el resto (signos, la n~, la pagina
-     * de acentos 3/3) su primera alternativa, como siempre.
+     * superior (siempre); en las letras (la n~ incluida) su caracter alternativo ({@link Alternatives#symbol}) si
+     * la opcion esta activa y la letra lo tiene, y si no lo que diga {@link Alternatives#hint} para el idioma (en
+     * espanol la vocal con tilde; nada en la s ni en la c, que no llevan eszett ni cedilla); en el resto (signos,
+     * la pagina de acentos 3/3) su primera alternativa, como siempre.
      */
     private String faceAlt(Key k, boolean digitRow) {
         if (k.alts == null || digitRow) return null;
         String first = k.alts[0];
         if (first.length() == 1 && Character.isDigit(first.charAt(0))) return first;
-        if (current == letters && singleLetter(k)) return Alternatives.hint(language, k.output);
+        if (current == letters && singleLetter(k)) {
+            String symbol = altChars ? Alternatives.symbol(language, k.output) : null;
+            return symbol != null ? symbol : Alternatives.hint(language, k.output);
+        }
         return first;
     }
 
@@ -1617,8 +1678,10 @@ public final class AurebeshKeyboardView extends View {
             String shown = shiftActive() && (current == letters || current == symbols3) ? a.toUpperCase() : a;
             String gk = Glyphs.glyphKey(a);                 // a a a a: glifo de la letra base y la latina debajo
             if (gk != null) {
-                // La latina segun el modo (en aprendiendo siempre); con acento siempre, que el glifo es el de la base
-                boolean latin = hintMode != 0 || !gk.equals(a.toLowerCase(java.util.Locale.ROOT));
+                // La latina segun el modo (en aprendiendo siempre); con acento siempre, que el glifo es el de la base;
+                // los signos (caracteres alternativos) siempre, como su leyenda en la pagina ?123
+                boolean latin = hintMode != 0 || !gk.equals(a.toLowerCase(java.util.Locale.ROOT))
+                        || (a.length() == 1 && !Character.isLetterOrDigit(a.charAt(0)));
                 glyphPaint.setColor(sel ? theme.onAccent : theme.previewText);
                 Glyphs.drawFitted(c, gk, cx, latin ? cy - 6 * dp : cy, popupCellH * 0.42f, popupCell * 0.7f, glyphPaint);
                 glyphPaint.setColor(theme.glyph);

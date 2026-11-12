@@ -458,6 +458,7 @@ public final class MainActivity extends Activity {
         optionRow(design, R.string.opt_digraphs, R.string.opt_digraphs_sub, Prefs.DIGRAPHS, Prefs.digraphs(this));
         optionRow(design, R.string.opt_toolbar, R.string.opt_toolbar_sub, Prefs.TOOLBAR, Prefs.toolbar(this));
         optionRow(design, R.string.opt_numbers, R.string.opt_numbers_sub, Prefs.NUMBERS, Prefs.numbers(this));
+        optionRow(design, R.string.alt_chars_title, R.string.alt_chars_sub, R.string.alt_chars_hint, Prefs.ALT_CHARS, Prefs.altChars(this));
         chipRow(design, R.string.aj_mode, getString(R.string.aj_mode_sub), handGroup());
         if (!wide) splitRows(design);   // en telefonos el dividido va aqui; en pantallas anchas, en Plegables
     }
@@ -670,7 +671,8 @@ public final class MainActivity extends Activity {
             Prefs.BOTTOM_DP, Prefs.BOTTOM_DP + "_wide", Prefs.AUTOCORRECT, Prefs.AUTO_REPLACE, Prefs.AUTO_CAPS, Prefs.PREVIEW,
             Prefs.HAND, Prefs.HAND + "_wide", Prefs.HAND_LAST, Prefs.TOOLBAR, Prefs.TOOLBAR_ITEMS, Prefs.LEARN,
             Prefs.DOUBLE_SPACE, Prefs.GLIDE, Prefs.SCREENSHOTS, Prefs.APP_LANG, Prefs.KEYBOARD_LANG, Prefs.SPACE_SLIDE,
-            Prefs.LONGPRESS, Prefs.VIBRATION, Prefs.SOUND_VOLUME, Prefs.SPLIT, Prefs.SPLIT_WIDTH, Prefs.SABER, Prefs.STARWARS};
+            Prefs.LONGPRESS, Prefs.VIBRATION, Prefs.SOUND_VOLUME, Prefs.SPLIT, Prefs.SPLIT_WIDTH, Prefs.SABER, Prefs.STARWARS,
+            Prefs.ALT_CHARS};
 
     /** Claves del servidor propio: solo se exportan con la casilla marcada (la clave nunca sin ella). */
     private static final String[] REMOTE_KEYS = {AiModels.MODE, AiModels.REMOTE_URL, AiModels.REMOTE_MODEL, AiModels.REMOTE_KEY};
@@ -684,7 +686,7 @@ public final class MainActivity extends Activity {
             case Prefs.HINTS: case Prefs.VIBRATE: case Prefs.DIGRAPHS: case Prefs.STRIP: case "dark_theme": case Prefs.NUMBERS:
             case Prefs.SOUND: case Prefs.AUTOCORRECT: case Prefs.AUTO_REPLACE: case Prefs.AUTO_CAPS: case Prefs.PREVIEW:
             case Prefs.TOOLBAR: case Prefs.LEARN: case Prefs.DOUBLE_SPACE: case Prefs.GLIDE: case Prefs.SCREENSHOTS:
-            case Prefs.STARWARS:
+            case Prefs.STARWARS: case Prefs.ALT_CHARS:
                 return TYPE_BOOL;
             case Prefs.SOUND_VOLUME:
                 return TYPE_INT;
@@ -1170,6 +1172,7 @@ public final class MainActivity extends Activity {
         preview.setSplitBox(Prefs.splitBox(this));
         preview.setToolbar(Prefs.toolbar(this));
         preview.setToolbarItems(Prefs.toolbarItems(this));
+        preview.setAltChars(Prefs.altChars(this));           // simbolo de cada letra arriba a la derecha, como en el IME
         preview.setSuggestionBar(Prefs.autocorrect(this));   // como el IME: con predictivo la cinta se reserva aunque no haya barra
         preview.setGlideEnabled(Prefs.glide(this));
         preview.setPreviewEnabled(Prefs.preview(this));
@@ -1567,6 +1570,15 @@ public final class MainActivity extends Activity {
     }
 
     private void optionRow(LinearLayout parent, int label, int sub, final String key, boolean value) {
+        optionRow(parent, label, sub, 0, key, value);
+    }
+
+    /**
+     * Fila con interruptor: titulo, subtitulo y, si se da, una nota mas pequena debajo (p. ej. "Como en Samsung
+     * Keyboard"). El interruptor es el unico elemento accesible y su descripcion lleva los tres textos; el buscador
+     * tambien encuentra la fila por la nota.
+     */
+    private void optionRow(LinearLayout parent, int label, int sub, int hint, final String key, boolean value) {
         separator(parent);
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
@@ -1580,10 +1592,14 @@ public final class MainActivity extends Activity {
         col.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
         col.addView(text(getString(label), 16, ink, false), block(0));
         if (sub != 0) col.addView(text(getString(sub), 13, secondary, false), block(2));
+        if (hint != 0) col.addView(text(getString(hint), 12, secondary, false), block(4));
         row.addView(col, new LinearLayout.LayoutParams(0, WRAP, 1f));
 
         final Switch sw = new Switch(this);
-        sw.setContentDescription(sub != 0 ? getString(label) + ". " + getString(sub) : getString(label));
+        StringBuilder spoken = new StringBuilder(getString(label));
+        if (sub != 0) spoken.append(". ").append(getString(sub));
+        if (hint != 0) spoken.append(". ").append(getString(hint));
+        sw.setContentDescription(spoken.toString());
         int[][] states = {{android.R.attr.state_checked}, {}};
         sw.setThumbTintList(new ColorStateList(states, new int[]{ink, thumbOff}));
         sw.setTrackTintList(new ColorStateList(states, new int[]{(ink & 0x00FFFFFF) | 0x66000000, trackOff}));
@@ -1602,7 +1618,7 @@ public final class MainActivity extends Activity {
             @Override public void onClick(View v) { sw.toggle(); }
         });
         parent.addView(row, block(0));
-        register(row, parent, getString(label) + (sub != 0 ? " " + getString(sub) : ""));
+        register(row, parent, getString(label) + (sub != 0 ? " " + getString(sub) : "") + (hint != 0 ? " " + getString(hint) : ""));
     }
 
     /**
