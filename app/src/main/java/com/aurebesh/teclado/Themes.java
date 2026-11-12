@@ -79,17 +79,15 @@ final class Themes {
             0xFFFFF4EA, 0xFFB8A78E, 0xFF9A8A72, 10f, true);
 
     /**
-     * Mesa de pazaak (el juego de cartas de la Antigua Republica): tapete azul verdoso, cartas casi cuadradas (6 dp) de
-     * cara gris azulada clara con canto dorado fino y sombra, tinta azul petroleo casi negra, las teclas de funcion como
-     * cartas del mazo lateral (un gris azulado mas hundido) y el verde de las cartas positivas en Enter y en mayusculas
-     * activas. El dorado del canto es tambien la linea bajo la cinta y el aro de sus botones (los detalles dorados del
-     * tablero). El tapete es mas claro que el del juego y las teclas de funcion no son dorsos oscuros porque la cinta y
-     * la banda de sugerencias escriben con la tinta de las teclas directamente sobre el fondo y sobre specialBg.
+     * Pazaak, la mesa de Knights of the Old Republic: tapete negro, las letras como las cartas verdes del mazo principal
+     * (cara verde oscura con canto plateado y numero blanco), las teclas de funcion como las cartas azules del mazo
+     * lateral, borrar y mayusculas tambien azules, intro como la carta dorada, el espacio como un hueco vacio de la
+     * mesa y la cinta en el azul de la interfaz del juego. Esquinas de 4 dp y borde de 1,5 dp, sin sombra ni halo.
      */
     static final Theme PAZAAK = new Theme("pazaak", R.string.theme_pazaak,
-            0xFF2F7F84, 0xFFDCE6EA, 0xFFBD9D4F, 0xFF0A2A31, 0, 0xFF0A2A31,
-            0xFF3FD66B, 0xFF062A1B, 0xFFB7CCD3, 0xFFCFDDE2, 0xFFA3BEC7, 0xFFDCE6EA,
-            0xFF0A2A31, 0xFF456B75, 0xFF456B75, 6f, true);
+            0xFF070A0D, 0xFF174A33, 0xFF9DB1B6, 0xFFF3F7F4, 0, 0xFFF3F7F4,
+            0xFFD9A826, 0xFF1A1200, 0xFF1C3F7A, 0xFF131A22, 0xFF2E8A5A, 0xFF174A33,
+            0xFFF3F7F4, 0xFFB7D6C3, 0xFFB7D6C3, 4f, false, 1.5f);
 
     /**
      * Contraste (accesibilidad): fondo negro, teclas blancas con borde negro de 2 dp, glifo negro, acento amarillo

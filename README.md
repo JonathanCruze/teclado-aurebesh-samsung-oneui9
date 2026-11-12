@@ -44,6 +44,11 @@
 
 Para actualizar, descarga el nuevo APK e instálalo encima: conserva tus ajustes.
 
+### Novedades de la 2.3.1
+- **Tema Pazaak rehecho como la mesa de KOTOR:** tapete negro, letras como las cartas verdes del mazo principal con canto
+  plateado y glifo blanco, teclas de función como las cartas azules del mazo lateral, intro como la carta dorada y el espacio
+  como un hueco vacío de la mesa.
+
 ### Novedades de la 2.3
 - **Tema Pazaak:** mesa de fieltro azul verdoso, teclas como cartas claras de esquinas casi rectas con borde, intro y mayúsculas
   en el verde de las cartas positivas. Séptimo tema fijo; los automáticos no cambian.
