@@ -10,10 +10,12 @@ import json, math, os, sys, shutil, numpy as np, cv2
 from fontTools.ttLib import TTFont
 from fontTools.pens.recordingPen import RecordingPen
 sys.path.insert(0,os.path.dirname(os.path.abspath(__file__)))
-from glyph_compose import mirror_x, accents, symbols, times_divide
+from glyph_compose import mirror_x, accents, symbols, times_divide, times, plus_minus, divide_candidates, currency
 ROOT=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC=os.path.join(ROOT,'font','base-silvinor-Aurebesh.ttf')
-INCLUDE_TIMES_DIVIDE=False   # por (x) y entre: disenados y en la previa (tools/preview_glyphs.py); se integran al aprobarse
+INCLUDE_TIMES=True           # por (x): el boceto del usuario (dos + en espejo con hueco de un trazo, girados 45 grados)
+DIVIDE_CHOICE=None           # entre: '1a', '1b', '2' o '3' (glyph_compose.divide_candidates); None mientras el usuario elige
+POUND_LETTER=None            # libra: 'l' o 'p' con dos barras; None mientras el usuario elige (queda la de la fuente base)
 
 # ---------------- base: extraer contornos y metricas a unidades (altura de mayusculas = 10, y hacia abajo)
 f=TTFont(SRC); upm=f['head'].unitsPerEm; cap=f['OS/2'].sCapHeight; U=10.0/cap
@@ -63,7 +65,10 @@ SPACE_ADV=round(hmtx[cmap[32]][0]*U,3)
 # ---------------- propios: solo lo que la fuente no tiene (glyph_compose.py)
 G.update(accents(G))          # n~, vocales con tilde aguda, grave, dieresis, circunflejo; a/o con virgulilla
 G.update(symbols(G))          # o con barra, distinto, por mil
-if INCLUDE_TIMES_DIVIDE: G.update(times_divide(G))
+G.update(plus_minus(G))       # mas-menos: el + con la barra del - debajo (sustituye al de la fuente base)
+G.update(currency(G, POUND_LETTER))   # euro y yen (y libra cuando se elija): la letra con dos barras en medio
+if INCLUDE_TIMES: G.update(times(G))
+if DIVIDE_CHOICE: G['\u00f7']=divide_candidates(G)[DIVIDE_CHOICE]
 
 # ---------------- salidas: json, GlyphData.java
 for p in ('tools/glyphs.json','promo/glyphs.json'): json.dump(G,open(os.path.join(ROOT,p),'w'))

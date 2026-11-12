@@ -44,6 +44,13 @@
 
 Para actualizar, descarga el nuevo APK e instálalo encima: conserva tus ajustes.
 
+### Novedades de la 2.2.1
+- **Símbolos según tu boceto:** × es el + Aurebesh dos veces en espejo, con un hueco de un trazo entre las barras y las astas
+  unidas, girado 45°; ± es el + con la barra del − debajo; € y ¥ son la e y la y con dos barras en medio. ÷ y £ esperan tu
+  elección entre las lecturas de la previa (`tools/glyph_compose.py`, banderas `DIVIDE_CHOICE` y `POUND_LETTER`).
+- **Marcas de acento más cerca:** tilde, grave, diéresis, circunflejo y virgulilla quedan a un trazo de la letra; antes flotaban
+  a más de tres.
+
 ### Novedades de la 2.2
 - **Ajustes reorganizados al estilo One UI:** pantalla principal con idiomas, buscador, "Pruébalo" y una lista de categorías con
   su resumen (Idiomas y teclas, Estilo, Tamaño y distribución, Escritura inteligente, Deslizar, tocar y respuesta, Portapapeles,

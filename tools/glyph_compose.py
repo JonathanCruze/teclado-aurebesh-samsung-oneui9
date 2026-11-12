@@ -7,7 +7,9 @@ previa de por y entre. Lo usa build_font_set.py; preview_glyphs.py dibuja con el
 import math, numpy as np, cv2
 
 T=1.55        # grosor de trazo de la base: el de las marcas propias
-MARK_Y=-2.0   # centro vertical de las marcas (el de la tilde aguda), por encima del borde superior
+LETTER_TOP=2.315   # borde superior de las letras en unidades (la caja va de 0 a 10; las letras ocupan 2.315-10)
+MARK_GAP=T    # aire entre la letra y su marca: un trazo (hasta la 2.2 las marcas flotaban a 3.5 unidades)
+MARK_Y=LETTER_TOP-MARK_GAP-T/2   # centro vertical de las marcas (tilde aguda, grave, dieresis, circunflejo)
 TILDE_S=1.9   # lado del cuadrado de la n~ original; la virgulilla mide 1.5 veces mas de ancho
 
 # ---------------- piezas y transformaciones
@@ -104,8 +106,8 @@ def circumflex(w,caret):
     return centered(scale(copy_polys(caret['p']),sx,1.0),w/2,MARK_Y)
 def tilde(ax):
     """Virgulilla: el cuadrado de la n~ de la 2.1 (lado TILDE_S) alargado un 50 por ciento, centrado en ax."""
-    hw=1.5*TILDE_S/2; y0=-3.0
-    return [[[ax-hw,y0],[ax+hw,y0],[ax+hw,y0+TILDE_S],[ax-hw,y0+TILDE_S]]]
+    hw=1.5*TILDE_S/2; y1=LETTER_TOP-MARK_GAP; y0=y1-TILDE_S
+    return [[[ax-hw,y0],[ax+hw,y0],[ax+hw,y1],[ax-hw,y1]]]
 
 def accents(G):
     """n~, vocales con tilde aguda, grave, dieresis, circunflejo y a/o con virgulilla, cada una sobre su letra."""
@@ -148,3 +150,66 @@ def times_divide(G):
         a=math.radians(ang)
         for sgn in (1,-1): pieces.append([bar(cx+sgn*d*math.cos(a),cy+sgn*d*math.sin(a),Lp,ang)])
     return {'×':times,'÷':metrics(union(pieces))}
+
+# ---------------- simbolos del boceto del usuario (2.2.1): por, mas-menos, entre (cuatro lecturas), monedas
+def _rot(polys, ang, cx=0.0, cy=0.0):
+    a=math.radians(ang); c,s_=math.cos(a),math.sin(a)
+    return [[[cx+(x-cx)*c-(y-cy)*s_, cy+(x-cx)*s_+(y-cy)*c] for x,y in p] for p in polys]
+def _square(cx,cy,side=None):
+    side=T if side is None else side
+    return rect(cx-side/2,cy-side/2,cx+side/2,cy+side/2)
+def _metrics(polys, base):
+    """Poligonos pegados al borde izquierdo con las metricas laterales de base."""
+    x0,y0,x1,y1=bbox(polys); polys=translate(polys,-x0,0); rsb=base['adv']-base['lsb']-base['w']
+    return {'w':round(x1-x0,3),'p':polys,'lsb':base['lsb'],'adv':round(base['lsb']+(x1-x0)+rsb,3)}
+def _hang(polys, top):
+    """Traslada para que el borde superior quede en top (los signos cuelgan del borde superior como + y =)."""
+    x0,y0,x1,y1=bbox(polys); return translate(polys,0,top-y0)
+def _two_bars(L, gap=None):
+    gap=T if gap is None else gap
+    return [bar(0,-(gap/2+T/2),L,0), bar(0,(gap/2+T/2),L,0)]
+def times(G):
+    """Por: el + Aurebesh (una T) dos veces en espejo, con un hueco de un trazo entre las dos barras y las dos astas
+    unidas en un puente, girado 45 grados (como lo boceto el usuario)."""
+    plus=G['+']; L=plus['w']; top=bbox(plus['p'])[1]
+    pieces=_two_bars(L)+[bar(0,0,3*T,90,t=1.539)]
+    polys=_hang(centered(_rot(pieces,-45),0,0),top)
+    return {'\u00d7':_metrics(union([[p] for p in polys]),plus)}
+def plus_minus(G):
+    """Mas-menos: el + con la barra del - debajo del asta, separada un trazo."""
+    plus=G['+']; L=plus['w']; b=bbox(plus['p'])
+    polys=copy_polys(plus['p'])+[rect(0,b[3]+T,L,b[3]+2*T)]
+    return {'\u00b1':_metrics(union([[p] for p in polys]),plus)}
+def divide_candidates(G):
+    """Entre, cuatro lecturas del boceto: 1a dos barras (sin puente) con un punto a cada lado; 1b dos barras con un
+    punto en cada extremo; 2 el + con un punto sobre la barra y otro bajo el asta; 3 un cuenco con un punto dentro
+    y otro debajo. La elegida se integra con DIVIDE_CHOICE en build_font_set.py."""
+    plus=G['+']; L=plus['w']; b=bbox(plus['p']); top=b[1]; out={}
+    pieces=_two_bars(L)+[_square(0,-(3*T)), _square(0,3*T)]
+    out['1a']=_metrics(union([[p] for p in _hang(centered(_rot(pieces,-45),0,0),top)]),plus)
+    d=L/2+1.5*T; pieces=_two_bars(L)+[_square(-d,0), _square(d,0)]
+    out['1b']=_metrics(union([[p] for p in _hang(centered(_rot(pieces,-45),0,0),top)]),plus)
+    polys=copy_polys(plus['p'])+[_square(L/2, top-1.5*T), _square(L/2, b[3]+1.5*T)]
+    out['2']=_metrics(union([[p] for p in polys]),plus)
+    sag=1.6; R=(L*L/(8*sag))+sag/2; cyc=top+T/2+R-sag; a0=math.asin((L/2)/R); po=[]; pi_=[]
+    for i in range(25):
+        a=-a0+2*a0*i/24
+        po.append([L/2+R*math.sin(a), cyc+R*math.cos(a)]); pi_.append([L/2+(R-T)*math.sin(a), cyc+(R-T)*math.cos(a)])
+    yb=cyc+R
+    polys=[po+pi_[::-1]]+[_square(L/2, yb-T-sag/2-0.2), _square(L/2, yb+1.5*T)]
+    out['3']=_metrics(union([[p] for p in polys]),plus)
+    return out
+def two_lines(G, letter, out=0.7, gap=0.9):
+    """La letra con dos barras horizontales en medio (euro, yen, libra), que asoman out a cada lado."""
+    g=G[letter]; x0,y0,x1,y1=bbox(g['p']); ym=(y0+y1)/2
+    b1=rect(x0-out, ym-gap/2-T, x1+out, ym-gap/2); b2=rect(x0-out, ym+gap/2, x1+out, ym+gap/2+T)
+    return _metrics(union([g['p'],[b1],[b2]]),g)
+def currency(G, pound_letter=None):
+    """Euro (e con dos barras) y yen (y con dos barras); la libra solo cuando se elija su letra (l o p)."""
+    out={'\u20ac':two_lines(G,'e'), '\u00a5':two_lines(G,'y')}
+    if pound_letter: out['\u00a3']=two_lines(G,pound_letter)
+    return out
+def times_divide(G):
+    """Compatibilidad con la previa de la 2.2: por y la lectura 1a del entre."""
+    out=dict(times(G)); out['\u00f7']=divide_candidates(G)['1a']; return out
+
