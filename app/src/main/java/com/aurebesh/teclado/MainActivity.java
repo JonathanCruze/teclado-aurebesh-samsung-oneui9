@@ -1796,7 +1796,7 @@ public final class MainActivity extends Activity {
      * Fila "Tema". Arriba, destacado, el grupo "Automaticos · siguen el modo oscuro del telefono" con dos tarjetas,
      * Republica (Estelar de dia, Noche de noche; valor "auto") e Imperio (Arena de dia, Imperial de noche; valor
      * "auto_imperio"), cada una con su muestra doble (mitad clara, mitad oscura) y el distintivo de automatico; la
-     * seleccionada lleva un borde de acento. Debajo, "Siempre el mismo" con los seis temas fijos. La copia del
+     * seleccionada lleva un borde de acento. Debajo, "Siempre el mismo" con los temas fijos. La copia del
      * teclado cambia al instante al tema efectivo (Prefs.theme).
      */
     private void themeRow(LinearLayout parent) {

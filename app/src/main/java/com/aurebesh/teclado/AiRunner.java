@@ -801,18 +801,21 @@ final class AiRunner {
                 // Lista de verdad: titulo corto con dos puntos y un elemento por linea con "- "; el ejemplo fija el formato
                 return (en ? "Turn the following text into a list. First line: a short title that sums up what the list is "
                         + "about, ending with a colon. Below it, one item per line, each starting with \"- \" (dash and space). "
-                        + "Separate the items even if they come in a single sentence joined by commas or \"and\". "
-                        + "Format example:\nWeekend plans:\n- Go to the movies\n- Dinner with the family\n"
+                        + "Separate the items even if they come in a single sentence joined by commas or \"and\"; do not "
+                        + "repeat the text as a paragraph. Example:\nText: I bought eggs, milk and bread. That is what mom "
+                        + "asked for.\nAnswer:\nWhat mom asked for:\n- Eggs\n- Milk\n- Bread\n"
                         + "Write nothing before or after the list."
                         : de ? "Wandle den folgenden Text in eine Liste um. Erste Zeile: ein kurzer Titel, der zusammenfasst, "
                         + "worum es in der Liste geht, mit Doppelpunkt am Ende. Darunter ein Element pro Zeile, jedes beginnt "
                         + "mit \"- \" (Bindestrich und Leerzeichen). Trenne die Elemente auch dann, wenn sie in einem einzigen "
-                        + "Satz durch Kommas oder \"und\" verbunden sind. Formatbeispiel:\nPläne fürs Wochenende:\n"
-                        + "- Ins Kino gehen\n- Abendessen mit der Familie\nSchreibe nichts vor oder nach der Liste."
+                        + "Satz durch Kommas oder \"und\" verbunden sind; wiederhole den Text nicht als Absatz. Beispiel:\n"
+                        + "Text: Ich habe Eier, Milch und Brot gekauft. Das wollte Mama haben.\nAntwort:\nWas Mama haben "
+                        + "wollte:\n- Eier\n- Milch\n- Brot\nSchreibe nichts vor oder nach der Liste."
                         : "Convierte el siguiente texto en una lista. Primera línea: un título corto que resuma de qué va la "
                         + "lista, terminado en dos puntos. Debajo, un elemento por línea, cada uno empezando con \"- \" (guion "
-                        + "y espacio). Separa los elementos aunque vengan en una sola frase unidos por comas o por \"y\". "
-                        + "Ejemplo de formato:\nPlanes del fin de semana:\n- Ir al cine\n- Cenar con la familia\n"
+                        + "y espacio). Separa los elementos aunque vengan en una sola frase unidos por comas o por \"y\"; "
+                        + "no repitas el texto en un párrafo. Ejemplo:\nTexto: Compré huevos, leche y pan. Es lo que pidió "
+                        + "mamá.\nRespuesta:\nLo que pidió mamá:\n- Huevos\n- Leche\n- Pan\n"
                         + "No escribas nada antes ni después de la lista.") + tail;
             case TABLE:
                 return (en ? "Organize the information in the following text as a Markdown table: a header row, a dash "
@@ -940,14 +943,25 @@ final class AiRunner {
      * terminadas en dos puntos ("Lista de compras de mamá:") son el titulo que se pide y se conservan.
      */
     private static final Pattern BULLETS_LABEL = Pattern.compile(
-            "(?iu)^(aquí (está|tienes)|here (is|are)|hier (ist|sind)|sure|claro|por supuesto|certainly|of course|respuesta|answer|"
-            + "antwort|resultado|result|lista de (puntos|viñetas|vinetas)|bullet(ed)? (list|points)|aufzählung|stichpunkte)[^\\n]{0,60}:$");
+            "(?iu)^((aquí (está|tienes)|here (is|are)|hier (ist|sind)|sure|claro|por supuesto|certainly|of course|respuesta|answer|"
+            + "antwort|resultado|result|lista de (puntos|viñetas|vinetas)|bullet(ed)? (list|points)|aufzählung|stichpunkte)[^\\n]{0,60}"
+            + "|lista|list|liste):$");
     /** Vineta o numero al principio de un elemento de lista. */
     private static final Pattern BULLET_MARK = Pattern.compile("^([-*·–—•▪◦●]|\\d{1,2}[.)])\\s*");
     /** Separadores de elementos dentro de una misma linea: vinetas sueltas, " - " y punto y coma. */
     private static final Pattern INLINE_SEP = Pattern.compile("\\s*[•·▪◦●]\\s*|\\s+[-–—]\\s+|;\\s*");
     /** Conjuncion que une los dos ultimos elementos de una enumeracion ("Pan y Tortillas"). */
     private static final Pattern LAST_CONJ = Pattern.compile("(?iu)^(.+?)\\s+(y|e|and|und|o|or|oder)\\s+(.+)$");
+    /** Conjuncion al principio de una parte ("a, b, y c": coma de Oxford) o al final de un elemento. */
+    private static final Pattern LEAD_CONJ = Pattern.compile("(?iu)^(y|e|o|and|or|und|oder)\\s+");
+    private static final Pattern TRAIL_CONJ = Pattern.compile("(?iu)\\s+(y|e|o|and|or|und|oder)$");
+    /** Signos que pueden seguir al cierre de una frase sin abrir otra (". . .", "?!", comillas y parentesis de cierre). */
+    private static final String SENTENCE_TAIL = ".!?\u2026)\"\u201d\u00bb'\u2019";
+    /**
+     * Palabras por parte como maximo para que una conjuncion sola, sin comas, cuente como enumeracion ("ir al cine y
+     * cenar fuera" si; "hoy fue un dia largo y estoy cansado de tanto trabajo" es una frase, no dos elementos).
+     */
+    private static final int MAX_CONJ_WORDS = 4;
     private static final Pattern THINK = Pattern.compile("(?s)<think>.*?(</think>|$)");
 
     /** Limpieza general sin comprobaciones (para resultados parciales). */
@@ -1007,7 +1021,7 @@ final class AiRunner {
         int errorRes = 0;
         switch (a) {
             case BULLETS: {
-                s = bulletList(s);
+                s = bulletList(s, source);
                 if (s.isEmpty()) errorRes = R.string.ai_weak_result;
                 break;
             }
@@ -1101,35 +1115,94 @@ final class AiRunner {
         return s.substring(1, end).trim();
     }
 
-    /**
-     * Lista de verdad a partir de lo que devolvio el modelo: titulo (primera linea terminada en dos puntos, o sin vineta
-     * seguida de lineas con vineta) y un elemento por linea con "- ". Si todo vino en una linea se parte por las vinetas,
-     * los " - ", los ";" o las comas (y la conjuncion final). Sin lineas en blanco; si no hay titulo no se inventa.
-     */
+    /** Titulo (con dos puntos al final, o null) y elementos de una lista de vinetas, y si venian marcados como lista. */
+    static final class Bullets {
+        String title;
+        final List<String> items = new ArrayList<>();
+        /** El modelo marco la lista (vinetas, numeros, " - ", ";") o puso un elemento por linea; false = parrafo. */
+        boolean marked;
+    }
+
+    /** Compatibilidad: lista solo a partir de la salida del modelo, sin respaldo del texto original. */
     static String bulletList(String s) {
+        return bulletList(s, null);
+    }
+
+    /**
+     * Lista de verdad SIEMPRE que haya texto original. Se interpreta la salida del modelo (parseBullets) y, si no hizo
+     * una lista (menos de dos elementos, el texto casi igual al original o un parrafo sin marcas de lista), se construye
+     * de forma determinista a partir del texto original (bulletsFromText); el titulo del modelo se conserva si el
+     * original no da uno. Si el modelo dio elementos pero sin titulo, el titulo sale del original cuando este lo tiene.
+     * Sin original (null) se comporta como antes: solo la salida del modelo, vacio si no hay elementos.
+     */
+    static String bulletList(String s, String original) {
+        Bullets m = parseBullets(s == null ? "" : s);
+        String src = original == null ? "" : original.trim();
+        if (!src.isEmpty()) {
+            Bullets o = bulletsFromText(src);
+            boolean echoed = sameText(s, src);      // devolvio el texto tal cual: la lista sale del original
+            boolean modelOk = m.items.size() >= 2 && m.marked && !echoed;
+            if (!modelOk && (echoed || o.items.size() >= 2 || m.items.size() < 2)) {
+                if (o.title == null && m.title != null && !repeatsTitle(o.items, m.title)) o.title = m.title;
+                return format(o);
+            }
+            if (m.title == null && o.title != null && !repeatsTitle(m.items, o.title)) m.title = o.title;
+        }
+        return format(m);
+    }
+
+    /** Texto final: el titulo (si lo hay) y "- " por elemento, sin lineas en blanco; vacio sin elementos. */
+    private static String format(Bullets b) {
+        if (b.items.isEmpty()) return "";
+        StringBuilder sb = new StringBuilder();
+        if (b.title != null) sb.append(b.title);
+        for (String it : b.items) {
+            if (sb.length() > 0) sb.append('\n');
+            sb.append("- ").append(it);
+        }
+        return sb.toString();
+    }
+
+    /** Algun elemento es (o empieza por) el texto del titulo: no se anade un titulo que repita un elemento. */
+    private static boolean repeatsTitle(List<String> items, String title) {
+        String t = loose(title);
+        if (t.isEmpty()) return true;
+        for (String it : items) if (loose(it).startsWith(t)) return true;
+        return false;
+    }
+
+    /**
+     * Interpretacion de lo que devolvio el modelo: titulo (primera linea terminada en dos puntos, o sin vineta seguida
+     * de lineas con vineta) y un elemento por linea. Si todo vino en una linea se parte por las vinetas, los " - ",
+     * los ";" o las comas (y la conjuncion final). Negritas Markdown y lineas en blanco fuera; no se inventa titulo.
+     * marked: habia marcas de lista, o un elemento por linea sin comas ni frases dentro (si no, era un parrafo).
+     */
+    static Bullets parseBullets(String s) {
+        Bullets out = new Bullets();
         List<String> lines = new ArrayList<>();
         for (String line : s.split("\n")) {
             String t = line.replace("**", "").trim();     // negritas Markdown fuera
             if (!t.isEmpty()) lines.add(t);
         }
-        if (lines.isEmpty()) return "";
-        String title = null;
-        List<String> items = new ArrayList<>();
+        if (lines.isEmpty()) return out;
         if (lines.size() == 1) {
             // Todo en una linea: "Lista de compras: Huevo, Leche, Pan y Tortillas" o "• Huevo • Leche • Pan"
             String only = lines.get(0);
             boolean separators = INLINE_SEP.matcher(only).find();
-            if (!BULLET_MARK.matcher(only).find()) {
+            boolean bullet = BULLET_MARK.matcher(only).find();
+            out.marked = separators || bullet;
+            if (!bullet) {
                 int colon = only.indexOf(": ");
                 if (colon > 0 && colon <= 60 && !INLINE_SEP.matcher(only.substring(0, colon)).find()) {
-                    title = only.substring(0, colon + 1).trim();
-                    if (BULLETS_LABEL.matcher(title).matches()) title = null;   // "Aquí tienes la lista:" no es titulo
+                    out.title = only.substring(0, colon + 1).trim();
+                    if (BULLETS_LABEL.matcher(out.title).matches()) out.title = null;   // "Aquí tienes la lista:" no es titulo
                     only = only.substring(colon + 1).trim();
                 } else if (only.endsWith(":") && !separators) {
-                    return "";                           // solo un titulo, sin elementos
+                    out.title = BULLETS_LABEL.matcher(only).matches() ? null : only;   // solo un titulo, sin elementos
+                    return out;
                 }
             }
-            items.addAll(splitItems(only, true));
+            out.items.addAll(splitItems(only, true));
         } else {
             String first = lines.get(0);
             boolean othersMarked = false;
@@ -1137,18 +1210,18 @@ final class AiRunner {
             int from = 0;
             if (first.endsWith(":") || (!BULLET_MARK.matcher(first).find() && othersMarked)) {
                 String t = BULLET_MARK.matcher(first).replaceFirst("").replaceAll("[.:;,]+$", "").trim();
-                if (!t.isEmpty()) { title = BULLETS_LABEL.matcher(t + ":").matches() ? null : t + ":"; from = 1; }
+                if (!t.isEmpty()) { out.title = BULLETS_LABEL.matcher(t + ":").matches() ? null : t + ":"; from = 1; }
             }
-            for (int i = from; i < lines.size(); i++) items.addAll(splitItems(lines.get(i), false));
+            boolean prose = false;
+            for (int i = from; i < lines.size(); i++) {
+                String line = lines.get(i);
+                if (!BULLET_MARK.matcher(line).find() && !INLINE_SEP.matcher(line).find()
+                        && (line.contains(", ") || sentences(line).size() > 1)) prose = true;
+                out.items.addAll(splitItems(line, false));
+            }
+            out.marked = othersMarked || BULLET_MARK.matcher(first).find() || !prose;
         }
-        if (items.isEmpty()) return "";
-        StringBuilder b = new StringBuilder();
-        if (title != null) b.append(title);
-        for (String it : items) {
-            if (b.length() > 0) b.append('\n');
-            b.append("- ").append(it);
-        }
-        return b.toString();
+        return out;
     }
 
     /**
@@ -1178,6 +1251,162 @@ final class AiRunner {
             }
         }
         return out;
+    }
+
+    // ------------------------------------------------------------------ vinetas desde el texto original
+
+    /**
+     * Lista determinista a partir del texto original, para cuando el modelo no la hizo. Frases partidas por . ! ? ; …
+     * y saltos de linea (sentences). Una frase enumerativa (dos o mas partes por ", " o por la conjuncion final; ver
+     * enumParts) aporta sus partes como elementos; su entradilla antes de dos puntos ("Lista: a, b y c"), o una frase
+     * que es solo una entradilla ("Lista:"), es el titulo. Si hay alguna enumeracion y ninguna entradilla, la primera
+     * frase sin enumeracion es el titulo (con dos puntos, sin punto) y las demas frases sin enumeracion son elementos.
+     * Sin ninguna enumeracion, cada frase es un elemento. Como ultimo recurso, una sola vineta con el texto entero.
+     */
+    static Bullets bulletsFromText(String src) {
+        Bullets out = new Bullets();
+        List<String> frases = sentences(src);
+        int n = frases.size();
+        List<List<String>> partes = new ArrayList<>(n);     // partes de la enumeracion de cada frase, o null
+        List<String> leads = new ArrayList<>(n);            // entradilla de cada frase (antes de dos puntos), o null
+        boolean[] leadOnly = new boolean[n];                // la frase es solo una entradilla ("Lista:")
+        boolean anyEnum = false;
+        for (int i = 0; i < n; i++) {
+            String f = frases.get(i);
+            String lead = null;
+            List<String> p = null;
+            int colon = f.indexOf(": ");
+            if (colon > 0 && colon <= 60 && !f.substring(0, colon).contains(", ")) {
+                p = enumParts(f.substring(colon + 1));
+                if (p != null) lead = f.substring(0, colon).trim();
+            }
+            if (p == null) p = enumParts(f);
+            if (p == null && f.endsWith(":") && f.length() <= 60) { lead = f; leadOnly[i] = true; }
+            partes.add(p);
+            leads.add(lead);
+            if (p != null) anyEnum = true;
+        }
+        int titleLead = -1, titleFrase = -1;
+        for (int i = 0; i < n && titleLead < 0; i++) if (leads.get(i) != null) titleLead = i;
+        if (titleLead < 0 && anyEnum) for (int i = 0; i < n && titleFrase < 0; i++) if (partes.get(i) == null) titleFrase = i;
+        if (titleLead >= 0) out.title = asTitle(leads.get(titleLead));
+        else if (titleFrase >= 0) out.title = asTitle(frases.get(titleFrase));
+        for (int i = 0; i < n; i++) {
+            if (i == titleFrase) continue;
+            List<String> p = partes.get(i);
+            if (leads.get(i) != null && i != titleLead) addItem(out.items, leads.get(i));   // otra entradilla: un elemento mas
+            if (p != null) out.items.addAll(p);
+            else if (!leadOnly[i]) addItem(out.items, frases.get(i));
+        }
+        if (out.items.isEmpty()) {
+            if (out.title != null) { addItem(out.items, out.title); out.title = null; }
+            else addItem(out.items, src.replaceAll("\\s+", " "));
+            if (out.items.isEmpty()) out.items.add(src.trim());
+        }
+        out.marked = true;
+        return out;
+    }
+
+    /**
+     * Frases de un texto: cortadas por . ! ? ; … (seguidos de espacio, cierre o fin) y por saltos de linea, sin partir
+     * decimales ("1.5"), abreviaturas de una letra ("p. ej.", "J. Smith") ni el numero de una lista ("1. pan", que se
+     * quita); fuera las vinetas iniciales y las frases vacias.
+     */
+    static List<String> sentences(String text) {
+        List<String> out = new ArrayList<>();
+        StringBuilder cur = new StringBuilder();
+        int n = text.length();
+        for (int i = 0; i < n; i++) {
+            char c = text.charAt(i);
+            if (c == '\n' || c == '\r') { addSentence(out, cur); continue; }
+            boolean end = (c == '.' || c == '!' || c == '?' || c == ';' || c == '…')
+                    && (i + 1 >= n || isSpace(text.charAt(i + 1)) || SENTENCE_TAIL.indexOf(text.charAt(i + 1)) >= 0);
+            if (c == '.' && end) {
+                String before = cur.toString().trim();
+                int len = before.length();
+                if (len > 0 && len <= 2 && onlyDigits(before)) { cur.setLength(0); continue; }   // "1." de lista numerada
+                if (len > 0 && Character.isLetter(before.charAt(len - 1))
+                        && (len == 1 || !Character.isLetterOrDigit(before.charAt(len - 2)))) end = false;   // abreviatura de una letra
+            }
+            cur.append(c);
+            if (end) {
+                while (i + 1 < n && SENTENCE_TAIL.indexOf(text.charAt(i + 1)) >= 0) cur.append(text.charAt(++i));
+                addSentence(out, cur);
+            }
+        }
+        addSentence(out, cur);
+        return out;
+    }
+
+    private static boolean isSpace(char c) { return Character.isWhitespace(c) || Character.isSpaceChar(c); }
+
+    private static boolean onlyDigits(String s) {
+        for (int i = 0; i < s.length(); i++) if (!Character.isDigit(s.charAt(i))) return false;
+        return true;
+    }
+
+    /** Anade la frase acumulada (sin vineta inicial) si queda algo, y vacia el acumulador. */
+    private static void addSentence(List<String> out, StringBuilder cur) {
+        String t = BULLET_MARK.matcher(cur.toString().trim()).replaceFirst("").trim();
+        cur.setLength(0);
+        if (!t.isEmpty() && !t.matches("[\\p{Punct}¡¿…«»“”‘’]+")) out.add(t);
+    }
+
+    /**
+     * Partes de una frase enumerativa, limpias y sin la conjuncion final ("pan, leche y huevos" -> pan, leche, huevos);
+     * null si no lo es. La coma parte solo seguida de espacio (no "1,5 kg"); dos partes por coma sin conjuncion no
+     * cuentan ("Hola, Juan") y la conjuncion sola ("ir al cine y cenar") solo con partes cortas (MAX_CONJ_WORDS).
+     */
+    static List<String> enumParts(String f) {
+        String t = BULLET_MARK.matcher(f.trim()).replaceFirst("").replaceAll("[\\s.;:,…]+$", "").trim();
+        if (t.isEmpty()) return null;
+        List<String> parts = new ArrayList<>();
+        for (String r : t.split(",\\s+")) {
+            String p = r.trim();
+            if (!p.isEmpty()) parts.add(p);
+        }
+        if (parts.isEmpty()) return null;
+        int last = parts.size() - 1;
+        boolean commas = parts.size() > 1;
+        Matcher m = LAST_CONJ.matcher(parts.get(last));
+        if (m.matches()) {
+            String a = m.group(1).trim(), b = m.group(3).trim();
+            if (!commas && (words(a) > MAX_CONJ_WORDS || words(b) > MAX_CONJ_WORDS)) return null;   // dos clausulas, no enumeracion
+            parts.set(last, a);
+            parts.add(b);
+        } else {
+            if (!commas) return null;
+            String b = LEAD_CONJ.matcher(parts.get(last)).replaceFirst("").trim();   // coma de Oxford: "a, b, y c"
+            boolean conj = b.length() < parts.get(last).length();
+            if (conj) parts.set(last, b);
+            if (parts.size() == 2 && !conj) return null;                          // "Hola, Juan"
+        }
+        List<String> out = new ArrayList<>(parts.size());
+        for (String p : parts) {
+            String c = TRAIL_CONJ.matcher(p.trim()).replaceFirst("").replaceAll("[\\s.;:,…]+$", "").trim();
+            if (!c.isEmpty()) out.add(c);
+        }
+        return out.size() >= 2 ? out : null;
+    }
+
+    private static int words(String s) {
+        String t = s.trim();
+        return t.isEmpty() ? 0 : t.split("\\s+").length;
+    }
+
+    /** Frase como titulo de la lista: sin vineta inicial ni puntuacion final, con dos puntos; null si no queda nada. */
+    private static String asTitle(String f) {
+        String t = BULLET_MARK.matcher(f.trim()).replaceFirst("").replaceAll("[\\s.;:,…]+$", "");
+        if (t.endsWith("!") || t.endsWith("?")) t = t.replaceAll("[!?\\s]+$", "").replaceAll("^[¡¿\\s]+", "");
+        t = t.trim();
+        return t.isEmpty() ? null : t + ":";
+    }
+
+    /** Frase como elemento: sin vineta inicial, sin conjuncion ni puntuacion finales (se conservan ! y ?); vacio no se anade. */
+    private static void addItem(List<String> items, String f) {
+        String t = BULLET_MARK.matcher(f.trim()).replaceFirst("").replaceAll("[\\s.;:,…]+$", "");
+        t = TRAIL_CONJ.matcher(t).replaceFirst("").trim();
+        if (!t.isEmpty()) items.add(t);
     }
 
     private static boolean quoted(String source) {
