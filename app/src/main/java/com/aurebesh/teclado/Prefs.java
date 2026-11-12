@@ -23,6 +23,7 @@ final class Prefs {
     static final String EMOJI_RECENT = "emoji_recent";
     static final String CUSTOM_SOUND = "custom_sound";    // nombre del archivo de sonido elegido
     static final String LEARN = "learn_words";
+    static final String LEARN_USES = "learn_uses";          // usos distintos de una palabra desconocida antes de aprenderla (2, 3 o 5)
     static final String DOUBLE_SPACE = "double_space";
     static final String LEARNED = "learned_words";        // palabras aprendidas, separadas por salto de linea
     static final String APP_LANG = "app_lang";     // idioma de la app: "system", "es", "en", "de"
@@ -46,6 +47,7 @@ final class Prefs {
     static final String CANDIDATES = "candidate_words";  // palabras desconocidas vistas: lineas "palabra n" (se aprenden al repetirse)
     static final String THEME_AUTO = "auto";             // valor de THEME: sigue el modo oscuro del telefono (Republica: Estelar de dia, Noche de noche)
     static final String THEME_AUTO_IMPERIO = "auto_imperio";   // idem con Arena de dia e Imperial de noche
+    static final String THEME_AUTO_TEMPLOS = "auto_templos";   // idem con Santuario Jedi de dia y Templo Sith de noche
     // --- 2.0
     static final String SABER = "saber";                 // color de la estela del sable: blue, green, yellow, orange, purple, red
     static final String STARWARS = "starwars_dict";      // diccionario Star Wars (personajes, naves, planetas) en la correccion
@@ -65,10 +67,11 @@ final class Prefs {
     /** Tema efectivo; "auto" se resuelve con el modo oscuro del telefono (Estelar de dia, Noche de noche). */
     static String theme(Context c) {
         String t = themePref(c);
-        if (THEME_AUTO.equals(t) || THEME_AUTO_IMPERIO.equals(t)) {
+        if (THEME_AUTO.equals(t) || THEME_AUTO_IMPERIO.equals(t) || THEME_AUTO_TEMPLOS.equals(t)) {
             int night = c.getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
             boolean dark = night == android.content.res.Configuration.UI_MODE_NIGHT_YES;
             if (THEME_AUTO_IMPERIO.equals(t)) return dark ? Themes.IMPERIAL.id : Themes.ARENA.id;
+            if (THEME_AUTO_TEMPLOS.equals(t)) return dark ? Themes.SITH.id : Themes.SANTUARIO.id;
             return dark ? Themes.NOCHE.id : Themes.DEFAULT.id;
         }
         return t;
@@ -245,7 +248,7 @@ final class Prefs {
             case SPLIT: case CUSTOM_SOUND: case LEARNED: case APP_LANG: case KEYBOARD_LANG:
             case SPACE_SLIDE: case AUTO_REPLACE: case AUTO_CAPS: case PREVIEW: case LONGPRESS: case VIBRATION:
             case SOUND_VOLUME: case HEIGHT_PCT: case BOTTOM_DP: case SPLIT_WIDTH: case SHORTCUTS:
-            case SABER: case STARWARS: case HINT_MODE: case TOOLBAR_ITEMS: case ALT_CHARS: case TOP_ROW:
+            case SABER: case STARWARS: case HINT_MODE: case TOOLBAR_ITEMS: case ALT_CHARS: case TOP_ROW: case LEARN_USES:
             case AiModels.MODEL: case AiModels.MODE: case AiModels.REMOTE_URL: case AiModels.REMOTE_MODEL:
                 return true;
             default:
@@ -387,6 +390,11 @@ final class Prefs {
     /** Nombre visible del sonido personalizado, o null si suena el clic del sistema. */
     static String customSound(Context c) { return get(c).getString(CUSTOM_SOUND, null); }
     static boolean learn(Context c) { return get(c).getBoolean(LEARN, true); }
+    /** Usos (en mensajes distintos) que necesita una palabra desconocida para entrar en el diccionario personal: 2, 3 (por defecto) o 5. */
+    static int learnUses(Context c) {
+        int n = get(c).getInt(LEARN_USES, 3);
+        return n == 2 || n == 5 ? n : 3;
+    }
     static boolean doubleSpace(Context c) { return get(c).getBoolean(DOUBLE_SPACE, true); }
 
     /** Palabras que el usuario decidio conservar (en minusculas, tal como se guardan). */

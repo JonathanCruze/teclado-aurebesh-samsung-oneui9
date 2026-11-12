@@ -7,7 +7,7 @@
     <string name="top_row_none">Nichts</string>
     <string name="theme_auto_group">Automatisch · folgt dem Dunkelmodus des Telefons</string>
     <string name="theme_auto_republic">Republik</string>
-    <string name="theme_auto_republic_sub">Stellar am Tag, Nacht bei Nacht</string>
+    <string name="theme_auto_republic_sub">Kern am Tag, Äußerer Rand bei Nacht</string>
     <string name="theme_auto_imperio">Imperium</string>
     <string name="theme_auto_imperio_sub">Sand am Tag, Imperial bei Nacht</string>
     <string name="theme_fixed_group">Immer gleich</string>

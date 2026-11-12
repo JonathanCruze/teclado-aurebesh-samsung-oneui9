@@ -31,8 +31,8 @@
 
     <string name="appearance">Appearance</string>
     <string name="opt_theme">Theme</string>
-    <string name="theme_estelar">Stellar</string>
-    <string name="theme_noche">Night</string>
+    <string name="theme_estelar">Core</string>
+    <string name="theme_noche">Outer Rim</string>
     <string name="theme_datapad">Datapad</string>
     <string name="theme_imperial">Imperial</string>
     <string name="theme_arena">Sand</string>

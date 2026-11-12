@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="theme_santuario">Santuario Jedi</string>
+    <string name="theme_sith">Templo Sith</string>
+    <string name="theme_auto_templos">Templos</string>
+    <string name="theme_auto_templos_sub">Santuario Jedi de día, Templo Sith de noche</string>
+    <string name="learn_uses_title">Aprender palabras nuevas</string>
+    <string name="learn_uses_sub">Una palabra desconocida entra en tu diccionario personal solo después de escribirla en este número de mensajes distintos. Las que parecen erratas de palabras comunes esperan a que las conserves a propósito.</string>
+    <string name="learn_uses_2">Tras 2 usos</string>
+    <string name="learn_uses_3">Tras 3 usos</string>
+    <string name="learn_uses_5">Tras 5 usos</string>
+</resources>

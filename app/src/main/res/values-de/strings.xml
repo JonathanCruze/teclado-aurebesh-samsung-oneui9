@@ -23,8 +23,8 @@
 
     <string name="appearance">Aussehen</string>
     <string name="opt_theme">Design</string>
-    <string name="theme_estelar">Sternenlicht</string>
-    <string name="theme_noche">Nacht</string>
+    <string name="theme_estelar">Kern</string>
+    <string name="theme_noche">Äußerer Rand</string>
     <string name="theme_datapad">Datapad</string>
     <string name="theme_imperial">Imperial</string>
     <string name="theme_arena">Sand</string>

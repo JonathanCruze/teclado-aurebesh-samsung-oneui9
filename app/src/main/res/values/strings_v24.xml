@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="theme_santuario">Jedi Sanctuary</string>
+    <string name="theme_sith">Sith Temple</string>
+    <string name="theme_auto_templos">Temples</string>
+    <string name="theme_auto_templos_sub">Jedi Sanctuary by day, Sith Temple at night</string>
+    <string name="learn_uses_title">Learning new words</string>
+    <string name="learn_uses_sub">An unknown word joins your personal dictionary only after you type it in this many different messages. Words that look like typos of common words wait until you keep them on purpose.</string>
+    <string name="learn_uses_2">After 2 uses</string>
+    <string name="learn_uses_3">After 3 uses</string>
+    <string name="learn_uses_5">After 5 uses</string>
+</resources>

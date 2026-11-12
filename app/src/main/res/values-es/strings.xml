@@ -23,8 +23,8 @@
 
     <string name="appearance">Apariencia</string>
     <string name="opt_theme">Tema</string>
-    <string name="theme_estelar">Estelar</string>
-    <string name="theme_noche">Noche</string>
+    <string name="theme_estelar">Núcleo</string>
+    <string name="theme_noche">Borde Exterior</string>
     <string name="theme_datapad">Datapad</string>
     <string name="theme_imperial">Imperial</string>
     <string name="theme_arena">Arena</string>

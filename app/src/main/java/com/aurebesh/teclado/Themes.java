@@ -79,15 +79,22 @@ final class Themes {
             0xFFFFF4EA, 0xFFB8A78E, 0xFF9A8A72, 10f, true);
 
     /**
-     * Pazaak, la mesa de Knights of the Old Republic: tapete negro, las letras como las cartas verdes del mazo principal
-     * (cara verde oscura con canto plateado y numero blanco), las teclas de funcion como las cartas azules del mazo
-     * lateral, borrar y mayusculas tambien azules, intro como la carta dorada, el espacio como un hueco vacio de la
-     * mesa y la cinta en el azul de la interfaz del juego. Esquinas de 4 dp y borde de 1,5 dp, sin sombra ni halo.
+     * Santuario Jedi: piedra arenisca clara y marfil del Templo, tinta marron oscura, detalles en bronce (intro y
+     * mayusculas activas), esquinas amplias y sombra suave. Es el dia del automatico Templos.
      */
-    static final Theme PAZAAK = new Theme("pazaak", R.string.theme_pazaak,
-            0xFF070A0D, 0xFF174A33, 0xFF9DB1B6, 0xFFF3F7F4, 0, 0xFFF3F7F4,
-            0xFFD9A826, 0xFF1A1200, 0xFF1C3F7A, 0xFF131A22, 0xFF2E8A5A, 0xFF174A33,
-            0xFFF3F7F4, 0xFFB7D6C3, 0xFFB7D6C3, 4f, false, 1.5f);
+    static final Theme SANTUARIO = new Theme("santuario", R.string.theme_santuario,
+            0xFFEAE0CC, 0xFFFBF6EA, 0xFFD6C8A8, 0xFF3B2F23, 0, 0xFF3B2F23,
+            0xFFB08A3E, 0xFF2A1F0E, 0xFFE2D5B8, 0xFFF4EDDC, 0xFFD9CBAA, 0xFFFBF6EA,
+            0xFF3B2F23, 0xFF8C7A5E, 0xFF8C7A5E, 10f, true);
+
+    /**
+     * Templo Sith: obsidiana y basalto, teclas negras con canto rojo oscuro, tinta palida y el carmesi del sable en intro
+     * y mayusculas activas; sin sombra. Es la noche del automatico Templos.
+     */
+    static final Theme SITH = new Theme("sith", R.string.theme_sith,
+            0xFF0A0607, 0xFF1A1214, 0xFF3A1F24, 0xFFE8DCDC, 0, 0xFFE8DCDC,
+            0xFFC62828, 0xFFFFEBEE, 0xFF24171A, 0xFF15090B, 0xFF3B1E24, 0xFF1A1214,
+            0xFFE8DCDC, 0xFF9A8086, 0xFF9A8086, 6f, false);
 
     /**
      * Contraste (accesibilidad): fondo negro, teclas blancas con borde negro de 2 dp, glifo negro, acento amarillo
@@ -98,7 +105,7 @@ final class Themes {
             0xFFFFD600, 0xFF000000, 0xFFE6E6E6, 0xFFFFFFFF, 0xFFBDBDBD, 0xFFFFFFFF,
             0xFF000000, 0xFF000000, 0xFF000000, 4f, false, 2f);
 
-    static final Theme[] ALL = {ESTELAR, NOCHE, DATAPAD, IMPERIAL, ARENA, PAZAAK, CONTRASTE};   // Contraste siempre el ultimo (accesibilidad)
+    static final Theme[] ALL = {ESTELAR, NOCHE, DATAPAD, IMPERIAL, ARENA, SANTUARIO, SITH, CONTRASTE};   // Contraste siempre el ultimo (accesibilidad)
     static final Theme DEFAULT = ESTELAR;
 
     static Theme byId(String id) {
@@ -108,31 +115,39 @@ final class Themes {
 
     // ------------------------------------------------------------------ automaticos (siguen el modo oscuro del telefono)
 
-    /** Los dos valores guardados que no son un tema fijo: Republica ("auto") e Imperio ("auto_imperio"). */
-    static final String[] AUTOS = {Prefs.THEME_AUTO, Prefs.THEME_AUTO_IMPERIO};
+    /** Los valores guardados que no son un tema fijo: Republica ("auto"), Imperio ("auto_imperio") y Templos ("auto_templos"). */
+    static final String[] AUTOS = {Prefs.THEME_AUTO, Prefs.THEME_AUTO_IMPERIO, Prefs.THEME_AUTO_TEMPLOS};
 
     /** True si el valor guardado en Prefs.THEME es uno de los automaticos (Prefs.theme lo resuelve). */
     static boolean isAuto(String pref) {
-        return Prefs.THEME_AUTO.equals(pref) || Prefs.THEME_AUTO_IMPERIO.equals(pref);
+        return Prefs.THEME_AUTO.equals(pref) || Prefs.THEME_AUTO_IMPERIO.equals(pref) || Prefs.THEME_AUTO_TEMPLOS.equals(pref);
     }
 
-    /** Tema de dia de un automatico: Arena para Imperio, Estelar para Republica (y para cualquier otro valor). */
+    /** Tema de dia de un automatico: Arena para Imperio, Santuario Jedi para Templos, Nucleo (Estelar) para Republica y el resto. */
     static Theme autoDay(String pref) {
-        return Prefs.THEME_AUTO_IMPERIO.equals(pref) ? ARENA : ESTELAR;
+        if (Prefs.THEME_AUTO_IMPERIO.equals(pref)) return ARENA;
+        if (Prefs.THEME_AUTO_TEMPLOS.equals(pref)) return SANTUARIO;
+        return ESTELAR;
     }
 
-    /** Tema de noche de un automatico: Imperial para Imperio, Noche para Republica. */
+    /** Tema de noche de un automatico: Imperial para Imperio, Templo Sith para Templos, Borde Exterior (Noche) para Republica. */
     static Theme autoNight(String pref) {
-        return Prefs.THEME_AUTO_IMPERIO.equals(pref) ? IMPERIAL : NOCHE;
+        if (Prefs.THEME_AUTO_IMPERIO.equals(pref)) return IMPERIAL;
+        if (Prefs.THEME_AUTO_TEMPLOS.equals(pref)) return SITH;
+        return NOCHE;
     }
 
     /** Nombre visible (recurso) de un automatico. */
     static int autoName(String pref) {
-        return Prefs.THEME_AUTO_IMPERIO.equals(pref) ? R.string.theme_auto_imperio : R.string.theme_auto_republic;
+        if (Prefs.THEME_AUTO_IMPERIO.equals(pref)) return R.string.theme_auto_imperio;
+        if (Prefs.THEME_AUTO_TEMPLOS.equals(pref)) return R.string.theme_auto_templos;
+        return R.string.theme_auto_republic;
     }
 
-    /** Subtitulo (recurso) de un automatico: "Estelar de dia, Noche de noche" / "Arena de dia, Imperial de noche". */
+    /** Subtitulo (recurso) de un automatico: que tema va de dia y cual de noche. */
     static int autoSub(String pref) {
-        return Prefs.THEME_AUTO_IMPERIO.equals(pref) ? R.string.theme_auto_imperio_sub : R.string.theme_auto_republic_sub;
+        if (Prefs.THEME_AUTO_IMPERIO.equals(pref)) return R.string.theme_auto_imperio_sub;
+        if (Prefs.THEME_AUTO_TEMPLOS.equals(pref)) return R.string.theme_auto_templos_sub;
+        return R.string.theme_auto_republic_sub;
     }
 }

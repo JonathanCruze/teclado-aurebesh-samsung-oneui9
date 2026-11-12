@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="theme_santuario">Jedi-Heiligtum</string>
+    <string name="theme_sith">Sith-Tempel</string>
+    <string name="theme_auto_templos">Tempel</string>
+    <string name="theme_auto_templos_sub">Jedi-Heiligtum am Tag, Sith-Tempel bei Nacht</string>
+    <string name="learn_uses_title">Neue Wörter lernen</string>
+    <string name="learn_uses_sub">Ein unbekanntes Wort kommt erst nach so vielen verschiedenen Nachrichten ins persönliche Wörterbuch. Wörter, die wie Tippfehler häufiger Wörter aussehen, warten, bis du sie absichtlich behältst.</string>
+    <string name="learn_uses_2">Nach 2 Verwendungen</string>
+    <string name="learn_uses_3">Nach 3 Verwendungen</string>
+    <string name="learn_uses_5">Nach 5 Verwendungen</string>
+</resources>
