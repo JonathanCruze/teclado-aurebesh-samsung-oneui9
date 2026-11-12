@@ -340,8 +340,10 @@ public class SaberStripTest {
         Recorder rec = new Recorder();
         kb.setListener(rec);
         AurebeshKeyboardView.Key a = kb.keyFor("a");
-        // Esquina de la tecla donde va la pista latina (a 4 dp del borde, 9 sp), lejos del glifo centrado
-        RectF box = new RectF(a.rect.left + 5 * dp, a.rect.top + 4 * dp, a.rect.left + 16 * dp, a.rect.top + 14 * dp);
+        // Esquina inferior derecha de la cara (la celda menos 3 dp a los lados y 7,25 dp arriba y abajo) donde va la
+        // pista latina (a 4 dp del borde, 9 sp), lejos del glifo centrado y de la alternativa de arriba a la derecha
+        float faceRight = a.rect.right - 3 * dp, faceBottom = a.rect.bottom - 7.25f * dp;
+        RectF box = new RectF(faceRight - 16 * dp, faceBottom - 14 * dp, faceRight - 3 * dp, faceBottom - 2 * dp);
 
         kb.setHintMode(0);
         Bitmap never = render(kb, W);

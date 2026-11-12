@@ -320,7 +320,7 @@ public class A11yTest {
     public void compactRowsKeepTolerance() throws Exception {
         Application app = (Application) RuntimeEnvironment.getApplication();
         float dp = app.getResources().getDisplayMetrics().density;
-        // Tapa del Z Flip: filas de 34 dp, por debajo de los 48 dp recomendados; la tolerancia del toque vale tambien al explorar
+        // Tapa del Z Flip: filas de 36 dp, por debajo de los 48 dp recomendados; la tolerancia del toque vale tambien al explorar
         RuntimeEnvironment.setQualifiers("es-rES-w360dp-h374dp-xxhdpi");
         try {
             AurebeshKeyboardView kb = view(app, W);

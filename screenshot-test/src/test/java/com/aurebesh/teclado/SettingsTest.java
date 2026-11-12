@@ -3,8 +3,12 @@ package com.aurebesh.teclado;
 import android.app.Application;
 import android.content.Context;
 import android.content.res.Configuration;
+import android.text.InputType;
+import android.text.method.PasswordTransformationMethod;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.inputmethod.EditorInfo;
+import android.widget.EditText;
 import android.widget.SeekBar;
 import android.widget.TextView;
 import org.junit.Before;
@@ -24,12 +28,14 @@ import java.util.List;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 /**
  * Pantalla de ajustes (1.10): la actividad se crea con las secciones como One UI, el tema Automatico se guarda
  * como "auto" y se resuelve con el modo oscuro, los atajos de texto van y vienen desde Prefs, el deslizador de
- * alto guarda el porcentaje al soltar y en un telefono no hay seccion Plegables (el dividido va en Diseno).
+ * alto guarda el porcentaje al soltar, en un telefono no hay seccion Plegables (el dividido va en Diseno) y los campos
+ * de prueba son uno de texto normal y uno de PIN numerico (ya no hay campo de contrasena de texto).
  */
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 35, qualifiers = "es-rES-w411dp-h914dp-xxhdpi")
@@ -235,5 +241,51 @@ public class SettingsTest {
         assertEquals(85, Prefs.heightPct(app));
         Prefs.get(app).edit().putString(Prefs.HEIGHT, "xlarge").apply();
         assertEquals(130, Prefs.heightPct(app));
+    }
+
+    // ------------------------------------------------------------------ campos de prueba: texto normal y PIN numerico
+
+    /**
+     * "Con el teclado del sistema" ofrece un campo de texto normal y uno de PIN numerico (TYPE_CLASS_NUMBER con
+     * TYPE_NUMBER_VARIATION_PASSWORD, accion Listo y enmascarado); el antiguo campo de contrasena de texto ya no
+     * existe. El unico EditText de texto enmascarado que queda en la app es la clave del servidor de inteligencia,
+     * que es una credencial y no un campo de prueba.
+     */
+    @Test
+    public void tryFieldsHaveNumericPinInsteadOfPassword() {
+        MainActivity a = create();
+        EditText plain = null, pin = null;
+        int numericPins = 0;
+        List<EditText> maskedText = new ArrayList<>();
+        for (View v : all(a)) {
+            if (!(v instanceof EditText)) continue;
+            EditText e = (EditText) v;
+            int cls = e.getInputType() & InputType.TYPE_MASK_CLASS;
+            int variation = e.getInputType() & InputType.TYPE_MASK_VARIATION;
+            if (cls == InputType.TYPE_CLASS_NUMBER && variation == InputType.TYPE_NUMBER_VARIATION_PASSWORD) { pin = e; numericPins++; }
+            if (cls == InputType.TYPE_CLASS_TEXT && (variation == InputType.TYPE_TEXT_VARIATION_PASSWORD
+                    || variation == InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+                    || variation == InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD)) maskedText.add(e);
+            if (a.getString(R.string.real_text_hint).equals(String.valueOf(e.getHint()))) plain = e;
+        }
+        assertNotNull("campo de texto normal", plain);
+        assertNotNull("campo de PIN numerico", pin);
+        assertEquals("un solo campo de PIN", 1, numericPins);
+        assertEquals(a.getString(R.string.real_pin_hint), String.valueOf(pin.getHint()));
+        assertEquals("el PIN termina con Listo", EditorInfo.IME_ACTION_DONE, pin.getImeOptions() & EditorInfo.IME_MASK_ACTION);
+        assertTrue("el PIN va enmascarado", pin.getTransformationMethod() instanceof PasswordTransformationMethod);
+        assertSame("el PIN va junto al campo normal", plain.getParent(), pin.getParent());
+        // En la caja de prueba solo estan esos dos campos: ninguno de contrasena de texto
+        ViewGroup box = (ViewGroup) plain.getParent();
+        int fields = 0;
+        for (int i = 0; i < box.getChildCount(); i++) if (box.getChildAt(i) instanceof EditText) fields++;
+        assertEquals("campos de prueba: texto normal y PIN", 2, fields);
+        assertEquals(InputType.TYPE_CLASS_TEXT, plain.getInputType() & InputType.TYPE_MASK_CLASS);
+        // Fuera de ella, el unico EditText de texto enmascarado es la clave del servidor de inteligencia
+        for (EditText e : maskedText) {
+            assertEquals("campo de contrasena de texto inesperado", a.getString(R.string.ai_key_optional), String.valueOf(e.getHint()));
+        }
+        // El subtitulo de la seccion habla del PIN numerico
+        assertTrue(hasText(a, a.getString(R.string.real_sub)));
     }
 }

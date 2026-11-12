@@ -17,9 +17,9 @@
     <string name="try_title">Pruébalo</string>
     <string name="try_hint">Escribe algo</string>
     <string name="real_title">Con el teclado del sistema</string>
-    <string name="real_sub">Aquí aparece el teclado elegido en Ajustes; sirve para probar un campo normal y uno de contraseña.</string>
+    <string name="real_sub">Aquí aparece el teclado elegido en Ajustes; sirve para probar un campo normal y uno de PIN numérico.</string>
     <string name="real_text_hint">Texto normal</string>
-    <string name="real_password_hint">Contraseña</string>
+    <string name="real_pin_hint">PIN numérico</string>
 
     <string name="appearance">Apariencia</string>
     <string name="opt_theme">Tema</string>

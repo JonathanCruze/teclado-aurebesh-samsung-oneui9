@@ -17,9 +17,9 @@
     <string name="try_title">Probier es aus</string>
     <string name="try_hint">Schreib etwas</string>
     <string name="real_title">Mit der Systemtastatur</string>
-    <string name="real_sub">Hier erscheint die in den Einstellungen gewählte Tastatur, um ein normales Feld und ein Passwortfeld auszuprobieren.</string>
+    <string name="real_sub">Hier erscheint die in den Einstellungen gewählte Tastatur, um ein normales Feld und ein Feld für eine numerische PIN auszuprobieren.</string>
     <string name="real_text_hint">Normaler Text</string>
-    <string name="real_password_hint">Passwort</string>
+    <string name="real_pin_hint">Numerische PIN</string>
 
     <string name="appearance">Aussehen</string>
     <string name="opt_theme">Design</string>

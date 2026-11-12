@@ -213,10 +213,10 @@ public class ScreenshotTest {
         tap(kb, W - 28 * dp, 20 * dp);
         if (!typed.toString().equals("<tool1><tool2><tool14>")) throw new AssertionError("barra: " + typed);
         typed.setLength(0);
-        // La cinta no lleva el margen de las teclas: a 8 dp del borde (dentro del margen de las teclas) aun se
-        // tocan el boton de inteligencia y el icono de una mano
+        // La cinta no lleva el margen de las teclas (el 2,1 % del ancho, nunca menos de 8 dp: a 360 dp son 8 dp justos):
+        // a 8 dp del borde aun se tocan el boton de inteligencia y el icono de una mano
         float km0 = kb.keyMargin();
-        if (!(8 * dp < km0)) throw new AssertionError("margen de teclas menor que 8 dp: " + km0);
+        if (km0 < 8 * dp - 0.01f) throw new AssertionError("margen de teclas menor que 8 dp: " + km0);
         tap(kb, 8 * dp, 20 * dp);
         tap(kb, W - 8 * dp, 20 * dp);
         if (!typed.toString().equals("<tool5><tool14>")) throw new AssertionError("cinta al borde: " + typed);   // ✦ y "..." en los bordes
@@ -293,7 +293,7 @@ public class ScreenshotTest {
         if (kb.keyFor(".").rect.left < kb.keyFor("y").rect.left) throw new AssertionError("punto en la mitad derecha");
         // Margen exterior de las dos mitades: la primera tecla empieza en keyMargin() y la ultima acaba en W - keyMargin()
         float km = kb.keyMargin();
-        assertNear("margen 3 % del ancho", km, Math.max(8 * dp, 0.03f * W));
+        assertNear("margen del 2,1 % del ancho (minimo 8 dp)", km, Math.max(8 * dp, 0.021f * W));
         assertNear("q al margen", kb.keyFor("q").rect.left, km);
         if (kb.keyFor("1") != null) assertNear("1 al margen", kb.keyFor("1").rect.left, km);
         assertNear("?123 al margen", kb.keyFor(AurebeshKeyboardView.CODE_MODE).rect.left, km);
@@ -328,7 +328,7 @@ public class ScreenshotTest {
         if (kb.isSplit()) throw new AssertionError("dividido apagado");
         kb.setSplitMode(0);
         render(kb);
-        // Pantalla estrecha (720 px): el margen no baja de 8 dp (el 3 % serian 7,2 dp)
+        // Pantalla estrecha (720 px): el margen no baja de 8 dp (el 2,1 % serian 5 dp)
         AurebeshKeyboardView narrow = new AurebeshKeyboardView(app);
         narrow.applyPrefs(false, false, false, true, Themes.ESTELAR.id);
         narrow.setEnterAction(4);

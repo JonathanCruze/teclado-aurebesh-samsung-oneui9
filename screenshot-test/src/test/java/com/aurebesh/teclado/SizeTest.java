@@ -20,7 +20,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Tamano y posicion (1.10): filas por clase de alto de la pantalla (tapa del Z Flip, telefono apaisado, normal),
+ * Tamano y posicion (1.10): filas por clase de alto de la pantalla como Samsung Keyboard (36 dp en la tapa del Z Flip,
+ * 42 dp en un telefono apaisado y 64 dp en pantallas normales),
  * margen inferior con el boton ∨ de ocultar, tope de ancho de tecla en pantallas anchas, dividido automatico solo
  * entre 600 y 999 dp, y el modo de ajuste con tiradores y botones Listo / Restablecer.
  * Con el calificador xxhdpi de Robolectric la densidad es 3: 1080 px son 360 dp y 2176 px (Fold) son 725 dp.
@@ -128,7 +129,7 @@ public class SizeTest {
         Application app = (Application) RuntimeEnvironment.getApplication();
         float dp = app.getResources().getDisplayMetrics().density;
 
-        // Tapa del Z Flip (360 x 374 dp): filas de 34 dp, cinta de 32 dp y sin fila de numeros aunque este activada
+        // Tapa del Z Flip (360 x 374 dp): filas de 36 dp, cinta de 32 dp y sin fila de numeros aunque este activada
         RuntimeEnvironment.setQualifiers("es-rES-w360dp-h374dp-xxhdpi");
         try {
             AurebeshKeyboardView kb = view(app, W);
@@ -137,52 +138,52 @@ public class SizeTest {
             check(kb.keyFor("1") == null, "tapa del Flip: sin fila de numeros");
             AurebeshKeyboardView.Key q = kb.keyFor("q");
             check(q.alts != null && "1".equals(q.alts[0]), "tapa del Flip: q da 1 al mantener");
-            near("tapa del Flip: filas de 34 dp", q.rect.height(), 34 * dp);
+            near("tapa del Flip: filas de 36 dp", q.rect.height(), 36 * dp);
             near("tapa del Flip: cinta de 32 dp", q.rect.top, 32 * dp);
-            near("tapa del Flip: alto total", kb.getMeasuredHeight(), (32 + 4 * 34 + 6) * dp);
-            // En ?123 la fila de digitos sigue (no hay otra forma de escribir numeros), a 28 dp
+            near("tapa del Flip: alto total", kb.getMeasuredHeight(), (32 + 4 * 36 + 6) * dp);
+            // En ?123 la fila de digitos sigue (no hay otra forma de escribir numeros), a 30 dp
             tap(kb, kb.keyFor(AurebeshKeyboardView.CODE_MODE));
             layout(kb, W);
             AurebeshKeyboardView.Key one = kb.keyFor("1");
             check(one != null, "tapa del Flip: digitos en ?123");
-            near("tapa del Flip: fila de digitos de 28 dp", one.rect.height(), 28 * dp);
+            near("tapa del Flip: fila de digitos de 30 dp", one.rect.height(), 30 * dp);
             save(render(kb, W), "tamano_flip_tapa_simbolos.png");
-            // El alto elegido no amplia en pantallas bajas (130 % sigue en 34 dp) pero si reduce
+            // El alto elegido no amplia en pantallas bajas (130 % sigue en 36 dp) pero si reduce
             kb.setHeightPct(130);
             layout(kb, W);
-            near("tapa del Flip: el 130 % no amplia", kb.keyFor("+").rect.height(), 34 * dp);
+            near("tapa del Flip: el 130 % no amplia", kb.keyFor("+").rect.height(), 36 * dp);
             kb.setHeightPct(85);
             layout(kb, W);
-            near("tapa del Flip: el 85 % reduce", kb.keyFor("+").rect.height(), 34 * 0.85f * dp);
+            near("tapa del Flip: el 85 % reduce", kb.keyFor("+").rect.height(), 36 * 0.85f * dp);
         } finally {
             RuntimeEnvironment.setQualifiers(PHONE);
         }
 
-        // Telefono apaisado con 500 dp de alto: 38/30 dp como hasta ahora, con fila de numeros y cinta de 40 dp
+        // Telefono apaisado con 500 dp de alto (clase baja): 42/34 dp, con fila de numeros y cinta de 40 dp
         RuntimeEnvironment.setQualifiers("es-rES-w914dp-h500dp-land-xxhdpi");
         try {
             AurebeshKeyboardView land = view(app, 2340);
             save(render(land, 2340), "tamano_apaisado_500dp.png");
             AurebeshKeyboardView.Key one = land.keyFor("1");
             check(one != null, "apaisado: fila de numeros");
-            near("apaisado: digitos de 30 dp", one.rect.height(), 30 * dp);
-            near("apaisado: filas de 38 dp", land.keyFor("q").rect.height(), 38 * dp);
+            near("apaisado: digitos de 34 dp", one.rect.height(), 34 * dp);
+            near("apaisado: filas de 42 dp", land.keyFor("q").rect.height(), 42 * dp);
             near("apaisado: cinta de 40 dp", one.rect.top, 40 * dp);
             land.setHeightPct(130);
             layout(land, 2340);
-            near("apaisado: el 130 % no amplia", land.keyFor("q").rect.height(), 38 * dp);
+            near("apaisado: el 130 % no amplia", land.keyFor("q").rect.height(), 42 * dp);
         } finally {
             RuntimeEnvironment.setQualifiers(PHONE);
         }
 
-        // Pantalla normal: 58/46 dp y el alto elegido entero, tambien por encima del 100 %
+        // Pantalla normal: 64/56 dp como Samsung Keyboard y el alto elegido entero, tambien por encima del 100 %
         AurebeshKeyboardView kb = view(app, W);
-        near("normal: filas de 58 dp", kb.keyFor("q").rect.height(), 58 * dp);
-        near("normal: digitos de 46 dp", kb.keyFor("1").rect.height(), 46 * dp);
+        near("normal: filas de 64 dp", kb.keyFor("q").rect.height(), 64 * dp);
+        near("normal: digitos de 56 dp", kb.keyFor("1").rect.height(), 56 * dp);
         kb.setHeightPct(130);
         layout(kb, W);
         check(kb.heightPct() == 130, "heightPct tras setHeightPct: " + kb.heightPct());
-        near("normal: 130 %", kb.keyFor("q").rect.height(), 58 * 1.3f * dp);
+        near("normal: 130 %", kb.keyFor("q").rect.height(), 64 * 1.3f * dp);
         kb.applyPrefs(false, false, false, true, Themes.ESTELAR.id, true, false, 0.85f);   // applyPrefs sigue mandando
         layout(kb, W);
         check(kb.heightPct() == 85, "heightPct tras applyPrefs: " + kb.heightPct());
@@ -331,7 +332,7 @@ public class SizeTest {
         AurebeshKeyboardView kb = view(app, W);
         Recorder rec = new Recorder();
         kb.setListener(rec);
-        float rows100 = (46 + 4 * 58) * dp;                  // filas al 100 % con la fila de numeros
+        float rows100 = (56 + 4 * 64) * dp;                  // filas al 100 % con la fila de numeros (pasos de 56 y 64 dp)
 
         // El icono de tamano va en la cinta de ?123, antes del engrane, y abre el modo aunque el oyente no lo haga
         tap(kb, kb.keyFor(AurebeshKeyboardView.CODE_MODE));
@@ -367,7 +368,7 @@ public class SizeTest {
         int pct = kb.heightPct();
         int want = Math.round((rows100 + 60 * dp) / rows100 * 100f);
         check(pct == want, "alto tras arrastrar: " + pct + " (esperado " + want + ")");
-        near("filas mas altas en vivo", kb.keyFor("q").rect.height(), 58 * dp * pct / 100f);
+        near("filas mas altas en vivo", kb.keyFor("q").rect.height(), 64 * dp * pct / 100f);
         near("alto total en vivo", kb.getMeasuredHeight(), 40 * dp + rows100 * pct / 100f + 6 * dp);
         check(kb.isResizeMode() && rec.events.isEmpty(), "arrastrar no sale del modo ni avisa");
 
@@ -400,7 +401,7 @@ public class SizeTest {
         check(!kb.isResizeMode(), "Listo sale del modo");
         check(kb.resizeButtonRect(true).isEmpty() && kb.resizeHandleRect(true).isEmpty(), "zonas vacias fuera del modo");
         layout(kb, W);
-        near("los valores elegidos se quedan", kb.keyFor("q").rect.height(), 58 * dp * pct2 / 100f);
+        near("los valores elegidos se quedan", kb.keyFor("q").rect.height(), 64 * dp * pct2 / 100f);
         rec.reset();
         tap(kb, kb.keyFor("q"));
         check(rec.typed.toString(), "q", "tras Listo se vuelve a teclear");

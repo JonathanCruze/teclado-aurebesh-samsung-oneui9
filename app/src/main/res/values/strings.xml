@@ -25,9 +25,9 @@
     <string name="try_title">Try it</string>
     <string name="try_hint">Type something</string>
     <string name="real_title">With the system keyboard</string>
-    <string name="real_sub">The keyboard chosen in Settings appears here, to try a normal field and a password field.</string>
+    <string name="real_sub">The keyboard chosen in Settings appears here, to try a normal field and a numeric PIN field.</string>
     <string name="real_text_hint">Normal text</string>
-    <string name="real_password_hint">Password</string>
+    <string name="real_pin_hint">Numeric PIN</string>
 
     <string name="appearance">Appearance</string>
     <string name="opt_theme">Theme</string>

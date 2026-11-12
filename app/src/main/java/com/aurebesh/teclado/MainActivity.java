@@ -1464,7 +1464,7 @@ public final class MainActivity extends Activity {
         return s;
     }
 
-    /** Campos que usan el teclado del sistema (el elegido en Ajustes): texto normal y contrasena. */
+    /** Campos que usan el teclado del sistema (el elegido en Ajustes): texto normal y PIN numerico (campo privado). */
     private void buildRealFields(LinearLayout root) {
         root.addView(dividerLine());
         LinearLayout c = column();
@@ -1481,10 +1481,10 @@ public final class MainActivity extends Activity {
         plain.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH);
         c.addView(plain, block(0));
         c.addView(dividerLine());
-        EditText password = realField(R.string.real_password_hint,
-                InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
-        password.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_DONE);
-        c.addView(password, block(0));
+        EditText pin = realField(R.string.real_pin_hint,
+                InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_VARIATION_PASSWORD);   // teclado numerico, tratado como contrasena
+        pin.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_DONE);
+        c.addView(pin, block(0));
         root.addView(c, block(0));
     }
 
@@ -1497,7 +1497,7 @@ public final class MainActivity extends Activity {
         e.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
         e.setPadding(px(18), px(14), px(18), px(14));
         e.setSingleLine(true);
-        e.setInputType(inputType);   // despues de setSingleLine para conservar el enmascarado de la contrasena
+        e.setInputType(inputType);   // despues de setSingleLine para conservar el enmascarado del PIN
         return e;
     }
 

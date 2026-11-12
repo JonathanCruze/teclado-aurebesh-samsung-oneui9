@@ -130,20 +130,6 @@ public final class AurebeshKeyboardView extends View {
     /** Constantes de HapticFeedbackConstants que faltan en android.jar antiguos: KEYBOARD_PRESS (27), CONFIRM y REJECT (30). */
     private static final int HFC_KEYBOARD_PRESS = 3, HFC_CONFIRM = 16, HFC_REJECT = 17;
 
-    /** Alternativas de cada letra (acentos y variantes); la n~ y la c con cedilla incluidas. */
-    private static final java.util.Map<String, String[]> LETTER_ALTS = new java.util.HashMap<>();
-    static {
-        LETTER_ALTS.put("a", new String[]{"\u00e1", "\u00e0", "\u00e4", "\u00e2", "\u00e3", "\u00e5", "\u00e6"});
-        LETTER_ALTS.put("e", new String[]{"\u00e9", "\u00e8", "\u00eb", "\u00ea"});
-        LETTER_ALTS.put("i", new String[]{"\u00ed", "\u00ec", "\u00ef", "\u00ee"});
-        LETTER_ALTS.put("o", new String[]{"\u00f3", "\u00f2", "\u00f6", "\u00f4", "\u00f5", "\u00f8", "\u0153"});
-        LETTER_ALTS.put("u", new String[]{"\u00fa", "\u00f9", "\u00fc", "\u00fb"});
-        LETTER_ALTS.put("n", new String[]{"\u00f1"});
-        LETTER_ALTS.put("c", new String[]{"\u00e7"});
-        LETTER_ALTS.put("s", new String[]{"\u00df"});
-        LETTER_ALTS.put("y", new String[]{"\u00fd", "\u00ff"});
-    }
-
     private Listener listener;
     private final List<List<Key>> letters = new ArrayList<>();
     private final List<List<Key>> symbols = new ArrayList<>();    // signos 1/2 (como Samsung Keyboard)
@@ -323,6 +309,7 @@ public final class AurebeshKeyboardView extends View {
         for (int i = 0; i < toolRects.length; i++) toolRects[i] = new RectF();
         dividerPaint.setStyle(Paint.Style.STROKE);
         dividerPaint.setStrokeWidth(dp);
+        readRealScreen();
         compact = heightClass() == 0;      // pantalla muy baja: sin fila de numeros desde el principio
         buildLayouts();
         current = letters;
@@ -813,7 +800,8 @@ public final class AurebeshKeyboardView extends View {
 
     // ------------------------------------------------------------------ distribucion
 
-    private static Key letter(String c) { return new Key(c, c, c, LETTER_ALTS.get(c), CODE_TEXT, 1f); }
+    /** Tecla de letra con las alternativas de pulsacion larga que tiene en el idioma actual ({@link Alternatives#alts}). */
+    private Key letter(String c) { return new Key(c, c, c, Alternatives.alts(language, c), CODE_TEXT, 1f); }
 
     /** Signo, con alternativas opcionales por pulsacion larga. */
     private static Key sym(String out, float w, String... alts) {
@@ -841,7 +829,7 @@ public final class AurebeshKeyboardView extends View {
     }
 
     /** Tecla de letra del aleman: la vocal con diaeresis (o la eszett en la s) pasa a ser la primera alternativa. */
-    private static Key germanLetter(String c) {
+    private Key germanLetter(String c) {
         Key k = letter(c);
         String first = "s".equals(c) ? "\u00df" : "a".equals(c) ? "\u00e4" : "o".equals(c) ? "\u00f6" : "u".equals(c) ? "\u00fc" : null;
         if (first == null) return k;
@@ -1006,18 +994,68 @@ public final class AurebeshKeyboardView extends View {
     private float toolRadius() { return Math.min(16 * dp, stripHeight() / 2f - 2 * dp); }
 
     /**
-     * Clase de alto de la pantalla real (Configuration.screenHeightDp): 0 muy baja (menos de 420 dp: tapa del
+     * Clase de alto de la pantalla real ({@link #screenHeightDp}): 0 muy baja (menos de 420 dp: tapa del
      * Z Flip, telefono apaisado con barra), 1 baja (menos de 560 dp: telefono apaisado), 2 normal.
      */
     private int heightClass() {
-        int hdp = getResources().getConfiguration().screenHeightDp;
+        float hdp = screenHeightDp();
         if (hdp <= 0) return 2;                     // sin dato: lo normal
         return hdp < 420 ? 0 : hdp < 560 ? 1 : 2;
     }
 
+    /** Pantalla real en px (ancho, alto) segun el WindowManager, o null si no se pudo saber; se lee al crear y al medir. */
+    private int[] realScreenPx;
+
+    /**
+     * Alto de la pantalla en dp. Parte de Configuration.screenHeightDp, pero si las medidas reales de la pantalla
+     * dicen apaisado y la configuracion vertical, o al reves (al girar, la configuracion de la vista llega
+     * desfasada y el teclado apaisado se cortaba), manda el alto real: alto en px entre la densidad.
+     */
+    private float screenHeightDp() {
+        Configuration cfg = getResources().getConfiguration();
+        int hdp = cfg.screenHeightDp, wdp = cfg.screenWidthDp;
+        int[] real = realScreenPx;
+        if (real != null && hdp > 0 && wdp > 0) {
+            boolean realLand = real[0] > real[1], cfgLand = wdp > hdp;
+            if (realLand != cfgLand) return real[1] / dp;
+        }
+        return hdp;
+    }
+
+    /**
+     * Lee las medidas reales de la pantalla (API 30+: getMaximumWindowMetrics; antes: getRealSize). Si el
+     * WindowManager no esta, el metodo no existe o falla, queda null y manda la configuracion.
+     */
+    private void readRealScreen() {
+        int[] size = null;
+        try {
+            android.view.WindowManager wm = (android.view.WindowManager) getContext().getSystemService(Context.WINDOW_SERVICE);
+            if (wm != null) {
+                if (Build.VERSION.SDK_INT >= 30) {
+                    Rect b = wm.getMaximumWindowMetrics().getBounds();
+                    size = new int[]{b.width(), b.height()};
+                } else {
+                    android.graphics.Point p = new android.graphics.Point();
+                    wm.getDefaultDisplay().getRealSize(p);
+                    size = new int[]{p.x, p.y};
+                }
+            }
+        } catch (RuntimeException | LinkageError e) {
+            size = null;
+        }
+        realScreenPx = size != null && size[0] > 0 && size[1] > 0 ? size : null;
+    }
+
+    /** Tope del alto total del teclado: 56 % del alto real en apaisado y 62 % en vertical; 0 si no se conoce la pantalla. */
+    private float maxKeyboardHeight() {
+        if (realScreenPx == null) return 0;
+        boolean land = realScreenPx[0] > realScreenPx[1];
+        return realScreenPx[1] * (land ? 0.56f : 0.62f);
+    }
+
     /** Fila de numeros efectiva: la preferencia, salvo en pantallas muy bajas, donde se oculta aunque este activada. */
     private boolean numbersShown() { return numberRow && !compact; }
-    private boolean compact = false;            // clase 0: filas de 34/28 dp, cinta de 32 dp y sin fila de numeros
+    private boolean compact = false;            // clase 0: filas de 36/30 dp, cinta de 32 dp y sin fila de numeros
 
     /** Sigue la clase de alto (giro, tapa del plegable) y reconstruye las filas si cambia la fila de numeros efectiva. */
     private boolean updateCompact() {
@@ -1042,19 +1080,29 @@ public final class AurebeshKeyboardView extends View {
     private float handOffset() { return handMode == 2 ? getWidth() - handWidth() : 0; }
 
     /**
-     * Alto de fila por clase de alto de la pantalla: 58/46 dp (filas / fila de numeros) con el alto elegido
-     * entero en pantallas normales; 38/30 dp en las bajas y 34/28 dp en las muy bajas, donde el alto elegido
-     * solo reduce (nunca amplia) para no tapar media pantalla.
+     * Paso de fila (la celda entera, aire incluido) por clase de alto de la pantalla, como Samsung Keyboard:
+     * 64/56 dp (filas / fila de numeros) con el alto elegido entero en pantallas normales; 42/34 dp en las bajas
+     * y 36/30 dp en las muy bajas, donde el alto elegido solo reduce (nunca amplia) para no tapar media pantalla.
+     * Encima va {@link #fitScale}, que onMeasure baja de 1 si el teclado entero no cabe en la pantalla real.
      */
     private float rowHeight(List<List<Key>> layout, int ri) { return rowHeight(layout, ri, heightScale); }
 
     private float rowHeight(List<List<Key>> layout, int ri, float scale) {
         int hc = heightClass();
         boolean digits = isDigitRow(layout, ri);
-        if (hc == 0) return (digits ? 28 : 34) * dp * Math.min(scale, 1f);
-        if (hc == 1) return (digits ? 30 : 38) * dp * Math.min(scale, 1f);
-        return (digits ? 46 : 58) * dp * scale;
+        if (hc == 0) return (digits ? 30 : 36) * dp * Math.min(scale, 1f) * fitScale;
+        if (hc == 1) return (digits ? 34 : 42) * dp * Math.min(scale, 1f) * fitScale;
+        return (digits ? 56 : 64) * dp * scale * fitScale;
     }
+
+    /** Factor (0,5-1) que reduce los pasos de fila cuando el teclado no cabe en el tope de la pantalla real; 1 si cabe. */
+    private float fitScale = 1f;
+
+    /** Aire horizontal de la cara de la tecla dentro de su celda: 3 dp por lado (6 dp entre caras, como Samsung). */
+    private float insetX() { return 3 * dp; }
+
+    /** Aire vertical de la cara: 7,25 dp por lado en pantallas normales (cara de 49,5 dp en el paso de 64) y 2,5 dp en las bajas. */
+    private float insetY() { return (heightClass() == 2 ? 7.25f : 2.5f) * dp; }
 
     private float keysHeight() { return keysHeight(heightScale); }
 
@@ -1070,10 +1118,19 @@ public final class AurebeshKeyboardView extends View {
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        readRealScreen();
         updateCompact();
         updateSplit();
         int w = MeasureSpec.getSize(widthMeasureSpec);
-        setMeasuredDimension(w, (int) (stripHeight() + keysHeight() + bottomBand()));
+        // Red de seguridad: con la pantalla real conocida, el teclado entero (cinta + filas + banda) no pasa del
+        // 56 % del alto en apaisado ni del 62 % en vertical. Se reducen solo los pasos de fila: se mide primero
+        // con fitScale = 1 y se vuelve a sumar con el factor, sin recursion
+        fitScale = 1f;
+        float strip = stripHeight(), band = bottomBand(), keys = keysHeight(), limit = maxKeyboardHeight();
+        if (limit > 0 && keys > 0 && strip + keys + band > limit) {
+            fitScale = Math.max(0.5f, Math.min(1f, (limit - strip - band) / keys));
+        }
+        setMeasuredDimension(w, (int) (strip + keysHeight() + band));
     }
 
     @Override
@@ -1089,12 +1146,12 @@ public final class AurebeshKeyboardView extends View {
 
     /**
      * Margen lateral de las teclas (no de la cinta de herramientas, que va de borde a borde), como en
-     * Samsung Keyboard: un 3 % del ancho en telefonos y un 5 % en pantallas de 600 dp o mas (Fold
-     * desplegado, tabletas), nunca menos de 8 dp.
+     * Samsung Keyboard: un 2,1 % del ancho en telefonos (8,8 dp en 411 dp) y un 5 % en pantallas de 600 dp o
+     * mas (Fold desplegado, tabletas), nunca menos de 8 dp.
      */
     float keyMargin() {
         float wdp = getWidth() / dp;
-        float pct = wdp >= 600 ? 0.05f : 0.03f;
+        float pct = wdp >= 600 ? 0.05f : 0.021f;
         return Math.max(8 * dp, getWidth() * pct);
     }
 
@@ -1222,12 +1279,12 @@ public final class AurebeshKeyboardView extends View {
     @Override
     protected void onDraw(Canvas c) {
         if (toolbar || showStrip || suggestionBar) drawStrip(c);
-        float inset = 3 * dp;
+        float ix = insetX(), iy = insetY();             // la celda entera (k.rect) sigue siendo zona de toque; la cara lleva el aire
         float radius = theme.radiusDp * dp;
         for (int ri = 0; ri < current.size(); ri++) {
             for (Key k : current.get(ri)) {
                 if (k.code == CODE_GAP) continue;
-                tmp.set(k.rect.left + inset, k.rect.top + inset, k.rect.right - inset, k.rect.bottom - inset);
+                tmp.set(k.rect.left + ix, k.rect.top + iy, k.rect.right - ix, k.rect.bottom - iy);
                 boolean isPressed = pressed.indexOfValue(k) >= 0 || k == repeatKey;
                 boolean function = k.code != CODE_TEXT && k.code != CODE_SPACE;
                 boolean inkFilled = k.code == CODE_ENTER || (k.code == CODE_SHIFT && (shift || capsLock));
@@ -1339,22 +1396,24 @@ public final class AurebeshKeyboardView extends View {
         float cy = r.centerY();
         switch (k.code) {
             case CODE_TEXT:
+                boolean symbolKey = current != letters && k.glyph != null && !digitRow
+                        && k.label.length() == 1 && !Character.isLetterOrDigit(k.label.charAt(0));   // signo de la pagina ?123
                 if (k.glyph != null) {
                     float h = r.height() * (digitRow ? 0.44f : current == numpad ? 0.58f : 0.50f);   // numerico: digitos grandes
-                    if (theme.glow != 0) Glyphs.drawCentered(c, k.glyph, cx, cy, h, r.width() * 0.74f, glowPaint);
+                    if (theme.glow != 0) Glyphs.drawFitted(c, k.glyph, cx, cy, h, r.width() * 0.74f, glowPaint);
                     boolean dimInk = digitRow && lowContrast(theme.glyph, theme.bg);   // franja sin tecla sobre un fondo del color de la tinta (tema Contraste)
                     if (dimInk) glyphPaint.setColor(theme.keyBg);
-                    Glyphs.drawCentered(c, k.glyph, cx, cy, h, r.width() * 0.74f, glyphPaint);
+                    Glyphs.drawFitted(c, k.glyph, cx, cy, h, r.width() * 0.74f, glyphPaint);
                     if (dimInk) glyphPaint.setColor(theme.glyph);
-                    float ha = !k.glyph.equals(k.output) ? 1f : hintAlpha(k.output);   // con acento: la latina siempre, para distinguirlas
+                    // Letra latina abajo a la derecha de la cara (la leyenda del signo en ?123 va igual y siempre), lejos de
+                    // la alternativa de pulsacion larga, que va arriba a la derecha; con acento siempre visible, para distinguirlas
+                    float ha = symbolKey || !k.glyph.equals(k.output) ? 1f : hintAlpha(k.output);
                     if (ha > 0f) {
                         int base = hintPaint.getColor();
                         if (ha < 1f) hintPaint.setColor(fade(base, ha));        // aprendiendo: se desvanece con el uso
                         hintPaint.setTextSize(9 * sp);
-                        hintPaint.setTextAlign(Paint.Align.LEFT);
                         String hint = shiftActive() ? k.label.toUpperCase() : k.label;
-                        c.drawText(hint, r.left + 4 * dp, r.top + 10 * dp, hintPaint);
-                        hintPaint.setTextAlign(Paint.Align.RIGHT);
+                        c.drawText(hint, r.right - 4 * dp, r.bottom - 5 * dp, hintPaint);
                         hintPaint.setColor(base);
                     }
                 } else if (k.label.length() > 1) {
@@ -1363,27 +1422,15 @@ public final class AurebeshKeyboardView extends View {
                     textPaint.setTextSize(19 * dp);
                     c.drawText(k.label, cx, cy + 7 * dp, textPaint);
                 }
-                boolean symbolKey = current != letters && k.glyph != null && !digitRow
-                        && k.label.length() == 1 && !Character.isLetterOrDigit(k.label.charAt(0));
-                if (symbolKey) {                                 // leyenda del signo en la pagina ?123
-                    hintPaint.setTextSize(9 * sp);
-                    c.drawText(k.label, r.right - 4 * dp, r.top + 10 * dp, hintPaint);
-                }
-                if (k.alts != null && !digitRow) {
-                    String first = k.alts[0];
+                String first = faceAlt(k, digitRow);
+                if (first != null) {                             // alternativa insinuada arriba a la derecha
                     boolean digit = first.length() == 1 && Character.isDigit(first.charAt(0));
                     float aa = digit ? 1f : hintAlpha(k.output);   // los numeros ocultos siempre se insinuan; el resto sigue a su letra
                     if (aa > 0f) {
                         int base = hintPaint.getColor();
                         if (aa < 1f) hintPaint.setColor(fade(base, aa));
                         hintPaint.setTextSize(9 * sp);
-                        if (symbolKey) {
-                            hintPaint.setTextAlign(Paint.Align.LEFT);
-                            c.drawText(first, r.left + 4 * dp, r.top + 10 * dp, hintPaint);
-                            hintPaint.setTextAlign(Paint.Align.RIGHT);
-                        } else {
-                            c.drawText(first, r.right - 4 * dp, r.top + 10 * dp, hintPaint);
-                        }
+                        c.drawText(first, r.right - 4 * dp, r.top + 10 * dp, hintPaint);
                         hintPaint.setColor(base);
                     }
                 }
@@ -1407,6 +1454,20 @@ public final class AurebeshKeyboardView extends View {
                 if (spaceSlide != SPACE_NONE) drawSpaceChevrons(c, r, cy);
                 break;
         }
+    }
+
+    /**
+     * Alternativa que se insinua arriba a la derecha de la cara, o null si ninguna: el digito oculto de la fila
+     * superior (siempre); en las letras lo que diga {@link Alternatives#hint} para el idioma (en espanol la vocal
+     * con tilde; nada en la s ni en la c, que no llevan eszett ni cedilla); en el resto (signos, la n~, la pagina
+     * de acentos 3/3) su primera alternativa, como siempre.
+     */
+    private String faceAlt(Key k, boolean digitRow) {
+        if (k.alts == null || digitRow) return null;
+        String first = k.alts[0];
+        if (first.length() == 1 && Character.isDigit(first.charAt(0))) return first;
+        if (current == letters && singleLetter(k)) return Alternatives.hint(language, k.output);
+        return first;
     }
 
     /**
@@ -1559,7 +1620,7 @@ public final class AurebeshKeyboardView extends View {
                 // La latina segun el modo (en aprendiendo siempre); con acento siempre, que el glifo es el de la base
                 boolean latin = hintMode != 0 || !gk.equals(a.toLowerCase(java.util.Locale.ROOT));
                 glyphPaint.setColor(sel ? theme.onAccent : theme.previewText);
-                Glyphs.drawCentered(c, gk, cx, latin ? cy - 6 * dp : cy, popupCellH * 0.42f, popupCell * 0.7f, glyphPaint);
+                Glyphs.drawFitted(c, gk, cx, latin ? cy - 6 * dp : cy, popupCellH * 0.42f, popupCell * 0.7f, glyphPaint);
                 glyphPaint.setColor(theme.glyph);
                 if (latin) {
                     textPaint.setColor(sel ? theme.onAccent : theme.previewLatin);
@@ -1613,7 +1674,7 @@ public final class AurebeshKeyboardView extends View {
         float total = popupCell * popupCols;
         float left = k.rect.centerX() - popupCell / 2f;              // la primera opcion, sobre la tecla
         left = Math.max(2 * dp, Math.min(getWidth() - total - 2 * dp, left));
-        float top = Math.max(0, k.rect.top - h - 2 * dp);
+        float top = Math.max(0, k.rect.top + insetY() - 5 * dp - h);     // a 5 dp sobre la cara, sea cual sea el aire de la celda
         popupRect.set(left, top, left + total, top + h);
         invalidate();
     }
@@ -1669,7 +1730,7 @@ public final class AurebeshKeyboardView extends View {
         float w = Math.max(k.rect.width() * 1.3f, 56 * dp);
         float h = 74 * dp;
         float left = Math.max(2 * dp, Math.min(getWidth() - w - 2 * dp, k.rect.centerX() - w / 2f));
-        float top = Math.max(0, k.rect.top - h + 6 * dp);
+        float top = Math.max(0, k.rect.top + insetY() + 3 * dp - h);     // la burbuja termina 7 dp sobre la cara, sea cual sea el aire
         tmp.set(left, top, left + w, top + h - 10 * dp);
         fill.setColor(0x40000000);
         c.drawRoundRect(tmp.left, tmp.top + 3 * dp, tmp.right, tmp.bottom + 3 * dp, 10 * dp, 10 * dp, fill);
@@ -1679,9 +1740,9 @@ public final class AurebeshKeyboardView extends View {
         if (k.glyph != null) {
             boolean latin = hintMode != 0 || !k.glyph.equals(k.output);   // en aprendiendo siempre visible; con acento, siempre
             float gy = latin ? tmp.centerY() - 7 * dp : tmp.centerY();
-            if (theme.glow != 0) Glyphs.drawCentered(c, k.glyph, tmp.centerX(), gy, tmp.height() * 0.46f, tmp.width() * 0.72f, glowPaint);
+            if (theme.glow != 0) Glyphs.drawFitted(c, k.glyph, tmp.centerX(), gy, tmp.height() * 0.46f, tmp.width() * 0.72f, glowPaint);
             glyphPaint.setColor(theme.previewText);
-            Glyphs.drawCentered(c, k.glyph, tmp.centerX(), gy, tmp.height() * 0.46f, tmp.width() * 0.72f, glyphPaint);
+            Glyphs.drawFitted(c, k.glyph, tmp.centerX(), gy, tmp.height() * 0.46f, tmp.width() * 0.72f, glyphPaint);
             glyphPaint.setColor(theme.glyph);
             if (latin) {
                 textPaint.setColor(theme.previewLatin);

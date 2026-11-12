@@ -6,6 +6,7 @@ import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.res.Configuration;
 import android.inputmethodservice.InputMethodService;
 import android.net.Uri;
 import android.os.Build;
@@ -64,6 +65,7 @@ public class AurebeshIME extends InputMethodService
     private ToolsTray tools;            // cuadricula "..." con todas las herramientas de la cinta
     private EditTray edit;              // panel de edicion (cursor, seleccion, cortar/copiar/pegar, deshacer)
     private ScreenshotWatcher screenshots;   // capturas recientes (opcional, con permiso de fotos)
+    private int lastOrientation = Configuration.ORIENTATION_UNDEFINED;   // para saber si un cambio de configuracion fue un giro
     private Bigrams bigrams;            // siguiente palabra y contexto del idioma actual
     private boolean privateField = false;
     private boolean stripOn = false;
@@ -168,6 +170,7 @@ public class AurebeshIME extends InputMethodService
         if (cm != null) cm.addPrimaryClipChangedListener(clipListener);
         KeySound.get(this).reload(this);
         ui = AppLocale.wrap(this);
+        lastOrientation = getResources().getConfiguration().orientation;
         runner = new AiRunner(this);                          // un solo motor de IA mientras viva el servicio
         screenshots = new ScreenshotWatcher(this, new ScreenshotWatcher.Listener() {
             @Override public void onScreenshot(ClipHistory.Entry e) { onScreenshotFound(e); }
@@ -222,7 +225,7 @@ public class AurebeshIME extends InputMethodService
     @Override
     public View onCreateInputView() {
         if (ai != null) ai.detach();                         // la vista se rehace (giro, modo noche): el motor compartido sigue cargado y la generacion en curso pasa al panel nuevo
-        if (ui == null) ui = AppLocale.wrap(this);
+        ui = AppLocale.wrap(this);                           // siempre nuevo: uno guardado conservaria la Configuration (orientacion, alto) de cuando se creo
         if (runner == null) runner = new AiRunner(this);
         root = new FrameLayout(ui);
         view = new AurebeshKeyboardView(ui);
@@ -326,9 +329,36 @@ public class AurebeshIME extends InputMethodService
         }
     }
 
+    /**
+     * Editor a pantalla completa (extract UI) solo en telefonos apaisados, como hace Android por defecto y el teclado
+     * de Samsung: ahi la decision queda en super, que respeta IME_FLAG_NO_FULLSCREEN / IME_FLAG_NO_EXTRACT_UI de la
+     * app. En vertical, plegables desplegados y tabletas, nunca. Se mira la configuracion del servicio, no la del
+     * contexto envuelto (que podria estar desfasada).
+     */
     @Override
     public boolean onEvaluateFullscreenMode() {
-        return false;   // nunca el editor a pantalla completa en apaisado
+        Configuration c = getResources().getConfiguration();
+        boolean phoneLandscape = c.orientation == Configuration.ORIENTATION_LANDSCAPE && c.screenHeightDp < 480;
+        return phoneLandscape && super.onEvaluateFullscreenMode();
+    }
+
+    /**
+     * Giro, tapa del plegable o modo noche: el contexto envuelto con el idioma de la app se desecha ANTES de llamar a
+     * super, porque es dentro de super donde la plataforma rehace la vista de entrada (onCreateInputView) si la
+     * ventana esta visible; asi la vista nueva mide con la pantalla actual y no con la de cuando se creo el contexto
+     * (con el contexto viejo el teclado apaisado se cortaba al creerse en vertical). Se sustituye por uno nuevo en
+     * vez de dejarlo a null porque el oyente del portapapeles (chip "Pegar") lo usa aunque la ventana este oculta.
+     * Si la plataforma no rehizo la vista y hubo giro, se fuerza una nueva: el motor de IA compartido se desengancha
+     * en onCreateInputView.
+     */
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        ui = AppLocale.wrap(this);               // los recursos del servicio ya traen la configuracion nueva
+        boolean turned = newConfig.orientation != lastOrientation;
+        lastOrientation = newConfig.orientation;
+        View before = root;
+        super.onConfigurationChanged(newConfig);
+        if (turned && root == before && isInputViewShown()) setInputView(onCreateInputView());
     }
 
     @Override

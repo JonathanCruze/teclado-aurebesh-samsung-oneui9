@@ -141,11 +141,13 @@ public class GestureTest {
         AurebeshKeyboardView kb = view(app, W);
         Recorder rec = new Recorder();
         kb.setListener(rec);
-        // Pulsacion larga: o da o o o o o o oe, c da c con cedilla, s da eszett
+        // Pulsacion larga en espanol: la o da sus acentos (sin la o nordica ni la oe, que no son del espanol) y la c y
+        // la s no tienen alternativas (ni cedilla ni eszett); en ingles y aleman las dan (ver GeometriaTest)
         String o = Arrays.toString(kb.keyFor("o").alts);
-        for (String ch : new String[]{"\u00f3", "\u00f2", "\u00f6", "\u00f4", "\u00f5", "\u00f8", "\u0153"}) check(o.contains(ch), "falta " + ch + " en la o: " + o);
-        check("\u00e7".equals(kb.keyFor("c").alts[0]), "c con cedilla");
-        check("\u00df".equals(kb.keyFor("s").alts[0]), "eszett en la s");
+        for (String ch : new String[]{"\u00f3", "\u00f2", "\u00f6", "\u00f4", "\u00f5"}) check(o.contains(ch), "falta " + ch + " en la o: " + o);
+        check(!o.contains("\u00f8") && !o.contains("\u0153"), "la o del espanol no ofrece la o nordica ni la oe: " + o);
+        check(kb.keyFor("c").alts == null, "en espanol la c no lleva cedilla");
+        check(kb.keyFor("s").alts == null, "en espanol la s no lleva eszett");
         // Pagina 3/3: todas las letras con acento a la vista; shift las escribe en mayuscula
         tap(kb, kb.keyFor(AurebeshKeyboardView.CODE_MODE));
         layout(kb, W);
@@ -176,7 +178,7 @@ public class GestureTest {
         idle(450);
         String[] opts = kb.popupOptions();
         check(opts != null, "menu de la e abierto");
-        check(Arrays.asList(opts).toString(), "[é, è, ë, ê, e]", "opciones de la e");
+        check(Arrays.asList(opts).toString(), "[é, è, ê, ë, e]", "opciones de la e");
         save(render(kb, W), "gestos_menu_e.png");
         RectF last = kb.popupCellRect(opts.length - 1);
         move(kb, last.centerX(), last.centerY());
@@ -488,13 +490,13 @@ public class GestureTest {
         Recorder rec = new Recorder();
         kb.setListener(rec);
 
-        // Telefono: + * # y pausa, borrar e intro; cuatro filas iguales de 58 dp
+        // Telefono: + * # y pausa, borrar e intro; cuatro filas iguales de 64 dp (el paso de fila de letras)
         kb.showNumpad(true, false, false);
         layout(kb, W);
         check(kb.isNumpad(), "numerico activo");
         for (String k : new String[]{"1", "5", "0", "*", "#", "+", ","}) check(kb.keyFor(k) != null, "telefono sin " + k);
         check(kb.keyFor(AurebeshKeyboardView.CODE_DELETE) != null && kb.keyFor(AurebeshKeyboardView.CODE_ENTER) != null, "borrar e intro");
-        near("fila de 58 dp", kb.keyFor("1").rect.height(), 58 * dp);
+        near("fila de 64 dp", kb.keyFor("1").rect.height(), 64 * dp);
         near("la primera fila no es la franja de numeros", kb.keyFor("1").rect.height(), kb.keyFor("4").rect.height());
         check(kb.keyFor("1").rect.width() > 1.3f * kb.keyFor("1").rect.height(), "teclas anchas: 4 columnas llenan el ancho");
         save(render(kb, W), "gestos_numpad_telefono.png");
