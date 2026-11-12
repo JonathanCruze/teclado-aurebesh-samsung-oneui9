@@ -240,7 +240,7 @@ def img_hero():
 def img_themes():
     pal = NOCHE
     c = new_canvas(pal)
-    y = headline(c, 'Cinco temas.', 'Estelar, Noche, Imperial, Arena y Datapad. Elige uno en la app y el teclado cambia al instante.', pal)
+    y = headline(c, 'Ocho temas.', 'Núcleo, Borde Exterior, Datapad, Imperial, Arena, Santuario Jedi, Templo Sith y Contraste. Elige uno en la app y el teclado cambia al instante.', pal)
     order = ['estelar', 'noche', 'imperial', 'arena', 'datapad']
     card_w = 900
     step = 170
@@ -314,7 +314,7 @@ def img_feature():
     draw_aurebesh(c, 'aurebesh', 72, 100, 48, hexrgb(pal['ink']))
     d.text((72, 220), 'Teclado Aurebesh', font=DISPLAY(56), fill=hexrgb(pal['ink']))
     d.text((72, 300), 'El alfabeto de Star Wars en tu teclado.', font=REGULAR(28), fill=hexrgb(pal['sec']))
-    d.text((72, 342), 'Cinco temas. 41 KB. Sin internet.', font=REGULAR(28), fill=hexrgb(pal['sec']))
+    d.text((72, 342), 'Ocho temas. Sin internet.', font=REGULAR(28), fill=hexrgb(pal['sec']))
     kb = fit(load('tema_datapad.png'), 420)
     paste_rounded(c, kb, (640, 172), 24)
     return c

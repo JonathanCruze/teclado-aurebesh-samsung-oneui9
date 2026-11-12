@@ -44,20 +44,27 @@
 
 Para actualizar, descarga el nuevo APK e instálalo encima: conserva tus ajustes.
 
-### Novedades de la 2.3.1
-- **Tema Pazaak rehecho como la mesa de KOTOR:** tapete negro, letras como las cartas verdes del mazo principal con canto
-  plateado y glifo blanco, teclas de función como las cartas azules del mazo lateral, intro como la carta dorada y el espacio
-  como un hueco vacío de la mesa.
+### Novedades de la 2.4
+- **Temas:** Estelar pasa a llamarse **Núcleo** y Noche, **Borde Exterior**. Dos temas nuevos, **Santuario Jedi** (arenisca y
+  marfil del Templo, tinta marrón, bronce) y **Templo Sith** (obsidiana, canto rojo oscuro, carmesí), y un tercer automático,
+  **Templos**, que pone el Santuario de día y el Templo Sith de noche. El tema Pazaak se descarta.
+- **Sables de luz** solo por color, sin nombres de personajes.
+- **© y ®** con más aire entre la letra y el marco.
+- **Vista previa fija:** el teclado de prueba va anclado abajo en todas las pantallas de ajustes, con un campo para escribir y un
+  asa para plegarlo, así cada cambio se ve al momento sin volver atrás.
+- **Pasada de UX:** cabeceras, filas, chips y tarjetas unificados al estilo One UI; iconos de categoría; tres automáticos en
+  fila y ocho fijos en filas de cuatro; buscador que sigue abriendo la fila exacta.
+- **Diccionario personal menos sensible:** una palabra desconocida entra solo tras escribirla en 2, 3 o 5 mensajes distintos (se
+  elige en Escritura inteligente); nada de cifras, siglas, direcciones ni palabras que parezcan erratas de otras comunes, salvo
+  que deshagas una corrección a propósito; los candidatos sin uso en 30 días se olvidan.
 
 ### Novedades de la 2.3
-- **Tema Pazaak:** mesa de fieltro azul verdoso, teclas como cartas claras de esquinas casi rectas con borde, intro y mayúsculas
-  en el verde de las cartas positivas. Séptimo tema fijo; los automáticos no cambian.
 - **Viñetas siempre devuelve una lista:** si el modelo repite el texto o lo deja en una línea, el teclado construye la lista a
   partir del original: la frase sin enumeración es el título y cada elemento separado por comas o por "y" va en su línea con
   guion. Nunca vuelve vacío.
 - **Monedas sin solapes:** en los brazos diagonales (€, ¥) los dos palitos miden lo mismo, siguen el brazo y una comprobación
   automática los coloca en la posición más alta en la que no tocan otro trazo de la letra.
-- **Pruebas:** 160 en total, con AiBulletsTest nueva y los renders del tema Pazaak en `screenshots/tema_pazaak.png`.
+- **Pruebas:** 160 en total, con AiBulletsTest nueva.
 
 ### Novedades de la 2.2.2
 - **Símbolos elegidos sobre las previas:** × son las dos T del + en espejo, desplazadas un tercio de barra y giradas 45°; ÷ es
@@ -242,8 +249,8 @@ Para actualizar, descarga el nuevo APK e instálalo encima: conserva tus ajustes
   </tr>
   <tr>
     <td align="center"><img src="screenshots/dividido_fold.png" alt="Teclado dividido"><br><b>Dividido para Galaxy Fold</b><br>Al desplegar, dos mitades con la misma geometría que Samsung Keyboard (filas escalonadas, dos espacios); se puede desactivar.</td>
-    <td align="center"><img src="screenshots/simbolos_estelar.png" alt="Signos como Samsung"><br><b>?123 como Samsung Keyboard</b><br>Misma distribución de signos; la página 2/3 añade dígrafos Aurebesh, ¿ ¡ « » y más símbolos, y la 3/3 todas las letras con acento (à â ä ç ö ô ü ß…).</td>
-    <td align="center"><img src="screenshots/tema_datapad.png" alt="Tema Datapad"><br><b>Cinco temas</b><br>Estelar, Noche, Datapad, Imperial y Arena; la app sigue el modo claro u oscuro del teléfono.</td>
+    <td align="center"><img src="screenshots/simbolos_estelar.png" alt="Signos como Samsung"><br><b>?123 como Samsung Keyboard</b><br>Misma distribución de signos; la página 2/2 añade dígrafos Aurebesh, ¿ ¡ « », monedas y más símbolos; los acentos van en la pulsación larga de cada vocal, por idioma.</td>
+    <td align="center"><img src="screenshots/tema_datapad.png" alt="Tema Datapad"><br><b>Ocho temas</b><br>Núcleo, Borde Exterior, Datapad, Imperial, Arena, Santuario Jedi, Templo Sith y Contraste, y tres automáticos que siguen el modo oscuro del teléfono.</td>
   </tr>
 </table>
 
@@ -417,11 +424,17 @@ siempre lleva los caracteres correctos.
 ## Temas
 | Tema | Construcción |
 |---|---|
-| Estelar | acero mate, teclas blancas con sombra, tinta azul noche como único acento |
-| Noche | oscuro neutro, cian apagado solo en Enter y mayúsculas |
+| Núcleo | acero mate, teclas blancas con sombra, tinta azul noche como único acento |
+| Borde Exterior | oscuro neutro, cian apagado solo en Enter y mayúsculas |
 | Datapad | fondo casi negro, teclas solo trazadas, glifos azul luminoso con halo, esquinas de 3 dp |
 | Imperial | grafito, glifos blancos, esquinas duras, un solo rojo apagado |
 | Arena | tonos de arena, teclas hueso muy redondeadas, naranja de atardecer |
+| Santuario Jedi | arenisca y marfil del Templo, tinta marrón oscura, bronce en Enter, esquinas amplias |
+| Templo Sith | obsidiana y basalto, canto rojo oscuro, tinta pálida, carmesí en Enter |
+| Contraste | accesibilidad: negro, blanco y amarillo, bordes de 2 dp |
+
+Automáticos (siguen el modo oscuro del teléfono): República (Núcleo / Borde Exterior), Imperio (Arena / Imperial) y Templos
+(Santuario Jedi / Templo Sith).
 
 Añadir un tema es añadir una línea en `Themes.java`; el selector, la copia del teclado, las bandejas y las capturas lo recogen solos.
 
