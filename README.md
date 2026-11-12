@@ -44,6 +44,24 @@
 
 Para actualizar, descarga el nuevo APK e instálalo encima: conserva tus ajustes.
 
+### Novedades de la 2.1
+- **Teclas y márgenes como Samsung Keyboard**, medidos en un Galaxy Z Flip 7 y un Z Fold 7: margen lateral del 2,1 % (5 % en
+  plegables desplegados), paso de columna de 40 dp con cara de 34 dp, filas de 64 dp con la cara 7,25 dp más corta por arriba y
+  por abajo (49,5 dp), fila de números de 56 dp con teclas normales, y en pantallas anchas el aire entre teclas crece con ellas
+  (caras casi cuadradas en el Fold). Las celdas de toque siguen siendo enteras: el aire también responde.
+- **Pistas latinas abajo a la derecha** de la tecla, lejos de la alternativa de mantener, que sigue arriba a la derecha.
+- **Caracteres alternativos**, como la opción homónima de Samsung: cada letra insinúa su símbolo arriba a la derecha (q +, w ×,
+  a @, s #, k ¿, m ?) y lo escribe al mantenerla; los acentos siguen en el mismo menú. Se apaga en Diseño.
+- **Glifos con la misma escala:** la i, la l y la m ya no salen más altas que la w cuando las teclas son estrechas o altas; todo el
+  alfabeto comparte la escala, como una fuente.
+- **Alternativas por idioma:** en español ya no aparecen ß ni ç al mantener la s o la c; en alemán la ß sigue en la s y las teclas
+  ü, ö y ä muestran el glifo de su base con la letra completa debajo.
+- **Apaisado arreglado:** el teclado se cortaba porque el contexto con el idioma de la app conservaba la configuración vertical
+  tras girar; ahora se envuelve de nuevo en cada giro, la vista mide la pantalla real y nunca pasa del 56 % del alto. En
+  teléfonos apaisados se usa el editor a pantalla completa, como Samsung.
+- **PIN numérico** en lugar de contraseña en los campos de prueba de la app: enseña el teclado numérico y se trata como campo
+  privado (sin vista previa, sin aprendizaje, sin inteligencia).
+
 ### Novedades de la 2.0.1
 - **Deslizar reconoce el léxico Star Wars:** con el diccionario Star Wars activo, trazar *coruscant*, *palpatine* o *kyber*
   escribe Coruscant, Palpatine y kyber (antes salían *croissant*, *perdonarme* y *klinger*). Las palabras de tu diccionario
