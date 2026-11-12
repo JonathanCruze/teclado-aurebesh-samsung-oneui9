@@ -47,7 +47,7 @@ def to_units(polys, adv):
     return {'w':round((xmax-xmin)*U,3),'p':[[[round((x-xmin)*U,3),round((cap-y)*U,3)] for x,y in poly] for poly in polys],
             'lsb':round(xmin*U,3),'adv':round(adv*U,3)}
 G={}
-for ch in 'abcdefghijklmnopqrstuvwxyz0123456789,.?!:;-()/$"\'`¿¡«»[]_|~@#%&*+=<>{}^\\±£¥°©®™':
+for ch in 'abcdefghijklmnopqrstuvwxyz0123456789,.?!:;-()/$"\'`¿¡«»[]_|~@#%&*+=<>{}^\\±£¥©®™':   # sin el grado: el usuario prefiere el signo latino normal
     gn=cmap.get(ord(ch)); G[ch]=to_units(contours(gn), hmtx[gn][0])
 # la barra invertida de la fuente es la / en espejo pero 0.25 unidades mas alta: se usa el espejo exacto de la /
 G['\\']=dict(G['/'], p=mirror_x(G['/']['p'], G['/']['w']/2))

@@ -518,7 +518,7 @@ public class Lote22Test {
 
     // ------------------------------------------------------------------ (d) glifos nuevos
 
-    private static final String[] NEW_GLYPHS = {"\\", "\u00b1", "\u00a3", "\u00a5", "\u00b0", "\u00a9", "\u00ae", "\u2122", "\u00d7", "\u20ac",
+    private static final String[] NEW_GLYPHS = {"\\", "\u00b1", "\u00a3", "\u00a5", "\u00a9", "\u00ae", "\u2122", "\u00d7", "\u20ac",
             "\u00f8", "\u2260", "\u2030",
             "\u00e0", "\u00e8", "\u00ec", "\u00f2", "\u00f9",                       // grave
             "\u00e4", "\u00eb", "\u00ef", "\u00f6", "\u00fc",                       // dieresis
@@ -563,7 +563,7 @@ public class Lote22Test {
         layout(kb, W);
         tap(kb, kb.keyFor(AurebeshKeyboardView.CODE_PAGE));
         layout(kb, W);
-        for (String g : new String[]{"\u00a3", "\u00a5", "\u00b0", "\u00a9", "\u00ae", "\u2122", "\\"}) {
+        for (String g : new String[]{"\u00a3", "\u00a5", "\u00a9", "\u00ae", "\u2122", "\\"}) {
             AurebeshKeyboardView.Key k = kb.keyFor(g);
             check(k != null, "2/2 sin " + g);
             check(g.equals(k.glyph), "2/2: " + g + " con su glifo propio: " + k.glyph);
