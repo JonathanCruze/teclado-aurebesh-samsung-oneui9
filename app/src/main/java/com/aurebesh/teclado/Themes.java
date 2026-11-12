@@ -2,7 +2,7 @@ package com.aurebesh.teclado;
 
 /**
  * Temas del teclado. Cada tema cambia la construccion de la tecla (relleno, borde, esquina,
- * sombra, halo), no solo la paleta, para que se distingan de un vistazo. Ademas de los seis fijos hay dos
+ * sombra, halo), no solo la paleta, para que se distingan de un vistazo. Ademas de los siete fijos hay dos
  * automaticos (Republica e Imperio) que no son temas sino parejas dia/noche: Prefs.theme los resuelve.
  */
 final class Themes {
@@ -79,6 +79,19 @@ final class Themes {
             0xFFFFF4EA, 0xFFB8A78E, 0xFF9A8A72, 10f, true);
 
     /**
+     * Mesa de pazaak (el juego de cartas de la Antigua Republica): tapete azul verdoso, cartas casi cuadradas (6 dp) de
+     * cara gris azulada clara con canto dorado fino y sombra, tinta azul petroleo casi negra, las teclas de funcion como
+     * cartas del mazo lateral (un gris azulado mas hundido) y el verde de las cartas positivas en Enter y en mayusculas
+     * activas. El dorado del canto es tambien la linea bajo la cinta y el aro de sus botones (los detalles dorados del
+     * tablero). El tapete es mas claro que el del juego y las teclas de funcion no son dorsos oscuros porque la cinta y
+     * la banda de sugerencias escriben con la tinta de las teclas directamente sobre el fondo y sobre specialBg.
+     */
+    static final Theme PAZAAK = new Theme("pazaak", R.string.theme_pazaak,
+            0xFF2F7F84, 0xFFDCE6EA, 0xFFBD9D4F, 0xFF0A2A31, 0, 0xFF0A2A31,
+            0xFF3FD66B, 0xFF062A1B, 0xFFB7CCD3, 0xFFCFDDE2, 0xFFA3BEC7, 0xFFDCE6EA,
+            0xFF0A2A31, 0xFF456B75, 0xFF456B75, 6f, true);
+
+    /**
      * Contraste (accesibilidad): fondo negro, teclas blancas con borde negro de 2 dp, glifo negro, acento amarillo
      * con icono negro. Sin halo ni sombra y esquinas de 4 dp, para que cada tecla se recorte sin matices.
      */
@@ -87,7 +100,7 @@ final class Themes {
             0xFFFFD600, 0xFF000000, 0xFFE6E6E6, 0xFFFFFFFF, 0xFFBDBDBD, 0xFFFFFFFF,
             0xFF000000, 0xFF000000, 0xFF000000, 4f, false, 2f);
 
-    static final Theme[] ALL = {ESTELAR, NOCHE, DATAPAD, IMPERIAL, ARENA, CONTRASTE};
+    static final Theme[] ALL = {ESTELAR, NOCHE, DATAPAD, IMPERIAL, ARENA, PAZAAK, CONTRASTE};   // Contraste siempre el ultimo (accesibilidad)
     static final Theme DEFAULT = ESTELAR;
 
     static Theme byId(String id) {

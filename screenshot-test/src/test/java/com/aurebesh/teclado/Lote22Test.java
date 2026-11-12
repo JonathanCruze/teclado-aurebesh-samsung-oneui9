@@ -628,7 +628,7 @@ public class Lote22Test {
         check(Themes.isAuto(Prefs.THEME_AUTO) && Themes.isAuto(Prefs.THEME_AUTO_IMPERIO) && !Themes.isAuto("arena"), "isAuto");
         check(Themes.autoDay(Prefs.THEME_AUTO) == Themes.ESTELAR && Themes.autoNight(Prefs.THEME_AUTO) == Themes.NOCHE, "Republica: Estelar / Noche");
         check(Themes.autoDay(Prefs.THEME_AUTO_IMPERIO) == Themes.ARENA && Themes.autoNight(Prefs.THEME_AUTO_IMPERIO) == Themes.IMPERIAL, "Imperio: Arena / Imperial");
-        check(Themes.AUTOS.length == 2 && Themes.ALL.length == 6, "dos automaticos y seis fijos");
+        check(Themes.AUTOS.length == 2 && Themes.ALL.length == 7, "dos automaticos y siete fijos");
 
         // Prefs.theme resuelve con el uiMode del contexto
         Prefs.get(app).edit().putString(Prefs.THEME, Prefs.THEME_AUTO_IMPERIO).apply();
@@ -647,7 +647,7 @@ public class Lote22Test {
         Prefs.get(app).edit().putString(Prefs.THEME, Prefs.THEME_AUTO_IMPERIO).apply();
         check(Prefs.theme(app), Themes.ARENA.id, "Imperio de dia otra vez");
 
-        // Pantalla de ajustes: pagina Estilo con el grupo automatico (Republica e Imperio) y los seis fijos
+        // Pantalla de ajustes: pagina Estilo con el grupo automatico (Republica e Imperio) y los siete fijos
         MainActivity a = Robolectric.buildActivity(MainActivity.class).setup().get();
         SettingsTest.openCategory(a, R.string.cat_style, MainActivity.PAGE_STYLE);
         check(hasText(a, a.getString(R.string.theme_auto_group)), "grupo de automaticos");
