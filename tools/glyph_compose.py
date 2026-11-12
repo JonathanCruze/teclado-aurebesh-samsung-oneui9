@@ -151,7 +151,7 @@ def times_divide(G):
         for sgn in (1,-1): pieces.append([bar(cx+sgn*d*math.cos(a),cy+sgn*d*math.sin(a),Lp,ang)])
     return {'×':times,'÷':metrics(union(pieces))}
 
-# ---------------- simbolos del boceto del usuario (2.2.1): por, mas-menos, entre (cuatro lecturas), monedas
+# ---------------- simbolos del boceto del usuario (2.2.x): por, mas-menos, entre (tres lecturas), monedas
 def _rot(polys, ang, cx=0.0, cy=0.0):
     a=math.radians(ang); c,s_=math.cos(a),math.sin(a)
     return [[[cx+(x-cx)*c-(y-cy)*s_, cy+(x-cx)*s_+(y-cy)*c] for x,y in p] for p in polys]
@@ -165,51 +165,52 @@ def _metrics(polys, base):
 def _hang(polys, top):
     """Traslada para que el borde superior quede en top (los signos cuelgan del borde superior como + y =)."""
     x0,y0,x1,y1=bbox(polys); return translate(polys,0,top-y0)
-def _two_bars(L, gap=None):
-    gap=T if gap is None else gap
-    return [bar(0,-(gap/2+T/2),L,0), bar(0,(gap/2+T/2),L,0)]
+def _U(polys): return union([[p] for p in polys])
+STEM_W=1.539   # asta del + Aurebesh: 1.54 de ancho y 1.80 de alto
+STEM_L=1.803
+def _bars(L): return [bar(0,-T,L,0), bar(0,T,L,0)]            # las dos barras del + y su espejo, hueco de un trazo
+def _stems(gap=0.0):                                            # las dos astas, hacia fuera y alineadas (gap: despegadas)
+    y=1.5*T+gap
+    return [rect(-STEM_W/2,-(y+STEM_L),STEM_W/2,-y), rect(-STEM_W/2,y,STEM_W/2,y+STEM_L)]
 def times(G):
-    """Por: el + Aurebesh (una T) dos veces en espejo, con un hueco de un trazo entre las dos barras y las dos astas
-    unidas en un puente, girado 45 grados (como lo boceto el usuario)."""
+    """Por: el + Aurebesh (una T) y su espejo, barras paralelas con un hueco de un trazo y las astas hacia fuera y
+    alineadas (una raya larga cruza las dos barras), girado 45 grados; cuelga del borde superior como el +."""
     plus=G['+']; L=plus['w']; top=bbox(plus['p'])[1]
-    pieces=_two_bars(L)+[bar(0,0,3*T,90,t=1.539)]
-    polys=_hang(centered(_rot(pieces,-45),0,0),top)
-    return {'\u00d7':_metrics(union([[p] for p in polys]),plus)}
+    return {'\u00d7':_metrics(_U(_hang(centered(_rot(_bars(L)+_stems(),-45),0,0),top)),plus)}
 def plus_minus(G):
     """Mas-menos: el + con la barra del - debajo del asta, separada un trazo."""
     plus=G['+']; L=plus['w']; b=bbox(plus['p'])
-    polys=copy_polys(plus['p'])+[rect(0,b[3]+T,L,b[3]+2*T)]
-    return {'\u00b1':_metrics(union([[p] for p in polys]),plus)}
+    return {'\u00b1':_metrics(_U(copy_polys(plus['p'])+[rect(0,b[3]+T,L,b[3]+2*T)]),plus)}
 def divide_candidates(G):
-    """Entre, cuatro lecturas del boceto: 1a dos barras (sin puente) con un punto a cada lado; 1b dos barras con un
-    punto en cada extremo; 2 el + con un punto sobre la barra y otro bajo el asta; 3 un cuenco con un punto dentro
-    y otro debajo. La elegida se integra con DIVIDE_CHOICE en build_font_set.py."""
-    plus=G['+']; L=plus['w']; b=bbox(plus['p']); top=b[1]; out={}
-    pieces=_two_bars(L)+[_square(0,-(3*T)), _square(0,3*T)]
-    out['1a']=_metrics(union([[p] for p in _hang(centered(_rot(pieces,-45),0,0),top)]),plus)
-    d=L/2+1.5*T; pieces=_two_bars(L)+[_square(-d,0), _square(d,0)]
-    out['1b']=_metrics(union([[p] for p in _hang(centered(_rot(pieces,-45),0,0),top)]),plus)
-    polys=copy_polys(plus['p'])+[_square(L/2, top-1.5*T), _square(L/2, b[3]+1.5*T)]
-    out['2']=_metrics(union([[p] for p in polys]),plus)
-    sag=1.6; R=(L*L/(8*sag))+sag/2; cyc=top+T/2+R-sag; a0=math.asin((L/2)/R); po=[]; pi_=[]
-    for i in range(25):
-        a=-a0+2*a0*i/24
-        po.append([L/2+R*math.sin(a), cyc+R*math.cos(a)]); pi_.append([L/2+(R-T)*math.sin(a), cyc+(R-T)*math.cos(a)])
-    yb=cyc+R
-    polys=[po+pi_[::-1]]+[_square(L/2, yb-T-sag/2-0.2), _square(L/2, yb+1.5*T)]
-    out['3']=_metrics(union([[p] for p in polys]),plus)
+    """Entre, tres lecturas del boceto: '1' la x con las astas despegadas un trazo; '2' el * con un punto sobre el
+    vertice (su asta hace de punto inferior); '3' el * boca abajo (cuenco con el asta arriba) y un punto debajo.
+    La elegida se integra con DIVIDE_CHOICE en build_font_set.py."""
+    plus=G['+']; L=plus['w']; top=bbox(plus['p'])[1]; ast=G['*']; b=bbox(ast['p']); cx=(2.05+3.59)/2
+    out={}
+    out['1']=_metrics(_U(_hang(centered(_rot(_bars(L)+_stems(T),-45),0,0),top)),plus)
+    out['2']=_metrics(_U(copy_polys(ast['p'])+[_square(cx,b[1]-1.5*T)]),ast)
+    flipped=[[[x,(b[1]+b[3])-y] for x,y in p][::-1] for p in ast['p']]
+    out['3']=_metrics(_U(flipped+[_square(cx,b[3]+1.5*T)]),ast)
     return out
-def two_lines(G, letter, out=0.7, gap=0.9):
-    """La letra con dos barras horizontales en medio (euro, yen, libra), que asoman out a cada lado."""
-    g=G[letter]; x0,y0,x1,y1=bbox(g['p']); ym=(y0+y1)/2
-    b1=rect(x0-out, ym-gap/2-T, x1+out, ym-gap/2); b2=rect(x0-out, ym+gap/2, x1+out, ym+gap/2+T)
-    return _metrics(union([g['p'],[b1],[b2]]),g)
-def currency(G, pound_letter=None):
-    """Euro (e con dos barras) y yen (y con dos barras); la libra solo cuando se elija su letra (l o p)."""
-    out={'\u20ac':two_lines(G,'e'), '\u00a5':two_lines(G,'y')}
-    if pound_letter: out['\u00a3']=two_lines(G,pound_letter)
+# monedas: dos palitos finos cruzando solo el trazo corto de la letra, como los del simbolo de creditos ($)
+TICK_W=0.74; TICK_OUT=1.23; TICK_GAP=0.76
+def ticks(cx,cy,ang_deg,thick):
+    """Dos palitos perpendiculares a un trazo de grosor thick que pasa por (cx,cy) con angulo ang_deg (0 = horizontal),
+    centrados en ese punto y separados TICK_GAP; asoman TICK_OUT a cada lado del trazo."""
+    a=math.radians(ang_deg); dx,dy=math.cos(a),math.sin(a); length=thick+2*TICK_OUT; out=[]
+    for sgn in (-1,1):
+        off=sgn*(TICK_GAP/2+TICK_W/2); out.append(bar(cx+dx*off,cy+dy*off,length,ang_deg+90,t=TICK_W))
+    return out
+def with_ticks(G, letter, cx, cy, ang, thick):
+    g=G[letter]; return _metrics(union([g['p']]+[[t] for t in ticks(cx,cy,ang,thick)]),g)
+POUND={'l':('l',2.32,7.9,34.6,1.5), 'p':('p',3.0,3.09,0,1.54)}          # trazo corto: la diagonal de la l / el brazo superior de la p
+YEN={'a':('y',3.34,3.6,62.4,1.3), 'b':('y',6.3,6.0,-68.5,1.5)}         # trazo corto interior de la y / su brazo derecho
+def currency(G, pound_letter=None, yen_stroke='a'):
+    """Euro (palitos en la barrita superior de la e), yen (en el trazo corto interior de la y, o en su brazo derecho con
+    yen_stroke='b') y libra solo cuando se elija su letra ('l' o 'p')."""
+    out={'\u20ac':with_ticks(G,'e',7.95,3.07,0,1.54), '\u00a5':with_ticks(G,*YEN[yen_stroke])}
+    if pound_letter in POUND: out['\u00a3']=with_ticks(G,*POUND[pound_letter])
     return out
 def times_divide(G):
-    """Compatibilidad con la previa de la 2.2: por y la lectura 1a del entre."""
-    out=dict(times(G)); out['\u00f7']=divide_candidates(G)['1a']; return out
-
+    """Compatibilidad con la previa de la 2.2: por y la lectura 1 del entre."""
+    out=dict(times(G)); out['\u00f7']=divide_candidates(G)['1']; return out
