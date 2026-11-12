@@ -55,7 +55,8 @@ Para actualizar, descarga el nuevo APK e instálalo encima: conserva tus ajustes
 - **Fila superior a elegir:** números, los ocho dígrafos Aurebesh en su lugar, o nada; los números siguen a una pulsación larga.
 - **Teclado numérico completo:** paréntesis, operadores y separador en los campos numéricos; + * # ( ) - / y pausa en teléfono;
   el PIN sigue siendo solo dígitos.
-- **Pistas latinas abajo al centro** y el glifo algo más alto en números y dígrafos, para que nunca se tapen.
+- **Pistas latinas siempre legibles:** siguen en la esquina inferior derecha, pero en números y dígrafos el glifo sube un poco
+  para no taparlas.
 - **Todo en Aurebesh** (antes "barra de traducción"): con la opción activa, también las sugerencias y la corrección se muestran
   en glifos.
 - **Glifos nuevos:** la barra invertida y ± £ ¥ ° © ® ™ de la fuente original, ø, ≠ y ‰ compuestos a partir de o, = y %, y las
