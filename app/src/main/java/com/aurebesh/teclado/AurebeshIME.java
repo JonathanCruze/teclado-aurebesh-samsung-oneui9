@@ -30,7 +30,6 @@ import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -93,7 +92,7 @@ public class AurebeshIME extends InputMethodService
     private Future<Dictionary.Result> suggestFuture;   // peticion en vuelo de lastWord (un separador la espera como mucho 30 ms)
     private String suggestFutureWord;                  // palabra de esa peticion
     private String correctionAnchor;              // texto previo al cursor tras autocorregir: el chip "original" sigue mientras no cambie
-    private final HashMap<String, Integer> revertCount = new HashMap<>();   // veces que se deshizo la misma correccion en la sesion
+    private Learning learning;                    // politica del diccionario personal (usos en mensajes distintos, erratas, purga)
     private Map<String, String> shortcuts = new LinkedHashMap<>();         // atajos de texto (clave en minusculas -> expansion)
     private AiRunner runner;                      // unico motor de IA del servicio (sobrevive a rehacer la vista)
     // Seleccion conocida (EditorInfo al empezar y onUpdateSelection despues); -1 si el editor no la informa
@@ -165,6 +164,7 @@ public class AurebeshIME extends InputMethodService
     @Override
     public void onCreate() {
         super.onCreate();
+        learning = new Learning(this);
         Prefs.get(this).registerOnSharedPreferenceChangeListener(prefsListener);
         ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
         if (cm != null) cm.addPrimaryClipChangedListener(clipListener);
@@ -183,6 +183,7 @@ public class AurebeshIME extends InputMethodService
     @Override
     public void onDestroy() {
         Bigrams.flush(this);
+        if (learning != null) learning.endSession();
         Prefs.get(this).unregisterOnSharedPreferenceChangeListener(prefsListener);
         ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
         if (cm != null) cm.removePrimaryClipChangedListener(clipListener);
@@ -387,6 +388,10 @@ public class AurebeshIME extends InputMethodService
                 && variation != InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
                 && variation != InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS;
         incognito = (info.imeOptions & EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING) != 0;
+        // Diccionario personal: un campo nuevo abre una sesion (un uso por palabra como mucho); si la app solo reinicia
+        // el campo y lo ha vaciado (mensaje enviado con su propio boton), empieza otro mensaje
+        if (!restarting) learning.beginSession();
+        else if (info.initialSelStart <= 0 && info.initialSelEnd <= 0) learning.newMessage();
         view.setPreviewEnabled(preview && !privateField);   // sin burbuja en contrasenas
         updateGlide();
         if (ai != null) ai.setFieldAllowed(suggestionsAllowed && !privateField);
@@ -437,6 +442,7 @@ public class AurebeshIME extends InputMethodService
     public void onFinishInputView(boolean finishingInput) {
         super.onFinishInputView(finishingInput);
         Bigrams.flush(this);                       // parejas aprendidas (escritura diferida) a disco
+        learning.endSession();                     // candidatos del diccionario personal a disco; la sesion de campo termina
         clearSuggestions();
         if (ai != null) ai.cancel();
         hideTray();
@@ -982,14 +988,14 @@ public class AurebeshIME extends InputMethodService
         ic.commitText(fix + suffix, 1);
         ic.endBatchEdit();
         lastCorrection = new String[]{original, fix, suffix};
-        Prefs.removeCandidate(this, original.toLowerCase(Locale.ROOT));   // una palabra corregida deja de ser candidata a aprenderse
         showCorrectionChip(ic, original);
         return true;
     }
 
     /**
      * Deshace la ultima autocorreccion (o atajo) si el texto previo al cursor sigue siendo el corregido: recupera la
-     * palabra original con su separador. La misma correccion deshecha dos veces en la sesion aprende la palabra.
+     * palabra original con su separador. Deshacer la correccion cuenta como un uso de la palabra original (aunque
+     * parezca una errata, el usuario la rechazo): tras {@link Prefs#learnUses} mensajes distintos se aprende.
      */
     private boolean revertCorrection(InputConnection ic) {
         String[] c = lastCorrection;
@@ -1003,46 +1009,52 @@ public class AurebeshIME extends InputMethodService
         ic.commitText(c[0] + c[2], 1);
         ic.endBatchEdit();
         String key = c[0].toLowerCase(Locale.ROOT);
-        if (!shortcuts.containsKey(key)) {              // deshacer un atajo no dice nada sobre la palabra
-            Integer n = revertCount.get(key);
-            int count = n == null ? 1 : n + 1;
-            revertCount.put(key, count);
-            if (count >= 2) learnWord(c[0]);
+        if (!shortcuts.containsKey(key) && mayLearn()) {    // deshacer un atajo no dice nada sobre la palabra
+            if (learning.note(dict, c[0], Prefs.learnUses(this), true)) learnWord(c[0]);
         }
         return true;
     }
 
+    /** Se permite aprender: opcion activa, campo normal (ni contrasenas, correos o direcciones) y sin modo incognito. */
+    private boolean mayLearn() {
+        return learn && !incognito && suggestionsAllowed && !privateField;
+    }
+
     /**
-     * Palabra desconocida cerrada con un separador (sin correccion ni atajo): se anota y a la segunda vez que se
-     * escribe se aprende. Solo si se permite aprender (opcion, campo normal, sin modo incognito).
+     * Palabra desconocida cerrada con un separador o un envio (sin correccion ni atajo): se anota como candidata y,
+     * cuando lleva {@link Prefs#learnUses} usos en mensajes distintos (politica de {@link Learning}: nada de cifras,
+     * siglas, direcciones ni erratas de palabras frecuentes), se aprende. Solo si se permite aprender.
      */
     private void noteCandidate(InputConnection ic) {
-        if (dict == null || !learn || incognito || !suggestionsAllowed || privateField) return;
+        if (dict == null || !mayLearn()) return;
         String cur = currentWord(ic);
-        if (cur == null || cur.length() < 3 || looksLikeAcronym(cur)) return;
-        String lw = cur.toLowerCase(Locale.ROOT);
-        if (dict.contains(lw) || shortcuts.containsKey(lw)) return;
+        if (cur == null || cur.length() < Learning.MIN_LEN || gluedToSymbol(ic, cur)) return;
+        if (shortcuts.containsKey(cur.toLowerCase(Locale.ROOT))) return;
         // Con el predictivo activo se exige el veredicto del diccionario para esta palabra: si el resultado no llego
         // (30 ms agotados, excepcion) o habia correccion y no se aplico (sustitucion desactivada), no se anota
         if (autocorrect && (!cur.equals(computedWord) || pendingCorrection != null)) return;
-        if (Prefs.bumpCandidate(this, lw) >= 2) {
-            learnWord(cur);
-            Prefs.removeCandidate(this, lw);
-        }
+        if (learning.note(dict, cur, Prefs.learnUses(this), false)) learnWord(cur);
     }
 
-    /** Guarda una palabra que el usuario quiso conservar (si la opcion esta activa). */
+    /**
+     * La palabra va pegada a un simbolo o una cifra ("usuario@", "www.", "3er", "#tag"): es parte de una direccion,
+     * un correo o un codigo, no una palabra del usuario.
+     */
+    private static boolean gluedToSymbol(InputConnection ic, String word) {
+        CharSequence b = ic.getTextBeforeCursor(word.length() + 1, 0);
+        if (b == null || b.length() <= word.length()) return false;
+        char p = b.charAt(0);
+        return Character.isDigit(p) || "@./:_-#&=?%+\\|~*".indexOf(p) >= 0;
+    }
+
+    /**
+     * Guarda una palabra que el usuario quiso conservar (si la opcion esta activa): bien formada y desconocida
+     * ({@link Learning#eligible}). Es el unico aprendizaje inmediato, desde el chip de la palabra original.
+     */
     private void learnWord(String w) {
-        if (!learn || incognito || !suggestionsAllowed || privateField || w == null) return;
-        String lw = w.toLowerCase(Locale.ROOT);
-        if (lw.length() < 2 || lw.length() > 30) return;
-        for (int i = 0; i < lw.length(); i++) {
-            char c = lw.charAt(i);
-            if (!Character.isLetter(c) && c != '\'') return;
-        }
-        if (dict != null && dict.contains(lw)) return;
-        Prefs.addLearnedWord(this, lw);
-        if (dict != null) dict.setPersonal(Prefs.learnedWords(this));
+        if (!mayLearn() || !Learning.eligible(dict, w)) return;
+        Prefs.addLearnedWord(this, w.toLowerCase(Locale.ROOT));
+        dict.setPersonal(Prefs.learnedWords(this));
     }
 
     private static boolean endsSentence(char c) {
@@ -1168,14 +1180,23 @@ public class AurebeshIME extends InputMethodService
         boolean multiLine = (info.inputType & InputType.TYPE_TEXT_FLAG_MULTI_LINE) != 0;
         if ((info.imeOptions & EditorInfo.IME_FLAG_NO_ENTER_ACTION) == 0
                 && action != EditorInfo.IME_ACTION_NONE && action != EditorInfo.IME_ACTION_UNSPECIFIED) {
-            closeWord(ic, "");
+            sendWord(ic);
             ic.performEditorAction(action);
         } else if (multiLine || info.inputType == InputType.TYPE_NULL) {
             onText("\n");
         } else {
-            closeWord(ic, "");
+            sendWord(ic);
             sendDownUpKeyEvents(KeyEvent.KEYCODE_ENTER);
         }
+    }
+
+    /**
+     * Intro o accion del editor (buscar, enviar, ir...): cierra la palabra en curso como un separador (atajo,
+     * correccion o candidata a aprenderse) y abre otro mensaje para el diccionario personal.
+     */
+    private void sendWord(InputConnection ic) {
+        if (!closeWord(ic, "")) noteCandidate(ic);
+        learning.newMessage();
     }
 
     /** Globo: siguiente idioma Aurebesh (espanol <-> ingles), sin salir del teclado. */

@@ -28,6 +28,8 @@ import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
+import android.view.WindowInsets;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.inputmethod.InputMethodInfo;
@@ -38,6 +40,7 @@ import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.RadioButton;
@@ -52,11 +55,20 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 /**
- * Pantalla de la app, al estilo Ajustes de One UI. La pantalla principal lleva la tarjeta de idiomas y activacion,
- * el buscador, "Pruebalo" (copia funcional del teclado y campos con el teclado del sistema) y una lista de
- * categorias: cada fila tiene icono, titulo y un resumen de una linea con el estado actual, y al tocarla abre su
- * propia pagina dentro de esta misma Activity (barra superior con flecha atras y titulo; el boton o gesto atras
- * vuelve a la lista; la pagina abierta sobrevive al giro). Las paginas se construyen al abrirlas, no al arrancar.
+ * Pantalla de la app, al estilo Ajustes de One UI 9. La pantalla principal lleva un titulo grande que se funde en
+ * una barra fina al desplazarse, la tarjeta de idiomas y activacion, el buscador, "Pruebalo" (campos con el teclado
+ * del sistema) y una lista de categorias: cada fila tiene icono, titulo y un resumen de una linea con el estado
+ * actual, y al tocarla abre su propia pagina dentro de esta misma Activity (barra superior con flecha atras y
+ * titulo; el boton o gesto atras vuelve a la lista; la pagina abierta sobrevive al giro). Las paginas se construyen
+ * al abrirlas, no al arrancar, y agrupan sus filas en tarjetas redondeadas con separadores finos.
+ * <p>
+ * Anclado abajo, sobre la barra de navegacion del sistema y presente en la principal y en todas las paginas, va el
+ * panel de vista previa: la copia funcional del teclado con, encima, un campo de una linea donde se ve lo que se
+ * escribe (en Aurebesh si "Todo en Aurebesh" esta activo) y un asa con chevron para plegarlo a una barra fina. El
+ * panel refleja cada cambio de ajuste al instante y su estado plegado se recuerda en Prefs.ui; el contenido lleva
+ * relleno inferior igual al alto del panel para que nada quede tapado. Mientras un campo del sistema tiene el foco
+ * (y su teclado esta en pantalla) la copia se retira sola y vuelve al tocar el asa.
+ * <p>
  * El buscador lista las filas que coinciden (sin acentos ni mayusculas) y, al elegir una, abre su pagina, baja
  * hasta la fila y la resalta un momento. Sigue el modo claro/oscuro del sistema; en pantallas anchas el contenido
  * va en una columna centrada.
@@ -79,12 +91,30 @@ public final class MainActivity extends Activity {
     /** Las dos pantallas: la principal (lista) y la pagina abierta, dentro del contenedor de contenido de la ventana. */
     private FrameLayout rootFrame;
     private ScrollView scroll;                           // pantalla principal
+    private LinearLayout homeColumn;                     // columna de la principal (su relleno inferior deja sitio al panel)
+    private View homeBar;                                // barra fina con el titulo, aparece al desplazar la principal
+    private View bigHeader;                              // titulo grande de la principal (se funde al desplazar)
     private LinearLayout pageView;                       // barra superior + pageScroll
     private ScrollView pageScroll;
     private LinearLayout pageContent;                    // columna donde se coloca la tarjeta de la pagina abierta
     private TextView pageTitle;
     private View topCard, tryCard, listCard, footCard, compatCard;   // tarjetas de la principal (se ocultan al buscar)
     private LinearLayout searchResults;                  // tarjeta con los resultados del buscador
+    private View searchEmpty;                            // tarjeta "Ningun ajuste coincide"
+
+    /** Panel de vista previa anclado abajo: asa (campo o rotulo + chevron) y la copia del teclado. */
+    private LinearLayout previewPanel;
+    private View panelField;                             // caja del campo de una linea (solo desplegado)
+    private View panelLabel;                             // rotulo "Vista previa" con su pista (solo plegado)
+    private ImageView panelChevron;
+    private View panelClear;                             // aspa que borra lo escrito en el campo
+    private View panelHandle;
+    private int panelInsetBottom;                        // alto de la barra de navegacion del sistema bajo el panel
+    private boolean panelOpen = true;                    // estado elegido por el usuario (Prefs.ui)
+    private boolean systemFieldFocused;                  // un campo del sistema tiene el foco: la copia se retira
+    private int panelHeight;                             // ultimo alto del panel, aplicado como relleno inferior
+    private int basePadBottom;                           // relleno inferior propio de las columnas (sin el panel)
+    private static final String UI_PANEL_OPEN = "preview_open";
 
     /**
      * Categoria de la lista principal: su fila (icono, titulo, resumen) y su pagina, que se construye la primera
@@ -93,11 +123,11 @@ public final class MainActivity extends Activity {
     private static final class Page {
         final String key;
         final int titleRes;
-        final String icon;
-        LinearLayout body;                               // tarjeta con las filas; null hasta construirse
+        final int icon;                                  // icono de UiIcons
+        LinearLayout body;                               // columna con las tarjetas de la pagina; null hasta construirse
         View row;                                        // fila de la lista principal
         TextView summary;                                // resumen de una linea bajo el titulo de la fila
-        Page(String key, int titleRes, String icon) { this.key = key; this.titleRes = titleRes; this.icon = icon; }
+        Page(String key, int titleRes, int icon) { this.key = key; this.titleRes = titleRes; this.icon = icon; }
     }
     private final java.util.LinkedHashMap<String, Page> pages = new java.util.LinkedHashMap<>();
     private Page openPage;                               // pagina abierta, o null en la lista
@@ -110,6 +140,7 @@ public final class MainActivity extends Activity {
                 @Override public void onSharedPreferenceChanged(SharedPreferences p, String key) {
                     if (key == null) return;
                     refreshControls();
+                    if (Prefs.STRIP.equals(key) || Prefs.DIGRAPHS.equals(key)) applyPreviewPrefs();   // el campo del panel pasa a Aurebesh (o vuelve)
                     if (Prefs.LEARNED.equals(key) || Prefs.CUSTOM_SOUND.equals(key) || Prefs.SHORTCUTS.equals(key)
                             || Prefs.EMOJI_RECENT.equals(key) || AiModels.MODEL.equals(key)) refreshDataCard();
                 }
@@ -120,10 +151,9 @@ public final class MainActivity extends Activity {
     private View aiCard;
     private final java.util.List<View> themeItems = new java.util.ArrayList<>();
     private final java.util.List<String> themeIds = new java.util.ArrayList<>();   // paralelo a themeItems
-    private final java.util.List<View> autoCards = new java.util.ArrayList<>();    // tarjetas Republica e Imperio (dentro de themeItems)
+    private final java.util.List<View> autoCards = new java.util.ArrayList<>();    // tarjetas Republica, Imperio y Templos (dentro de themeItems)
     private final java.util.List<ChipGroup> chipGroups = new java.util.ArrayList<>();
     private final java.util.List<View> saberChips = new java.util.ArrayList<>();   // paralelo a Prefs.SABERS
-    private TextView saberWho;                           // "Azul · Anakin y Obi-Wan" bajo los chips del sable
     private View splitWidthRow;                          // "Ancho de las mitades": solo con pantalla ancha o dividido en Siempre
     private Slider heightSlider, volumeSlider;
     private int liveHeightPct;                           // alto que se esta arrastrando en el deslizador (0 = el guardado)
@@ -160,6 +190,7 @@ public final class MainActivity extends Activity {
     private static final String STATE_PAGE = "page";
     private static final String STATE_HOME_SCROLL = "home_scroll";
     private static final String STATE_PAGE_SCROLL = "page_scroll";
+    private static final String STATE_TRY_TEXT = "try_text";
 
     /** Claves de las paginas (categorias), en el orden de la lista. */
     static final String PAGE_KEYS = "keys", PAGE_STYLE = "style", PAGE_SIZE = "size", PAGE_SMART = "smart", PAGE_TOUCH = "touch",
@@ -188,9 +219,13 @@ public final class MainActivity extends Activity {
         cleanSectionState();
         declarePages();
 
+        panelOpen = Prefs.ui(this).getBoolean(UI_PANEL_OPEN, true);
+        basePadBottom = px(24);
+
         // Pantalla principal
         LinearLayout root = column();
-        root.setPadding(px(20), px(28), px(20), px(32));
+        root.setPadding(px(16), px(16), px(16), basePadBottom);
+        homeColumn = root;
         scroll = scroller(root);
         buildHeader(root);
         topCard = buildTop(root);
@@ -204,11 +239,18 @@ public final class MainActivity extends Activity {
         buildPageView();
 
         // Las dos pantallas cuelgan del contenedor de contenido de la ventana: la principal (ScrollView) como primer
-        // hijo y la pagina encima, oculta hasta que se abre una
+        // hijo, la pagina encima (oculta hasta que se abre una), la barra fina del titulo y, por ultimo, el panel de
+        // vista previa anclado abajo
         setContentView(scroll);
         rootFrame = (FrameLayout) findViewById(android.R.id.content);
         pageView.setVisibility(View.GONE);
         rootFrame.addView(pageView, new FrameLayout.LayoutParams(MATCH, MATCH));
+        buildHomeBar();
+        buildPreviewPanel();
+        if (savedInstanceState != null && savedInstanceState.getString(STATE_TRY_TEXT) != null) {
+            input.setText(savedInstanceState.getString(STATE_TRY_TEXT));
+            input.setSelection(input.length());
+        }
 
         refreshControls();
         Prefs.get(this).registerOnSharedPreferenceChangeListener(summaryListener);
@@ -249,6 +291,7 @@ public final class MainActivity extends Activity {
         if (openPage != null) out.putString(STATE_PAGE, openPage.key);
         if (scroll != null) out.putInt(STATE_HOME_SCROLL, scroll.getScrollY());
         if (pageScroll != null) out.putInt(STATE_PAGE_SCROLL, pageScroll.getScrollY());
+        if (input != null) out.putString(STATE_TRY_TEXT, input.getText().toString());
     }
 
     @Override
@@ -319,12 +362,56 @@ public final class MainActivity extends Activity {
 
     // ------------------------------------------------------------------ pantalla principal
 
+    /** Titulo grande de la principal (marca en Aurebesh, nombre y lema); al desplazar se funde en la barra fina. */
     private void buildHeader(LinearLayout root) {
-        AurebeshTextView mark = new AurebeshTextView(this, 14, ink);
+        LinearLayout head = column();
+        head.setPadding(px(4), px(12), px(4), px(8));
+        AurebeshTextView mark = new AurebeshTextView(this, 13, secondary);
         mark.setText("aurebesh");
-        root.addView(mark, block(0));
-        root.addView(text(getString(R.string.app_name), 26, ink, true), block(10));
-        root.addView(text(getString(R.string.tagline), 15, secondary, false), block(6));
+        mark.setContentDescription(getString(R.string.app_name));
+        head.addView(mark, block(0));
+        TextView title = text(getString(R.string.app_name), 28, ink, true);
+        head.addView(title, block(8));
+        head.addView(text(getString(R.string.tagline), 15, secondary, false), block(6));
+        root.addView(head, block(0));
+        bigHeader = head;
+    }
+
+    /**
+     * Barra fina de la principal: el nombre de la app, que aparece (y el titulo grande se funde) conforme se baja
+     * por la lista, como el titulo plegable de los Ajustes de One UI. Solo se ve en la lista, no en las paginas.
+     */
+    private void buildHomeBar() {
+        LinearLayout bar = new LinearLayout(this);
+        bar.setOrientation(LinearLayout.HORIZONTAL);
+        bar.setGravity(Gravity.CENTER_VERTICAL);
+        bar.setBackgroundColor(surface);
+        bar.setPadding(px(20), 0, px(20), 0);
+        bar.setElevation(px(2));
+        TextView title = text(getString(R.string.app_name), 19, ink, true);
+        title.setMaxLines(1);
+        title.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        bar.addView(title, new LinearLayout.LayoutParams(0, WRAP, 1f));
+        bar.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);   // el titulo grande ya se lee
+        bar.setAlpha(0f);
+        bar.setVisibility(View.INVISIBLE);
+        homeBar = bar;
+        rootFrame.addView(bar, new FrameLayout.LayoutParams(MATCH, px(56), Gravity.TOP));
+        scroll.setOnScrollChangeListener(new View.OnScrollChangeListener() {
+            @Override public void onScrollChange(View v, int x, int y, int oldX, int oldY) { updateHomeBar(); }
+        });
+    }
+
+    /** Alfa de la barra fina y del titulo grande segun el desplazamiento de la principal (transicion de 72 dp). */
+    private void updateHomeBar() {
+        if (homeBar == null || bigHeader == null) return;
+        int y = scroll.getScrollY();
+        int start = Math.max(0, bigHeader.getBottom() - px(56) - px(72));
+        float f = Math.max(0f, Math.min(1f, (y - start) / (float) px(72)));
+        boolean on = openPage == null && f > 0f && query.isEmpty();
+        homeBar.setAlpha(on ? f : 0f);
+        homeBar.setVisibility(on ? View.VISIBLE : View.INVISIBLE);
+        bigHeader.setAlpha(1f - f * 0.85f);
     }
 
     /** Aviso solo fuera de Samsung One UI 9.x: el teclado se probo ahi; en otros dispositivos es experimental. */
@@ -332,9 +419,9 @@ public final class MainActivity extends Activity {
         if (DeviceInfo.optimized()) return null;
         LinearLayout c = cardColumn();
         c.setPadding(px(20), px(16), px(20), px(18));
-        c.addView(text(getString(R.string.compat_title), 15, ink, true), block(0));
-        c.addView(text(getString(R.string.compat_body, DeviceInfo.label()), 13, secondary, false), block(4));
-        root.addView(c, block(16));
+        c.addView(text(getString(R.string.compat_title), 16, ink, true), block(0));
+        c.addView(text(getString(R.string.compat_body, DeviceInfo.label()), 14, secondary, false), block(4));
+        root.addView(c, block(12));
         return c;
     }
 
@@ -378,26 +465,28 @@ public final class MainActivity extends Activity {
             row.addView(item, new LinearLayout.LayoutParams(0, WRAP, 1f));
         }
         c.addView(row, block(10));
-        c.addView(text(getString(R.string.top_lang_hint), 12, secondary, false), block(4));
+        c.addView(text(getString(R.string.top_lang_hint), 13, secondary, false), block(4));
         keyboardButton = button();
         c.addView(keyboardButton, block(16));
-        topStatus = text("", 13, secondary, false);
+        topStatus = text("", 14, secondary, false);
         c.addView(topStatus, block(8));
-        root.addView(c, block(24));
+        root.addView(c, block(16));
         return c;
     }
 
-    /** Tarjeta "Pruebalo": titulo con su explicacion, la copia del teclado y los campos con el teclado del sistema. */
+    /**
+     * Tarjeta "Pruebalo": solo los campos con el teclado del sistema (texto normal y PIN numerico); la copia del
+     * teclado vive en el panel de vista previa de abajo.
+     */
     private View buildTryCard(LinearLayout root) {
         LinearLayout c = cardColumn();
         LinearLayout head = column();
-        head.setPadding(px(18), px(16), px(18), px(4));
+        head.setPadding(px(18), px(16), px(18), px(12));
         head.addView(text(getString(R.string.try_title), 17, ink, true), block(0));
-        head.addView(text(getString(R.string.sum_try), 13, secondary, false), block(2));
+        head.addView(text(getString(R.string.real_sub), 14, secondary, false), block(2));
         c.addView(head, block(0));
-        buildTry(c);
         buildRealFields(c);
-        root.addView(c, block(16));
+        root.addView(c, block(12));
         return c;
     }
 
@@ -414,31 +503,105 @@ public final class MainActivity extends Activity {
         TextView credits = text(getString(R.string.credits), 12, secondary, false);
         credits.setGravity(Gravity.CENTER_HORIZONTAL);
         foot.addView(credits, block(6));
-        root.addView(foot, block(28));
+        root.addView(foot, block(24));
         return foot;
     }
 
-    private void buildTry(LinearLayout root) {
-        LinearLayout c = column();
-        c.setClipToOutline(true);
+    // ------------------------------------------------------------------ panel de vista previa
 
+    /**
+     * Panel anclado abajo (sobre la barra de navegacion, respetando sus insets), presente en la principal y en todas
+     * las paginas: un asa con el campo de una linea donde se ve lo que se escribe (o, plegado, el rotulo "Vista
+     * previa") y un chevron para plegarlo o desplegarlo, y debajo la copia funcional del teclado. Se construye una
+     * sola vez: cambiar de pagina no lo toca. Su alto se aplica como relleno inferior de las columnas.
+     */
+    private void buildPreviewPanel() {
+        LinearLayout panel = column();
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(card);
+        float r = px(20);
+        bg.setCornerRadii(new float[]{r, r, r, r, 0, 0, 0, 0});
+        panel.setBackground(bg);
+        panel.setElevation(px(12));
+        panel.setClipToOutline(true);
+        panel.setClickable(true);                        // los toques en el panel no llegan al contenido de debajo
+
+        // Asa: campo (desplegado) o rotulo (plegado), borrar y chevron
+        final LinearLayout handle = new LinearLayout(this);
+        handle.setOrientation(LinearLayout.HORIZONTAL);
+        handle.setGravity(Gravity.CENTER_VERTICAL);
+        handle.setMinimumHeight(px(56));
+        handle.setPadding(px(12), px(6), px(6), px(6));
+        handle.setBackground(ripple(0x00000000));
+
+        FrameLayout fieldBox = new FrameLayout(this);
+        GradientDrawable fieldBg = new GradientDrawable();
+        fieldBg.setColor((divider & 0x00FFFFFF) | 0x66000000);
+        fieldBg.setCornerRadius(px(14));
+        fieldBox.setBackground(fieldBg);
+        fieldBox.setMinimumHeight(px(44));
         input = new EditText(this);
         input.setBackground(null);
         input.setHint(R.string.try_hint);
         input.setTextColor(ink);
         input.setHintTextColor(secondary);
-        input.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17);
-        input.setPadding(px(18), px(10), px(18), px(6));
-        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE
-                | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
-        input.setMaxLines(4);
+        input.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        input.setPadding(px(14), px(10), px(14), px(10));
+        input.setSingleLine(true);
+        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
         input.setShowSoftInputOnFocus(false);   // se escribe con la copia del teclado de abajo
-        c.addView(input, block(0));
-
+        fieldBox.addView(input, new FrameLayout.LayoutParams(MATCH, WRAP, Gravity.CENTER_VERTICAL));
         translation = new AurebeshTextView(this, 13, ink);
-        translation.setPadding(px(18), 0, px(18), px(14));
-        c.addView(translation, block(0));
+        translation.setPadding(px(14), 0, px(14), 0);
+        translation.setVisibility(View.GONE);
+        fieldBox.addView(translation, new FrameLayout.LayoutParams(MATCH, WRAP, Gravity.CENTER_VERTICAL));
+        panelField = fieldBox;
+        handle.addView(fieldBox, new LinearLayout.LayoutParams(0, WRAP, 1f));
 
+        LinearLayout label = new LinearLayout(this);
+        label.setOrientation(LinearLayout.HORIZONTAL);
+        label.setGravity(Gravity.CENTER_VERTICAL);
+        label.setPadding(px(4), 0, 0, 0);
+        label.addView(iconView(UiIcons.KEYS, ink, 24), new LinearLayout.LayoutParams(px(24), px(24)));
+        LinearLayout labelText = column();
+        labelText.addView(text(getString(R.string.ux_preview_title), 15, ink, true), block(0));
+        TextView hint = text(getString(R.string.ux_preview_hint), 13, secondary, false);
+        hint.setMaxLines(1);
+        hint.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        labelText.addView(hint, block(1));
+        LinearLayout.LayoutParams ltp = new LinearLayout.LayoutParams(0, WRAP, 1f);
+        ltp.leftMargin = px(12);
+        label.addView(labelText, ltp);
+        label.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
+        panelLabel = label;
+        handle.addView(label, new LinearLayout.LayoutParams(0, WRAP, 1f));
+
+        final ImageView clear = iconView(UiIcons.CLEAR, secondary, 20);
+        clear.setContentDescription(getString(R.string.ux_preview_clear));
+        clear.setBackground(ripple(0x00000000));
+        a11y(clear, Button.class, false, null);
+        clear.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { input.setText(""); }
+        });
+        clear.setVisibility(View.GONE);
+        panelClear = clear;
+        handle.addView(clear, new LinearLayout.LayoutParams(px(44), px(44)));
+
+        panelChevron = iconView(UiIcons.CHEVRON_DOWN, ink, 24);
+        panelChevron.setBackground(ripple(0x00000000));
+        a11y(panelChevron, Button.class, false, null);
+        panelChevron.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { togglePanel(); }
+        });
+        handle.addView(panelChevron, new LinearLayout.LayoutParams(px(48), px(48)));
+        handle.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { togglePanel(); }
+        });
+        handle.setContentDescription(getString(R.string.ux_preview_expand));
+        panelHandle = handle;
+        panel.addView(handle, block(0));
+
+        // La copia del teclado
         preview = new AurebeshKeyboardView(this);
         preview.setLanguage(AppLocale.current(this));
         preview.setEnterAction(4);
@@ -501,31 +664,113 @@ public final class MainActivity extends Activity {
                 }
             }
         });
-        applyPreviewPrefs();
-        c.addView(preview, block(0));
-        root.addView(c, block(0));
+        panel.addView(preview, block(0));
+
+        previewPanel = panel;
+        FrameLayout.LayoutParams lp;
+        if (screenWidthDp >= 700) {
+            lp = new FrameLayout.LayoutParams(Math.min(px(640), Math.round(screenWidthDp * 0.8f * dp)), WRAP,
+                    Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
+        } else {
+            lp = new FrameLayout.LayoutParams(MATCH, WRAP, Gravity.BOTTOM);
+        }
+        rootFrame.addView(panel, lp);
+
+        // Barra de navegacion del sistema: el panel la respeta con su relleno inferior
+        panel.setOnApplyWindowInsetsListener(new View.OnApplyWindowInsetsListener() {
+            @Override public WindowInsets onApplyWindowInsets(View v, WindowInsets insets) {
+                int bottom = Build.VERSION.SDK_INT >= 30
+                        ? insets.getInsets(WindowInsets.Type.systemBars()).bottom : insets.getSystemWindowInsetBottom();
+                if (bottom != panelInsetBottom) { panelInsetBottom = bottom; refreshPanel(); }
+                return insets;
+            }
+        });
+        // Cada cambio de alto del panel se traslada al relleno inferior de las columnas
+        panel.addOnLayoutChangeListener(new View.OnLayoutChangeListener() {
+            @Override public void onLayoutChange(View v, int l, int t, int rr, int b, int ol, int ot, int orr, int ob) {
+                int h = b - t;
+                if (h != panelHeight) { panelHeight = h; applyPanelPadding(); }
+            }
+        });
+        // Con el foco en un campo del sistema (su teclado sale en pantalla) la copia se retira; al tocar el asa vuelve
+        rootFrame.getViewTreeObserver().addOnGlobalFocusChangeListener(new ViewTreeObserver.OnGlobalFocusChangeListener() {
+            @Override public void onGlobalFocusChanged(View old, View now) {
+                boolean sys = now instanceof EditText && now != input && ((EditText) now).getShowSoftInputOnFocus();
+                if (sys != systemFieldFocused) { systemFieldFocused = sys; refreshPanel(); }
+            }
+        });
 
         input.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int a, int b, int n) {}
             @Override public void onTextChanged(CharSequence s, int a, int b, int n) {}
             @Override public void afterTextChanged(Editable s) { syncPreview(); }
         });
+        translation.addOnLayoutChangeListener(new View.OnLayoutChangeListener() {
+            @Override public void onLayoutChange(View v, int l, int t, int rr, int b, int ol, int ot, int orr, int ob) {
+                if (rr - l != orr - ol) syncPreview();   // otro ancho: otra cola del texto cabe
+            }
+        });
+        applyPreviewPrefs();
         syncPreview();
+        refreshPanel();
         input.requestFocus();
+    }
+
+    /** Pliega o despliega el panel (si un campo del sistema tenia el foco, se lo quita y esconde su teclado). */
+    void togglePanel() {
+        if (systemFieldFocused) {
+            View f = getCurrentFocus();
+            if (f != null) f.clearFocus();
+            InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+            if (imm != null && rootFrame.getWindowToken() != null) imm.hideSoftInputFromWindow(rootFrame.getWindowToken(), 0);
+            systemFieldFocused = false;
+            panelOpen = true;
+            input.requestFocus();
+        } else {
+            panelOpen = !panelOpen;
+        }
+        Prefs.ui(this).edit().putBoolean(UI_PANEL_OPEN, panelOpen).apply();
+        refreshPanel();
+    }
+
+    /** Despliega o pliega el panel desde fuera (pruebas y capturas). */
+    void setPanelOpen(boolean open) {
+        if (panelOpen == open) return;
+        panelOpen = open;
+        Prefs.ui(this).edit().putBoolean(UI_PANEL_OPEN, panelOpen).apply();
+        refreshPanel();
+    }
+
+    /** True si la copia del teclado esta a la vista en el panel. */
+    boolean isPanelOpen() { return panelOpen && !systemFieldFocused; }
+
+    /** Pone el panel en su estado: desplegado (campo + teclado) o plegado (rotulo), con el chevron y el relleno de los insets. */
+    private void refreshPanel() {
+        if (previewPanel == null) return;
+        boolean open = panelOpen && !systemFieldFocused;
+        preview.setVisibility(open ? View.VISIBLE : View.GONE);
+        panelField.setVisibility(open ? View.VISIBLE : View.GONE);
+        panelLabel.setVisibility(open ? View.GONE : View.VISIBLE);
+        panelClear.setVisibility(open && input.length() > 0 ? View.VISIBLE : View.GONE);
+        panelChevron.setImageDrawable(UiIcons.drawable(open ? UiIcons.CHEVRON_DOWN : UiIcons.CHEVRON_UP, ink, px(24)));
+        panelChevron.setContentDescription(getString(open ? R.string.ux_preview_collapse : R.string.ux_preview_expand));
+        panelHandle.setClickable(!open);                 // plegado, toda el asa despliega; desplegado solo el chevron
+        panelHandle.setImportantForAccessibility(open ? View.IMPORTANT_FOR_ACCESSIBILITY_NO : View.IMPORTANT_FOR_ACCESSIBILITY_YES);
+        previewPanel.setPadding(0, 0, 0, panelInsetBottom);
+    }
+
+    /** Relleno inferior de las columnas = el propio + el alto del panel, para que nada quede tapado. */
+    private void applyPanelPadding() {
+        int pad = basePadBottom + panelHeight;
+        if (homeColumn != null) homeColumn.setPadding(homeColumn.getPaddingLeft(), homeColumn.getPaddingTop(), homeColumn.getPaddingRight(), pad);
+        if (pageContent != null) pageContent.setPadding(pageContent.getPaddingLeft(), pageContent.getPaddingTop(), pageContent.getPaddingRight(), pad);
     }
 
     /** Campos que usan el teclado del sistema (el elegido en Ajustes): texto normal y PIN numerico (campo privado). */
     private void buildRealFields(LinearLayout root) {
         root.addView(dividerLine());
         LinearLayout c = column();
-        c.setPadding(0, px(14), 0, px(4));
-        TextView title = text(getString(R.string.real_title), 16, ink, false);
-        title.setPadding(px(18), 0, px(18), 0);
-        c.addView(title, block(0));
-        TextView sub = text(getString(R.string.real_sub), 13, secondary, false);
-        sub.setPadding(px(18), 0, px(18), px(8));
-        c.addView(sub, block(2));
-        c.addView(dividerLine());
+        c.setPadding(0, 0, 0, px(4));
         EditText plain = realField(R.string.real_text_hint,
                 InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
         plain.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH);
@@ -553,28 +798,30 @@ public final class MainActivity extends Activity {
 
     // ------------------------------------------------------------------ categorias y paginas
 
-    /** Las categorias, en el orden de la lista. Cada icono es un signo monocromo (decorativo). */
+    /** Las categorias, en el orden de la lista. Cada icono es un dibujo de UiIcons (decorativo). */
     private void declarePages() {
-        pages.put(PAGE_KEYS, new Page(PAGE_KEYS, R.string.cat_keys, "⌨︎"));         // teclado
-        pages.put(PAGE_STYLE, new Page(PAGE_STYLE, R.string.cat_style, "◐"));           // circulo medio lleno (tema claro/oscuro)
-        pages.put(PAGE_SIZE, new Page(PAGE_SIZE, R.string.cat_size, "⤢"));              // flecha diagonal doble
-        pages.put(PAGE_SMART, new Page(PAGE_SMART, R.string.aj_sec_smart, "✎"));        // lapiz
-        pages.put(PAGE_TOUCH, new Page(PAGE_TOUCH, R.string.cat_touch, "◎"));           // diana (toque)
-        pages.put(PAGE_CLIPBOARD, new Page(PAGE_CLIPBOARD, R.string.aj_sec_clipboard, "▣"));   // cuadrado con relleno
-        pages.put(PAGE_AI, new Page(PAGE_AI, R.string.ai_section, "✦"));                // ✦, el signo de inteligencia del teclado
-        pages.put(PAGE_PRIVACY, new Page(PAGE_PRIVACY, R.string.cat_privacy, "⨡"));     // cuadrado con punto (caja fuerte)
-        pages.put(PAGE_HELP, new Page(PAGE_HELP, R.string.aj_sec_help, "?"));
+        pages.put(PAGE_KEYS, new Page(PAGE_KEYS, R.string.cat_keys, UiIcons.KEYS));
+        pages.put(PAGE_STYLE, new Page(PAGE_STYLE, R.string.cat_style, UiIcons.STYLE));
+        pages.put(PAGE_SIZE, new Page(PAGE_SIZE, R.string.cat_size, UiIcons.SIZE));
+        pages.put(PAGE_SMART, new Page(PAGE_SMART, R.string.aj_sec_smart, UiIcons.SMART));
+        pages.put(PAGE_TOUCH, new Page(PAGE_TOUCH, R.string.cat_touch, UiIcons.TOUCH));
+        pages.put(PAGE_CLIPBOARD, new Page(PAGE_CLIPBOARD, R.string.aj_sec_clipboard, UiIcons.CLIPBOARD));
+        pages.put(PAGE_AI, new Page(PAGE_AI, R.string.ai_section, UiIcons.AI));
+        pages.put(PAGE_PRIVACY, new Page(PAGE_PRIVACY, R.string.cat_privacy, UiIcons.PRIVACY));
+        pages.put(PAGE_HELP, new Page(PAGE_HELP, R.string.aj_sec_help, UiIcons.HELP));
     }
 
     /** Tarjeta con una fila por categoria: icono, titulo, resumen de una linea y ›; tocarla abre su pagina. */
     private View buildCategoryList(LinearLayout root) {
-        LinearLayout c = cardColumn();
+        LinearLayout wrap = column();
         TextView title = text(getString(R.string.cat_list_title), 13, secondary, true);
-        title.setPadding(px(18), px(14), px(18), px(4));
-        c.addView(title, block(0));
+        title.setPadding(px(16), px(8), px(16), px(8));
+        wrap.addView(title, block(0));
+        LinearLayout c = cardColumn();
         for (Page p : pages.values()) categoryRow(c, p);
-        root.addView(c, block(16));
-        return c;
+        wrap.addView(c, block(0));
+        root.addView(wrap, block(12));
+        return wrap;
     }
 
     private void categoryRow(LinearLayout parent, final Page p) {
@@ -583,31 +830,25 @@ public final class MainActivity extends Activity {
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setMinimumHeight(px(64));
-        row.setPadding(px(16), px(10), px(14), px(10));
+        row.setPadding(px(16), px(10), px(12), px(10));
         row.setBackground(ripple(0x00000000));
-        TextView icon = text(p.icon, 17, ink, false);
-        icon.setGravity(Gravity.CENTER);
-        icon.setIncludeFontPadding(false);
+        ImageView icon = iconView(p.icon, ink, 22);
         GradientDrawable bg = new GradientDrawable();
-        bg.setColor(divider);
+        bg.setColor((divider & 0x00FFFFFF) | 0x99000000);
         bg.setCornerRadius(px(12));
         icon.setBackground(bg);
-        icon.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
         row.addView(icon, new LinearLayout.LayoutParams(px(40), px(40)));
         LinearLayout col = column();
         col.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
         col.addView(text(getString(p.titleRes), 16, ink, false), block(0));
-        TextView summary = text("", 13, secondary, false);
+        TextView summary = text("", 14, secondary, false);
         summary.setMaxLines(1);
         summary.setEllipsize(android.text.TextUtils.TruncateAt.END);
         col.addView(summary, block(2));
         LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(0, WRAP, 1f);
         cp.leftMargin = px(14);
         row.addView(col, cp);
-        TextView chevron = text("›", 22, secondary, false);
-        chevron.setPadding(px(12), 0, px(6), 0);
-        chevron.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-        row.addView(chevron, new LinearLayout.LayoutParams(WRAP, WRAP));
+        row.addView(chevronView(), new LinearLayout.LayoutParams(px(24), px(24)));
         row.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { openPage(p, true); }
         });
@@ -632,9 +873,9 @@ public final class MainActivity extends Activity {
         LinearLayout bar = new LinearLayout(this);
         bar.setOrientation(LinearLayout.HORIZONTAL);
         bar.setGravity(Gravity.CENTER_VERTICAL);
-        bar.setPadding(px(8), px(8), px(20), px(8));
-        TextView back = text("←", 22, ink, false);
-        back.setGravity(Gravity.CENTER);
+        bar.setPadding(px(4), px(4), px(16), px(4));
+        bar.setMinimumHeight(px(56));
+        ImageView back = iconView(UiIcons.BACK, ink, 24);
         back.setContentDescription(getString(R.string.aj_back));
         back.setBackground(ripple(0x00000000));
         a11y(back, Button.class, false, null);
@@ -650,7 +891,7 @@ public final class MainActivity extends Activity {
         bar.addView(pageTitle, tp);
         pageView.addView(bar, block(0));
         pageContent = column();
-        pageContent.setPadding(px(20), px(8), px(20), px(32));
+        pageContent.setPadding(px(16), px(4), px(16), basePadBottom);
         pageScroll = scroller(pageContent);
         pageView.addView(pageScroll, new LinearLayout.LayoutParams(MATCH, 0, 1f));
     }
@@ -659,7 +900,7 @@ public final class MainActivity extends Activity {
     private void buildPage(Page p) {
         if (p.body != null) return;
         building = p;
-        LinearLayout body = cardColumn();
+        LinearLayout body = column();
         p.body = body;
         switch (p.key) {
             case PAGE_KEYS: buildKeys(body); break;
@@ -682,12 +923,13 @@ public final class MainActivity extends Activity {
     void openPage(final Page p, boolean animate) {
         buildPage(p);
         pageContent.removeAllViews();
-        pageContent.addView(p.body, block(8));
+        pageContent.addView(p.body, block(4));
         pageTitle.setText(p.titleRes);
         openPage = p;
         pageView.animate().cancel();
         pageView.setVisibility(View.VISIBLE);
         scroll.setVisibility(View.GONE);
+        updateHomeBar();
         if (Build.VERSION.SDK_INT >= 28) pageView.setAccessibilityPaneTitle(getString(p.titleRes));
         if (animate) {
             pageView.setAlpha(0.5f);
@@ -713,6 +955,7 @@ public final class MainActivity extends Activity {
         pageView.animate().cancel();
         pageView.setVisibility(View.GONE);
         scroll.setVisibility(View.VISIBLE);
+        updateHomeBar();
         if (Build.VERSION.SDK_INT >= 28) pageView.setAccessibilityPaneTitle(null);
         if (animate) {
             scroll.setAlpha(0.6f);
@@ -729,10 +972,12 @@ public final class MainActivity extends Activity {
 
     /** Idiomas y teclas: idioma del teclado, fila superior, digrafos, caracteres alternativos, letras latinas y Todo en Aurebesh. */
     private void buildKeys(LinearLayout body) {
-        chipRow(body, R.string.top_lang_title, getString(R.string.top_lang_hint), langGroup());
-        chipRow(body, R.string.top_row_title, getString(R.string.top_row_sub), topRowGroup());
-        optionRow(body, R.string.opt_digraphs, R.string.opt_digraphs_sub, Prefs.DIGRAPHS, Prefs.digraphs(this));
-        optionRow(body, R.string.alt_chars_title, R.string.alt_chars_sub, R.string.alt_chars_hint, Prefs.ALT_CHARS, Prefs.altChars(this));
+        LinearLayout g = group(body, 0);
+        chipRow(g, R.string.top_lang_title, getString(R.string.top_lang_hint), langGroup());
+        chipRow(g, R.string.top_row_title, getString(R.string.top_row_sub), topRowGroup());
+        optionRow(g, R.string.opt_digraphs, R.string.opt_digraphs_sub, Prefs.DIGRAPHS, Prefs.digraphs(this));
+        optionRow(g, R.string.alt_chars_title, R.string.alt_chars_sub, R.string.alt_chars_hint, Prefs.ALT_CHARS, Prefs.altChars(this));
+        g = group(body, R.string.ux_group_alphabet);
         TextView reset = chipButton(R.string.aj_hint_reset, new View.OnClickListener() {
             @Override public void onClick(View v) {
                 // Vuelven a verse todas las pistas: contadores fuera de las preferencias y de la copia del teclado
@@ -744,21 +989,23 @@ public final class MainActivity extends Activity {
         LinearLayout resetRow = new LinearLayout(this);
         resetRow.setOrientation(LinearLayout.HORIZONTAL);
         resetRow.addView(reset, new LinearLayout.LayoutParams(WRAP, WRAP));
-        chipRow(body, R.string.opt_hints, getString(R.string.aj_hint_mode_sub), hintGroup(), resetRow);
-        optionRow(body, R.string.immersive_title, R.string.immersive_sub, Prefs.STRIP, Prefs.strip(this));
+        chipRow(g, R.string.opt_hints, getString(R.string.aj_hint_mode_sub), hintGroup(), resetRow);
+        optionRow(g, R.string.immersive_title, R.string.immersive_sub, Prefs.STRIP, Prefs.strip(this));
     }
 
     /** Estilo: temas (automaticos y fijos), sable de luz y barra de herramientas (sus iconos se eligen desde el teclado). */
     private void buildStyle(LinearLayout body) {
-        themeRow(body);
-        saberRow(body);
-        optionRow(body, R.string.opt_toolbar, R.string.opt_toolbar_sub, Prefs.TOOLBAR, Prefs.toolbar(this));
-        noteRow(body, R.string.aj_toolbar_icons_note);
+        themeRow(group(body, R.string.opt_theme));
+        saberRow(group(body, 0));
+        LinearLayout g = group(body, 0);
+        optionRow(g, R.string.opt_toolbar, R.string.opt_toolbar_sub, Prefs.TOOLBAR, Prefs.toolbar(this));
+        noteRow(g, R.string.aj_toolbar_icons_note);
     }
 
     /** Tamano y distribucion: alto, margen inferior, modo (una mano), dividido (con Plegables en pantallas anchas) y la nota del modo de ajuste. */
     private void buildSize(LinearLayout body) {
-        heightSlider = sliderRow(body, R.string.aj_height, R.string.aj_height_sub, 70, 140, Prefs.heightPct(this), PCT,
+        LinearLayout g = group(body, 0);
+        heightSlider = sliderRow(g, R.string.aj_height, R.string.aj_height_sub, 70, 140, Prefs.heightPct(this), PCT,
                 new SliderListener() {
                     @Override public void onLive(int value) { liveHeightPct = value; applyPreviewPrefs(); }
                     @Override public void onSave(int value) {
@@ -767,31 +1014,31 @@ public final class MainActivity extends Activity {
                         applyPreviewPrefs();
                     }
                 });
-        chipRow(body, R.string.aj_bottom, getString(R.string.aj_bottom_sub), bottomGroup());
-        chipRow(body, R.string.aj_mode, getString(R.string.aj_mode_sub), handGroup());
+        chipRow(g, R.string.aj_bottom, getString(R.string.aj_bottom_sub), bottomGroup());
+        chipRow(g, R.string.aj_mode, getString(R.string.aj_mode_sub), handGroup());
+        g = group(body, R.string.ux_group_split);
         if (wide) {
-            separator(body);
             LinearLayout foldText = column();
             foldText.setPadding(px(18), px(14), px(18), px(4));
             foldText.addView(text(getString(R.string.fold_section), 16, ink, false), block(0));
             foldText.addView(text(getString(R.string.fold_title), 14, ink, false), block(6));
-            foldText.addView(text(getString(R.string.fold_body), 13, secondary, false), block(4));
-            body.addView(foldText, block(0));
+            foldText.addView(text(getString(R.string.fold_body), 14, secondary, false), block(4));
+            g.addView(foldText, block(0));
             register(foldText, getString(R.string.fold_section), getString(R.string.fold_section) + " " + getString(R.string.fold_title) + " " + getString(R.string.fold_body));
         }
-        splitRows(body);
-        separator(body);
+        splitRows(g);
+        g = group(body, 0);
         LinearLayout notes = column();
-        notes.setPadding(px(18), px(12), px(18), px(16));
-        notes.addView(text(getString(R.string.aj_size_from_keyboard), 13, secondary, false), block(0));
+        notes.setPadding(px(18), px(14), px(18), px(16));
+        notes.addView(text(getString(R.string.aj_size_from_keyboard), 14, secondary, false), block(0));
         String which = null;
         if (wide || DeviceInfo.family().startsWith("Galaxy Z Fold")) {
             // En plegables alto, margen y una mano se guardan por pantalla: decir cual se esta ajustando
             which = wide ? getString(R.string.aj_size_screen_inner, DeviceInfo.smallestWidthDp(this))
                     : getString(R.string.aj_size_screen_cover);
-            notes.addView(text(which, 13, secondary, true), block(6));
+            notes.addView(text(which, 14, secondary, true), block(6));
         }
-        body.addView(notes, block(0));
+        g.addView(notes, block(0));
         register(notes, getString(R.string.aj_size_from_keyboard), getString(R.string.aj_size_from_keyboard) + (which == null ? "" : " " + which));
     }
 
@@ -815,16 +1062,19 @@ public final class MainActivity extends Activity {
 
     /** Escritura inteligente: predictivo, sustitucion, mayusculas, doble espacio, aprendizaje, Star Wars, diccionario y atajos. */
     private void buildSmart(LinearLayout body) {
-        optionRow(body, R.string.opt_autocorrect, R.string.opt_autocorrect_sub, Prefs.AUTOCORRECT, Prefs.autocorrect(this));
-        optionRow(body, R.string.aj_auto_replace, R.string.aj_auto_replace_sub, Prefs.AUTO_REPLACE, Prefs.autoReplace(this));
-        optionRow(body, R.string.aj_auto_caps, R.string.aj_auto_caps_sub, Prefs.AUTO_CAPS, Prefs.autoCaps(this));
-        optionRow(body, R.string.opt_double_space, R.string.opt_double_space_sub, Prefs.DOUBLE_SPACE, Prefs.doubleSpace(this));
-        optionRow(body, R.string.opt_learn, R.string.opt_learn_sub, Prefs.LEARN, Prefs.learn(this));
-        optionRow(body, R.string.aj_starwars, R.string.aj_starwars_sub, Prefs.STARWARS, Prefs.starWars(this));
-        learnedTitle = linkRow(body, R.string.aj_learned_title, R.string.aj_learned_sub, new View.OnClickListener() {
+        LinearLayout g = group(body, R.string.ux_group_correction);
+        optionRow(g, R.string.opt_autocorrect, R.string.opt_autocorrect_sub, Prefs.AUTOCORRECT, Prefs.autocorrect(this));
+        optionRow(g, R.string.aj_auto_replace, R.string.aj_auto_replace_sub, Prefs.AUTO_REPLACE, Prefs.autoReplace(this));
+        optionRow(g, R.string.aj_auto_caps, R.string.aj_auto_caps_sub, Prefs.AUTO_CAPS, Prefs.autoCaps(this));
+        optionRow(g, R.string.opt_double_space, R.string.opt_double_space_sub, Prefs.DOUBLE_SPACE, Prefs.doubleSpace(this));
+        g = group(body, R.string.ux_group_dictionary);
+        optionRow(g, R.string.opt_learn, R.string.opt_learn_sub, Prefs.LEARN, Prefs.learn(this));
+        chipRow(g, R.string.learn_uses_title, getString(R.string.learn_uses_sub), learnUsesGroup());
+        optionRow(g, R.string.aj_starwars, R.string.aj_starwars_sub, Prefs.STARWARS, Prefs.starWars(this));
+        learnedTitle = linkRow(g, R.string.aj_learned_title, R.string.aj_learned_sub, new View.OnClickListener() {
             @Override public void onClick(View v) { showLearnedDialog(); }
         });
-        shortcutsTitle = linkRow(body, R.string.aj_shortcuts_title, R.string.aj_shortcuts_sub, new View.OnClickListener() {
+        shortcutsTitle = linkRow(g, R.string.aj_shortcuts_title, R.string.aj_shortcuts_sub, new View.OnClickListener() {
             @Override public void onClick(View v) { showShortcutsDialog(); }
         });
         refreshCounts();
@@ -832,15 +1082,18 @@ public final class MainActivity extends Activity {
 
     /** Deslizar, tocar y respuesta: deslizar para escribir, el espacio, burbuja, pulsacion larga, sonido (con el personalizado y su volumen) y vibracion. */
     private void buildTouch(LinearLayout body) {
-        optionRow(body, R.string.opt_glide, R.string.opt_glide_sub, Prefs.GLIDE, Prefs.glide(this));
-        chipRow(body, R.string.aj_space_slide, getString(R.string.aj_space_slide_sub),
+        LinearLayout g = group(body, 0);
+        optionRow(g, R.string.opt_glide, R.string.opt_glide_sub, Prefs.GLIDE, Prefs.glide(this));
+        chipRow(g, R.string.aj_space_slide, getString(R.string.aj_space_slide_sub),
                 prefGroup(Prefs.SPACE_SLIDE, "auto", SPACE_SLIDES, SPACE_SLIDE_NAMES));
-        optionRow(body, R.string.aj_preview, R.string.aj_preview_sub, Prefs.PREVIEW, Prefs.preview(this));
-        chipRow(body, R.string.aj_longpress, getString(R.string.aj_longpress_sub),
+        g = group(body, R.string.ux_group_press);
+        optionRow(g, R.string.aj_preview, R.string.aj_preview_sub, Prefs.PREVIEW, Prefs.preview(this));
+        chipRow(g, R.string.aj_longpress, getString(R.string.aj_longpress_sub),
                 prefGroup(Prefs.LONGPRESS, "medium", LONGPRESSES, LONGPRESS_NAMES));
-        optionRow(body, R.string.opt_sound, R.string.aj_sound_sub, Prefs.SOUND, Prefs.sound(this));
-        customSoundRow(body);
-        volumeSlider = sliderRow(body, R.string.aj_volume, R.string.aj_volume_sub, 0, 100, Prefs.soundVolume(this), PCT,
+        g = group(body, R.string.ux_group_feedback);
+        optionRow(g, R.string.opt_sound, R.string.aj_sound_sub, Prefs.SOUND, Prefs.sound(this));
+        customSoundRow(g);
+        volumeSlider = sliderRow(g, R.string.aj_volume, R.string.aj_volume_sub, 0, 100, Prefs.soundVolume(this), PCT,
                 new SliderListener() {
                     @Override public void onLive(int value) {
                         KeySound.get(MainActivity.this).setVolume(value);   // se oye una muestra al nivel elegido
@@ -851,27 +1104,28 @@ public final class MainActivity extends Activity {
                         Prefs.get(MainActivity.this).edit().putInt(Prefs.SOUND_VOLUME, value).apply();
                     }
                 });
-        optionRow(body, R.string.opt_vibrate, R.string.aj_vibrate_sub, Prefs.VIBRATE, Prefs.vibrate(this));
-        chipRow(body, R.string.aj_vibration, getString(R.string.aj_vibration_sub),
+        optionRow(g, R.string.opt_vibrate, R.string.aj_vibrate_sub, Prefs.VIBRATE, Prefs.vibrate(this));
+        chipRow(g, R.string.aj_vibration, getString(R.string.aj_vibration_sub),
                 prefGroup(Prefs.VIBRATION, "system", VIBRATIONS, VIBRATION_NAMES));
     }
 
     /** Portapapeles: que se guarda y la fila de capturas de pantalla (permiso opcional de fotos). */
     private void buildClipboard(LinearLayout body) {
-        TextView text = text(getString(R.string.aj_clipboard_body), 13, secondary, false);
-        text.setPadding(px(18), px(14), px(18), px(4));
-        body.addView(text, block(0));
+        LinearLayout g = group(body, 0);
+        TextView text = text(getString(R.string.aj_clipboard_body), 14, secondary, false);
+        text.setPadding(px(18), px(14), px(18), px(14));
+        g.addView(text, block(0));
         register(text, getString(R.string.aj_sec_clipboard), getString(R.string.aj_clipboard_body));
-        body.addView(dividerLine());
+        g = group(body, 0);
         View shots = ScreenshotSettingsRow.build(this, ink, secondary, thumbOff, trackOff);
-        body.addView(shots, block(0));
+        g.addView(shots, block(0));
         register(shots, getString(R.string.shots_title), getString(R.string.shots_title) + " " + getString(R.string.shots_sub));
     }
 
     /** Inteligencia: modelo local o servidor propio. */
     private void buildAi(LinearLayout body) {
         aiCard = AiSettingsCard.build(this, ink, secondary, card, divider);
-        body.addView(aiCard, block(0));
+        group(body, 0).addView(aiCard, block(0));
         accessibleRadios(aiCard);
         register(aiCard, getString(R.string.ai_section), getString(R.string.ai_section) + " " + getString(R.string.sum_ai_none)
                 + " " + getString(R.string.sum_ai_remote, ""));
@@ -879,7 +1133,8 @@ public final class MainActivity extends Activity {
 
     /** Ayuda y gestos: pares gesto / resultado, de la escritura a los paneles y el modo de ajuste. */
     private void buildHelp(LinearLayout body) {
-        for (int i = 0; i < GESTURES.length; i += 2) gestureRow(body, GESTURES[i], GESTURES[i + 1]);
+        LinearLayout g = group(body, 0);
+        for (int i = 0; i < GESTURES.length; i += 2) gestureRow(g, GESTURES[i], GESTURES[i + 1]);
     }
 
     /** Parejas gesto / resultado de "Ayuda y gestos" (su numero sale en el resumen antes de construir la pagina). */
@@ -904,15 +1159,15 @@ public final class MainActivity extends Activity {
             R.string.aj_gesture_hide, R.string.aj_gesture_hide_result};
 
     /**
-     * Fila "Sable de luz": un chip por color (circulo del color + nombre) y, debajo, a quien pertenece el elegido
-     * ("Azul · Anakin y Obi-Wan"). La copia del teclado cambia la estela al instante. En telefonos, dos filas de tres.
+     * Fila "Sable de luz": un chip por color (circulo del color + nombre), solo el color. La copia del teclado
+     * cambia la estela al instante. En telefonos, dos filas de tres.
      */
     private void saberRow(LinearLayout parent) {
         separator(parent);
         LinearLayout col = column();
         col.setPadding(px(18), px(14), px(18), px(16));
         col.addView(text(getString(R.string.aj_saber), 16, ink, false), block(0));
-        col.addView(text(getString(R.string.aj_saber_sub), 13, secondary, false), block(2));
+        col.addView(text(getString(R.string.aj_saber_sub), 14, secondary, false), block(2));
         int n = Prefs.SABERS.length;
         int perRow = contentWidth - px(36) >= px(104) * n ? n : (n + 1) / 2;
         StringBuilder searchable = new StringBuilder(getString(R.string.aj_saber)).append(' ').append(getString(R.string.aj_saber_sub));
@@ -925,11 +1180,11 @@ public final class MainActivity extends Activity {
             }
             final String id = Prefs.SABERS[i];
             String name = getString(SABER_NAMES[i]);
-            String who = getString(SABER_WHO[i]);
-            searchable.append(' ').append(name).append(' ').append(who);
+            searchable.append(' ').append(name);
             LinearLayout chip = new LinearLayout(this);
             chip.setOrientation(LinearLayout.HORIZONTAL);
             chip.setGravity(Gravity.CENTER);
+            chip.setMinimumHeight(px(40));
             chip.setPadding(px(8), px(9), px(10), px(9));
             View dot = new View(this);
             GradientDrawable circle = new GradientDrawable();
@@ -944,7 +1199,7 @@ public final class MainActivity extends Activity {
             lp.leftMargin = px(6);
             chip.addView(label, lp);
             chip.setTag(label);
-            chip.setContentDescription(name + " · " + who);
+            chip.setContentDescription(name);
             a11y(chip, RadioButton.class, true, null);
             chip.setOnClickListener(new View.OnClickListener() {
                 @Override public void onClick(View v) {
@@ -959,14 +1214,12 @@ public final class MainActivity extends Activity {
             saberChips.add(chip);
         }
         for (int i = n; i % perRow != 0; i++) row.addView(new View(this), new LinearLayout.LayoutParams(0, 0, 1f));
-        saberWho = text("", 13, secondary, true);
-        col.addView(saberWho, block(10));
         refreshSaber();
         parent.addView(col, block(0));
         register(col, getString(R.string.aj_saber), searchable.toString());
     }
 
-    /** Marca el chip del sable guardado (tambien si lo cambio el IME) y pone a quien pertenece. */
+    /** Marca el chip del sable guardado (tambien si lo cambio el IME). */
     private void refreshSaber() {
         if (saberChips.isEmpty()) return;
         String cur = Prefs.saber(this);
@@ -976,10 +1229,9 @@ public final class MainActivity extends Activity {
             chip.setSelected(sel);
             GradientDrawable bg = new GradientDrawable();
             bg.setColor(sel ? ink : divider);
-            bg.setCornerRadius(px(10));
+            bg.setCornerRadius(px(12));
             chip.setBackground(bg);
             ((TextView) chip.getTag()).setTextColor(sel ? card : ink);
-            if (sel && saberWho != null) saberWho.setText(getString(SABER_NAMES[i]) + " · " + getString(SABER_WHO[i]));
         }
     }
 
@@ -997,7 +1249,7 @@ public final class MainActivity extends Activity {
             Prefs.HAND, Prefs.HAND + "_wide", Prefs.HAND_LAST, Prefs.TOOLBAR, Prefs.TOOLBAR_ITEMS, Prefs.LEARN,
             Prefs.DOUBLE_SPACE, Prefs.GLIDE, Prefs.SCREENSHOTS, Prefs.APP_LANG, Prefs.KEYBOARD_LANG, Prefs.SPACE_SLIDE,
             Prefs.LONGPRESS, Prefs.VIBRATION, Prefs.SOUND_VOLUME, Prefs.SPLIT, Prefs.SPLIT_WIDTH, Prefs.SABER, Prefs.STARWARS,
-            Prefs.ALT_CHARS};
+            Prefs.ALT_CHARS, Prefs.LEARN_USES};
 
     /** Claves del servidor propio: solo se exportan con la casilla marcada (la clave nunca sin ella). */
     private static final String[] REMOTE_KEYS = {AiModels.MODE, AiModels.REMOTE_URL, AiModels.REMOTE_MODEL, AiModels.REMOTE_KEY};
@@ -1013,7 +1265,7 @@ public final class MainActivity extends Activity {
             case Prefs.TOOLBAR: case Prefs.LEARN: case Prefs.DOUBLE_SPACE: case Prefs.GLIDE: case Prefs.SCREENSHOTS:
             case Prefs.STARWARS: case Prefs.ALT_CHARS:
                 return TYPE_BOOL;
-            case Prefs.SOUND_VOLUME:
+            case Prefs.SOUND_VOLUME: case Prefs.LEARN_USES:
                 return TYPE_INT;
             case Prefs.HINT_MODE: case Prefs.THEME: case Prefs.HEIGHT: case Prefs.HAND: case Prefs.HAND_LAST:
             case Prefs.TOOLBAR_ITEMS: case Prefs.APP_LANG: case Prefs.KEYBOARD_LANG: case Prefs.SPACE_SLIDE:
@@ -1035,17 +1287,19 @@ public final class MainActivity extends Activity {
 
     /** Privacidad y datos: restablecer, borrar datos personales, que hay guardado en el telefono y exportar/importar. */
     private void buildPrivacy(LinearLayout body) {
-        actionRow(body, R.string.aj_reset, R.string.aj_reset_sub, new View.OnClickListener() {
+        LinearLayout g = group(body, 0);
+        actionRow(g, R.string.aj_reset, R.string.aj_reset_sub, new View.OnClickListener() {
             @Override public void onClick(View v) { confirmReset(); }
         });
-        actionRow(body, R.string.aj_wipe, R.string.aj_wipe_sub, new View.OnClickListener() {
+        actionRow(g, R.string.aj_wipe, R.string.aj_wipe_sub, new View.OnClickListener() {
             @Override public void onClick(View v) { confirmWipe(); }
         });
-        dataCard(body);
-        actionRow(body, R.string.aj_export_settings, R.string.aj_export_settings_sub, new View.OnClickListener() {
+        dataCard(group(body, 0));
+        g = group(body, R.string.ux_group_backup);
+        actionRow(g, R.string.aj_export_settings, R.string.aj_export_settings_sub, new View.OnClickListener() {
             @Override public void onClick(View v) { askExportSettings(); }
         });
-        actionRow(body, R.string.aj_import_settings, R.string.aj_import_settings_sub, new View.OnClickListener() {
+        actionRow(g, R.string.aj_import_settings, R.string.aj_import_settings_sub, new View.OnClickListener() {
             @Override public void onClick(View v) {
                 Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
                 i.addCategory(Intent.CATEGORY_OPENABLE);
@@ -1067,12 +1321,9 @@ public final class MainActivity extends Activity {
         row.setBackground(ripple(0x00000000));
         LinearLayout col = column();
         col.addView(text(getString(title), 16, ink, false), block(0));
-        col.addView(text(getString(sub), 13, secondary, false), block(2));
+        col.addView(text(getString(sub), 14, secondary, false), block(2));
         row.addView(col, new LinearLayout.LayoutParams(0, WRAP, 1f));
-        TextView chevron = text("›", 22, secondary, false);
-        chevron.setPadding(px(12), 0, px(6), 0);
-        chevron.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-        row.addView(chevron, new LinearLayout.LayoutParams(WRAP, WRAP));
+        row.addView(chevronView(), new LinearLayout.LayoutParams(px(24), px(24)));
         row.setOnClickListener(onClick);
         a11y(row, Button.class, false, null);
         parent.addView(row, block(0));
@@ -1125,6 +1376,7 @@ public final class MainActivity extends Activity {
     void wipePersonalData() {
         Prefs.clearLearnedWords(this);
         Prefs.clearCandidates(this);
+        Learning.clear(this);                       // tambien los candidatos pendientes del diccionario personal
         Bigrams.forget(this);
         ClipHistory.clear(this, true);
         Prefs.get(this).edit().remove(Prefs.EMOJI_RECENT).remove(Prefs.SHORTCUTS).apply();
@@ -1171,7 +1423,7 @@ public final class MainActivity extends Activity {
         dataSoundButton = dataLine(col, dataSound, R.string.aj_remove_sound, new View.OnClickListener() {
             @Override public void onClick(View v) { removeCustomSound(); }
         });
-        TextView local = text(getString(R.string.aj_data_local), 13, secondary, true);
+        TextView local = text(getString(R.string.aj_data_local), 14, secondary, true);
         col.addView(local, block(10));
         parent.addView(col, block(0));
         register(col, getString(R.string.aj_data_title), getString(R.string.aj_data_title) + " " + getString(R.string.aj_data_clip, 0, "")
@@ -1357,6 +1609,7 @@ public final class MainActivity extends Activity {
                         int i = (Integer) v;
                         if (k.startsWith(Prefs.HEIGHT_PCT)) i = Prefs.clamp(i, 70, 140);
                         else if (k.startsWith(Prefs.BOTTOM_DP)) i = Prefs.clamp(i, 0, 40);
+                        else if (k.equals(Prefs.LEARN_USES)) i = i == 2 || i == 5 ? i : 3;
                         else i = Prefs.clamp(i, 0, 100);
                         e.putInt(k, i);
                         n++;
@@ -1482,6 +1735,8 @@ public final class MainActivity extends Activity {
         preview.setLongPressMs(Prefs.longPressMs(this));
         preview.setHaptics(Prefs.vibrationLevel(this));
         preview.setBottomPad(Prefs.bottomDp(this) * dp);
+        if (translation != null) translation.setDigraphs(Prefs.digraphs(this));
+        syncPreview();   // el campo del panel pasa a Aurebesh (o vuelve a latino) con "Todo en Aurebesh"
     }
 
     /** Deslizar sobre el espacio en la copia: con un solo idioma, "auto" mueve el cursor (como en el IME). */
@@ -1492,20 +1747,53 @@ public final class MainActivity extends Activity {
         return AurebeshKeyboardView.SPACE_CURSOR;
     }
 
-    /** Traduccion, barra y mayuscula automatica de la copia del teclado. */
+    /**
+     * Campo del panel, cinta y mayuscula automatica de la copia del teclado. Con "Todo en Aurebesh" el campo latino
+     * se oculta (sigue guardando el texto y la seleccion) y en su lugar se ve, en Aurebesh, la cola del texto que
+     * cabe en una linea; sin texto, la pista "Escribe algo" atenuada.
+     */
     private void syncPreview() {
+        if (input == null || translation == null) return;
         String t = input.getText().toString();
-        if (t.isEmpty()) {
-            translation.setText(getString(R.string.try_hint));
-            translation.setAlpha(0.35f);
-        } else {
-            translation.setText(t);
-            translation.setAlpha(1f);
+        boolean aurebesh = Prefs.strip(this);
+        translation.setVisibility(aurebesh ? View.VISIBLE : View.GONE);
+        input.setVisibility(aurebesh ? View.INVISIBLE : View.VISIBLE);
+        if (aurebesh) {
+            if (t.isEmpty()) {
+                translation.setText(getString(R.string.try_hint));
+                translation.setAlpha(0.35f);
+            } else {
+                translation.setText(tailThatFits(t.replace('\n', ' ')));
+                translation.setAlpha(1f);
+            }
+            translation.setContentDescription(t.isEmpty() ? getString(R.string.try_hint) : t);
         }
+        if (panelClear != null) panelClear.setVisibility(isPanelOpen() && !t.isEmpty() ? View.VISIBLE : View.GONE);
         preview.setStripText(t);
         String before = t.substring(0, Math.min(selStart(), t.length())).trim();
         preview.setAutoShift(before.isEmpty() || before.endsWith(".") || before.endsWith("!")
                 || before.endsWith("?") || before.endsWith("¿") || before.endsWith("¡"));
+    }
+
+    private final android.graphics.Paint measurePaint = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+
+    /** Ultimos caracteres de {@code t} que caben en una linea del campo en Aurebesh (misma metrica que AurebeshTextView). */
+    private String tailThatFits(String t) {
+        float letterH = 13 * dp;
+        float avail = translation.getWidth() > 0 ? translation.getWidth() - translation.getPaddingLeft() - translation.getPaddingRight()
+                : contentWidth - px(120);
+        if (measurePaint.getTypeface() == null) measurePaint.setTypeface(Typeface.create(Typeface.MONOSPACE, Typeface.BOLD));
+        boolean digraphs = Prefs.digraphs(this);
+        int from = 0;
+        int len = t.length();
+        if (len > 160) from = len - 160;   // una linea nunca lleva mas
+        while (from < len) {
+            float w = 0;
+            for (Glyphs.Token tok : Glyphs.tokenize(t.substring(from), digraphs)) w += Glyphs.tokenWidth(tok, letterH, measurePaint);
+            if (w <= avail) break;
+            from += Character.charCount(t.codePointAt(from));
+        }
+        return t.substring(from);
     }
 
     private int selStart() {
@@ -1559,11 +1847,12 @@ public final class MainActivity extends Activity {
     private static final int[] HINT_MODE_NAMES = {R.string.aj_hint_off, R.string.aj_hint_on, R.string.aj_hint_learning};
     static final String[] TOP_ROWS = {"numbers", "digraphs", "none"};
     private static final int[] TOP_ROW_NAMES = {R.string.top_row_numbers, R.string.top_row_digraphs, R.string.top_row_none};
-    /** Paralelos a Prefs.SABERS: nombre del color y a quien pertenece. */
+    /** Paralelo a Prefs.SABERS: nombre del color (solo el color, sin personajes). */
     private static final int[] SABER_NAMES = {R.string.saber_blue, R.string.saber_green, R.string.saber_yellow,
             R.string.saber_orange, R.string.saber_purple, R.string.saber_red};
-    private static final int[] SABER_WHO = {R.string.saber_blue_who, R.string.saber_green_who, R.string.saber_yellow_who,
-            R.string.saber_orange_who, R.string.saber_purple_who, R.string.saber_red_who};
+    /** Usos antes de aprender una palabra (Prefs.LEARN_USES, entero). */
+    private static final String[] LEARN_USES = {"2", "3", "5"};
+    private static final int[] LEARN_USES_NAMES = {R.string.learn_uses_2, R.string.learn_uses_3, R.string.learn_uses_5};
 
     /**
      * Grupo de chips excluyentes ligado a una preferencia: current() lee el valor guardado y pick() lo guarda.
@@ -1655,6 +1944,14 @@ public final class MainActivity extends Activity {
         };
     }
 
+    /** Usos distintos que necesita una palabra desconocida para aprenderse: 2, 3 o 5, guardados como entero. */
+    private ChipGroup learnUsesGroup() {
+        return new ChipGroup(Prefs.LEARN_USES, "3", LEARN_USES, LEARN_USES_NAMES) {
+            @Override String current() { return String.valueOf(Prefs.learnUses(MainActivity.this)); }
+            @Override void pick(String id) { Prefs.get(MainActivity.this).edit().putInt(Prefs.LEARN_USES, Integer.parseInt(id)).apply(); }
+        };
+    }
+
     /** Idioma del teclado (y de la app): los mismos tres de la tarjeta de arriba; cambiarlo rehace la pantalla. */
     private ChipGroup langGroup() {
         return new ChipGroup(Prefs.APP_LANG, "es", TOP_LANGS, TOP_LANG_NAMES) {
@@ -1683,16 +1980,18 @@ public final class MainActivity extends Activity {
         LinearLayout col = column();
         col.setPadding(px(18), px(14), px(18), px(16));
         col.addView(text(getString(title), 16, ink, false), block(0));
-        if (sub != null && !sub.isEmpty()) col.addView(text(sub, 13, secondary, false), block(2));
+        if (sub != null && !sub.isEmpty()) col.addView(text(sub, 14, secondary, false), block(2));
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         String current = g.current();
-        int sp = g.ids.length >= 4 ? 13 : 14;   // cuatro chips en un telefono: letra algo menor
+        boolean many = g.ids.length >= 4;       // cuatro chips en un telefono: letra algo menor y menos relleno
+        int sp = many ? 12 : 14;
         for (int i = 0; i < g.ids.length; i++) {
             final String id = g.ids[i];
             final TextView chip = text(g.labels[i], sp, ink, true);
             chip.setGravity(Gravity.CENTER);
-            chip.setPadding(px(4), px(9), px(4), px(9));
+            chip.setMinHeight(px(40));
+            chip.setPadding(px(many ? 2 : 4), px(9), px(many ? 2 : 4), px(9));
             chip.setMaxLines(1);
             chip.setSelected(id.equals(current));
             styleChip(chip);
@@ -1724,7 +2023,7 @@ public final class MainActivity extends Activity {
     private void styleChip(TextView chip) {
         GradientDrawable bg = new GradientDrawable();
         bg.setColor(chip.isSelected() ? ink : divider);
-        bg.setCornerRadius(px(10));
+        bg.setCornerRadius(px(12));
         chip.setBackground(bg);
         chip.setTextColor(chip.isSelected() ? card : ink);
     }
@@ -1763,7 +2062,7 @@ public final class MainActivity extends Activity {
         value.setGravity(Gravity.END);
         head.addView(value, new LinearLayout.LayoutParams(WRAP, WRAP));
         col.addView(head, block(0));
-        if (sub != 0) col.addView(text(getString(sub), 13, secondary, false), block(2));
+        if (sub != 0) col.addView(text(getString(sub), 14, secondary, false), block(2));
 
         final SeekBar bar = new SeekBar(this);
         bar.setMax(max - min);
@@ -1793,25 +2092,23 @@ public final class MainActivity extends Activity {
     }
 
     /**
-     * Fila "Tema". Arriba, destacado, el grupo "Automaticos · siguen el modo oscuro del telefono" con dos tarjetas,
-     * Republica (Estelar de dia, Noche de noche; valor "auto") e Imperio (Arena de dia, Imperial de noche; valor
-     * "auto_imperio"), cada una con su muestra doble (mitad clara, mitad oscura) y el distintivo de automatico; la
-     * seleccionada lleva un borde de acento. Debajo, "Siempre el mismo" con los temas fijos. La copia del
-     * teclado cambia al instante al tema efectivo (Prefs.theme).
+     * Fila "Tema" (dentro de la tarjeta del grupo Tema). Arriba, el grupo "Automaticos · siguen el modo oscuro del
+     * telefono" con tres tarjetas de igual ancho en una fila (apiladas si la pantalla es muy estrecha): Republica
+     * (Nucleo de dia, Borde Exterior de noche; valor "auto"), Imperio (Arena / Imperial; "auto_imperio") y Templos
+     * (Santuario Jedi / Templo Sith; "auto_templos"), cada una con su muestra doble y el distintivo de automatico; la
+     * seleccionada lleva un borde de acento. Debajo, "Siempre el mismo" con los ocho fijos en filas de cuatro. La
+     * copia del teclado cambia al instante al tema efectivo (Prefs.theme).
      */
     private void themeRow(LinearLayout parent) {
         LinearLayout col = column();
         col.setPadding(px(10), px(14), px(10), px(14));
-        TextView title = text(getString(R.string.opt_theme), 16, ink, false);
-        title.setPadding(px(8), 0, px(8), 0);
-        col.addView(title, block(0));
         StringBuilder searchable = new StringBuilder(getString(R.string.opt_theme));
         String current = Prefs.themePref(this);
 
         // Automaticos
-        TextView autoGroup = text(getString(R.string.theme_auto_group), 13, secondary, true);
+        TextView autoGroup = text(getString(R.string.theme_auto_group), 14, secondary, true);
         autoGroup.setPadding(px(8), 0, px(8), 0);
-        col.addView(autoGroup, block(10));
+        col.addView(autoGroup, block(0));
         searchable.append(' ').append(getString(R.string.theme_auto_group));
         boolean sideBySide = contentWidth - px(20) >= px(300);
         LinearLayout autoRow = new LinearLayout(this);
@@ -1820,7 +2117,7 @@ public final class MainActivity extends Activity {
             final String id = Themes.AUTOS[i];
             String name = getString(Themes.autoName(id)), sub = getString(Themes.autoSub(id));
             searchable.append(' ').append(name).append(' ').append(sub);
-            View cardView = autoCard(id, name, sub, id.equals(current));
+            View cardView = autoCard(id, name, sub, id.equals(current), sideBySide);
             LinearLayout.LayoutParams cp = sideBySide ? new LinearLayout.LayoutParams(0, MATCH, 1f) : new LinearLayout.LayoutParams(MATCH, WRAP);
             if (i > 0) { if (sideBySide) cp.leftMargin = px(8); else cp.topMargin = px(8); }
             autoRow.addView(cardView, cp);
@@ -1828,21 +2125,21 @@ public final class MainActivity extends Activity {
             themeIds.add(id);
             autoCards.add(cardView);
         }
-        col.addView(autoRow, block(8));
+        col.addView(autoRow, block(10));
 
-        // Fijos
-        TextView fixedGroup = text(getString(R.string.theme_fixed_group), 13, secondary, true);
+        // Fijos: filas de cuatro
+        TextView fixedGroup = text(getString(R.string.theme_fixed_group), 14, secondary, true);
         fixedGroup.setPadding(px(8), 0, px(8), 0);
-        col.addView(fixedGroup, block(16));
+        col.addView(fixedGroup, block(18));
         searchable.append(' ').append(getString(R.string.theme_fixed_group));
         int n = Themes.ALL.length;
-        int perRow = contentWidth - px(20) >= px(78) * n ? n : (n + 1) / 2;
+        int perRow = 4;
         LinearLayout row = null;
         for (int i = 0; i < n; i++) {
             if (i % perRow == 0) {
                 row = new LinearLayout(this);
                 row.setOrientation(LinearLayout.HORIZONTAL);
-                col.addView(row, block(i == 0 ? 8 : 4));
+                col.addView(row, block(i == 0 ? 8 : 6));
             }
             Themes.Theme t = Themes.ALL[i];
             final String id = t.id;
@@ -1850,14 +2147,14 @@ public final class MainActivity extends Activity {
             searchable.append(' ').append(label);
             final LinearLayout item = column();
             item.setGravity(Gravity.CENTER_HORIZONTAL);
-            item.setPadding(0, px(4), 0, px(4));
+            item.setPadding(px(2), px(6), px(2), px(6));
             item.setBackground(ripple(0x00000000));
             item.setContentDescription(label);
             a11y(item, RadioButton.class, true, null);
             item.addView(new ThemeSwatchView(this, t, ink), new LinearLayout.LayoutParams(px(56), px(56)));
             TextView name = text(label, 12, secondary, false);
             name.setGravity(Gravity.CENTER_HORIZONTAL);
-            name.setMaxLines(1);
+            name.setMaxLines(2);
             item.addView(name, block(4));
             item.setSelected(id.equals(current));
             item.setOnClickListener(themePicker(id));
@@ -1883,23 +2180,26 @@ public final class MainActivity extends Activity {
 
     /**
      * Tarjeta de un automatico: muestra doble (dia arriba a la izquierda, noche abajo a la derecha, con el distintivo),
-     * nombre y "Estelar de dia, Noche de noche". Se lee como un boton de opcion con los tres textos.
+     * nombre y "Nucleo de dia, Borde Exterior de noche". En una fila de tres va en vertical (muestra arriba, textos
+     * centrados); apilada, en horizontal. Se lee como un boton de opcion con los tres textos.
      */
-    private View autoCard(String id, String name, String sub, boolean selected) {
+    private View autoCard(String id, String name, String sub, boolean selected, boolean vertical) {
         LinearLayout cardView = new LinearLayout(this);
-        cardView.setOrientation(LinearLayout.HORIZONTAL);
-        cardView.setGravity(Gravity.CENTER_VERTICAL);
-        cardView.setPadding(px(8), px(8), px(10), px(8));
+        cardView.setOrientation(vertical ? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL);
+        cardView.setGravity(vertical ? Gravity.CENTER_HORIZONTAL : Gravity.CENTER_VERTICAL);
+        cardView.setPadding(px(8), px(10), px(8), px(10));
         cardView.addView(new ThemeSwatchView(this, Themes.autoDay(id), Themes.autoNight(id), ink), new LinearLayout.LayoutParams(px(56), px(56)));
         LinearLayout textCol = column();
         TextView title = text(name, 14, ink, true);
         title.setMaxLines(1);
+        if (vertical) title.setGravity(Gravity.CENTER_HORIZONTAL);
         textCol.addView(title, block(0));
-        TextView subtitle = text(sub, 11, secondary, false);
+        TextView subtitle = text(sub, 12, secondary, false);
         subtitle.setMaxLines(3);
+        if (vertical) subtitle.setGravity(Gravity.CENTER_HORIZONTAL);
         textCol.addView(subtitle, block(2));
-        LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(0, WRAP, 1f);
-        tp.leftMargin = px(8);
+        LinearLayout.LayoutParams tp = vertical ? new LinearLayout.LayoutParams(MATCH, WRAP) : new LinearLayout.LayoutParams(0, WRAP, 1f);
+        if (vertical) tp.topMargin = px(8); else tp.leftMargin = px(10);
         cardView.addView(textCol, tp);
         cardView.setContentDescription(name + ". " + sub + ". " + getString(R.string.aj_theme_auto_badge));
         a11y(cardView, RadioButton.class, true, null);
@@ -1956,8 +2256,8 @@ public final class MainActivity extends Activity {
         LinearLayout col = column();
         col.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
         col.addView(text(getString(label), 16, ink, false), block(0));
-        if (sub != 0) col.addView(text(getString(sub), 13, secondary, false), block(2));
-        if (hint != 0) col.addView(text(getString(hint), 12, secondary, false), block(4));
+        if (sub != 0) col.addView(text(getString(sub), 14, secondary, false), block(2));
+        if (hint != 0) col.addView(text(getString(hint), 13, secondary, false), block(4));
         row.addView(col, new LinearLayout.LayoutParams(0, WRAP, 1f));
 
         final Switch sw = new Switch(this);
@@ -2001,12 +2301,9 @@ public final class MainActivity extends Activity {
         LinearLayout col = column();
         TextView title = text("", 16, ink, false);
         col.addView(title, block(0));
-        col.addView(text(getString(sub), 13, secondary, false), block(2));
+        col.addView(text(getString(sub), 14, secondary, false), block(2));
         row.addView(col, new LinearLayout.LayoutParams(0, WRAP, 1f));
-        TextView chevron = text("›", 22, secondary, false);
-        chevron.setPadding(px(12), 0, px(6), 0);
-        chevron.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-        row.addView(chevron, new LinearLayout.LayoutParams(WRAP, WRAP));
+        row.addView(chevronView(), new LinearLayout.LayoutParams(px(24), px(24)));
         row.setOnClickListener(onClick);
         a11y(row, Button.class, false, null);
         parent.addView(row, block(0));
@@ -2023,8 +2320,10 @@ public final class MainActivity extends Activity {
         separator(parent);
         LinearLayout col = column();
         col.setPadding(px(18), px(12), px(18), px(12));
+        col.setMinimumHeight(px(56));
+        col.setGravity(Gravity.CENTER_VERTICAL);
         col.addView(text(getString(gesture), 16, ink, false), block(0));
-        col.addView(text(getString(result), 13, secondary, false), block(2));
+        col.addView(text(getString(result), 14, secondary, false), block(2));
         parent.addView(col, block(0));
         register(col, getString(gesture), getString(gesture) + " " + getString(result));
     }
@@ -2032,7 +2331,7 @@ public final class MainActivity extends Activity {
     /** Nota explicativa de una linea o dos (letra pequena), registrada para el buscador. */
     private void noteRow(LinearLayout parent, int textRes) {
         separator(parent);
-        TextView note = text(getString(textRes), 13, secondary, false);
+        TextView note = text(getString(textRes), 14, secondary, false);
         note.setPadding(px(18), px(12), px(18), px(14));
         parent.addView(note, block(0));
         register(note, getString(textRes), getString(textRes));
@@ -2042,6 +2341,7 @@ public final class MainActivity extends Activity {
     private TextView chipButton(int label, View.OnClickListener onClick) {
         TextView chip = text(getString(label), 14, ink, true);
         chip.setGravity(Gravity.CENTER);
+        chip.setMinHeight(px(40));
         chip.setPadding(px(14), px(9), px(14), px(9));
         chip.setSelected(false);
         styleChip(chip);
@@ -2056,8 +2356,8 @@ public final class MainActivity extends Activity {
         LinearLayout col = column();
         col.setPadding(px(18), px(14), px(18), px(16));
         col.addView(text(getString(R.string.opt_custom_sound), 16, ink, false), block(0));
-        col.addView(text(getString(R.string.opt_custom_sound_sub), 13, secondary, false), block(2));
-        soundCurrent = text("", 13, secondary, true);
+        col.addView(text(getString(R.string.opt_custom_sound_sub), 14, secondary, false), block(2));
+        soundCurrent = text("", 14, secondary, true);
         col.addView(soundCurrent, block(2));
         refreshSoundRow();
 
@@ -2522,6 +2822,37 @@ public final class MainActivity extends Activity {
         return p;
     }
 
+    /** ImageView decorativo con un icono de UiIcons de {@code sizeDp} de lado en ese color (centrado en su caja). */
+    private ImageView iconView(int kind, int color, int sizeDp) {
+        ImageView v = new ImageView(this);
+        v.setImageDrawable(UiIcons.drawable(kind, color, px(sizeDp)));
+        v.setScaleType(ImageView.ScaleType.CENTER);
+        v.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        return v;
+    }
+
+    /** Chevron › de las filas que abren algo (decorativo). */
+    private ImageView chevronView() {
+        ImageView v = iconView(UiIcons.CHEVRON_RIGHT, secondary, 22);
+        return v;
+    }
+
+    /**
+     * Grupo de una pagina: una tarjeta redondeada mas (12 dp bajo la anterior) y, con {@code headerRes}, un rotulo
+     * pequeno encima, al estilo de las secciones de los Ajustes de One UI. Devuelve la tarjeta donde van las filas.
+     */
+    private LinearLayout group(LinearLayout body, int headerRes) {
+        boolean first = body.getChildCount() == 0;
+        if (headerRes != 0) {
+            TextView header = text(getString(headerRes), 13, secondary, true);
+            header.setPadding(px(16), px(first ? 6 : 14), px(16), px(8));
+            body.addView(header, block(first ? 0 : 4));
+        }
+        LinearLayout c = cardColumn();
+        body.addView(c, block(headerRes != 0 || first ? 0 : 12));
+        return c;
+    }
+
     // ------------------------------------------------------------------ buscador
 
     /** Campo "Buscar ajuste" con × para borrar; debajo, la tarjeta de resultados y la linea "Ningun ajuste coincide". */
@@ -2533,10 +2864,9 @@ public final class MainActivity extends Activity {
         bg.setColor(card);
         bg.setCornerRadius(px(14));
         box.setBackground(bg);
-        box.setPadding(px(16), 0, px(6), 0);
-        TextView lens = text("⌕", 18, secondary, false);
-        lens.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-        box.addView(lens, new LinearLayout.LayoutParams(WRAP, WRAP));
+        box.setPadding(px(14), 0, px(6), 0);
+        box.setMinimumHeight(px(48));
+        box.addView(iconView(UiIcons.SEARCH, secondary, 20), new LinearLayout.LayoutParams(px(20), px(20)));
         searchField = new EditText(this);
         searchField.setBackground(null);
         searchField.setHint(R.string.aj_search_hint);
@@ -2548,8 +2878,7 @@ public final class MainActivity extends Activity {
         searchField.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
         searchField.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH);
         box.addView(searchField, new LinearLayout.LayoutParams(0, WRAP, 1f));
-        TextView clear = text("×", 20, secondary, false);
-        clear.setPadding(px(10), px(4), px(10), px(4));
+        ImageView clear = iconView(UiIcons.CLEAR, secondary, 20);
         clear.setContentDescription(getString(R.string.aj_search_clear));
         clear.setBackground(ripple(0x00000000));
         clear.setVisibility(View.GONE);
@@ -2558,15 +2887,26 @@ public final class MainActivity extends Activity {
             @Override public void onClick(View v) { searchField.setText(""); }
         });
         searchClear = clear;
-        box.addView(clear, new LinearLayout.LayoutParams(WRAP, WRAP));
-        root.addView(box, block(20));
+        box.addView(clear, new LinearLayout.LayoutParams(px(40), px(40)));
+        root.addView(box, block(12));
         searchResults = cardColumn();
         searchResults.setVisibility(View.GONE);
         root.addView(searchResults, block(12));
-        searchNone = text(getString(R.string.aj_search_none), 13, secondary, false);
-        searchNone.setPadding(px(4), 0, px(4), 0);
-        searchNone.setVisibility(View.GONE);
-        root.addView(searchNone, block(8));
+        // Estado vacio: tarjeta con la lupa, "Ningun ajuste coincide" y una pista
+        LinearLayout empty = cardColumn();
+        empty.setGravity(Gravity.CENTER_HORIZONTAL);
+        empty.setPadding(px(20), px(28), px(20), px(28));
+        ImageView lens = iconView(UiIcons.SEARCH, secondary, 32);
+        empty.addView(lens, new LinearLayout.LayoutParams(px(40), px(40)));
+        searchNone = text(getString(R.string.aj_search_none), 16, ink, true);
+        searchNone.setGravity(Gravity.CENTER_HORIZONTAL);
+        empty.addView(searchNone, block(10));
+        TextView emptyHint = text(getString(R.string.ux_search_none_hint), 14, secondary, false);
+        emptyHint.setGravity(Gravity.CENTER_HORIZONTAL);
+        empty.addView(emptyHint, block(4));
+        empty.setVisibility(View.GONE);
+        searchEmpty = empty;
+        root.addView(empty, block(12));
         searchField.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int a, int b, int n) {}
             @Override public void onTextChanged(CharSequence s, int a, int b, int n) {}
@@ -2617,7 +2957,7 @@ public final class MainActivity extends Activity {
         if (searchClear != null) searchClear.setVisibility(on ? View.VISIBLE : View.GONE);
         if (on) ensureAllBuilt();
         int shown = on ? View.GONE : View.VISIBLE;
-        for (View v : new View[]{topCard, tryCard, listCard, footCard, compatCard}) if (v != null) v.setVisibility(shown);
+        for (View v : new View[]{topCard, tryCard, listCard, footCard, compatCard, bigHeader}) if (v != null) v.setVisibility(shown);
         searchResults.removeAllViews();
         int n = 0;
         if (on) {
@@ -2629,7 +2969,8 @@ public final class MainActivity extends Activity {
             }
         }
         searchResults.setVisibility(on && n > 0 ? View.VISIBLE : View.GONE);
-        if (searchNone != null) searchNone.setVisibility(on && n == 0 ? View.VISIBLE : View.GONE);
+        if (searchEmpty != null) searchEmpty.setVisibility(on && n == 0 ? View.VISIBLE : View.GONE);
+        updateHomeBar();
     }
 
     /** Fila de resultado: titulo de la fila encontrada y, debajo, la pagina donde esta; tocarla la abre y la resalta. */
@@ -2643,12 +2984,9 @@ public final class MainActivity extends Activity {
         row.setBackground(ripple(0x00000000));
         LinearLayout col = column();
         col.addView(text(r.label, 16, ink, false), block(0));
-        col.addView(text(getString(r.page.titleRes), 13, secondary, false), block(2));
+        col.addView(text(getString(r.page.titleRes), 14, secondary, false), block(2));
         row.addView(col, new LinearLayout.LayoutParams(0, WRAP, 1f));
-        TextView chevron = text("›", 22, secondary, false);
-        chevron.setPadding(px(12), 0, px(6), 0);
-        chevron.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-        row.addView(chevron, new LinearLayout.LayoutParams(WRAP, WRAP));
+        row.addView(chevronView(), new LinearLayout.LayoutParams(px(24), px(24)));
         row.setContentDescription(r.label + ". " + getString(R.string.aj_open_page, getString(r.page.titleRes)));
         a11y(row, Button.class, false, null);
         row.setOnClickListener(new View.OnClickListener() {
@@ -2850,6 +3188,7 @@ public final class MainActivity extends Activity {
         v.setBackgroundColor(divider);
         LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(MATCH, Math.max(1, px(1)));
         p.leftMargin = px(18);
+        p.rightMargin = px(18);
         v.setLayoutParams(p);
         return v;
     }

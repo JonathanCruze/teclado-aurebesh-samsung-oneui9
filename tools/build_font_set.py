@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Construye el juego de glifos del teclado y la fuente "Aurek Teclado":
-   base: font/base-silvinor-Aurebesh.ttf (OFL 1.1, SilvinoR) -> letras, numerales, puntuacion, signos, digrafos (ligaduras)
+   base: font/base-silvinor-Aurebesh.ttf (OFL 1.1, SilvinoR) -> letras, numerales, puntuacion, signos, digrafos (ligaduras);
+         (c) y (r) con mas aire entre la letra y el marco (la letra al 72 por ciento y el marco agrandado un trazo)
    propios (glyph_compose.py, al grosor de la base, 1.55): n~ con virgulilla, vocales con tilde aguda, grave, dieresis y
    circunflejo, a/o con virgulilla, o con barra, distinto y por mil; la barra invertida es el espejo de la /
    previa (sin integrar hasta que se aprueben, bandera INCLUDE_TIMES_DIVIDE): por (x) y entre
@@ -10,7 +11,7 @@ import json, math, os, sys, shutil, numpy as np, cv2
 from fontTools.ttLib import TTFont
 from fontTools.pens.recordingPen import RecordingPen
 sys.path.insert(0,os.path.dirname(os.path.abspath(__file__)))
-from glyph_compose import mirror_x, accents, symbols, times_divide, times, plus_minus, divide_candidates, currency
+from glyph_compose import mirror_x, accents, symbols, times_divide, times, plus_minus, divide_candidates, currency, badges
 ROOT=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC=os.path.join(ROOT,'font','base-silvinor-Aurebesh.ttf')
 INCLUDE_TIMES=True           # por (x): el boceto del usuario (dos + en espejo con hueco de un trazo, girados 45 grados)
@@ -60,6 +61,8 @@ for lk in f['GSUB'].table.LookupList.Lookup:
                     s=''.join(chr(next(c for c,g in cmap.items() if g==n)) for n in comps)
                     if s.islower() and len(s)==2: G[s]=to_units(contours(L.LigGlyph), hmtx[L.LigGlyph][0])
 G['“']=G['”']=G['"']; G['‘']=G['`']; G['’']=G["'"]; del G['`']
+# (c) y (r) de la base llevan la letra casi pegada al marco: se encoge la letra y se agranda el marco (glyph_compose.badges)
+G.update(badges(G))
 SPACE_ADV=round(hmtx[cmap[32]][0]*U,3)
 
 # ---------------- propios: solo lo que la fuente no tiene (glyph_compose.py)

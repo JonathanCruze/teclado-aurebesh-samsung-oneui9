@@ -265,3 +265,61 @@ def times_divide(G):
         a=math.radians(ang)
         for sgn in (1,-1): pieces.append([bar(cx+sgn*d*math.cos(a),cy+sgn*d*math.sin(a),Lp,ang)])
     return {'×':times,'÷':metrics(union(pieces))}
+
+# ---------------- (c) y (r) de la fuente base: mas aire entre la letra interior y el marco
+# En la base, el marco es un cuadrado redondeado (anillo de medio trazo, T/2) y la letra de dentro es la c o la r al 50 por
+# ciento, casi pegada al marco (0.4 arriba y abajo; la r a 0.1 del lado). Aqui la letra se encoge respecto al centro del
+# marco y el marco se agranda conservando su grosor hasta que queda al menos un trazo de la base (T) de aire por los cuatro
+# lados; los dos signos comparten el mismo marco para que no bailen de tamano.
+BADGE_LETTER=0.72   # tanto por uno al que se encoge la letra interior (de 3.1x3.8 unidades pasa a 2.2x2.8; trazo 0.56)
+BADGE_GAP=T         # aire minimo entre letra y marco: un trazo de la base
+def _vectorize(m,x0,y0,S,pad,eps,tol,min_area):
+    """Vuelve a vectorizar una mascara pintada con el marco (x0,y0), escala S y margen pad (como union)."""
+    cs,_=cv2.findContours(m,cv2.RETR_CCOMP,cv2.CHAIN_APPROX_NONE); out=[]
+    for c in cs:
+        if cv2.contourArea(c)<min_area*S*S: continue
+        a=snap(cv2.approxPolyDP(c,eps*S,True).reshape(-1,2).tolist(),tol*S)
+        if len(a)>=3: out.append([[round(x0+(px-pad)/S,3),round(y0+(py-pad)/S,3)] for px,py in a])
+    return out
+def offset_polys(polys,d,S=64,eps=0.03,tol=0.06,min_area=0.1):
+    """Desplaza d unidades hacia fuera (d<0: hacia dentro) el borde de la figura que forman polys (par-impar), por
+    rasterizacion: se pinta, se dilata (o erosiona) con un disco de radio d y se vuelve a vectorizar. Las esquinas
+    redondeadas conservan su forma (el radio crece d, como en un desplazamiento geometrico)."""
+    x0,y0,x1,y1=bbox(polys); r=int(round(abs(d)*S)); pad=6+r; SH=8; F=1<<SH
+    W=int(math.ceil((x1-x0)*S))+2*pad; H=int(math.ceil((y1-y0)*S))+2*pad
+    m=np.zeros((H,W),np.uint8)
+    for poly in polys:
+        pm=np.zeros_like(m)
+        pts=np.array([[round((pad+(x-x0)*S)*F),round((pad+(y-y0)*S)*F)] for x,y in poly],np.int32)
+        cv2.fillPoly(pm,[pts],255,cv2.LINE_8,SH); m^=pm
+    if r>0:
+        k=cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(2*r+1,2*r+1))
+        m=cv2.dilate(m,k) if d>0 else cv2.erode(m,k)
+    return _vectorize(m,x0,y0,S,pad,eps,tol,min_area)
+def badge_parts(g):
+    """Separa un glifo "letra en un marco": (contorno exterior del marco, su agujero, poligonos de la letra). El marco son
+    los dos poligonos de caja mas grande."""
+    order=sorted(range(len(g['p'])),key=lambda i:-(lambda b:(b[2]-b[0])*(b[3]-b[1]))(bbox([g['p'][i]])))
+    outer,inner=g['p'][order[0]],g['p'][order[1]]
+    letter=[g['p'][i] for i in range(len(g['p'])) if i not in order[:2]]
+    return outer,inner,letter
+def badge_grow(g,k=BADGE_LETTER,gap=BADGE_GAP):
+    """Cuanto hay que agrandar el marco de g (por lado) para que, con la letra encogida a k, quede gap de aire."""
+    outer,inner,letter=badge_parts(g); ix0,iy0,ix1,iy1=bbox([inner]); lx0,ly0,lx1,ly1=bbox(letter)
+    return max(0.0,(lx1-lx0)*k/2+gap-(ix1-ix0)/2,(ly1-ly0)*k/2+gap-(iy1-iy0)/2)
+def badge_air(g,k=BADGE_LETTER,gap=BADGE_GAP,grow=None):
+    """Encoge la letra interior a k respecto al centro del agujero del marco y agranda el marco grow unidades por lado
+    conservando el grosor (sin grow, lo justo para que quede gap de aire). Devuelve el glifo con el mismo centro, el
+    mismo margen izquierdo y el avance crecido lo que crece el ancho."""
+    outer,inner,letter=badge_parts(g); ix0,iy0,ix1,iy1=bbox([inner]); cx,cy=(ix0+ix1)/2,(iy0+iy1)/2
+    if grow is None: grow=badge_grow(g,k,gap)
+    small=[[[round(x,3),round(y,3)] for x,y in p] for p in scale(letter,k,k,cx,cy)]
+    if grow>0: outer=offset_polys([outer],grow)[0]; inner=offset_polys([inner],grow)[0]
+    polys=[outer,inner]+small; x0=bbox(polys)[0]; polys=translate(polys,-x0,0)
+    polys=[[[round(x,3),round(y,3)] for x,y in p] for p in polys]
+    dw=bbox(polys)[2]-g['w']
+    return derived(g,polys,w=g['w']+dw,adv=g['adv']+dw)
+def badges(G,k=BADGE_LETTER,gap=BADGE_GAP):
+    """(c) y (r) con aire: la letra al k y el mismo marco para los dos (el que pida el mas ancho, la r)."""
+    grow=max(badge_grow(G[ch],k,gap) for ch in '©®')
+    return {ch:badge_air(G[ch],k,gap,grow) for ch in '©®'}

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ux_preview_title">Vista previa</string>
+    <string name="ux_preview_hint">Toca para probar el teclado</string>
+    <string name="ux_preview_collapse">Plegar la vista previa del teclado</string>
+    <string name="ux_preview_expand">Desplegar la vista previa del teclado</string>
+    <string name="ux_preview_clear">Borrar lo escrito</string>
+    <string name="ux_group_alphabet">Aprender el alfabeto</string>
+    <string name="ux_group_correction">Corrección</string>
+    <string name="ux_group_dictionary">Diccionario y aprendizaje</string>
+    <string name="ux_group_press">Al pulsar una tecla</string>
+    <string name="ux_group_feedback">Sonido y vibración</string>
+    <string name="ux_group_split">Teclado dividido</string>
+    <string name="ux_group_backup">Copia de los ajustes</string>
+    <string name="ux_search_none_hint">Prueba con otra palabra, como «tema» o «vibración».</string>
+</resources>

@@ -160,14 +160,18 @@ public class Settings2Test {
         MainActivity a = create();
         SettingsTest.openCategory(a, R.string.cat_style, MainActivity.PAGE_STYLE);
         assertEquals("azul de fabrica", "blue", Prefs.saber(app));
-        String red = a.getString(R.string.saber_red) + " · " + a.getString(R.string.saber_red_who);
+        // Los chips se nombran solo por el color: ni la descripcion ni ningun texto llevan personajes
+        String red = a.getString(R.string.saber_red);
         View chip = byDescription(a, red);
-        assertNotNull("chip Rojo · Sith", chip);
+        assertNotNull("chip Rojo (solo el color)", chip);
+        assertNull("sin personajes en la descripcion", byDescription(a, red + " · " + a.getString(R.string.saber_red_who)));
+        assertFalse("ni en una linea bajo los chips", textContains(a, a.getString(R.string.saber_red_who)));
+        assertFalse(textContains(a, a.getString(R.string.saber_blue_who)));
         chip.performClick();
         assertEquals("red", Prefs.get(app).getString(Prefs.SABER, null));
         assertEquals(Prefs.SABER_ARGB[5], Prefs.saberArgb(app));
         assertTrue(chip.isSelected());
-        assertTrue("bajo los chips se dice de quien es", hasText(a, red));
+        assertTrue("el chip muestra el nombre del color", hasText(a, red));
         ShadowLooper.shadowMainLooper().idle();
         assertTrue("el resumen de Estilo lleva el sable",
                 textContains(a, a.getString(R.string.aj_sum_saber, a.getString(R.string.saber_red).toLowerCase())));
@@ -175,7 +179,7 @@ public class Settings2Test {
         Prefs.get(app).edit().putString(Prefs.SABER, "purple").apply();
         ShadowLooper.shadowMainLooper().idle();
         assertFalse(chip.isSelected());
-        View purple = byDescription(a, a.getString(R.string.saber_purple) + " · " + a.getString(R.string.saber_purple_who));
+        View purple = byDescription(a, a.getString(R.string.saber_purple));
         assertNotNull(purple);
         assertTrue(purple.isSelected());
     }

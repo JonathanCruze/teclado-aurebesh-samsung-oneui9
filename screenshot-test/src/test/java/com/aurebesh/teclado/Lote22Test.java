@@ -34,7 +34,7 @@ import java.util.List;
  * superior admite numeros, digrafos o nada (y Prefs.topRow deriva del interruptor antiguo); el numerico de cinco
  * columnas (numero y telefono) y el PIN de cuatro; los glifos nuevos (barra invertida, mas-menos, monedas, grados,
  * marcas, o con barra, distinto, por mil y las vocales con grave, dieresis, circunflejo y virgulilla); "Todo en
- * Aurebesh" dibuja tambien las sugerencias en glifos; los temas automaticos Republica e Imperio; y el postproceso de
+ * Aurebesh" dibuja tambien las sugerencias en glifos; los temas automaticos Republica, Imperio y Templos; y el postproceso de
  * la inteligencia (vinetas con titulo y "- ", limpieza de traducciones y deteccion de eco). Ademas, las pistas
  * latinas siguen en la esquina inferior derecha de la cara y el glifo nunca entra en ese cuadrado de 12 dp: ni en la
  * fila de numeros, ni en los digrafos, ni en el numerico.
@@ -628,7 +628,9 @@ public class Lote22Test {
         check(Themes.isAuto(Prefs.THEME_AUTO) && Themes.isAuto(Prefs.THEME_AUTO_IMPERIO) && !Themes.isAuto("arena"), "isAuto");
         check(Themes.autoDay(Prefs.THEME_AUTO) == Themes.ESTELAR && Themes.autoNight(Prefs.THEME_AUTO) == Themes.NOCHE, "Republica: Estelar / Noche");
         check(Themes.autoDay(Prefs.THEME_AUTO_IMPERIO) == Themes.ARENA && Themes.autoNight(Prefs.THEME_AUTO_IMPERIO) == Themes.IMPERIAL, "Imperio: Arena / Imperial");
-        check(Themes.AUTOS.length == 2 && Themes.ALL.length == 7, "dos automaticos y siete fijos");
+        check(Themes.autoDay(Prefs.THEME_AUTO_TEMPLOS) == Themes.SANTUARIO && Themes.autoNight(Prefs.THEME_AUTO_TEMPLOS) == Themes.SITH, "Templos: Santuario / Sith");
+        check(Themes.AUTOS.length == 3 && Themes.ALL.length == 8, "tres automaticos y ocho fijos (sin Pazaak)");
+        check(Themes.byId("pazaak") == Themes.DEFAULT, "pazaak ya no es un tema");
 
         // Prefs.theme resuelve con el uiMode del contexto
         Prefs.get(app).edit().putString(Prefs.THEME, Prefs.THEME_AUTO_IMPERIO).apply();
@@ -647,16 +649,17 @@ public class Lote22Test {
         Prefs.get(app).edit().putString(Prefs.THEME, Prefs.THEME_AUTO_IMPERIO).apply();
         check(Prefs.theme(app), Themes.ARENA.id, "Imperio de dia otra vez");
 
-        // Pantalla de ajustes: pagina Estilo con el grupo automatico (Republica e Imperio) y los siete fijos
+        // Pantalla de ajustes: pagina Estilo con el grupo automatico (Republica, Imperio y Templos) y los ocho fijos
         MainActivity a = Robolectric.buildActivity(MainActivity.class).setup().get();
         SettingsTest.openCategory(a, R.string.cat_style, MainActivity.PAGE_STYLE);
         check(hasText(a, a.getString(R.string.theme_auto_group)), "grupo de automaticos");
         check(hasText(a, a.getString(R.string.theme_fixed_group)), "grupo de fijos");
         View republic = SettingsTest.clickableStartingWith(a, a.getString(R.string.theme_auto_republic) + ". ");
         View imperio = SettingsTest.clickableStartingWith(a, a.getString(R.string.theme_auto_imperio) + ". ");
-        check(republic != null && imperio != null, "tarjetas Republica e Imperio");
+        View templos = SettingsTest.clickableStartingWith(a, a.getString(R.string.theme_auto_templos) + ". ");
+        check(republic != null && imperio != null && templos != null, "tarjetas Republica, Imperio y Templos");
         check(hasText(a, a.getString(R.string.theme_auto_republic_sub)) && hasText(a, a.getString(R.string.theme_auto_imperio_sub)), "con sus subtitulos");
-        check(imperio.isSelected() && !republic.isSelected(), "Imperio (guardado) aparece seleccionado");
+        check(imperio.isSelected() && !republic.isSelected() && !templos.isSelected(), "Imperio (guardado) aparece seleccionado");
         for (Themes.Theme th : Themes.ALL) {
             View item = byDescription(a, a.getString(th.name));
             check(item != null, "muestra fija " + th.id);

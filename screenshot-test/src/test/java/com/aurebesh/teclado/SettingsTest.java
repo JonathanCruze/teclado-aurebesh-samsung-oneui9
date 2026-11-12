@@ -35,7 +35,7 @@ import static org.junit.Assert.assertTrue;
 /**
  * Pantalla de ajustes (2.2, estilo Ajustes de One UI): la pantalla principal lleva la tarjeta "Pruebalo" y una lista
  * con una fila por categoria (titulo, resumen de una linea y ›) que abre su pagina dentro de la misma actividad; cada
- * pagina se construye al abrirla. Los temas automaticos (Republica e Imperio) se guardan como "auto" y "auto_imperio"
+ * pagina se construye al abrirla. Los temas automaticos (Republica, Imperio y Templos) se guardan como "auto", "auto_imperio" y "auto_templos"
  * y se resuelven con el modo oscuro; los atajos de texto van y vienen desde Prefs; el deslizador de alto (pagina
  * Tamano y distribucion) guarda el porcentaje al soltar; en un telefono no hay Plegables (el dividido va en Tamano);
  * la pagina abierta sobrevive al giro y el boton atras la cierra; y los campos de prueba son uno de texto normal y uno
@@ -300,7 +300,7 @@ public class SettingsTest {
     public void automaticThemeIsSavedAsAutoAndFollowsNightMode() {
         MainActivity a = create();
         openCategory(a, R.string.cat_style, MainActivity.PAGE_STYLE);
-        // Grupo de automaticos con dos tarjetas (Republica e Imperio) y, debajo, los fijos
+        // Grupo de automaticos con tres tarjetas (Republica, Imperio y Templos) y, debajo, los ocho fijos
         assertTrue(hasText(a, a.getString(R.string.theme_auto_group)));
         assertTrue(hasText(a, a.getString(R.string.theme_fixed_group)));
         assertFalse("el chip Automatico antiguo ya no esta", byDescription(a, a.getString(R.string.aj_theme_auto)) != null);
@@ -330,14 +330,32 @@ public class SettingsTest {
         assertEquals(Themes.IMPERIAL.id, Prefs.theme(nightContext));
         ShadowLooper.shadowMainLooper().idle();
         assertTrue("el resumen de Estilo nombra el automatico", textContains(a, a.getString(R.string.theme_auto_imperio)));
+        // Templos: Santuario Jedi de dia y Templo Sith de noche
+        View templos = clickableStartingWith(a, a.getString(R.string.theme_auto_templos) + ". " + a.getString(R.string.theme_auto_templos_sub));
+        assertNotNull("tarjeta Templos", templos);
+        assertTrue(templos.getContentDescription().toString().endsWith(a.getString(R.string.aj_theme_auto_badge)));
+        templos.performClick();
+        assertTrue(templos.isSelected());
+        assertFalse(imperio.isSelected());
+        assertEquals(Prefs.THEME_AUTO_TEMPLOS, Prefs.get(app).getString(Prefs.THEME, null));
+        assertEquals(Themes.SANTUARIO.id, Prefs.theme(app));
+        assertEquals(Themes.SITH.id, Prefs.theme(nightContext));
+        ShadowLooper.shadowMainLooper().idle();
+        assertTrue(textContains(a, a.getString(R.string.theme_auto_templos)));
         // Un tema fijo no depende del modo; su muestra se selecciona y las automaticas no
         View arena = byDescription(a, a.getString(R.string.theme_arena));
         assertNotNull("muestra Arena entre los fijos", arena);
         arena.performClick();
         assertEquals(Themes.ARENA.id, Prefs.theme(nightContext));
         assertTrue(arena.isSelected());
-        assertFalse(imperio.isSelected());
+        assertFalse(templos.isSelected());
+        assertEquals("ocho fijos", 8, Themes.ALL.length);
         for (Themes.Theme t : Themes.ALL) assertNotNull("muestra fija " + t.id, byDescription(a, a.getString(t.name)));
+        // Estelar y Noche se llaman ahora Nucleo y Borde Exterior (ids sin cambiar)
+        assertEquals("Núcleo", a.getString(R.string.theme_estelar));
+        assertEquals("Borde Exterior", a.getString(R.string.theme_noche));
+        assertEquals("estelar", Themes.ESTELAR.id);
+        assertEquals("noche", Themes.NOCHE.id);
     }
 
     // ------------------------------------------------------------------ atajos de texto

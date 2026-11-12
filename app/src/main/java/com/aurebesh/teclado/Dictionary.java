@@ -417,6 +417,56 @@ final class Dictionary {
         return rank.containsKey(w) || personal.contains(w) || lexicon(w);
     }
 
+    /** Entrada del lexico Star Wars (en minusculas), este o no activo: esas no se aprenden como palabras del usuario. */
+    boolean inLexicon(String w) {
+        return w != null && (swCanon.containsKey(w) || swPlain.containsKey(fold(w)));
+    }
+
+    /**
+     * Lo escrito parece una errata de una palabra frecuente del idioma: es una palabra del diccionario sin su tilde (o
+     * con una de mas), o esta a una sola edicion (letra de mas, de menos, cambiada por cualquier otra o dos letras
+     * invertidas, sin ponderar) de una entrada con rango menor que {@code maxRank}. Las palabras aprendidas y el lexico
+     * Star Wars no cuentan. Lo usa la politica del diccionario personal ({@link Learning}).
+     */
+    boolean nearFrequent(String w, int maxRank) {
+        if (w == null || w.isEmpty()) return false;
+        String a = fold(w);
+        if (!a.equals(w) && (rank.containsKey(a) || accented.containsKey(a))) return true;   // con tildes de mas o de otra forma
+        String acc = accented.get(a);
+        if (acc != null && !acc.equals(w)) return true;                                       // la misma sin tilde
+        int n = a.length();
+        for (int i = 0; i < n; i++) {
+            if (frequent(a.substring(0, i) + a.substring(i + 1), maxRank)) return true;
+        }
+        for (int i = 0; i + 1 < n; i++) {
+            if (a.charAt(i) == a.charAt(i + 1)) continue;
+            if (frequent(a.substring(0, i) + a.charAt(i + 1) + a.charAt(i) + a.substring(i + 2), maxRank)) return true;
+        }
+        for (int i = 0; i < n; i++) {
+            for (int k = 0; k < alphabet.length(); k++) {
+                char ch = alphabet.charAt(k);
+                if (ch == a.charAt(i)) continue;
+                if (frequent(a.substring(0, i) + ch + a.substring(i + 1), maxRank)) return true;
+            }
+        }
+        for (int i = 0; i <= n; i++) {
+            for (int k = 0; k < alphabet.length(); k++) {
+                if (frequent(a.substring(0, i) + alphabet.charAt(k) + a.substring(i), maxRank)) return true;
+            }
+        }
+        return false;
+    }
+
+    /** La forma (sin tildes) es, o tiene como forma con tildes, una palabra del idioma con rango menor que maxRank. */
+    private boolean frequent(String plainForm, int maxRank) {
+        Integer r = rank.get(plainForm);
+        if (r != null && r < maxRank) return true;
+        String acc = accented.get(plainForm);
+        if (acc == null) return false;
+        Integer ar = rank.get(acc);
+        return ar != null && ar < maxRank;
+    }
+
     int size() { return sorted.length; }
 
     // ---- acceso por rango (lo usa SwipeDecoder para construir su indice; no cambia nada de lo anterior)

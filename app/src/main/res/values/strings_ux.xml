@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ux_preview_title">Preview</string>
+    <string name="ux_preview_hint">Tap to try the keyboard</string>
+    <string name="ux_preview_collapse">Collapse the keyboard preview</string>
+    <string name="ux_preview_expand">Expand the keyboard preview</string>
+    <string name="ux_preview_clear">Clear what you typed</string>
+    <string name="ux_group_alphabet">Learning the alphabet</string>
+    <string name="ux_group_correction">Correction</string>
+    <string name="ux_group_dictionary">Dictionary and learning</string>
+    <string name="ux_group_press">When you press a key</string>
+    <string name="ux_group_feedback">Sound and vibration</string>
+    <string name="ux_group_split">Split keyboard</string>
+    <string name="ux_group_backup">Settings backup</string>
+    <string name="ux_search_none_hint">Try another word, such as “theme” or “vibration”.</string>
+</resources>

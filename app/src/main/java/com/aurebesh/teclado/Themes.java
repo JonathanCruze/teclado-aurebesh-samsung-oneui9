@@ -79,22 +79,26 @@ final class Themes {
             0xFFFFF4EA, 0xFFB8A78E, 0xFF9A8A72, 10f, true);
 
     /**
-     * Santuario Jedi: piedra arenisca clara y marfil del Templo, tinta marron oscura, detalles en bronce (intro y
-     * mayusculas activas), esquinas amplias y sombra suave. Es el dia del automatico Templos.
+     * Santuario Jedi: arenisca del Templo de fondo (piedra D5CBB8), teclas de marfil FBF6EA con canto de piedra C8B995 y
+     * sombra suave, tinta sepia 3A2A1C y pistas 8A7657; bronce antiguo 946A34 con icono marfil FFF4DC en intro y mayusculas
+     * activas; esquinas de 8 dp. Se distingue de Arena (beige claro, teclas hueso muy redondas sin borde, naranja) por la
+     * piedra mas oscura, el canto y el bronce. Es el dia del automatico Templos.
      */
     static final Theme SANTUARIO = new Theme("santuario", R.string.theme_santuario,
-            0xFFEAE0CC, 0xFFFBF6EA, 0xFFD6C8A8, 0xFF3B2F23, 0, 0xFF3B2F23,
-            0xFFB08A3E, 0xFF2A1F0E, 0xFFE2D5B8, 0xFFF4EDDC, 0xFFD9CBAA, 0xFFFBF6EA,
-            0xFF3B2F23, 0xFF8C7A5E, 0xFF8C7A5E, 10f, true);
+            0xFFD5CBB8, 0xFFFBF6EA, 0xFFC8B995, 0xFF3A2A1C, 0, 0xFF4F3F30,
+            0xFF946A34, 0xFFFFF4DC, 0xFFE4DBC7, 0xFFF3EDDC, 0xFFC9BB9E, 0xFFFBF6EA,
+            0xFF3A2A1C, 0xFF8A7657, 0xFF8A7657, 8f, true);
 
     /**
-     * Templo Sith: obsidiana y basalto, teclas negras con canto rojo oscuro, tinta palida y el carmesi del sable en intro
-     * y mayusculas activas; sin sombra. Es la noche del automatico Templos.
+     * Templo Sith: obsidiana de fondo (0B0708), teclas de basalto 1C1416 con canto rojo oscuro 4A2027 y sin sombra, tinta
+     * palida EADEDE con un halo rojo muy tenue (glow 8E1B1B, que la vista pinta al 25 por ciento), iconos D8C8CA y pistas
+     * A08A90; carmesi C62828 con icono FFEBEE en intro y mayusculas activas; esquinas de 5 dp. Se distingue de Imperial
+     * (grafito neutro) y de Borde Exterior (azul noche) por el negro rojizo y los cantos. Es la noche del automatico Templos.
      */
     static final Theme SITH = new Theme("sith", R.string.theme_sith,
-            0xFF0A0607, 0xFF1A1214, 0xFF3A1F24, 0xFFE8DCDC, 0, 0xFFE8DCDC,
-            0xFFC62828, 0xFFFFEBEE, 0xFF24171A, 0xFF15090B, 0xFF3B1E24, 0xFF1A1214,
-            0xFFE8DCDC, 0xFF9A8086, 0xFF9A8086, 6f, false);
+            0xFF0B0708, 0xFF1C1416, 0xFF4A2027, 0xFFEADEDE, 0xFF8E1B1B, 0xFFD8C8CA,
+            0xFFC62828, 0xFFFFEBEE, 0xFF261A1D, 0xFF140C0E, 0xFF3F2026, 0xFF1C1416,
+            0xFFEADEDE, 0xFFA08A90, 0xFFA08A90, 5f, false);
 
     /**
      * Contraste (accesibilidad): fondo negro, teclas blancas con borde negro de 2 dp, glifo negro, acento amarillo

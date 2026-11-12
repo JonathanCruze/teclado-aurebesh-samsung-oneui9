@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ux_preview_title">Vorschau</string>
+    <string name="ux_preview_hint">Tippe, um die Tastatur auszuprobieren</string>
+    <string name="ux_preview_collapse">Tastaturvorschau einklappen</string>
+    <string name="ux_preview_expand">Tastaturvorschau ausklappen</string>
+    <string name="ux_preview_clear">Geschriebenes löschen</string>
+    <string name="ux_group_alphabet">Das Alphabet lernen</string>
+    <string name="ux_group_correction">Korrektur</string>
+    <string name="ux_group_dictionary">Wörterbuch und Lernen</string>
+    <string name="ux_group_press">Beim Drücken einer Taste</string>
+    <string name="ux_group_feedback">Ton und Vibration</string>
+    <string name="ux_group_split">Geteilte Tastatur</string>
+    <string name="ux_group_backup">Sicherung der Einstellungen</string>
+    <string name="ux_search_none_hint">Versuche ein anderes Wort, etwa „Design“ oder „Vibration“.</string>
+</resources>
