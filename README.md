@@ -44,6 +44,12 @@
 
 Para actualizar, descarga el nuevo APK e instálalo encima: conserva tus ajustes.
 
+### Novedades de la 2.2.2
+- **Símbolos elegidos sobre las previas:** × son las dos T del + en espejo, desplazadas un tercio de barra y giradas 45°; ÷ es
+  el * boca abajo con un punto debajo; £, € y ¥ llevan dos palitos finos horizontales que cruzan un solo trazo, como los del
+  símbolo de créditos: la barra vertical de la l (algo por encima de la mitad), el brazo izquierdo de la e y el brazo derecho de
+  la y, siempre con los dos palitos terminando en los mismos límites. El ° vuelve a ser el signo latino normal.
+
 ### Novedades de la 2.2.1
 - **Símbolos según tu boceto:** × es el + Aurebesh dos veces en espejo, con un hueco de un trazo entre las barras y las astas
   unidas, girado 45°; ± es el + con la barra del − debajo; € y ¥ son la e y la y con dos barras en medio. ÷ y £ esperan tu

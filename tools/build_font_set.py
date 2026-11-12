@@ -14,9 +14,8 @@ from glyph_compose import mirror_x, accents, symbols, times_divide, times, plus_
 ROOT=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC=os.path.join(ROOT,'font','base-silvinor-Aurebesh.ttf')
 INCLUDE_TIMES=True           # por (x): el boceto del usuario (dos + en espejo con hueco de un trazo, girados 45 grados)
-DIVIDE_CHOICE=None           # entre: '1', '2' o '3' (glyph_compose.divide_candidates); None mientras el usuario elige
-YEN_STROKE='a'               # yen: palitos en el trazo corto interior de la y ('a') o en su brazo derecho ('b')
-POUND_LETTER=None            # libra: 'l' o 'p' con dos barras; None mientras el usuario elige (queda la de la fuente base)
+DIVIDE_CHOICE='3'            # entre: el * boca abajo con un punto debajo (eleccion del usuario; '1' y '2' siguen en divide_candidates)
+POUND_WHERE='l_vertical'     # libra: la l con los palitos en su barra vertical ('l_diagonal' y 'p_vertical' tambien existen)
 
 # ---------------- base: extraer contornos y metricas a unidades (altura de mayusculas = 10, y hacia abajo)
 f=TTFont(SRC); upm=f['head'].unitsPerEm; cap=f['OS/2'].sCapHeight; U=10.0/cap
@@ -67,7 +66,7 @@ SPACE_ADV=round(hmtx[cmap[32]][0]*U,3)
 G.update(accents(G))          # n~, vocales con tilde aguda, grave, dieresis, circunflejo; a/o con virgulilla
 G.update(symbols(G))          # o con barra, distinto, por mil
 G.update(plus_minus(G))       # mas-menos: el + con la barra del - debajo (sustituye al de la fuente base)
-G.update(currency(G, POUND_LETTER, YEN_STROKE))   # euro y yen (y libra cuando se elija): dos palitos en el trazo corto, como el $
+G.update(currency(G, POUND_WHERE))   # euro, yen y libra: dos palitos horizontales en un solo trazo, como el $
 if INCLUDE_TIMES: G.update(times(G))
 if DIVIDE_CHOICE: G['\u00f7']=divide_candidates(G)[DIVIDE_CHOICE]
 

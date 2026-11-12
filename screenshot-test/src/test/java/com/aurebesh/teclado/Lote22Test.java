@@ -518,7 +518,7 @@ public class Lote22Test {
 
     // ------------------------------------------------------------------ (d) glifos nuevos
 
-    private static final String[] NEW_GLYPHS = {"\\", "\u00b1", "\u00a3", "\u00a5", "\u00a9", "\u00ae", "\u2122", "\u00d7", "\u20ac",
+    private static final String[] NEW_GLYPHS = {"\\", "\u00b1", "\u00a3", "\u00a5", "\u00a9", "\u00ae", "\u2122", "\u00d7", "\u00f7", "\u20ac",
             "\u00f8", "\u2260", "\u2030",
             "\u00e0", "\u00e8", "\u00ec", "\u00f2", "\u00f9",                       // grave
             "\u00e4", "\u00eb", "\u00ef", "\u00f6", "\u00fc",                       // dieresis
@@ -536,7 +536,7 @@ public class Lote22Test {
         check("\u00e0".equals(Glyphs.glyphKey("\u00c0")), "la mayuscula usa el glifo de la minuscula");
         check("y".equals(Glyphs.glyphKey("\u00fd")), "una letra con acento sin glifo propio sigue usando la base");
         check(Glyphs.has("\u00e1") && Glyphs.has("\u00f1"), "los glifos de siempre siguen");
-        check(Glyphs.has("\u00d7") && !Glyphs.has("\u00f7"), "por integrado (boceto del usuario); entre pendiente de su eleccion");
+        check(Glyphs.has("\u00d7") && Glyphs.has("\u00f7"), "por y entre integrados con el diseno elegido por el usuario");
 
         // Render de dos filas con los glifos nuevos sobre fondo Noche: cada celda deja tinta
         Themes.Theme t = Themes.NOCHE;

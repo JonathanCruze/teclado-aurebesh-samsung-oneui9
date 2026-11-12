@@ -137,20 +137,6 @@ def per_mille(pct):
 def symbols(G):
     return {'ø':slashed(G['o'],G['/']), '≠':slashed(G['='],G['/'],1.0), '‰':per_mille(G['%'])}
 
-def times_divide(G):
-    """Por (x) y entre: las dos barras del + Aurebesh (su longitud y el grosor T) giradas 45 grados formando una X,
-    colgando del borde superior de la letra como el + y el =. El entre es la misma X con cada barra partida en
-    dos trozos separados en el centro por T (los trazos del + se cruzan sin hueco)."""
-    plus=G['+']; L=plus['w']; D=(L+T)/math.sqrt(2); cx=D/2; cy=bbox(plus['p'])[1]+D/2
-    rsb=plus['adv']-plus['lsb']-plus['w']
-    def metrics(polys): return {'w':round(D,3),'p':polys,'lsb':plus['lsb'],'adv':round(plus['lsb']+D+rsb,3)}
-    times=metrics(union([[bar(cx,cy,L,45)],[bar(cx,cy,L,-45)]]))
-    Lp=(L-T)/2; d=T/2+Lp/2; pieces=[]
-    for ang in (45,-45):
-        a=math.radians(ang)
-        for sgn in (1,-1): pieces.append([bar(cx+sgn*d*math.cos(a),cy+sgn*d*math.sin(a),Lp,ang)])
-    return {'×':times,'÷':metrics(union(pieces))}
-
 # ---------------- simbolos del boceto del usuario (2.2.x): por, mas-menos, entre (tres lecturas), monedas
 def _rot(polys, ang, cx=0.0, cy=0.0):
     a=math.radians(ang); c,s_=math.cos(a),math.sin(a)
@@ -172,11 +158,15 @@ def _bars(L): return [bar(0,-T,L,0), bar(0,T,L,0)]            # las dos barras d
 def _stems(gap=0.0):                                            # las dos astas, hacia fuera y alineadas (gap: despegadas)
     y=1.5*T+gap
     return [rect(-STEM_W/2,-(y+STEM_L),STEM_W/2,-y), rect(-STEM_W/2,y,STEM_W/2,y+STEM_L)]
+X_OFFSET=1/3.   # desplazamiento de cada T a lo largo de su barra (fraccion de la barra): las astas no quedan en linea
 def times(G):
-    """Por: el + Aurebesh (una T) y su espejo, barras paralelas con un hueco de un trazo y las astas hacia fuera y
-    alineadas (una raya larga cruza las dos barras), girado 45 grados; cuelga del borde superior como el +."""
-    plus=G['+']; L=plus['w']; top=bbox(plus['p'])[1]
-    return {'\u00d7':_metrics(_U(_hang(centered(_rot(_bars(L)+_stems(),-45),0,0),top)),plus)}
+    """Por: el + Aurebesh (una T) y su espejo, barras paralelas con un hueco de un trazo y las astas hacia fuera, con
+    cada T desplazada un tercio de barra a lo largo de ella (como en el boceto del usuario), girado 45 grados; cuelga del
+    borde superior como el +."""
+    plus=G['+']; L=plus['w']; top=bbox(plus['p'])[1]; off=L*X_OFFSET/2; y=1.5*T
+    pieces=[translate([bar(0,-T,L,0)],-off,0)[0], translate([bar(0,T,L,0)],off,0)[0],
+            translate([rect(-STEM_W/2,-(y+STEM_L),STEM_W/2,-y)],-off,0)[0], translate([rect(-STEM_W/2,y,STEM_W/2,y+STEM_L)],off,0)[0]]
+    return {'\u00d7':_metrics(_U(_hang(centered(_rot(pieces,-45),0,0),top)),plus)}
 def plus_minus(G):
     """Mas-menos: el + con la barra del - debajo del asta, separada un trazo."""
     plus=G['+']; L=plus['w']; b=bbox(plus['p'])
@@ -192,25 +182,48 @@ def divide_candidates(G):
     flipped=[[[x,(b[1]+b[3])-y] for x,y in p][::-1] for p in ast['p']]
     out['3']=_metrics(_U(flipped+[_square(cx,b[3]+1.5*T)]),ast)
     return out
-# monedas: dos palitos finos cruzando solo el trazo corto de la letra, como los del simbolo de creditos ($)
+# monedas: dos palitos finos y horizontales (medio trazo, como los del simbolo de creditos $) que cruzan solo un trazo
+# de la letra, donde los marco el usuario; los dos palitos terminan en los mismos limites aunque el trazo sea diagonal
 TICK_W=0.74; TICK_OUT=1.23; TICK_GAP=0.76
-def ticks(cx,cy,ang_deg,thick):
-    """Dos palitos perpendiculares a un trazo de grosor thick que pasa por (cx,cy) con angulo ang_deg (0 = horizontal),
-    centrados en ese punto y separados TICK_GAP; asoman TICK_OUT a cada lado del trazo."""
-    a=math.radians(ang_deg); dx,dy=math.cos(a),math.sin(a); length=thick+2*TICK_OUT; out=[]
-    for sgn in (-1,1):
-        off=sgn*(TICK_GAP/2+TICK_W/2); out.append(bar(cx+dx*off,cy+dy*off,length,ang_deg+90,t=TICK_W))
-    return out
-def with_ticks(G, letter, cx, cy, ang, thick):
-    g=G[letter]; return _metrics(union([g['p']]+[[t] for t in ticks(cx,cy,ang,thick)]),g)
-POUND={'l':('l',2.32,7.9,34.6,1.5), 'p':('p',3.0,3.09,0,1.54)}          # trazo corto: la diagonal de la l / el brazo superior de la p
-YEN={'a':('y',3.34,3.6,62.4,1.3), 'b':('y',6.3,6.0,-68.5,1.5)}         # trazo corto interior de la y / su brazo derecho
-def currency(G, pound_letter=None, yen_stroke='a'):
-    """Euro (palitos en la barrita superior de la e), yen (en el trazo corto interior de la y, o en su brazo derecho con
-    yen_stroke='b') y libra solo cuando se elija su letra ('l' o 'p')."""
-    out={'\u20ac':with_ticks(G,'e',7.95,3.07,0,1.54), '\u00a5':with_ticks(G,*YEN[yen_stroke])}
-    if pound_letter in POUND: out['\u00a3']=with_ticks(G,*POUND[pound_letter])
-    return out
+def _hticks_aligned(letter_glyph, centers, cut):
+    """Dos palitos horizontales centrados en (x,y) de centers sobre un trazo cuyo corte horizontal mide cut; ambos con la
+    misma extension horizontal (la union de las dos) para que terminen al mismo limite."""
+    half=(cut+2*TICK_OUT)/2
+    x0=min(x-half for x,_ in centers); x1=max(x+half for x,_ in centers)
+    bars_=[rect(x0,y-TICK_W/2,x1,y+TICK_W/2) for _,y in centers]
+    return _metrics(union([letter_glyph['p']]+[[b] for b in bars_]),letter_glyph)
+def _arm_x(y,p0,p1): return p0[0]+(y-p0[1])/(p1[1]-p0[1])*(p1[0]-p0[0])
+_D=TICK_GAP/2+TICK_W/2
+def pound(G, where='l_vertical'):
+    """Libra: la l con los palitos en su barra vertical, algo por encima de la mitad (eleccion del usuario); tambien
+    'l_diagonal' (perpendiculares a la diagonal) y 'p_vertical' por si se quiere cambiar."""
+    if where=='l_diagonal':
+        g=G['l']; a=math.radians(34.6); dx,dy=math.cos(a),math.sin(a); out=[]
+        for sgn in (-1,1):
+            off=sgn*_D; out.append(bar(2.32+dx*off,7.9+dy*off,1.5+2*TICK_OUT,34.6+90,t=TICK_W))
+        return _metrics(union([g['p']]+[[t] for t in out]),g)
+    if where=='p_vertical': return _hticks_aligned(G['p'],[(5.57,5.8-_D),(5.57,5.8+_D)],1.52)
+    return _hticks_aligned(G['l'],[(5.2,5.8-_D),(5.2,5.8+_D)],1.54)
+def euro(G):
+    """Euro: los palitos en el brazo izquierdo de la e, en su mitad alta."""
+    p0,p1=(0.75,2.3),(3.5,9.5); ys=(5.5-_D,5.5+_D)
+    return _hticks_aligned(G['e'],[(_arm_x(y,p0,p1),y) for y in ys],1.62)
+def yen(G):
+    """Yen: los palitos en el brazo derecho de la y, hacia la mitad."""
+    p0,p1=(7.65,2.32),(4.43,10.0); ys=(6.3-_D,6.3+_D)
+    return _hticks_aligned(G['y'],[(_arm_x(y,p0,p1),y) for y in ys],1.62)
+def currency(G, pound_where='l_vertical'):
+    return {'\u20ac':euro(G), '\u00a5':yen(G), '\u00a3':pound(G,pound_where)}
 def times_divide(G):
-    """Compatibilidad con la previa de la 2.2: por y la lectura 1 del entre."""
-    out=dict(times(G)); out['\u00f7']=divide_candidates(G)['1']; return out
+    """Por (x) y entre: las dos barras del + Aurebesh (su longitud y el grosor T) giradas 45 grados formando una X,
+    colgando del borde superior de la letra como el + y el =. El entre es la misma X con cada barra partida en
+    dos trozos separados en el centro por T (los trazos del + se cruzan sin hueco)."""
+    plus=G['+']; L=plus['w']; D=(L+T)/math.sqrt(2); cx=D/2; cy=bbox(plus['p'])[1]+D/2
+    rsb=plus['adv']-plus['lsb']-plus['w']
+    def metrics(polys): return {'w':round(D,3),'p':polys,'lsb':plus['lsb'],'adv':round(plus['lsb']+D+rsb,3)}
+    times=metrics(union([[bar(cx,cy,L,45)],[bar(cx,cy,L,-45)]]))
+    Lp=(L-T)/2; d=T/2+Lp/2; pieces=[]
+    for ang in (45,-45):
+        a=math.radians(ang)
+        for sgn in (1,-1): pieces.append([bar(cx+sgn*d*math.cos(a),cy+sgn*d*math.sin(a),Lp,ang)])
+    return {'×':times,'÷':metrics(union(pieces))}
