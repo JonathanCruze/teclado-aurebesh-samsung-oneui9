@@ -385,7 +385,10 @@ public class Lote24Test {
         assertEquals("Borde Exterior", app.getString(R.string.theme_noche));
         assertEquals("Templos", app.getString(R.string.theme_auto_templos));
         // Las dos paletas se distinguen entre si y de sus vecinas
-        assertTrue(Themes.SANTUARIO.bg != Themes.ARENA.bg && Themes.SANTUARIO.keyStroke != 0 && Themes.SANTUARIO.accent != Themes.ARENA.accent);
+        // Santuario (marmol, arena y madera, plano) frente a Arena (arena, hueso y naranja, con sombra)
+        assertTrue(Themes.SANTUARIO.bg != Themes.ARENA.bg && Themes.SANTUARIO.keyBg != Themes.ARENA.keyBg
+                && Themes.SANTUARIO.glyph != Themes.ARENA.glyph && Themes.SANTUARIO.accent != Themes.ARENA.accent
+                && !Themes.SANTUARIO.shadow && Themes.ARENA.shadow);
         assertTrue(Themes.SITH.bg != Themes.IMPERIAL.bg && Themes.SITH.keyStroke != 0 && Themes.SITH.bg != Themes.NOCHE.bg);
 
         // Prefs.theme resuelve Templos con el uiMode
