@@ -438,7 +438,7 @@ siempre lleva los caracteres correctos.
 | Datapad | fondo casi negro, teclas solo trazadas, glifos azul luminoso con halo, esquinas de 3 dp |
 | Imperial | grafito, glifos blancos, esquinas duras, un solo rojo apagado |
 | Arena | tonos de arena, teclas hueso muy redondeadas, naranja de atardecer |
-| Santuario Jedi | jade claro y mármol blanco con canto dorado, tinta verde bosque, verde Jedi en Enter, esquinas de 12 dp |
+| Santuario Jedi | ropajes del Templo: fondo marrón de capa, teclas de arena tostada, glifos de mármol, verde Jedi solo en Enter |
 | Templo Sith | negro rojizo, obsidiana con canto rojo, tinta roja con halo tenue, rojo vivo en Enter |
 | Contraste | accesibilidad: negro, blanco y amarillo, bordes de 2 dp |
 

@@ -79,14 +79,15 @@ final class Themes {
             0xFFFFF4EA, 0xFFB8A78E, 0xFF9A8A72, 10f, true);
 
     /**
-     * Santuario Jedi: piedra de jade clara, marmol blanco con canto dorado fino, tinta verde bosque y el verde Jedi en
-     * intro y mayusculas activas; teclas de funcion en jade palido, esquinas de 12 dp (arcos del Templo) y sombra suave.
-     * Verde y blanco, lejos de la arena y el naranja de Arena.
+     * Santuario Jedi: ropajes del Templo. Fondo marron de capa, teclas de arena tostada con canto de lino, glifos de
+     * marmol; teclas de funcion en marron de cinturon, espacio un punto mas claro y el verde Jedi solo en intro y
+     * mayusculas activas. Esquinas de 10 dp y sombra suave. La arena es media a proposito: el marmol necesita fondo
+     * para leerse (3,4:1 sobre la tecla).
      */
     static final Theme SANTUARIO = new Theme("santuario", R.string.theme_santuario,
-            0xFFB9D4C4, 0xFFFFFFFF, 0xFFC9A95E, 0xFF173B2D, 0, 0xFF24503F,
-            0xFF1E7B52, 0xFFF2FFF7, 0xFFD2E6DA, 0xFFEFF6F2, 0xFF9FC2B0, 0xFFFFFFFF,
-            0xFF173B2D, 0xFF4F7262, 0xFF4F7262, 12f, true);
+            0xFF6E5137, 0xFF9E8156, 0xFFD9C7A4, 0xFFFBF6EA, 0, 0xFFFBF6EA,
+            0xFF3DAE6E, 0xFF0E2A1A, 0xFF4F3822, 0xFFAD9166, 0xFF846A45, 0xFF9E8156,
+            0xFFFBF6EA, 0xFFEADFC8, 0xFFEADFC8, 10f, true);
 
     /**
      * Templo Sith: negro rojizo, teclas de obsidiana con canto rojo, tinta roja con un halo rojo oscuro tenue y el rojo
