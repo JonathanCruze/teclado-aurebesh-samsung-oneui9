@@ -36,7 +36,8 @@ import java.util.List;
  * Cancelar / Usar / Borrar, importacion de un GGUF propio, campos del servidor (URL, clave, modelo)
  * con "Probar conexion", y la nota de privacidad.
  *
- * <p>Uso desde MainActivity: {@code root.addView(AiSettingsCard.build(this, ink, secondary, card, divider))}
+ * <p>Uso desde MainActivity: {@code root.addView(AiSettingsCard.build(this, paleta))} (los colores salen de la
+ * {@link AppPalette} del tema efectivo del teclado: texto, texto secundario, tarjeta, separadores y acento)
  * y, en {@code onActivityResult}, {@code AiSettingsCard.onActivityResult(this, requestCode, resultCode, data)}.
  * La importacion usa el codigo de peticion {@link #REQUEST_IMPORT} (42).
  */
@@ -50,9 +51,9 @@ final class AiSettingsCard {
 
     private static WeakReference<Card> current = new WeakReference<>(null);
 
-    /** Construye la tarjeta con los colores de la pantalla de ajustes. */
-    static View build(final Activity a, int inkColor, int secondaryColor, int cardColor, int dividerColor) {
-        Card c = new Card(a, inkColor, secondaryColor, cardColor, dividerColor);
+    /** Construye la tarjeta con la paleta de la pantalla de ajustes (derivada del tema del teclado). */
+    static View build(final Activity a, AppPalette palette) {
+        Card c = new Card(a, palette);
         current = new WeakReference<>(c);
         return c;
     }
@@ -85,6 +86,7 @@ final class AiSettingsCard {
     /** La tarjeta en si. */
     private static final class Card extends LinearLayout {
         private final Activity a;
+        private final AppPalette pal;
         private final int ink, secondary, card, divider;
         private final float dp;
         private final Typeface medium = Typeface.create("sans-serif-medium", Typeface.NORMAL);
@@ -100,15 +102,13 @@ final class AiSettingsCard {
         private final TextView testResult;
         private boolean filling;
 
-        Card(Activity a, int ink, int secondary, int card, int divider) {
+        Card(Activity a, AppPalette pal) {
             super(a);
-            this.a = a; this.ink = ink; this.secondary = secondary; this.card = card; this.divider = divider;
+            this.a = a; this.pal = pal;
+            this.ink = pal.text; this.secondary = pal.secondary; this.card = pal.card; this.divider = pal.divider;
             dp = getResources().getDisplayMetrics().density;
             setOrientation(VERTICAL);
-            GradientDrawable bg = new GradientDrawable();
-            bg.setColor(card);
-            bg.setCornerRadius(px(16));
-            setBackground(bg);
+            setBackground(pal.cardDrawable(px(16), dp));
 
             // Donde se ejecuta la IA: dos filas con boton de radio, titulo y explicacion (antes eran dos
             // chips que parecian el nombre de un modelo)
@@ -183,6 +183,8 @@ final class AiSettingsCard {
             addView(importRow, new LinearLayout.LayoutParams(MATCH, WRAP));
             importBar = new ProgressBar(a, null, android.R.attr.progressBarStyleHorizontal);
             importBar.setMax(100);
+            importBar.setProgressTintList(pal.accentTint());
+            importBar.setProgressBackgroundTintList(ColorStateList.valueOf(pal.trackSolid));
             importBar.setVisibility(GONE);
             LinearLayout.LayoutParams ib = new LinearLayout.LayoutParams(MATCH, px(4));
             ib.leftMargin = px(18); ib.rightMargin = px(18); ib.bottomMargin = px(10);
@@ -269,7 +271,7 @@ final class AiSettingsCard {
 
         private void switchToRemote() {
             if (!Prefs.get(a).getBoolean(AiModels.REMOTE_WARNED, false)) {
-                new AlertDialog.Builder(a)
+                pal.dialog(a)
                         .setTitle(R.string.ai_engine_remote)
                         .setMessage(R.string.ai_remote_warning)
                         .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
@@ -361,6 +363,8 @@ final class AiSettingsCard {
                 addView(top, new LinearLayout.LayoutParams(MATCH, WRAP));
                 bar = new ProgressBar(a, null, android.R.attr.progressBarStyleHorizontal);
                 bar.setMax(100);
+                bar.setProgressTintList(pal.accentTint());
+                bar.setProgressBackgroundTintList(ColorStateList.valueOf(pal.trackSolid));
                 bar.setVisibility(GONE);
                 LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(MATCH, px(4));
                 bp.topMargin = px(8);
@@ -485,7 +489,7 @@ final class AiSettingsCard {
             }
 
             private void confirmDelete() {
-                new AlertDialog.Builder(a)
+                pal.dialog(a)
                         .setMessage(a.getString(R.string.ai_delete_confirm, entry.name, AiModels.sizeLabel(entry.size)))
                         .setPositiveButton(R.string.ai_delete, new DialogInterface.OnClickListener() {
                             @Override public void onClick(DialogInterface d, int w) {
@@ -531,7 +535,7 @@ final class AiSettingsCard {
             row.setBackground(ripple(0));
             radio.setClickable(false);
             radio.setFocusable(false);
-            radio.setButtonTintList(ColorStateList.valueOf(ink));
+            radio.setButtonTintList(pal.accentTint());
             row.addView(radio, new LinearLayout.LayoutParams(WRAP, WRAP));
             LinearLayout col = new LinearLayout(a);
             col.setOrientation(VERTICAL);
@@ -552,6 +556,7 @@ final class AiSettingsCard {
             e.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
             e.setTextColor(ink);
             e.setHintTextColor(secondary);
+            e.setBackgroundTintList(pal.fieldTint());   // subrayado con el acento del tema, no el de Material
             return e;
         }
 
@@ -580,10 +585,10 @@ final class AiSettingsCard {
             b.setMinimumWidth(0);
             b.setPadding(px(14), 0, px(14), 0);
             GradientDrawable bg = new GradientDrawable();
-            bg.setColor(primary ? ink : divider);
+            bg.setColor(primary ? pal.accent : pal.surface2);
             bg.setCornerRadius(px(12));
-            b.setBackground(new RippleDrawable(ColorStateList.valueOf(primary ? 0x33FFFFFF : 0x22000000), bg, null));
-            b.setTextColor(primary ? card : ink);
+            b.setBackground(new RippleDrawable(ColorStateList.valueOf(primary ? AppPalette.alpha(pal.onAccent, 0x33) : pal.ripple), bg, null));
+            b.setTextColor(primary ? pal.onAccent : ink);
             return b;
         }
 
@@ -598,7 +603,7 @@ final class AiSettingsCard {
             content.setColor(base);
             GradientDrawable mask = new GradientDrawable();
             mask.setColor(0xFFFFFFFF);
-            return new RippleDrawable(ColorStateList.valueOf((ink & 0x00FFFFFF) | 0x1A000000), content, mask);
+            return new RippleDrawable(ColorStateList.valueOf(pal.ripple), content, mask);
         }
 
         private static void setIfDifferent(EditText e, String s) {

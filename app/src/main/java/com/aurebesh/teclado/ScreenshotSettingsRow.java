@@ -37,20 +37,18 @@ final class ScreenshotSettingsRow {
     /**
      * Construye la fila. El llamador la anade a su tarjeta (y pone antes su linea divisoria si procede).
      *
-     * @param a         pantalla de ajustes
-     * @param ink       color del texto principal y del interruptor encendido
-     * @param secondary color del subtitulo
-     * @param thumbOff  color del boton del interruptor apagado
-     * @param trackOff  color de la pista del interruptor apagado
+     * @param a   pantalla de ajustes
+     * @param pal paleta del tema efectivo del teclado: texto, subtitulo, acento del interruptor y ondas
      */
-    static View build(final Activity a, int ink, int secondary, int thumbOff, int trackOff) {
+    static View build(final Activity a, AppPalette pal) {
         final float dp = a.getResources().getDisplayMetrics().density;
+        int ink = pal.text, secondary = pal.secondary;
         LinearLayout row = new LinearLayout(a);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setMinimumHeight(px(dp, 56));
         row.setPadding(px(dp, 18), px(dp, 12), px(dp, 14), px(dp, 12));
-        row.setBackground(ripple(ink));
+        row.setBackground(ripple(pal.ripple));
 
         // El interruptor es el elemento accesible; el texto solo lo describe.
         LinearLayout col = new LinearLayout(a);
@@ -64,9 +62,8 @@ final class ScreenshotSettingsRow {
 
         final Switch sw = new Switch(a);
         sw.setContentDescription(title + ". " + sub);
-        int[][] states = {{android.R.attr.state_checked}, {}};
-        sw.setThumbTintList(new ColorStateList(states, new int[]{ink, thumbOff}));
-        sw.setTrackTintList(new ColorStateList(states, new int[]{(ink & 0x00FFFFFF) | 0x66000000, trackOff}));
+        sw.setThumbTintList(pal.switchThumb());          // acento del tema encendido, como en MainActivity
+        sw.setTrackTintList(pal.switchTrack());
         boolean on = Prefs.get(a).getBoolean(Prefs.SCREENSHOTS, false) && ScreenshotWatcher.mediaAccess(a) == 2;
         if (!on && Prefs.get(a).getBoolean(Prefs.SCREENSHOTS, false)) {
             Prefs.get(a).edit().putBoolean(Prefs.SCREENSHOTS, false).apply();   // permiso revocado desde Ajustes
@@ -155,11 +152,11 @@ final class ScreenshotSettingsRow {
         return t;
     }
 
-    private static RippleDrawable ripple(int ink) {
+    private static RippleDrawable ripple(int rippleColor) {
         GradientDrawable content = new GradientDrawable();
         content.setColor(0x00000000);
         GradientDrawable mask = new GradientDrawable();
         mask.setColor(0xFFFFFFFF);
-        return new RippleDrawable(ColorStateList.valueOf((ink & 0x00FFFFFF) | 0x1A000000), content, mask);
+        return new RippleDrawable(ColorStateList.valueOf(rippleColor), content, mask);
     }
 }

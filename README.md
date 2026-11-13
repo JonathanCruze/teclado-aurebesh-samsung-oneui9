@@ -44,6 +44,18 @@
 
 Para actualizar, descarga el nuevo APK e instálalo encima: conserva tus ajustes.
 
+### Novedades de la 2.5
+- **La app de ajustes se viste con el tema del teclado:** fondo, tarjetas, chips, interruptores, diálogos y barras del sistema
+  toman los colores del tema efectivo, también con los automáticos según el modo oscuro; cambias de tema y la app se rehace al
+  instante. Los contrastes se corrigen por tema (texto secundario 4,5:1, acentos e iconos 3:1), así que Datapad, Templo Sith o
+  Contraste se leen igual de bien que Núcleo.
+- **Santuario Jedi, ropajes del Templo:** fondo marrón de capa, teclas de arena tostada y glifos de mármol; el verde Jedi solo
+  en intro y mayúsculas. La arena es media a propósito: el mármol necesita fondo para leerse.
+- **Letras latinas en Aprendiendo, todo o nada:** cada letra enseña su pista entera hasta las 40 pulsaciones y luego ninguna.
+  Antes se desvanecía poco a poco y una pista a medias, junto a las letras ya aprendidas, parecía un carácter suelto aunque los
+  alternativos estuvieran apagados. El ajuste dice qué letras la conservan más tiempo (q, w, k, x, z, ñ) y el de caracteres
+  alternativos aclara que las letras latinas de abajo a la derecha son otro ajuste.
+
 ### Novedades de la 2.4.1
 - **Santuario Jedi y Templo Sith inconfundibles:** mármol blanco sobre piedra de jade clara con canto dorado, tinta verde bosque y
   verde Jedi en intro, esquinas de 12 dp; y negro rojizo con teclas de obsidiana de canto rojo, tinta roja y rojo vivo en intro. Antes se parecían

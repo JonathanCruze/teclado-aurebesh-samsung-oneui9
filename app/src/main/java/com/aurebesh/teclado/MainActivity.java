@@ -70,8 +70,13 @@ import org.json.JSONObject;
  * (y su teclado esta en pantalla) la copia se retira sola y vuelve al tocar el asa.
  * <p>
  * El buscador lista las filas que coinciden (sin acentos ni mayusculas) y, al elegir una, abre su pagina, baja
- * hasta la fila y la resalta un momento. Sigue el modo claro/oscuro del sistema; en pantallas anchas el contenido
- * va en una columna centrada.
+ * hasta la fila y la resalta un momento. En pantallas anchas el contenido va en una columna centrada.
+ * <p>
+ * Toda la app se viste con el tema efectivo del teclado ({@link AppPalette} deriva de {@link Prefs#theme} fondo,
+ * tarjetas, textos, acento, separadores y barras del sistema), no con una paleta fija clara u oscura. Cuando cambia el
+ * tema guardado (desde aqui, desde el IME) o el modo oscuro con un automatico, la pantalla se rehace con
+ * {@code recreate()} conservando pagina abierta, desplazamiento, texto del panel y busqueda; al volver a la app
+ * tambien se comprueba (onResume) y nunca se rehace si el tema efectivo no cambio.
  */
 public final class MainActivity extends Activity {
 
@@ -79,7 +84,9 @@ public final class MainActivity extends Activity {
     private static final int WRAP = ViewGroup.LayoutParams.WRAP_CONTENT;
 
     private float dp;
-    private int surface, card, ink, secondary, divider, thumbOff, trackOff;
+    private AppPalette pal;                              // paleta derivada del tema efectivo del teclado
+    private int surface, card, ink, secondary, divider;   // atajos a la paleta: fondo, tarjeta, texto principal y secundario, separador
+    private boolean recreating;                          // ya se pidio recreate() (tema, idioma, importar): no repetirlo
     private Typeface medium;
     private boolean wide;                                // pantalla interior de un plegable o tableta (>= 600 dp)
     private int screenWidthDp;
@@ -140,6 +147,7 @@ public final class MainActivity extends Activity {
                 @Override public void onSharedPreferenceChanged(SharedPreferences p, String key) {
                     if (key == null) return;
                     refreshControls();
+                    if (Prefs.THEME.equals(key)) checkTheme();   // otro tema efectivo: la app entera se repinta
                     if (Prefs.STRIP.equals(key) || Prefs.DIGRAPHS.equals(key)) applyPreviewPrefs();   // el campo del panel pasa a Aurebesh (o vuelve)
                     if (Prefs.LEARNED.equals(key) || Prefs.CUSTOM_SOUND.equals(key) || Prefs.SHORTCUTS.equals(key)
                             || Prefs.EMOJI_RECENT.equals(key) || AiModels.MODEL.equals(key)) refreshDataCard();
@@ -191,6 +199,7 @@ public final class MainActivity extends Activity {
     private static final String STATE_HOME_SCROLL = "home_scroll";
     private static final String STATE_PAGE_SCROLL = "page_scroll";
     private static final String STATE_TRY_TEXT = "try_text";
+    private static final String STATE_QUERY = "query";
 
     /** Claves de las paginas (categorias), en el orden de la lista. */
     static final String PAGE_KEYS = "keys", PAGE_STYLE = "style", PAGE_SIZE = "size", PAGE_SMART = "smart", PAGE_TOUCH = "touch",
@@ -205,13 +214,13 @@ public final class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         dp = getResources().getDisplayMetrics().density;
-        surface = getColor(R.color.surface);
-        card = getColor(R.color.card);
-        ink = getColor(R.color.ink);
-        secondary = getColor(R.color.text_secondary);
-        divider = getColor(R.color.divider);
-        thumbOff = getColor(R.color.switch_thumb_off);
-        trackOff = getColor(R.color.switch_track_off);
+        pal = AppPalette.of(this);                       // los colores de la app salen del tema efectivo del teclado
+        surface = pal.bg;
+        card = pal.card;
+        ink = pal.text;
+        secondary = pal.secondary;
+        divider = pal.divider;
+        pal.applyToWindow(getWindow());                  // fondo y barras de estado y navegacion del color del tema
         medium = Typeface.create("sans-serif-medium", Typeface.NORMAL);
         wide = DeviceInfo.wideScreen(this);
         screenWidthDp = getResources().getConfiguration().screenWidthDp;
@@ -250,6 +259,11 @@ public final class MainActivity extends Activity {
         if (savedInstanceState != null && savedInstanceState.getString(STATE_TRY_TEXT) != null) {
             input.setText(savedInstanceState.getString(STATE_TRY_TEXT));
             input.setSelection(input.length());
+        }
+        String savedQuery = savedInstanceState == null ? null : savedInstanceState.getString(STATE_QUERY);
+        if (savedQuery != null && !savedQuery.isEmpty()) {
+            searchField.setText(savedQuery);             // la busqueda sobrevive al giro y al cambio de tema
+            searchField.setSelection(searchField.length());
         }
 
         refreshControls();
@@ -292,6 +306,7 @@ public final class MainActivity extends Activity {
         if (scroll != null) out.putInt(STATE_HOME_SCROLL, scroll.getScrollY());
         if (pageScroll != null) out.putInt(STATE_PAGE_SCROLL, pageScroll.getScrollY());
         if (input != null) out.putString(STATE_TRY_TEXT, input.getText().toString());
+        if (searchField != null) out.putString(STATE_QUERY, searchField.getText().toString());
     }
 
     @Override
@@ -318,6 +333,24 @@ public final class MainActivity extends Activity {
         updateSetup();
         ScreenshotSettingsRow.refresh(this);
         refreshDataCard();   // el teclado pudo copiar, aprender o fijar algo mientras tanto
+        checkTheme();        // el tema pudo cambiar mientras la app no estaba delante
+    }
+
+    /**
+     * Si el tema efectivo (Prefs.theme, con los automaticos resueltos) ya no es el de la paleta pintada, la pantalla se
+     * rehace: onSaveInstanceState conserva pagina abierta, desplazamientos, texto del panel y busqueda, y el plegado
+     * del panel vive en Prefs.ui. Con el mismo tema no se hace nada, para no parpadear.
+     */
+    private void checkTheme() {
+        if (pal == null || Prefs.theme(this).equals(pal.themeId)) return;
+        requestRecreate();
+    }
+
+    /** recreate() una sola vez por pantalla viva (tema, idioma o ajustes importados). */
+    private void requestRecreate() {
+        if (recreating || isFinishing() || isDestroyed()) return;
+        recreating = true;
+        recreate();
     }
 
     @Override
@@ -366,13 +399,13 @@ public final class MainActivity extends Activity {
     private void buildHeader(LinearLayout root) {
         LinearLayout head = column();
         head.setPadding(px(4), px(12), px(4), px(8));
-        AurebeshTextView mark = new AurebeshTextView(this, 13, secondary);
+        AurebeshTextView mark = new AurebeshTextView(this, 13, pal.onBgSecondary);   // sobre el fondo, no sobre tarjeta
         mark.setText("aurebesh");
         mark.setContentDescription(getString(R.string.app_name));
         head.addView(mark, block(0));
-        TextView title = text(getString(R.string.app_name), 28, ink, true);
+        TextView title = text(getString(R.string.app_name), 28, pal.onBg, true);
         head.addView(title, block(8));
-        head.addView(text(getString(R.string.tagline), 15, secondary, false), block(6));
+        head.addView(text(getString(R.string.tagline), 15, pal.onBgSecondary, false), block(6));
         root.addView(head, block(0));
         bigHeader = head;
     }
@@ -388,7 +421,7 @@ public final class MainActivity extends Activity {
         bar.setBackgroundColor(surface);
         bar.setPadding(px(20), 0, px(20), 0);
         bar.setElevation(px(2));
-        TextView title = text(getString(R.string.app_name), 19, ink, true);
+        TextView title = text(getString(R.string.app_name), 19, pal.onBg, true);
         title.setMaxLines(1);
         title.setEllipsize(android.text.TextUtils.TruncateAt.END);
         bar.addView(title, new LinearLayout.LayoutParams(0, WRAP, 1f));
@@ -441,11 +474,11 @@ public final class MainActivity extends Activity {
             boolean selected = id.equals(current);
             LinearLayout item = column();
             item.setGravity(Gravity.CENTER_HORIZONTAL);
-            TextView icon = text(id.toUpperCase(java.util.Locale.ROOT), 18, selected ? card : ink, true);
+            TextView icon = text(id.toUpperCase(java.util.Locale.ROOT), 18, selected ? pal.onAccent : ink, true);
             icon.setGravity(Gravity.CENTER);
             GradientDrawable bg = new GradientDrawable();
             bg.setShape(GradientDrawable.OVAL);
-            bg.setColor(selected ? ink : divider);
+            bg.setColor(selected ? pal.accent : pal.surface2);
             icon.setBackground(bg);
             item.addView(icon, new LinearLayout.LayoutParams(px(56), px(56)));
             TextView name = text(getString(TOP_LANG_NAMES[i]), 13, ink, selected);
@@ -459,7 +492,7 @@ public final class MainActivity extends Activity {
             item.setOnClickListener(new View.OnClickListener() {
                 @Override public void onClick(View v) {
                     Prefs.setLanguage(MainActivity.this, id);   // app y teclado a la vez
-                    recreate();
+                    requestRecreate();
                 }
             });
             row.addView(item, new LinearLayout.LayoutParams(0, WRAP, 1f));
@@ -493,14 +526,14 @@ public final class MainActivity extends Activity {
     private View buildFooter(LinearLayout root) {
         LinearLayout foot = column();
         foot.setGravity(Gravity.CENTER_HORIZONTAL);
-        TextView footer = text(getString(R.string.footer, getString(R.string.version)), 13, secondary, false);
+        TextView footer = text(getString(R.string.footer, getString(R.string.version)), 13, pal.onBgSecondary, false);
         footer.setGravity(Gravity.CENTER_HORIZONTAL);
         foot.addView(footer, block(0));
         TextView compat = text(getString(DeviceInfo.optimized() ? R.string.footer_compat_ok : R.string.footer_compat_other,
-                DeviceInfo.label()), 12, secondary, false);
+                DeviceInfo.label()), 12, pal.onBgSecondary, false);
         compat.setGravity(Gravity.CENTER_HORIZONTAL);
         foot.addView(compat, block(6));
-        TextView credits = text(getString(R.string.credits), 12, secondary, false);
+        TextView credits = text(getString(R.string.credits), 12, pal.onBgSecondary, false);
         credits.setGravity(Gravity.CENTER_HORIZONTAL);
         foot.addView(credits, block(6));
         root.addView(foot, block(24));
@@ -521,6 +554,7 @@ public final class MainActivity extends Activity {
         bg.setColor(card);
         float r = px(20);
         bg.setCornerRadii(new float[]{r, r, r, r, 0, 0, 0, 0});
+        if (pal.cardStroke != 0) bg.setStroke(Math.max(1, px(pal.cardStrokeDp)), pal.cardStroke);   // canto del tema (Datapad, Santuario...)
         panel.setBackground(bg);
         panel.setElevation(px(12));
         panel.setClipToOutline(true);
@@ -536,7 +570,7 @@ public final class MainActivity extends Activity {
 
         FrameLayout fieldBox = new FrameLayout(this);
         GradientDrawable fieldBg = new GradientDrawable();
-        fieldBg.setColor((divider & 0x00FFFFFF) | 0x66000000);
+        fieldBg.setColor(pal.surface2);
         fieldBg.setCornerRadius(px(14));
         fieldBox.setBackground(fieldBg);
         fieldBox.setMinimumHeight(px(44));
@@ -814,7 +848,7 @@ public final class MainActivity extends Activity {
     /** Tarjeta con una fila por categoria: icono, titulo, resumen de una linea y ›; tocarla abre su pagina. */
     private View buildCategoryList(LinearLayout root) {
         LinearLayout wrap = column();
-        TextView title = text(getString(R.string.cat_list_title), 13, secondary, true);
+        TextView title = text(getString(R.string.cat_list_title), 13, pal.onBgSecondary, true);
         title.setPadding(px(16), px(8), px(16), px(8));
         wrap.addView(title, block(0));
         LinearLayout c = cardColumn();
@@ -832,9 +866,9 @@ public final class MainActivity extends Activity {
         row.setMinimumHeight(px(64));
         row.setPadding(px(16), px(10), px(12), px(10));
         row.setBackground(ripple(0x00000000));
-        ImageView icon = iconView(p.icon, ink, 22);
+        ImageView icon = iconView(p.icon, pal.accentInk, 22);
         GradientDrawable bg = new GradientDrawable();
-        bg.setColor((divider & 0x00FFFFFF) | 0x99000000);
+        bg.setColor(pal.accentTile);
         bg.setCornerRadius(px(12));
         icon.setBackground(bg);
         row.addView(icon, new LinearLayout.LayoutParams(px(40), px(40)));
@@ -875,7 +909,7 @@ public final class MainActivity extends Activity {
         bar.setGravity(Gravity.CENTER_VERTICAL);
         bar.setPadding(px(4), px(4), px(16), px(4));
         bar.setMinimumHeight(px(56));
-        ImageView back = iconView(UiIcons.BACK, ink, 24);
+        ImageView back = iconView(UiIcons.BACK, pal.onBg, 24);
         back.setContentDescription(getString(R.string.aj_back));
         back.setBackground(ripple(0x00000000));
         a11y(back, Button.class, false, null);
@@ -883,7 +917,7 @@ public final class MainActivity extends Activity {
             @Override public void onClick(View v) { closePage(true); }
         });
         bar.addView(back, new LinearLayout.LayoutParams(px(48), px(48)));
-        pageTitle = text("", 20, ink, true);
+        pageTitle = text("", 20, pal.onBg, true);
         pageTitle.setMaxLines(1);
         pageTitle.setEllipsize(android.text.TextUtils.TruncateAt.END);
         LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(0, WRAP, 1f);
@@ -1117,14 +1151,14 @@ public final class MainActivity extends Activity {
         g.addView(text, block(0));
         register(text, getString(R.string.aj_sec_clipboard), getString(R.string.aj_clipboard_body));
         g = group(body, 0);
-        View shots = ScreenshotSettingsRow.build(this, ink, secondary, thumbOff, trackOff);
+        View shots = ScreenshotSettingsRow.build(this, pal);
         g.addView(shots, block(0));
         register(shots, getString(R.string.shots_title), getString(R.string.shots_title) + " " + getString(R.string.shots_sub));
     }
 
     /** Inteligencia: modelo local o servidor propio. */
     private void buildAi(LinearLayout body) {
-        aiCard = AiSettingsCard.build(this, ink, secondary, card, divider);
+        aiCard = AiSettingsCard.build(this, pal);
         group(body, 0).addView(aiCard, block(0));
         accessibleRadios(aiCard);
         register(aiCard, getString(R.string.ai_section), getString(R.string.ai_section) + " " + getString(R.string.sum_ai_none)
@@ -1228,10 +1262,10 @@ public final class MainActivity extends Activity {
             boolean sel = Prefs.SABERS[i].equals(cur);
             chip.setSelected(sel);
             GradientDrawable bg = new GradientDrawable();
-            bg.setColor(sel ? ink : divider);
+            bg.setColor(sel ? pal.accent : pal.surface2);
             bg.setCornerRadius(px(12));
             chip.setBackground(bg);
-            ((TextView) chip.getTag()).setTextColor(sel ? card : ink);
+            ((TextView) chip.getTag()).setTextColor(sel ? pal.onAccent : ink);
         }
     }
 
@@ -1332,14 +1366,14 @@ public final class MainActivity extends Activity {
     }
 
     private void confirmReset() {
-        new AlertDialog.Builder(this)
+        pal.dialog(this)
                 .setTitle(R.string.aj_reset)
                 .setMessage(R.string.aj_reset_confirm)
                 .setPositiveButton(R.string.aj_reset, new DialogInterface.OnClickListener() {
                     @Override public void onClick(DialogInterface d, int which) {
                         resetSettings();
                         Toast.makeText(MainActivity.this, R.string.aj_reset_done, Toast.LENGTH_SHORT).show();
-                        recreate();
+                        requestRecreate();
                     }
                 })
                 .setNegativeButton(android.R.string.cancel, null)
@@ -1359,7 +1393,7 @@ public final class MainActivity extends Activity {
     }
 
     private void confirmWipe() {
-        new AlertDialog.Builder(this)
+        pal.dialog(this)
                 .setTitle(R.string.aj_wipe)
                 .setMessage(R.string.aj_wipe_confirm)
                 .setPositiveButton(R.string.aj_wipe_action, new DialogInterface.OnClickListener() {
@@ -1396,7 +1430,7 @@ public final class MainActivity extends Activity {
         dataClip = text("", 14, ink, false);
         dataClipButton = dataLine(col, dataClip, R.string.aj_empty, new View.OnClickListener() {
             @Override public void onClick(View v) {
-                new AlertDialog.Builder(MainActivity.this)
+                pal.dialog(MainActivity.this)
                         .setMessage(R.string.aj_clip_confirm)
                         .setPositiveButton(R.string.aj_empty, new DialogInterface.OnClickListener() {
                             @Override public void onClick(DialogInterface d, int which) {
@@ -1512,12 +1546,12 @@ public final class MainActivity extends Activity {
         include.setText(R.string.aj_export_include_key);
         include.setTextColor(ink);
         include.setChecked(false);
-        include.setButtonTintList(ColorStateList.valueOf(ink));
+        include.setButtonTintList(pal.accentTint());
         LinearLayout box = column();
         box.setPadding(px(20), px(8), px(20), 0);
         box.addView(text(getString(R.string.aj_export_settings_sub), 14, secondary, false), block(0));
         box.addView(include, block(10));
-        new AlertDialog.Builder(this)
+        pal.dialog(this)
                 .setTitle(R.string.aj_export_settings)
                 .setView(box)
                 .setPositiveButton(R.string.aj_export, new DialogInterface.OnClickListener() {
@@ -1959,7 +1993,7 @@ public final class MainActivity extends Activity {
             @Override void pick(String id) {
                 if (id.equals(current())) return;
                 Prefs.setLanguage(MainActivity.this, id);   // app y teclado a la vez
-                recreate();
+                requestRecreate();
             }
         };
     }
@@ -2022,10 +2056,10 @@ public final class MainActivity extends Activity {
 
     private void styleChip(TextView chip) {
         GradientDrawable bg = new GradientDrawable();
-        bg.setColor(chip.isSelected() ? ink : divider);
+        bg.setColor(chip.isSelected() ? pal.accent : pal.surface2);
         bg.setCornerRadius(px(12));
         chip.setBackground(bg);
-        chip.setTextColor(chip.isSelected() ? card : ink);
+        chip.setTextColor(chip.isSelected() ? pal.onAccent : ink);
     }
 
     /** Oyente del deslizador: en vivo mientras se arrastra (solo la copia del teclado) y al soltar (se guarda). */
@@ -2068,9 +2102,9 @@ public final class MainActivity extends Activity {
         bar.setMax(max - min);
         bar.setProgress(current - min);
         bar.setContentDescription(getString(title));
-        bar.setProgressTintList(ColorStateList.valueOf(ink));
-        bar.setThumbTintList(ColorStateList.valueOf(ink));
-        bar.setProgressBackgroundTintList(ColorStateList.valueOf(divider));
+        bar.setProgressTintList(pal.accentTint());
+        bar.setThumbTintList(pal.accentTint());
+        bar.setProgressBackgroundTintList(ColorStateList.valueOf(pal.trackSolid));
         final Slider s = new Slider(bar, value, min);
         bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override public void onProgressChanged(SeekBar sb, int progress, boolean fromUser) {
@@ -2151,7 +2185,7 @@ public final class MainActivity extends Activity {
             item.setBackground(ripple(0x00000000));
             item.setContentDescription(label);
             a11y(item, RadioButton.class, true, null);
-            item.addView(new ThemeSwatchView(this, t, ink), new LinearLayout.LayoutParams(px(56), px(56)));
+            item.addView(new ThemeSwatchView(this, t, pal.accentInk), new LinearLayout.LayoutParams(px(56), px(56)));
             TextView name = text(label, 12, secondary, false);
             name.setGravity(Gravity.CENTER_HORIZONTAL);
             name.setMaxLines(2);
@@ -2188,7 +2222,7 @@ public final class MainActivity extends Activity {
         cardView.setOrientation(vertical ? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL);
         cardView.setGravity(vertical ? Gravity.CENTER_HORIZONTAL : Gravity.CENTER_VERTICAL);
         cardView.setPadding(px(8), px(10), px(8), px(10));
-        cardView.addView(new ThemeSwatchView(this, Themes.autoDay(id), Themes.autoNight(id), ink), new LinearLayout.LayoutParams(px(56), px(56)));
+        cardView.addView(new ThemeSwatchView(this, Themes.autoDay(id), Themes.autoNight(id), pal.accentInk), new LinearLayout.LayoutParams(px(56), px(56)));
         LinearLayout textCol = column();
         TextView title = text(name, 14, ink, true);
         title.setMaxLines(1);
@@ -2209,13 +2243,13 @@ public final class MainActivity extends Activity {
         return cardView;
     }
 
-    /** Fondo de la tarjeta de automatico: relleno suave y, seleccionada, borde de acento de 2 dp. */
+    /** Fondo de la tarjeta de automatico: superficie secundaria y, seleccionada, anillo de acento de 2 dp. */
     private void styleAutoCard(View cardView) {
         GradientDrawable bg = new GradientDrawable();
-        bg.setColor((divider & 0x00FFFFFF) | 0x66000000);
+        bg.setColor(pal.surface2);
         bg.setCornerRadius(px(14));
-        if (cardView.isSelected()) bg.setStroke(px(2), ink);
-        cardView.setBackground(new RippleDrawable(ColorStateList.valueOf((ink & 0x00FFFFFF) | 0x1A000000), bg, null));
+        if (cardView.isSelected()) bg.setStroke(px(2), pal.accentInk);
+        cardView.setBackground(new RippleDrawable(ColorStateList.valueOf(pal.ripple), bg, null));
     }
 
     private void refreshThemeItems() {
@@ -2265,9 +2299,8 @@ public final class MainActivity extends Activity {
         if (sub != 0) spoken.append(". ").append(getString(sub));
         if (hint != 0) spoken.append(". ").append(getString(hint));
         sw.setContentDescription(spoken.toString());
-        int[][] states = {{android.R.attr.state_checked}, {}};
-        sw.setThumbTintList(new ColorStateList(states, new int[]{ink, thumbOff}));
-        sw.setTrackTintList(new ColorStateList(states, new int[]{(ink & 0x00FFFFFF) | 0x66000000, trackOff}));
+        sw.setThumbTintList(pal.switchThumb());          // acento encendido, nunca el morado de Material
+        sw.setTrackTintList(pal.switchTrack());
         sw.setChecked(value);
         sw.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override public void onCheckedChanged(CompoundButton b, boolean checked) {
@@ -2544,7 +2577,7 @@ public final class MainActivity extends Activity {
             return;
         }
         Toast.makeText(this, getString(R.string.aj_settings_imported, n), Toast.LENGTH_SHORT).show();
-        recreate();   // idioma, tema y demas se vuelven a leer
+        requestRecreate();   // idioma, tema y demas se vuelven a leer
     }
 
     /** Nombre visible del archivo elegido (o el ultimo tramo de la URI). */
@@ -2647,7 +2680,7 @@ public final class MainActivity extends Activity {
         }), ip);
         form.addView(files, block(8));
 
-        new AlertDialog.Builder(this)
+        pal.dialog(this)
                 .setTitle(R.string.aj_learned_title)
                 .setView(listDialogContent(form, adapter, R.string.aj_learned_empty))
                 .setPositiveButton(android.R.string.ok, null)
@@ -2659,7 +2692,7 @@ public final class MainActivity extends Activity {
 
     /** "Olvidar todo": palabras aprendidas y pares (bigramas) de este telefono, tras confirmar. */
     private void confirmForgetAll() {
-        new AlertDialog.Builder(this)
+        pal.dialog(this)
                 .setTitle(R.string.learn_clear)
                 .setMessage(R.string.aj_forget_confirm)
                 .setPositiveButton(R.string.aj_forget_all, new DialogInterface.OnClickListener() {
@@ -2745,7 +2778,7 @@ public final class MainActivity extends Activity {
         second.addView(add, ap);
         form.addView(second, block(0));
 
-        new AlertDialog.Builder(this)
+        pal.dialog(this)
                 .setTitle(R.string.aj_shortcuts_title)
                 .setView(listDialogContent(form, adapter, R.string.aj_shortcuts_empty))
                 .setPositiveButton(android.R.string.ok, null)
@@ -2792,6 +2825,9 @@ public final class MainActivity extends Activity {
         EditText e = new EditText(this);
         e.setHint(hint);
         e.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        e.setTextColor(ink);
+        e.setHintTextColor(secondary);
+        e.setBackgroundTintList(pal.fieldTint());        // subrayado con el acento, no el de Material
         e.setSingleLine(true);
         e.setInputType(inputType);
         return e;
@@ -2809,10 +2845,7 @@ public final class MainActivity extends Activity {
 
     private LinearLayout cardColumn() {
         LinearLayout l = column();
-        GradientDrawable bg = new GradientDrawable();
-        bg.setColor(card);
-        bg.setCornerRadius(px(16));
-        l.setBackground(bg);
+        l.setBackground(pal.cardDrawable(px(16), dp));   // tarjeta del color de la tecla, con el canto del tema si lo tiene
         return l;
     }
 
@@ -2844,7 +2877,7 @@ public final class MainActivity extends Activity {
     private LinearLayout group(LinearLayout body, int headerRes) {
         boolean first = body.getChildCount() == 0;
         if (headerRes != 0) {
-            TextView header = text(getString(headerRes), 13, secondary, true);
+            TextView header = text(getString(headerRes), 13, pal.onBgSecondary, true);
             header.setPadding(px(16), px(first ? 6 : 14), px(16), px(8));
             body.addView(header, block(first ? 0 : 4));
         }
@@ -2861,7 +2894,7 @@ public final class MainActivity extends Activity {
         box.setOrientation(LinearLayout.HORIZONTAL);
         box.setGravity(Gravity.CENTER_VERTICAL);
         GradientDrawable bg = new GradientDrawable();
-        bg.setColor(card);
+        bg.setColor(pal.surface2);
         bg.setCornerRadius(px(14));
         box.setBackground(bg);
         box.setPadding(px(14), 0, px(6), 0);
@@ -3008,10 +3041,10 @@ public final class MainActivity extends Activity {
         });
     }
 
-    /** Resalta una fila: fondo del color de la tinta muy transparente que se desvanece en algo menos de un segundo. */
+    /** Resalta una fila: fondo del color de pulsacion del tema que se desvanece en algo menos de un segundo. */
     private void flash(final View v) {
         final Drawable old = v.getBackground();
-        ValueAnimator a = ValueAnimator.ofObject(new ArgbEvaluator(), (ink & 0x00FFFFFF) | 0x33000000, (ink & 0x00FFFFFF));
+        ValueAnimator a = ValueAnimator.ofObject(new ArgbEvaluator(), pal.pressed, AppPalette.alpha(pal.pressed, 0));
         a.setStartDelay(150);
         a.setDuration(900);
         a.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
@@ -3207,10 +3240,10 @@ public final class MainActivity extends Activity {
 
     private void styleButton(Button b, boolean primary) {
         GradientDrawable bg = new GradientDrawable();
-        bg.setColor(primary ? ink : divider);
+        bg.setColor(primary ? pal.accent : pal.surface2);
         bg.setCornerRadius(px(12));
-        b.setBackground(new RippleDrawable(ColorStateList.valueOf(primary ? 0x33FFFFFF : 0x22000000), bg, null));
-        b.setTextColor(primary ? card : ink);
+        b.setBackground(new RippleDrawable(ColorStateList.valueOf(primary ? AppPalette.alpha(pal.onAccent, 0x33) : pal.ripple), bg, null));
+        b.setTextColor(primary ? pal.onAccent : ink);
     }
 
     private RippleDrawable ripple(int base) {
@@ -3218,6 +3251,6 @@ public final class MainActivity extends Activity {
         content.setColor(base);
         GradientDrawable mask = new GradientDrawable();
         mask.setColor(0xFFFFFFFF);
-        return new RippleDrawable(ColorStateList.valueOf((ink & 0x00FFFFFF) | 0x1A000000), content, mask);
+        return new RippleDrawable(ColorStateList.valueOf(pal.ripple), content, mask);
     }
 }
