@@ -1012,19 +1012,46 @@ public final class MainActivity extends Activity {
         optionRow(g, R.string.opt_digraphs, R.string.opt_digraphs_sub, Prefs.DIGRAPHS, Prefs.digraphs(this));
         optionRow(g, R.string.alt_chars_title, R.string.alt_chars_sub, R.string.alt_chars_hint, Prefs.ALT_CHARS, Prefs.altChars(this));
         g = group(body, R.string.ux_group_alphabet);
+        // Cuantas letras han perdido ya su pista en Aprendiendo: asi se ve que las que faltan no son un fallo
+        final TextView learned = text("", 13, secondary, false);
+        int done = learnedHintLetters();
+        if (done > 0 && "learning".equals(Prefs.hintMode(this))) learned.setText(getString(R.string.hint_learned_count, done));
+        else learned.setVisibility(View.GONE);
         TextView reset = chipButton(R.string.aj_hint_reset, new View.OnClickListener() {
             @Override public void onClick(View v) {
                 // Vuelven a verse todas las pistas: contadores fuera de las preferencias y de la copia del teclado
                 Prefs.get(MainActivity.this).edit().remove(Prefs.HINT_COUNTS).apply();
                 if (preview != null) preview.resetHintCounts();
+                learned.setVisibility(View.GONE);
                 Toast.makeText(MainActivity.this, R.string.aj_hint_reset_done, Toast.LENGTH_SHORT).show();
             }
         });
         LinearLayout resetRow = new LinearLayout(this);
         resetRow.setOrientation(LinearLayout.HORIZONTAL);
+        resetRow.setGravity(Gravity.CENTER_VERTICAL);
         resetRow.addView(reset, new LinearLayout.LayoutParams(WRAP, WRAP));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(WRAP, WRAP);
+        lp.leftMargin = px(12);
+        resetRow.addView(learned, lp);
         chipRow(g, R.string.opt_hints, getString(R.string.aj_hint_mode_sub), hintGroup(), resetRow);
         optionRow(g, R.string.immersive_title, R.string.immersive_sub, Prefs.STRIP, Prefs.strip(this));
+    }
+
+    /** Letras cuya pista latina ya desaparecio en Aprendiendo (40 pulsaciones), segun Prefs.HINT_COUNTS ("letra n" por linea). */
+    private int learnedHintLetters() {
+        String raw = Prefs.get(this).getString(Prefs.HINT_COUNTS, null);
+        if (raw == null) return 0;
+        int n = 0;
+        for (String line : raw.split("\n")) {
+            int cut = line.indexOf(' ');
+            if (cut <= 0) continue;
+            try {
+                if (Integer.parseInt(line.substring(cut + 1).trim()) >= AurebeshKeyboardView.HINT_FADE_TAPS) n++;
+            } catch (NumberFormatException ignored) {
+                // linea corrupta: no cuenta
+            }
+        }
+        return n;
     }
 
     /** Estilo: temas (automaticos y fijos), sable de luz y barra de herramientas (sus iconos se eligen desde el teclado). */

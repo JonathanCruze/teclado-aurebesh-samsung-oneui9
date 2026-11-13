@@ -60,9 +60,16 @@ final class AppPalette {
         bg = t.bg;
         dark = contrast(0xFFFFFFFF, bg) >= contrast(0xFF000000, bg);
 
-        // Tarjeta: la tecla; si apenas se distingue del fondo, fondo teñido con un 8 % del glifo
+        // Tarjeta: la tecla; si apenas se distingue del fondo, el fondo teñido con el glifo, desde un 8 % y subiendo
+        // hasta que la tarjeta se separe del fondo (1,10:1; Templo Sith no llegaba con el 8 %)
         boolean tinted = contrast(t.keyBg, t.bg) < 1.10;
-        card = tinted ? blend(t.bg, t.glyph, 0.08f) : t.keyBg;
+        int tintedCard = t.keyBg;
+        if (tinted) {
+            float f = 0.08f;
+            tintedCard = blend(t.bg, t.glyph, f);
+            while (contrast(tintedCard, t.bg) < 1.10 && f < 0.40f) { f += 0.02f; tintedCard = blend(t.bg, t.glyph, f); }
+        }
+        card = tintedCard;
         cardStroke = t.keyStroke;
         cardStrokeDp = t.keyStroke == 0 ? 0f : Math.max(1f, Math.min(t.strokeDp, 2f));
 

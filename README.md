@@ -12,12 +12,12 @@
 
 <p align="center">
   <a href="https://github.com/JonathanCruze/teclado-aurebesh-samsung-oneui9/raw/main/releases/TecladoAurebesh.apk">
-    <img src="https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20%20DESCARGAR%20APK%20%E2%80%94%20Teclado%20Aurebesh%202.4.1-1B2838?style=for-the-badge&logoColor=white&labelColor=1B2838&color=7FD3F0" alt="Descargar APK">
+    <img src="https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20%20DESCARGAR%20APK%20%E2%80%94%20Teclado%20Aurebesh%202.5-1B2838?style=for-the-badge&logoColor=white&labelColor=1B2838&color=7FD3F0" alt="Descargar APK">
   </a>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/versi%C3%B3n-2.4.1-7FD3F0?style=flat-square" alt="versión 2.4.1">
+  <img src="https://img.shields.io/badge/versi%C3%B3n-2.5-7FD3F0?style=flat-square" alt="versión 2.5">
   <img src="https://img.shields.io/badge/Android-8.0%2B-3DDC84?style=flat-square" alt="Android 8+">
   <img src="https://img.shields.io/badge/Samsung-One%20UI%209.0-1428A0?style=flat-square" alt="Samsung One UI 9.0">
   <img src="https://img.shields.io/badge/sin%20anuncios-%E2%9C%93-2E7D32?style=flat-square" alt="sin anuncios">
@@ -54,7 +54,11 @@ Para actualizar, descarga el nuevo APK e instálalo encima: conserva tus ajustes
 - **Letras latinas en Aprendiendo, todo o nada:** cada letra enseña su pista entera hasta las 40 pulsaciones y luego ninguna.
   Antes se desvanecía poco a poco y una pista a medias, junto a las letras ya aprendidas, parecía un carácter suelto aunque los
   alternativos estuvieran apagados. El ajuste dice qué letras la conservan más tiempo (q, w, k, x, z, ñ) y el de caracteres
-  alternativos aclara que las letras latinas de abajo a la derecha son otro ajuste.
+  alternativos aclara que las letras latinas de abajo a la derecha son otro ajuste, y junto a "Reiniciar progreso" se ve
+  cuántas letras van aprendidas.
+- **Templo Sith en la app:** la tarjeta se tiñe lo justo para separarse del fondo casi negro.
+- Capturas en `screenshots/`: `app_tema_<tema>.png` (la app con cada uno de los ocho temas), `app_tema_santuario_estilo.png`,
+  `tema_santuario.png`, `barra_santuario.png`.
 
 ### Novedades de la 2.4.1
 - **Santuario Jedi y Templo Sith inconfundibles:** mármol blanco sobre piedra de jade clara con canto dorado, tinta verde bosque y
