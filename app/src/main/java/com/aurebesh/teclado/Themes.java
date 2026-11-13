@@ -79,13 +79,14 @@ final class Themes {
             0xFFFFF4EA, 0xFFB8A78E, 0xFF9A8A72, 10f, true);
 
     /**
-     * Santuario Jedi: marmol blanco sobre piedra verde salvia, canto dorado fino, tinta verde oscura y el verde Jedi en
-     * intro y mayusculas activas; esquinas de 8 dp y sombra suave. Frio y claro, nada que ver con la arena calida de Arena.
+     * Santuario Jedi: piedra de jade clara, marmol blanco con canto dorado fino, tinta verde bosque y el verde Jedi en
+     * intro y mayusculas activas; teclas de funcion en jade palido, esquinas de 12 dp (arcos del Templo) y sombra suave.
+     * Verde y blanco, lejos de la arena y el naranja de Arena.
      */
     static final Theme SANTUARIO = new Theme("santuario", R.string.theme_santuario,
-            0xFFCFD6CC, 0xFFFFFFFF, 0xFFC4A962, 0xFF1F3A2E, 0, 0xFF2F4A3E,
-            0xFF2E7D5B, 0xFFF4FBF6, 0xFFE3E9DF, 0xFFF5F7F3, 0xFFB9C7B6, 0xFFFFFFFF,
-            0xFF1F3A2E, 0xFF5C7A6A, 0xFF5C7A6A, 8f, true);
+            0xFFB9D4C4, 0xFFFFFFFF, 0xFFC9A95E, 0xFF173B2D, 0, 0xFF24503F,
+            0xFF1E7B52, 0xFFF2FFF7, 0xFFD2E6DA, 0xFFEFF6F2, 0xFF9FC2B0, 0xFFFFFFFF,
+            0xFF173B2D, 0xFF4F7262, 0xFF4F7262, 12f, true);
 
     /**
      * Templo Sith: negro rojizo, teclas de obsidiana con canto rojo, tinta roja con un halo rojo oscuro tenue y el rojo
