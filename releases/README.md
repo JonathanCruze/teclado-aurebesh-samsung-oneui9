@@ -21,4 +21,4 @@ sha256sum TecladoAurebesh.apk
 ```
 En Windows: `certutil -hashfile TecladoAurebesh.apk SHA256`. El resultado debe coincidir con la línea siguiente.
 
-SHA-256: `51abbb2e5ea6a82cf2e43dbfae8456988920adb86232403dc2a1bf6035a0dc09`
+SHA-256: `5f1b59bd366442fae127919116957f6ef6773e93414bc6e03bf634be7bc98adf`

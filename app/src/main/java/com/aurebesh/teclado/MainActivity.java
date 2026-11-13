@@ -212,6 +212,9 @@ public final class MainActivity extends Activity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        // Cursor, asas de seleccion y resaltado salen del colorAccent del tema de la ventana, no de la paleta: con
+        // tarjetas claras tinta oscura y con tarjetas oscuras tinta clara, antes de que Material cree nada
+        setTheme(AppPalette.of(this).lightCards() ? R.style.AppTheme_Claro : R.style.AppTheme_Oscuro);
         super.onCreate(savedInstanceState);
         dp = getResources().getDisplayMetrics().density;
         pal = AppPalette.of(this);                       // los colores de la app salen del tema efectivo del teclado
@@ -271,7 +274,7 @@ public final class MainActivity extends Activity {
 
         // Pagina a abrir: la guardada antes del giro, o la que pide el engrane del teclado ("ai")
         String want = savedInstanceState != null ? savedInstanceState.getString(STATE_PAGE) : null;
-        if (want == null) want = pageKeyFor(getIntent().getStringExtra("section"));
+        if (want == null && savedInstanceState == null) want = pageKeyFor(getIntent().getStringExtra("section"));   // solo la primera vez
         if (savedInstanceState != null) {
             pendingHomeScroll = savedInstanceState.getInt(STATE_HOME_SCROLL, -1);
             pendingPageScroll = savedInstanceState.getInt(STATE_PAGE_SCROLL, -1);
@@ -342,7 +345,7 @@ public final class MainActivity extends Activity {
      * del panel vive en Prefs.ui. Con el mismo tema no se hace nada, para no parpadear.
      */
     private void checkTheme() {
-        if (pal == null || Prefs.theme(this).equals(pal.themeId)) return;
+        if (pal == null || Themes.byId(Prefs.theme(this)).id.equals(pal.themeId)) return;   // ids normalizados: nunca un bucle
         requestRecreate();
     }
 
@@ -1677,7 +1680,13 @@ public final class MainActivity extends Activity {
                     }
                     break;
                 case TYPE_STRING:
-                    if (v instanceof String && ((String) v).length() <= 500) { e.putString(k, (String) v); n++; }
+                    if (v instanceof String && ((String) v).length() <= 500) {
+                        String sv = (String) v;
+                        // El tema solo si es uno de los fijos o un automatico: un id desconocido no se importa
+                        if (k.equals(Prefs.THEME) && !Themes.isAuto(sv) && !Themes.byId(sv).id.equals(sv)) break;
+                        e.putString(k, sv);
+                        n++;
+                    }
                     break;
                 default:
                     break;   // clave desconocida: no se importa

@@ -7,4 +7,19 @@
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:navigationBarColor">@color/navigation_bar</item>
     </style>
+    <!-- Superposiciones que elige MainActivity antes de crear la ventana segun la paleta del tema del teclado: tinta del
+         cursor, de las asas de seleccion y del resaltado (colorAccent / colorControlActivated) oscura sobre tarjetas
+         claras y clara sobre tarjetas oscuras, sea cual sea el modo del telefono. -->
+    <style name="AppTheme.Claro">
+        <item name="android:colorAccent">#1B2838</item>
+        <item name="android:colorControlActivated">#1B2838</item>
+        <item name="android:colorControlNormal">#5A6675</item>
+        <item name="android:textColorHighlight">#401B2838</item>
+    </style>
+    <style name="AppTheme.Oscuro">
+        <item name="android:colorAccent">#DCE6EE</item>
+        <item name="android:colorControlActivated">#DCE6EE</item>
+        <item name="android:colorControlNormal">#9AA7B4</item>
+        <item name="android:textColorHighlight">#40DCE6EE</item>
+    </style>
 </resources>

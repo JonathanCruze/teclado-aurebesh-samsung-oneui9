@@ -185,6 +185,7 @@ final class AiSettingsCard {
             importBar.setMax(100);
             importBar.setProgressTintList(pal.accentTint());
             importBar.setProgressBackgroundTintList(ColorStateList.valueOf(pal.trackSolid));
+            importBar.setIndeterminateTintList(pal.accentTint());   // sin tamano conocido la barra es indeterminada
             importBar.setVisibility(GONE);
             LinearLayout.LayoutParams ib = new LinearLayout.LayoutParams(MATCH, px(4));
             ib.leftMargin = px(18); ib.rightMargin = px(18); ib.bottomMargin = px(10);
@@ -365,6 +366,7 @@ final class AiSettingsCard {
                 bar.setMax(100);
                 bar.setProgressTintList(pal.accentTint());
                 bar.setProgressBackgroundTintList(ColorStateList.valueOf(pal.trackSolid));
+                bar.setIndeterminateTintList(pal.accentTint());   // descarga sin Content-Length
                 bar.setVisibility(GONE);
                 LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(MATCH, px(4));
                 bp.topMargin = px(8);

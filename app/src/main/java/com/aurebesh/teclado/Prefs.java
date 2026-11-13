@@ -74,7 +74,7 @@ final class Prefs {
             if (THEME_AUTO_TEMPLOS.equals(t)) return dark ? Themes.SITH.id : Themes.SANTUARIO.id;
             return dark ? Themes.NOCHE.id : Themes.DEFAULT.id;
         }
-        return t;
+        return Themes.byId(t).id;   // un id desconocido (tema retirado o ajustes importados) cae al de fabrica, no se devuelve crudo
     }
     /** Valor guardado del tema, incluido "auto". */
     static String themePref(Context c) {

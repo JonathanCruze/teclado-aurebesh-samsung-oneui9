@@ -57,8 +57,14 @@ Para actualizar, descarga el nuevo APK e instálalo encima: conserva tus ajustes
   alternativos aclara que las letras latinas de abajo a la derecha son otro ajuste, y junto a "Reiniciar progreso" se ve
   cuántas letras van aprendidas.
 - **Templo Sith en la app:** la tarjeta se tiñe lo justo para separarse del fondo casi negro.
-- Capturas en `screenshots/`: `app_tema_<tema>.png` (la app con cada uno de los ocho temas), `app_tema_santuario_estilo.png`,
-  `tema_santuario.png`, `barra_santuario.png`.
+- **Revisión independiente del cambio, corregida:** un tema guardado que ya no existe (Pazaak, de la 2.3) o importado
+  con un id desconocido cae al de fábrica en vez de dejar la app rehaciéndose sin fin; el cursor y las asas de los campos
+  siguen la claridad de las tarjetas y no el modo del teléfono; los diálogos conservan su margen y sus botones dan 4,5:1;
+  el texto sobre el acento también 4,5:1 (Santuario pasa a tinta oscura sobre salvia); el deslizador se distingue de su
+  pista 3:1; las barras indeterminadas de importar y descargar modelos van tintadas; al rehacerse la pantalla ya no
+  vuelve a abrir sola la página que pidió el engrane del teclado.
+- Capturas en `screenshots/`: `app_tema_<tema>.png` (la app con cada uno de los ocho temas), `tema_santuario.png`,
+  `barra_santuario.png`.
 
 ### Novedades de la 2.4.1
 - **Santuario Jedi y Templo Sith inconfundibles:** mármol blanco sobre piedra de jade clara con canto dorado, tinta verde bosque y

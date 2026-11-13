@@ -512,6 +512,29 @@ public class AppTemaTest {
 
     // ------------------------------------------------------------------ (e) cambio de tema en vivo
 
+    /**
+     * Un id de tema que ya no existe (Pazaak, elegido en la 2.3 y retirado en la 2.4) o cualquier cadena importada no
+     * puede dejar la app rehaciendose sin fin: Prefs.theme lo normaliza al de fabrica, la paleta lo pinta y la pantalla
+     * se queda quieta. Antes checkTheme comparaba la cadena cruda con el id de la paleta y pedia recreate() en cada onResume.
+     */
+    @Test
+    public void temaDesconocidoCaeAlDeFabricaSinRehacerEnBucle() throws Exception {
+        for (String stale : new String[]{"pazaak", "tema_futuro"}) {
+            Prefs.get(app).edit().putString(Prefs.THEME, stale).apply();
+            assertEquals(Themes.DEFAULT.id, Prefs.theme(app));
+            ActivityController<MainActivity> c = controller();
+            MainActivity a = c.get();
+            for (int i = 0; i < 20; i++) idle();
+            assertSame("la actividad no se rehace", a, c.get());
+            assertFalse(a.isDestroyed());
+            assertDressed(a, Themes.DEFAULT);
+            a.onResume();   // otra vuelta por checkTheme tampoco
+            idle();
+            assertFalse(a.isDestroyed());
+            c.pause().stop().destroy();
+        }
+    }
+
     @Test
     public void cambiarElTemaConLaPantallaAbiertaLaRehaceUnaVezYConservaLaPagina() throws Exception {
         ActivityController<MainActivity> c = controller();

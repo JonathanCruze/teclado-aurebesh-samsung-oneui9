@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.res.ColorStateList;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.InsetDrawable;
 import android.os.Build;
 import android.view.View;
 import android.view.Window;
@@ -42,6 +43,7 @@ final class AppPalette {
     final int accent;            // relleno de acento: boton Activar, chips seleccionados
     final int onAccent;          // texto e iconos sobre el acento
     final int accentInk;         // el acento como tinta sobre la tarjeta (iconos, anillo, interruptores): >= 3:1
+    final int accentText;        // el acento como texto sobre la tarjeta (botones de dialogo): >= 4,5:1
     final int accentTile;        // caja del icono de categoria: acento muy transparente
     final int divider;           // separadores: hint al 28 %
     final int pressed;           // pulsacion (ondas)
@@ -88,10 +90,12 @@ final class AppPalette {
         onBg = contrast(text, bg) >= 4.5 ? text : (isLight(bg) ? 0xFF000000 : 0xFFFFFFFF);   // blanco o negro del todo, no un gris justo
         onBgSecondary = toward(t.hint, onBg, 4.5, bg);
 
-        // Acento y lo que va encima (3:1 como minimo; si el tema no lo da, blanco o negro segun el acento)
+        // Acento y lo que va encima. En la app lo de encima es texto de 12 a 14 sp (chips, Activar, botones): 4,5:1 como
+        // minimo; si el tema no lo da (Santuario: blanco sobre salvia, 3,6:1), negro o blanco segun el acento
         accent = t.accent;
-        onAccent = contrast(t.onAccent, accent) >= 3.0 ? t.onAccent : (contrast(0xFF000000, accent) >= contrast(0xFFFFFFFF, accent) ? 0xFF000000 : 0xFFFFFFFF);
+        onAccent = contrast(t.onAccent, accent) >= 4.5 ? t.onAccent : (contrast(0xFF000000, accent) >= contrast(0xFFFFFFFF, accent) ? 0xFF000000 : 0xFFFFFFFF);
         accentInk = toward(accent, text, 3.0, card, surface2);
+        accentText = toward(accent, text, 4.5, card);
         accentTile = alpha(accent, 0x2E);
 
         divider = alpha(t.hint, 0x47);
@@ -99,7 +103,14 @@ final class AppPalette {
         ripple = alpha(t.pressed, 0x99);
         thumbOff = isLight(card) ? 0xFFFFFFFF : secondary;
         trackOff = blend(card, text, 0.25f);
-        trackSolid = blend(card, text, 0.25f);
+        // Pista del deslizador: tinta al 25 % sobre la tarjeta, aclarada hacia la tarjeta hasta que el tramo recorrido
+        // (accentInk) se distinga de ella 3:1 (Imperial y Contraste se quedaban en 2:1)
+        trackSolid = toward(blend(card, text, 0.25f), card, 3.0, accentInk);
+    }
+
+    /** True si las tarjetas son claras: cursor, asas y resaltado de los campos en tinta oscura (AppTheme.Claro). */
+    boolean lightCards() {
+        return isLight(card);
     }
 
     // ------------------------------------------------------------------ colores
@@ -233,10 +244,11 @@ final class AppPalette {
     void style(AlertDialog d) {
         if (d == null || d.getWindow() == null) return;
         float density = d.getContext().getResources().getDisplayMetrics().density;
-        d.getWindow().setBackgroundDrawable(cardDrawable(16 * density, density));
+        // Con el mismo margen de 16 dp que el fondo de Material: si no, la tarjeta del dialogo se pega a los bordes
+        d.getWindow().setBackgroundDrawable(new InsetDrawable(cardDrawable(16 * density, density), Math.round(16 * density)));
         for (int which : new int[]{AlertDialog.BUTTON_POSITIVE, AlertDialog.BUTTON_NEGATIVE, AlertDialog.BUTTON_NEUTRAL}) {
             Button b = d.getButton(which);
-            if (b != null) b.setTextColor(accentInk);
+            if (b != null) b.setTextColor(accentText);     // texto de 14 sp: 4,5:1 sobre la tarjeta
         }
         View message = d.findViewById(android.R.id.message);
         if (message instanceof TextView) ((TextView) message).setTextColor(text);
