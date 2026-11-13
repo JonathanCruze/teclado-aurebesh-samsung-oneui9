@@ -50,6 +50,8 @@ public class ScreenshotTest {
         return b;
     }
 
+    private static String hex(int c) { return String.format("#%08X", c); }
+
     private static void check(String got, String want, String what) {
         if (got == null ? want != null : !got.equals(want)) throw new AssertionError(what + ": " + got + " (esperado " + want + ")");
     }
@@ -528,16 +530,23 @@ public class ScreenshotTest {
         if (fakeModel.exists()) AiModels.delete(app, fakeModel.getName());
         ShadowLooper.shadowMainLooper().idle();
 
-        // Pantalla de la app en claro y en noche: pagina completa y primera pantalla (Samsung One UI 9.0)
+        // Pantalla de la app en claro y en noche: pagina completa y primera pantalla (Samsung One UI 9.0). La app se viste
+        // con el tema efectivo del teclado: de fabrica Nucleo (claro, fijo), y de noche solo cambia con un automatico
+        // (Republica: Borde Exterior de noche); un tema fijo no sigue al modo oscuro.
         ShadowBuild.setManufacturer("samsung");
         DeviceInfo.semOverride = 180000;
         Bitmap light = renderActivity();
+        check(hex(light.getPixel(5, 5)), hex(Themes.ESTELAR.bg), "fondo de la app de fabrica (Nucleo)");
         save(light, "app_claro.png");
         save(Bitmap.createBitmap(light, 0, 0, W, PHONE_H), "app_claro_primera.png");
         RuntimeEnvironment.setQualifiers("+night");
+        check(hex(renderActivity().getPixel(5, 5)), hex(Themes.ESTELAR.bg), "un tema fijo no cambia de noche");
+        Prefs.get(app).edit().putString(Prefs.THEME, Prefs.THEME_AUTO).apply();
         Bitmap night = renderActivity();
+        check(hex(night.getPixel(5, 5)), hex(Themes.NOCHE.bg), "fondo de la app con Republica de noche (Borde Exterior)");
         save(night, "app_noche.png");
         save(Bitmap.createBitmap(night, 0, 0, W, PHONE_H), "app_noche_primera.png");
+        Prefs.get(app).edit().remove(Prefs.THEME).apply();   // de vuelta al tema de fabrica para las capturas siguientes
         RuntimeEnvironment.setQualifiers("en-rUS-w411dp-h914dp-xxhdpi");
         Bitmap english = renderActivity();
         save(english, "app_ingles.png");

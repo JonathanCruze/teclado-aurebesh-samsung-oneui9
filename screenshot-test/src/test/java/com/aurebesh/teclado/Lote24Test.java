@@ -36,6 +36,7 @@ import java.util.List;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
@@ -405,7 +406,8 @@ public class Lote24Test {
         assertEquals(Themes.SANTUARIO.id, Prefs.theme(app));
 
         // Pagina Estilo: tres tarjetas automaticas en una fila y ocho fijas en dos filas de cuatro
-        MainActivity a = create();
+        org.robolectric.android.controller.ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).setup();
+        MainActivity a = c.get();
         SettingsTest.openCategory(a, R.string.cat_style, MainActivity.PAGE_STYLE);
         View republic = SettingsTest.clickableStartingWith(a, a.getString(R.string.theme_auto_republic) + ". ");
         View imperio = SettingsTest.clickableStartingWith(a, a.getString(R.string.theme_auto_imperio) + ". ");
@@ -460,9 +462,21 @@ public class Lote24Test {
         assertTrue(templos.isSelected());
         assertFalse(sith.isSelected());
         idle();
-        assertTrue("el resumen de Estilo nombra Templos", textContains(a, a.getString(R.string.theme_auto_templos)));
-        layoutActivity(a);
-        save(snapshot(a), "lote24_estilo_templos.png");
+        // Elegir Sith cambio el tema efectivo (la app entera se viste con el del teclado): la actividad se rehizo y la viva,
+        // con Templos de nuevo, viste Santuario (de dia) y conserva la pagina Estilo con Templos elegido. La captura sale
+        // de la instancia viva, no de la destruida.
+        MainActivity live = c.get();
+        assertNotSame("elegir otro tema rehace la actividad", a, live);
+        assertTrue(a.isDestroyed());
+        assertEquals("la pagina Estilo sobrevive al cambio de tema", MainActivity.PAGE_STYLE, live.openPageKey());
+        assertEquals(Themes.SANTUARIO.id, Prefs.theme(live));
+        View templosLive = SettingsTest.clickableStartingWith(live, a.getString(R.string.theme_auto_templos) + ". " + a.getString(R.string.theme_auto_templos_sub));
+        assertNotNull("tarjeta Templos en la pantalla rehecha", templosLive);
+        assertTrue("Templos sigue elegido", templosLive.isSelected());
+        assertFalse(byDescription(live, a.getString(R.string.theme_sith)).isSelected());
+        assertTrue("el resumen de Estilo nombra Templos", textContains(live, a.getString(R.string.theme_auto_templos)));
+        layoutActivity(live);
+        save(snapshot(live), "lote24_estilo_templos.png");
     }
 
     // ------------------------------------------------------------------ (c) copyright y registrado
