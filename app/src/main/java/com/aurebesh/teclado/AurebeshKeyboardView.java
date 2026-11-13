@@ -2313,7 +2313,39 @@ public final class AurebeshKeyboardView extends View {
     }
 
     /** Lo escrito, en Aurebesh, entre {@code left} y {@code right}; si no cabe se ve el final. */
+    /** Lo escrito en Aurebesh en la cinta: con la tinta del tema si se lee sobre el fondo, y si no con la de las teclas. */
     private void drawTranslation(Canvas c, float h, float top, float left, float right) {
+        int ink = stripInk();
+        glyphPaint.setColor(ink);
+        textPaint.setColor(ink);
+        drawTranslationWith(c, h, top, left, right);
+        glyphPaint.setColor(theme.glyph);
+        textPaint.setColor(theme.glyph);
+    }
+
+    /** Tinta para texto suelto sobre el fondo del teclado (cinta): la del tema si contrasta al menos 3:1; si no, la de las teclas o la de los iconos, la que mas contraste. */
+    int stripInk() {
+        if (contrast(theme.glyph, theme.bg) >= 3.0) return theme.glyph;
+        return contrast(theme.keyBg, theme.bg) >= contrast(theme.icon, theme.bg) ? theme.keyBg : theme.icon;
+    }
+
+    /** Relacion de contraste WCAG entre dos colores opacos. */
+    static double contrast(int a, int b) {
+        double la = luminance(a), lb = luminance(b);
+        return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+    }
+
+    private static double luminance(int argb) {
+        double r = channel((argb >> 16) & 0xFF), g = channel((argb >> 8) & 0xFF), b = channel(argb & 0xFF);
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    }
+
+    private static double channel(int v) {
+        double c = v / 255.0;
+        return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    }
+
+    private void drawTranslationWith(Canvas c, float h, float top, float left, float right) {
         List<Glyphs.Token> tokens = stripTokens;
         float total = 0;
         for (Glyphs.Token t : tokens) total += Glyphs.tokenWidth(t, h, textPaint);
