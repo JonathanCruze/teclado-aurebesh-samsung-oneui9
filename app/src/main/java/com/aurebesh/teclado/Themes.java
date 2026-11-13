@@ -79,15 +79,15 @@ final class Themes {
             0xFFFFF4EA, 0xFFB8A78E, 0xFF9A8A72, 10f, true);
 
     /**
-     * Santuario Jedi: ropajes del Templo. Fondo marron de capa, teclas de arena tostada con canto de lino, glifos de
-     * marmol; teclas de funcion en marron de cinturon, espacio un punto mas claro y el verde Jedi solo en intro y
-     * mayusculas activas. Esquinas de 10 dp y sombra suave. La arena es media a proposito: el marmol necesita fondo
-     * para leerse (3,4:1 sobre la tecla).
+     * Santuario Jedi: tema claro y sereno, con la calma de un jardin zen. Fondo de marmol calido, teclas de arena,
+     * glifos de madera; teclas de funcion en arena mas oscura, sin sombra ni borde, esquinas de 12 dp y el verde
+     * salvia solo en intro y mayusculas activas. Los tres materiales van del mas claro al mas oscuro (marmol, arena,
+     * madera) para que la tinta se lea (5,5:1 sobre la tecla) sin un solo color saturado.
      */
     static final Theme SANTUARIO = new Theme("santuario", R.string.theme_santuario,
-            0xFF6E5137, 0xFF9E8156, 0xFFD9C7A4, 0xFFFBF6EA, 0, 0xFFFBF6EA,
-            0xFF3DAE6E, 0xFF0E2A1A, 0xFF4F3822, 0xFFAD9166, 0xFF846A45, 0xFF9E8156,
-            0xFFFBF6EA, 0xFFEADFC8, 0xFFEADFC8, 10f, true);
+            0xFFF6F2EA, 0xFFE7DAC0, 0, 0xFF6F4D2E, 0, 0xFF6F4D2E,
+            0xFF6B8F71, 0xFFFFFFFF, 0xFFD9C8A5, 0xFFEDE2CC, 0xFFCDBB96, 0xFF6F4D2E,
+            0xFFFBF6EA, 0xFFD9C8A5, 0xFF85694A, 12f, false);
 
     /**
      * Templo Sith: negro rojizo, teclas de obsidiana con canto rojo, tinta roja con un halo rojo oscuro tenue y el rojo
