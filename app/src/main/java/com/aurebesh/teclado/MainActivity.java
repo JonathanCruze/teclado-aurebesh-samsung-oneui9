@@ -1829,7 +1829,7 @@ public final class MainActivity extends Activity {
     private static final String PCT = " %";   // "100 %" con espacio fino
     private static final String[] HANDS = {"none", "left", "right"};
     private static final int[] HAND_NAMES = {R.string.hand_none, R.string.hand_left, R.string.hand_right};
-    private static final int[] MODE_NAMES = {R.string.aj_mode_standard, R.string.aj_mode_left, R.string.aj_mode_right};
+    private static final int[] MODE_NAMES = {R.string.aj_mode_standard, R.string.hand_left, R.string.hand_right};   // bajo el titulo "Modo a una mano" basta Izquierda / Derecha
     private static final String[] SPLITS = {"auto", "on", "off"};
     private static final int[] SPLIT_NAMES = {R.string.split_auto, R.string.split_on, R.string.split_off};
     private static final String[] SPLIT_WIDTHS = {"narrow", "normal", "wide"};

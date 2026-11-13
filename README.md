@@ -44,6 +44,13 @@
 
 Para actualizar, descarga el nuevo APK e instálalo encima: conserva tus ajustes.
 
+### Novedades de la 2.4.1
+- **Santuario Jedi y Templo Sith inconfundibles:** mármol blanco sobre piedra verde salvia con canto dorado, tinta verde oscura y
+  verde Jedi en intro; y negro rojizo con teclas de obsidiana de canto rojo, tinta roja y rojo vivo en intro. Antes se parecían
+  demasiado a Arena e Imperial, también en las tarjetas de los automáticos.
+- **Automáticos:** el subtítulo pasa a "Se ajusta al tema del sistema" en los tres.
+- **Modo a una mano:** los chips dicen Estándar, Izquierda y Derecha; antes dos de ellos se leían casi igual.
+
 ### Novedades de la 2.4
 - **Temas:** Estelar pasa a llamarse **Núcleo** y Noche, **Borde Exterior**. Dos temas nuevos, **Santuario Jedi** (arenisca y
   marfil del Templo, tinta marrón, bronce) y **Templo Sith** (obsidiana, canto rojo oscuro, carmesí), y un tercer automático,

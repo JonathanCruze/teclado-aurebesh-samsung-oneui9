@@ -5,11 +5,11 @@
     <string name="top_row_numbers">Números</string>
     <string name="top_row_digraphs">Dígrafos</string>
     <string name="top_row_none">Nada</string>
-    <string name="theme_auto_group">Automáticos · siguen el modo oscuro del teléfono</string>
+    <string name="theme_auto_group">Automáticos</string>
     <string name="theme_auto_republic">República</string>
-    <string name="theme_auto_republic_sub">Núcleo de día, Borde Exterior de noche</string>
+    <string name="theme_auto_republic_sub">Se ajusta al tema del sistema</string>
     <string name="theme_auto_imperio">Imperio</string>
-    <string name="theme_auto_imperio_sub">Arena de día, Imperial de noche</string>
+    <string name="theme_auto_imperio_sub">Se ajusta al tema del sistema</string>
     <string name="theme_fixed_group">Siempre el mismo</string>
     <string name="immersive_title">Todo en Aurebesh</string>
     <string name="immersive_sub">Muestra lo escrito y las sugerencias en Aurebesh sobre las teclas</string>

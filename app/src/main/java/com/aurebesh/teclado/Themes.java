@@ -79,26 +79,23 @@ final class Themes {
             0xFFFFF4EA, 0xFFB8A78E, 0xFF9A8A72, 10f, true);
 
     /**
-     * Santuario Jedi: arenisca del Templo de fondo (piedra D5CBB8), teclas de marfil FBF6EA con canto de piedra C8B995 y
-     * sombra suave, tinta sepia 3A2A1C y pistas 8A7657; bronce antiguo 946A34 con icono marfil FFF4DC en intro y mayusculas
-     * activas; esquinas de 8 dp. Se distingue de Arena (beige claro, teclas hueso muy redondas sin borde, naranja) por la
-     * piedra mas oscura, el canto y el bronce. Es el dia del automatico Templos.
+     * Santuario Jedi: marmol blanco sobre piedra verde salvia, canto dorado fino, tinta verde oscura y el verde Jedi en
+     * intro y mayusculas activas; esquinas de 8 dp y sombra suave. Frio y claro, nada que ver con la arena calida de Arena.
      */
     static final Theme SANTUARIO = new Theme("santuario", R.string.theme_santuario,
-            0xFFD5CBB8, 0xFFFBF6EA, 0xFFC8B995, 0xFF3A2A1C, 0, 0xFF4F3F30,
-            0xFF946A34, 0xFFFFF4DC, 0xFFE4DBC7, 0xFFF3EDDC, 0xFFC9BB9E, 0xFFFBF6EA,
-            0xFF3A2A1C, 0xFF8A7657, 0xFF8A7657, 8f, true);
+            0xFFCFD6CC, 0xFFFFFFFF, 0xFFC4A962, 0xFF1F3A2E, 0, 0xFF2F4A3E,
+            0xFF2E7D5B, 0xFFF4FBF6, 0xFFE3E9DF, 0xFFF5F7F3, 0xFFB9C7B6, 0xFFFFFFFF,
+            0xFF1F3A2E, 0xFF5C7A6A, 0xFF5C7A6A, 8f, true);
 
     /**
-     * Templo Sith: obsidiana de fondo (0B0708), teclas de basalto 1C1416 con canto rojo oscuro 4A2027 y sin sombra, tinta
-     * palida EADEDE con un halo rojo muy tenue (glow 8E1B1B, que la vista pinta al 25 por ciento), iconos D8C8CA y pistas
-     * A08A90; carmesi C62828 con icono FFEBEE en intro y mayusculas activas; esquinas de 5 dp. Se distingue de Imperial
-     * (grafito neutro) y de Borde Exterior (azul noche) por el negro rojizo y los cantos. Es la noche del automatico Templos.
+     * Templo Sith: negro rojizo, teclas de obsidiana con canto rojo, tinta roja con un halo rojo oscuro tenue y el rojo
+     * vivo en intro y mayusculas activas; esquinas de 5 dp, sin sombra. Rojo sobre negro, inconfundible frente al gris
+     * neutro de Imperial.
      */
     static final Theme SITH = new Theme("sith", R.string.theme_sith,
-            0xFF0B0708, 0xFF1C1416, 0xFF4A2027, 0xFFEADEDE, 0xFF8E1B1B, 0xFFD8C8CA,
-            0xFFC62828, 0xFFFFEBEE, 0xFF261A1D, 0xFF140C0E, 0xFF3F2026, 0xFF1C1416,
-            0xFFEADEDE, 0xFFA08A90, 0xFFA08A90, 5f, false);
+            0xFF050304, 0xFF130708, 0xFF6E1118, 0xFFFF5A5A, 0xFF7A1010, 0xFFFF7A7A,
+            0xFFE51C23, 0xFF1A0000, 0xFF1F0A0D, 0xFF0E0506, 0xFF4A0F15, 0xFF130708,
+            0xFFFF5A5A, 0xFFB36B6B, 0xFFB36B6B, 5f, false);
 
     /**
      * Contraste (accesibilidad): fondo negro, teclas blancas con borde negro de 2 dp, glifo negro, acento amarillo
