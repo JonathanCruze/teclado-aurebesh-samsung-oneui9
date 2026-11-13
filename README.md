@@ -12,12 +12,12 @@
 
 <p align="center">
   <a href="https://github.com/JonathanCruze/teclado-aurebesh-samsung-oneui9/raw/main/releases/TecladoAurebesh.apk">
-    <img src="https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20%20DESCARGAR%20APK%20%E2%80%94%20Teclado%20Aurebesh%202.4-1B2838?style=for-the-badge&logoColor=white&labelColor=1B2838&color=7FD3F0" alt="Descargar APK">
+    <img src="https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20%20DESCARGAR%20APK%20%E2%80%94%20Teclado%20Aurebesh%202.4.1-1B2838?style=for-the-badge&logoColor=white&labelColor=1B2838&color=7FD3F0" alt="Descargar APK">
   </a>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/versi%C3%B3n-2.4-7FD3F0?style=flat-square" alt="versión 2.4">
+  <img src="https://img.shields.io/badge/versi%C3%B3n-2.4.1-7FD3F0?style=flat-square" alt="versión 2.4.1">
   <img src="https://img.shields.io/badge/Android-8.0%2B-3DDC84?style=flat-square" alt="Android 8+">
   <img src="https://img.shields.io/badge/Samsung-One%20UI%209.0-1428A0?style=flat-square" alt="Samsung One UI 9.0">
   <img src="https://img.shields.io/badge/sin%20anuncios-%E2%9C%93-2E7D32?style=flat-square" alt="sin anuncios">
@@ -45,8 +45,8 @@
 Para actualizar, descarga el nuevo APK e instálalo encima: conserva tus ajustes.
 
 ### Novedades de la 2.4.1
-- **Santuario Jedi y Templo Sith inconfundibles:** mármol blanco sobre piedra verde salvia con canto dorado, tinta verde oscura y
-  verde Jedi en intro; y negro rojizo con teclas de obsidiana de canto rojo, tinta roja y rojo vivo en intro. Antes se parecían
+- **Santuario Jedi y Templo Sith inconfundibles:** mármol blanco sobre piedra de jade clara con canto dorado, tinta verde bosque y
+  verde Jedi en intro, esquinas de 12 dp; y negro rojizo con teclas de obsidiana de canto rojo, tinta roja y rojo vivo en intro. Antes se parecían
   demasiado a Arena e Imperial, también en las tarjetas de los automáticos.
 - **Automáticos:** el subtítulo pasa a "Se ajusta al tema del sistema" en los tres.
 - **Modo a una mano:** los chips dicen Estándar, Izquierda y Derecha; antes dos de ellos se leían casi igual.
@@ -438,8 +438,8 @@ siempre lleva los caracteres correctos.
 | Datapad | fondo casi negro, teclas solo trazadas, glifos azul luminoso con halo, esquinas de 3 dp |
 | Imperial | grafito, glifos blancos, esquinas duras, un solo rojo apagado |
 | Arena | tonos de arena, teclas hueso muy redondeadas, naranja de atardecer |
-| Santuario Jedi | arenisca y marfil del Templo, tinta marrón oscura, bronce en Enter, esquinas amplias |
-| Templo Sith | obsidiana y basalto, canto rojo oscuro, tinta pálida, carmesí en Enter |
+| Santuario Jedi | jade claro y mármol blanco con canto dorado, tinta verde bosque, verde Jedi en Enter, esquinas de 12 dp |
+| Templo Sith | negro rojizo, obsidiana con canto rojo, tinta roja con halo tenue, rojo vivo en Enter |
 | Contraste | accesibilidad: negro, blanco y amarillo, bordes de 2 dp |
 
 Automáticos (siguen el modo oscuro del teléfono): República (Núcleo / Borde Exterior), Imperio (Arena / Imperial) y Templos
