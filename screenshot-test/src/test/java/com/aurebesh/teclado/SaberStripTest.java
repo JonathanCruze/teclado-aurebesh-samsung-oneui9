@@ -360,7 +360,7 @@ public class SaberStripTest {
         // 25 pulsaciones: se guarda ("a 25") y la pista va a 1 - 25/40
         for (int i = 0; i < 25; i++) tap(kb, a);
         check(kb.hintCount("a") == 25, "25 pulsaciones: " + kb.hintCount("a"));
-        near("alfa tras 25", kb.hintAlpha("a"), 1f - 25 / 40f);
+        check(kb.hintAlpha("a") == 1f, "a las 25 pulsaciones la pista sigue entera: todo o nada, sin medias tintas");
         String saved = Prefs.get(app).getString(Prefs.HINT_COUNTS, "");
         check(saved.contains("a 25"), "guardado cada 25 pulsaciones: " + saved);
         check(kb.hintAlpha("e") == 1f, "las demas letras siguen enteras");

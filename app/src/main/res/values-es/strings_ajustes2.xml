@@ -20,7 +20,7 @@
     <string name="aj_sum_saber">sable %1$s</string>
 
     <!-- Diseno: letras latinas en tres modos -->
-    <string name="aj_hint_mode_sub">Letra latina pequeña en la esquina de cada tecla. En Aprendiendo, cada letra se desvanece tras unas 40 pulsaciones, según memorizas el alfabeto</string>
+    <string name="aj_hint_mode_sub">Letra latina pequeña abajo a la derecha de cada tecla. En Aprendiendo, la pista de una letra desaparece cuando la has pulsado 40 veces; las poco frecuentes (q, w, k, x, z, ñ) la conservan más tiempo. Puedes reiniciar el progreso para verlas todas</string>
     <string name="aj_hint_off">Nunca</string>
     <string name="aj_hint_on">Siempre</string>
     <string name="aj_hint_learning">Aprendiendo</string>

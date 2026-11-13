@@ -20,7 +20,7 @@
     <string name="aj_sum_saber">Schwert %1$s</string>
 
     <!-- Diseno: letras latinas en tres modos -->
-    <string name="aj_hint_mode_sub">Kleiner lateinischer Buchstabe in der Ecke jeder Taste. Bei Lernen verblasst jeder Buchstabe nach etwa 40 Tipps, während du dir das Alphabet einprägst</string>
+    <string name="aj_hint_mode_sub">Kleiner lateinischer Buchstabe unten rechts auf jeder Taste. Bei Lernen verschwindet der Hinweis eines Buchstabens, sobald du ihn 40-mal getippt hast; seltene Buchstaben (q, x, y, ß) behalten ihn länger. Den Fortschritt kannst du zurücksetzen, um wieder alle zu sehen</string>
     <string name="aj_hint_off">Nie</string>
     <string name="aj_hint_on">Immer</string>
     <string name="aj_hint_learning">Lernen</string>

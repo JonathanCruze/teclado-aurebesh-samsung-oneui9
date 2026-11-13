@@ -20,7 +20,7 @@
     <string name="aj_sum_saber">%1$s saber</string>
 
     <!-- Diseno: letras latinas en tres modos -->
-    <string name="aj_hint_mode_sub">Small Latin letter in the corner of each key. In Learning, each letter fades out after about 40 presses, as you memorize the alphabet</string>
+    <string name="aj_hint_mode_sub">Small Latin letter at the bottom right of each key. In Learning, a letter\'s hint disappears once you have pressed it 40 times; rare letters (q, w, k, x, z) keep it longer. You can reset the progress to see them all again</string>
     <string name="aj_hint_off">Never</string>
     <string name="aj_hint_on">Always</string>
     <string name="aj_hint_learning">Learning</string>

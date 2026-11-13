@@ -157,7 +157,7 @@ public final class AurebeshKeyboardView extends View {
     private int repeatCount;                // repeticiones de borrar en la pulsacion actual (acelera y pasa a palabras)
 
     private boolean showHints = false;      // alguna pista latina (modo 1 o 2)
-    private int hintMode = 0;               // 0 nunca, 1 siempre, 2 aprendiendo (cada letra se desvanece con el uso)
+    private int hintMode = 0;               // 0 nunca, 1 siempre, 2 aprendiendo (la pista de cada letra se va a las 40 pulsaciones)
     private boolean hintModeSet = false;    // setHintMode ya mando: applyPrefs deja de tocar el modo
     private final java.util.HashMap<String, Integer> hintCounts = new java.util.HashMap<>();   // veces pulsada cada letra
     private int hintSinceSave = 0;          // pulsaciones desde el ultimo guardado en Prefs.HINT_COUNTS
@@ -528,7 +528,7 @@ public final class AurebeshKeyboardView extends View {
 
     /**
      * Letras latinas en las teclas: 0 nunca, 1 siempre, 2 aprendiendo (cada letra se desvanece con las veces que
-     * se pulsa: alfa = 1 - veces/40, y a las 40 desaparece). Carga los contadores de Prefs.HINT_COUNTS
+     * se pulsa: entera hasta las 40 pulsaciones y luego desaparece). Carga los contadores de Prefs.HINT_COUNTS
      * ("letra n" por linea); se guardan cada 25 pulsaciones y al desaparecer la vista.
      */
     public void setHintMode(int mode) {
@@ -542,11 +542,14 @@ public final class AurebeshKeyboardView extends View {
 
     int hintMode() { return hintMode; }
 
-    /** Opacidad (0-1) de la pista latina de una letra segun el modo; en aprendiendo, 1 - min(1, veces/40). */
+    /**
+     * Opacidad (0-1) de la pista latina de una letra segun el modo. En aprendiendo es todo o nada: entera hasta las 40
+     * pulsaciones y despues ninguna. Antes se desvanecia poco a poco y una pista a medias parecia un fallo de dibujo.
+     */
     float hintAlpha(String letter) {
         if (hintMode == 0) return 0f;
         if (hintMode == 1) return 1f;
-        return 1f - Math.min(1f, hintCount(letter) / (float) HINT_FADE_TAPS);
+        return hintCount(letter) >= HINT_FADE_TAPS ? 0f : 1f;
     }
 
     /** Veces que se ha pulsado la letra en modo aprendiendo (para pruebas). */
@@ -1500,7 +1503,7 @@ public final class AurebeshKeyboardView extends View {
                     float ha = symbolKey || !k.glyph.equals(k.output) ? 1f : hintAlpha(k.output);
                     if (ha > 0f) {
                         int base = hintPaint.getColor();
-                        if (ha < 1f) hintPaint.setColor(fade(base, ha));        // aprendiendo: se desvanece con el uso
+                        if (ha < 1f) hintPaint.setColor(fade(base, ha));
                         hintPaint.setTextSize(9 * sp);
                         String hint = shiftActive() ? k.label.toUpperCase() : k.label;
                         c.drawText(hint, r.right - 4 * dp, r.bottom - 5 * dp, hintPaint);

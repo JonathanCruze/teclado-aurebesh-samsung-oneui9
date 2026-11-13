@@ -2,5 +2,5 @@
 <resources>
     <string name="alt_chars_title">Alternative Zeichen</string>
     <string name="alt_chars_sub">Zeigt das Symbol jeder Taste oben rechts (q +, a @, m ?); halte die Taste gedrückt, um es zu schreiben. Akzente bleiben im selben Menü.</string>
-    <string name="alt_chars_hint">Wie bei der Samsung-Tastatur</string>
+    <string name="alt_chars_hint">Wie bei der Samsung-Tastatur. Die kleinen lateinischen Buchstaben unten rechts sind eine eigene Einstellung, weiter unten auf dieser Seite</string>
 </resources>

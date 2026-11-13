@@ -2,5 +2,5 @@
 <resources>
     <string name="alt_chars_title">Caracteres alternativos</string>
     <string name="alt_chars_sub">Muestra el símbolo de cada tecla en su esquina superior derecha (q +, a @, m ?); mantén la tecla para escribirlo. Los acentos siguen en el mismo menú.</string>
-    <string name="alt_chars_hint">Como en Samsung Keyboard</string>
+    <string name="alt_chars_hint">Como en Samsung Keyboard. Las letras latinas pequeñas de abajo a la derecha son otro ajuste, más abajo en esta página</string>
 </resources>

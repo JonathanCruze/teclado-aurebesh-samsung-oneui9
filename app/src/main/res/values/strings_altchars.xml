@@ -2,5 +2,5 @@
 <resources>
     <string name="alt_chars_title">Alternative characters</string>
     <string name="alt_chars_sub">Shows each key\'s symbol in its top-right corner (q +, a @, m ?); hold the key to type it. Accents stay in the same pop-up.</string>
-    <string name="alt_chars_hint">Like Samsung Keyboard</string>
+    <string name="alt_chars_hint">Like Samsung Keyboard. The small Latin letters at the bottom right are a separate setting, further down this page</string>
 </resources>
