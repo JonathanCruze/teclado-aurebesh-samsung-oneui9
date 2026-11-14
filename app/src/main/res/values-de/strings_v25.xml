@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="hint_learned_count">%1$d Buchstaben schon gelernt: ohne Hinweis</string>
+    <string name="top_status_cover">✓ Aurebesh ist deine Tastatur. Auf dem Frontdisplay des Flip nutzt One UI immer die Samsung-Tastatur: Klapp das Telefon auf, um in Aurebesh zu schreiben</string>
 </resources>

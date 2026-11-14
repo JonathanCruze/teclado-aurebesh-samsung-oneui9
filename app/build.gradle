@@ -7,8 +7,8 @@ android {
         applicationId 'com.aurebesh.teclado'
         minSdk 26
         targetSdk 34
-        versionCode 39
-        versionName '2.5'
+        versionCode 40
+        versionName '2.5.1'
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8

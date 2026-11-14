@@ -41,6 +41,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 /**
@@ -101,6 +102,14 @@ public class AppTemaTest {
             ViewGroup g = (ViewGroup) v;
             for (int i = 0; i < g.getChildCount(); i++) collect(g.getChildAt(i), out);
         }
+    }
+
+    /** Primer TextView visible cuyo texto es exactamente {@code s}, o null. */
+    private static TextView textViewWithText(Activity a, String s) {
+        for (View v : all(a)) {
+            if (v instanceof TextView && v.getVisibility() == View.VISIBLE && s.equals(((TextView) v).getText().toString())) return (TextView) v;
+        }
+        return null;
     }
 
     private static List<View> all(Activity a) {
@@ -517,6 +526,30 @@ public class AppTemaTest {
      * puede dejar la app rehaciendose sin fin: Prefs.theme lo normaliza al de fabrica, la paleta lo pinta y la pantalla
      * se queda quieta. Antes checkTheme comparaba la cadena cruda con el id de la paleta y pedia recreate() en cada onResume.
      */
+    /**
+     * En la pantalla externa de un Z Flip (ventana casi cuadrada y estrecha en un Samsung) One UI usa siempre el teclado
+     * Samsung: el estado de arriba lo dice en vez de "es tu teclado actual". En un telefono normal, el estado de siempre.
+     */
+    @Test
+    public void enLaPantallaExternaDelFlipElEstadoAvisaDelTecladoSamsung() throws Exception {
+        android.provider.Settings.Secure.putString(app.getContentResolver(), android.provider.Settings.Secure.DEFAULT_INPUT_METHOD,
+                app.getPackageName() + "/.AurebeshIME");
+        org.robolectric.shadows.ShadowBuild.setManufacturer("samsung");
+        MainActivity normal = create();
+        assertFalse(normal.onCoverScreen());
+        assertNotNull(textViewWithText(normal, app.getString(R.string.top_status_done)));
+
+        RuntimeEnvironment.setQualifiers("es-rES-w360dp-h400dp-xxhdpi");
+        MainActivity cover = create();
+        assertTrue(cover.onCoverScreen());
+        assertNotNull("el estado avisa", textViewWithText(cover, cover.getString(R.string.top_status_cover)));
+        assertNull(textViewWithText(cover, cover.getString(R.string.top_status_done)));
+
+        org.robolectric.shadows.ShadowBuild.setManufacturer("Google");
+        RuntimeEnvironment.setQualifiers("es-rES-w360dp-h400dp-xxhdpi");
+        assertFalse("misma ventana en otro fabricante: no es la tapa", create().onCoverScreen());
+    }
+
     @Test
     public void temaDesconocidoCaeAlDeFabricaSinRehacerEnBucle() throws Exception {
         for (String stale : new String[]{"pazaak", "tema_futuro"}) {

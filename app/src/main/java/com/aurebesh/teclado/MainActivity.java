@@ -349,6 +349,19 @@ public final class MainActivity extends Activity {
         requestRecreate();
     }
 
+    /**
+     * True en la pantalla externa de un Galaxy Z Flip cerrado: ventana casi cuadrada (alto entre 0,85 y 1,3 veces el
+     * ancho) y estrecha (menos de 480 dp) en un Samsung, sin multiventana (una pantalla dividida tambien sale cuadrada).
+     * Ahi One UI usa siempre el teclado Samsung, sea cual sea el teclado elegido.
+     */
+    boolean onCoverScreen() {
+        Configuration c = getResources().getConfiguration();
+        if (c.screenWidthDp <= 0 || c.screenHeightDp <= 0 || c.screenWidthDp >= 480) return false;
+        if (!"samsung".equalsIgnoreCase(Build.MANUFACTURER) || isInMultiWindowMode()) return false;
+        float ratio = c.screenHeightDp / (float) c.screenWidthDp;
+        return ratio > 0.85f && ratio < 1.3f;
+    }
+
     /** recreate() una sola vez por pantalla viva (tema, idioma o ajustes importados). */
     private void requestRecreate() {
         if (recreating || isFinishing() || isDestroyed()) return;
@@ -1756,7 +1769,8 @@ public final class MainActivity extends Activity {
         boolean selected = current != null && current.startsWith(getPackageName() + "/");
 
         if (selected) {
-            topStatus.setText(R.string.top_status_done);
+            // En la pantalla externa del Z Flip, One UI usa siempre el teclado Samsung: decirlo evita que parezca un fallo
+            topStatus.setText(onCoverScreen() ? R.string.top_status_cover : R.string.top_status_done);
             styleButton(keyboardButton, false);
             keyboardButton.setText(R.string.top_keyboard_choose);
             keyboardButton.setOnClickListener(showPicker);

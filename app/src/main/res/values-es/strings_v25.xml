@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="hint_learned_count">%1$d letras ya aprendidas: sin pista</string>
+    <string name="top_status_cover">✓ Aurebesh es tu teclado. En la pantalla externa del Flip, One UI usa siempre el teclado Samsung: abre el teléfono para escribir en Aurebesh</string>
 </resources>

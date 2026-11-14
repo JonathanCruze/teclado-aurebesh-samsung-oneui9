@@ -12,12 +12,12 @@
 
 <p align="center">
   <a href="https://github.com/JonathanCruze/teclado-aurebesh-samsung-oneui9/raw/main/releases/TecladoAurebesh.apk">
-    <img src="https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20%20DESCARGAR%20APK%20%E2%80%94%20Teclado%20Aurebesh%202.5-1B2838?style=for-the-badge&logoColor=white&labelColor=1B2838&color=7FD3F0" alt="Descargar APK">
+    <img src="https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20%20DESCARGAR%20APK%20%E2%80%94%20Teclado%20Aurebesh%202.5.1-1B2838?style=for-the-badge&logoColor=white&labelColor=1B2838&color=7FD3F0" alt="Descargar APK">
   </a>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/versi%C3%B3n-2.5-7FD3F0?style=flat-square" alt="versión 2.5">
+  <img src="https://img.shields.io/badge/versi%C3%B3n-2.5.1-7FD3F0?style=flat-square" alt="versión 2.5.1">
   <img src="https://img.shields.io/badge/Android-8.0%2B-3DDC84?style=flat-square" alt="Android 8+">
   <img src="https://img.shields.io/badge/Samsung-One%20UI%209.0-1428A0?style=flat-square" alt="Samsung One UI 9.0">
   <img src="https://img.shields.io/badge/sin%20anuncios-%E2%9C%93-2E7D32?style=flat-square" alt="sin anuncios">
@@ -29,6 +29,10 @@
 > **Compatibilidad.** Optimizado y probado en **Samsung Galaxy con One UI 9.0 (Android 17)**. Cualquier otra versión de
 > Android u otro fabricante es **experimental y está sujeta a fallos**: la app lo detecta y muestra un aviso.
 > Página del proyecto: [docs/index.html](docs/index.html) · Versiones: [Releases](https://github.com/JonathanCruze/teclado-aurebesh-samsung-oneui9/releases)
+>
+> **Pantalla externa del Z Flip.** En la pantalla de la tapa, One UI usa siempre el teclado Samsung, sea cual sea el teclado
+> elegido; ningún teclado de terceros funciona ahí. Aurebesh lo avisa en su estado cuando se abre en esa pantalla. Abre el
+> teléfono para escribir en Aurebesh.
 
 ---
 
@@ -43,6 +47,10 @@
    momento, mantén pulsada la barra espaciadora.
 
 Para actualizar, descarga el nuevo APK e instálalo encima: conserva tus ajustes.
+
+### Novedades de la 2.5.1
+- **Pantalla externa del Z Flip:** One UI usa siempre el teclado Samsung en la tapa, sea cual sea el teclado elegido. La app
+  lo dice en su estado cuando se abre ahí, en vez de dar Aurebesh por puesto, y lo documenta en Compatibilidad.
 
 ### Novedades de la 2.5
 - **La app de ajustes se viste con el tema del teclado:** fondo, tarjetas, chips, interruptores, diálogos y barras del sistema
