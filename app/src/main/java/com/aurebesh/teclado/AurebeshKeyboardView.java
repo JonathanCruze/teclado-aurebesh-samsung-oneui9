@@ -175,7 +175,8 @@ public final class AurebeshKeyboardView extends View {
     // Menu de alternativas abierto por pulsacion larga
     private Key popupKey;
     private String[] popupAlts;
-    private int popupIndex;
+    private int popupIndex;                 // celda resaltada del menu (indice de celda, no de alternativa)
+    private int[] popupOrder;               // celda i del menu -> indice en popupAlts (el orden cambia cerca de los bordes)
     private final RectF popupRect = new RectF();
     private float popupCell;
     private float popupCellH;               // alto de cada fila del menu
@@ -1753,6 +1754,10 @@ public final class AurebeshKeyboardView extends View {
             float yy = popupRect.bottom - popupCellH;
             c.drawLine(popupRect.left + 8 * dp, yy, popupRect.right - 8 * dp, yy, strokePaint);
         }
+        // Resalte de la celda bajo el dedo: el acento del tema si se distingue de la burbuja; si no (Nucleo: burbuja y
+        // acento son el mismo azul noche), una pastilla translucida de la tinta de la burbuja
+        boolean accentOk = contrast(theme.accent, theme.preview) >= 2.0;
+        int selInk = accentOk ? theme.onAccent : theme.previewText;
         for (int i = 0; i < popupAlts.length; i++) {
             RectF cell = popupCellRect(i);
             float left = cell.left;
@@ -1760,10 +1765,10 @@ public final class AurebeshKeyboardView extends View {
             boolean sel = i == popupIndex;
             if (sel) {
                 tmp.set(left + 3 * dp, cell.top + 3 * dp, left + popupCell - 3 * dp, cell.bottom - 3 * dp);
-                fill.setColor(theme.accent);
+                fill.setColor(accentOk ? theme.accent : (theme.previewText & 0x00FFFFFF) | 0x3A000000);
                 c.drawRoundRect(tmp, 8 * dp, 8 * dp, fill);
             }
-            String a = popupAlts[i];
+            String a = popupAlts[popupOrder[i]];
             String shown = shiftActive() && current == letters ? a.toUpperCase() : a;
             String gk = Glyphs.glyphKey(a);                 // a a a a: glifo de la letra base y la latina debajo
             if (gk != null) {
@@ -1771,16 +1776,16 @@ public final class AurebeshKeyboardView extends View {
                 // los signos (caracteres alternativos) siempre, como su leyenda en la pagina ?123
                 boolean latin = hintMode != 0 || !gk.equals(a.toLowerCase(java.util.Locale.ROOT))
                         || (a.length() == 1 && !Character.isLetterOrDigit(a.charAt(0)));
-                glyphPaint.setColor(sel ? theme.onAccent : theme.previewText);
+                glyphPaint.setColor(sel ? selInk : theme.previewText);
                 Glyphs.drawFitted(c, gk, cx, latin ? cy - 6 * dp : cy, popupCellH * 0.42f, popupCell * 0.7f, glyphPaint);
                 glyphPaint.setColor(theme.glyph);
                 if (latin) {
-                    textPaint.setColor(sel ? theme.onAccent : theme.previewLatin);
+                    textPaint.setColor(sel ? selInk : theme.previewLatin);
                     textPaint.setTextSize(10 * sp);
                     c.drawText(shown, cx, cell.bottom - 7 * dp, textPaint);
                 }
             } else {
-                textPaint.setColor(sel ? theme.onAccent : theme.previewText);
+                textPaint.setColor(sel ? selInk : theme.previewText);
                 textPaint.setTextSize(a.length() > 2 ? 15 * dp : 22 * dp);
                 c.drawText(shown, cx, cy + 8 * dp, textPaint);
             }
@@ -1810,8 +1815,22 @@ public final class AurebeshKeyboardView extends View {
             }
         }
         popupAlts = alts;
-        popupIndex = 0;
         int n = alts.length;
+        // Alternativa principal: la que queda bajo el dedo al abrir y se escribe al soltar sin mover. En una letra es
+        // el primer acento (la u da u con tilde; antes, cerca del borde derecho el menu se desplazaba y bajo el dedo
+        // quedaba la u con acento grave), salvo que la pista de la esquina sea el caracter alternativo (q +, a @: la
+        // opcion "caracteres alternativos" existe para escribirlo al mantener); la cifra de la fila oculta queda a un
+        // lado, como alternativa. En un signo, la primera.
+        boolean letter = singleLetter(k) && current == letters;
+        int primary = 0;
+        if (letter) {
+            int head = 0;
+            while (head < n && !Character.isLetter(alts[head].codePointAt(0))) head++;
+            boolean symbolHead = head > 0 && !Character.isDigit(alts[0].codePointAt(0));
+            if (!symbolHead) {
+                for (int i = head; i < n; i++) if (!alts[i].equals(k.output)) { primary = i; break; }
+            }
+        }
         float avail = getWidth() - 4 * dp;
         popupCell = Math.max(k.rect.width(), 46 * dp);
         popupCols = n;
@@ -1824,11 +1843,70 @@ public final class AurebeshKeyboardView extends View {
         popupCellH = 64 * dp;
         float h = popupCellH * popupRows;
         float total = popupCell * popupCols;
-        float left = k.rect.centerX() - popupCell / 2f;              // la primera opcion, sobre la tecla
+        float cx = k.rect.centerX();
+        // Orden de las celdas y posicion: la principal, sobre el dedo, en la columna que deje el menu en pantalla (la
+        // suya si cabe; si no, la mas cercana). Lo que va delante de la principal (signo o cifra) se queda a su
+        // izquierda; las demas alternativas se reparten: las primeras a su derecha y, si no caben, las ultimas a su
+        // izquierda en orden inverso, como hace Samsung cerca de los bordes. Cada celda es la que esta bajo el dedo.
+        int[] order = new int[n];
+        int cell;
+        if (popupRows == 1) {
+            int cMax = clampCol(n, (int) Math.floor((cx - 2 * dp) / popupCell - 0.5f));
+            int cMin = clampCol(n, (int) Math.ceil((cx - (getWidth() - total - 2 * dp)) / popupCell - 0.5f));
+            int c = Math.max(cMin, Math.min(cMax, primary));
+            int i = 0;
+            if (c >= primary) {
+                int right = n - 1 - c;                                     // celdas a la derecha de la principal
+                for (int j = 0; j < primary; j++) order[i++] = j;          // cabeza
+                for (int j = n - 1; j >= primary + 1 + right; j--) order[i++] = j;   // las ultimas, invertidas, a la izquierda
+                order[i++] = primary;
+                for (int j = primary + 1; j <= primary + right; j++) order[i++] = j; // las primeras, a la derecha
+            } else {
+                int drop = primary - c;                                    // cabeza que no cabe a la izquierda: al final
+                for (int j = drop; j < primary; j++) order[i++] = j;
+                order[i++] = primary;
+                for (int j = primary + 1; j < n; j++) order[i++] = j;
+                for (int j = 0; j < drop; j++) order[i++] = j;
+            }
+            cell = c;
+        } else {
+            for (int i = 0; i < n; i++) order[i] = i;
+            cell = primary;
+            if (cx - (cell % popupCols + 0.5f) * popupCell + total > getWidth() - 2 * dp) {
+                order = mirroredOrder(n, popupCols, primary);              // columnas en espejo: la principal abajo a la derecha
+                cell = indexOf(order, primary);
+            }
+        }
+        popupOrder = order;
+        popupIndex = cell;
+        float left = cx - (cell % popupCols + 0.5f) * popupCell;
         left = Math.max(2 * dp, Math.min(getWidth() - total - 2 * dp, left));
         float top = Math.max(0, k.rect.top + insetY() - 5 * dp - h);     // a 5 dp sobre la cara, sea cual sea el aire de la celda
         popupRect.set(left, top, left + total, top + h);
         invalidate();
+    }
+
+    private static int clampCol(int n, int c) {
+        return Math.max(0, Math.min(n - 1, c));
+    }
+
+    /**
+     * Orden en espejo de un menu de dos filas: se invierten las columnas de cada fila, asi la primera alternativa (la
+     * principal de un signo) queda abajo a la derecha, sobre el dedo, cuando el menu no cabe hacia la derecha.
+     */
+    private static int[] mirroredOrder(int n, int cols, int primary) {
+        int[] order = new int[n];
+        for (int i = 0; i < n; i++) {
+            int r = i / cols, c = i % cols;
+            int rowLen = Math.min(cols, n - r * cols);
+            order[i] = r * cols + (rowLen - 1 - c);
+        }
+        return order;
+    }
+
+    private static int indexOf(int[] a, int v) {
+        for (int i = 0; i < a.length; i++) if (a[i] == v) return i;
+        return 0;
     }
 
     /** Celda del menu bajo el punto (x, y): la columna por x y, con dos filas, la fila por y (fuera del menu, la mas cercana). */
@@ -1852,7 +1930,7 @@ public final class AurebeshKeyboardView extends View {
 
     private void commitPopup() {
         if (popupKey == null) return;
-        String out = popupAlts[popupIndex];
+        String out = popupAlts[popupOrder[popupIndex]];
         if (shiftActive() && current == letters) out = out.toUpperCase();
         if (listener != null) listener.onText(out);
         if (current == letters && singleLetter(popupKey)) countHint(popupKey.output);   // aprendiendo: la tecla se uso
@@ -1864,6 +1942,7 @@ public final class AurebeshKeyboardView extends View {
     private void closePopup() {
         popupKey = null;
         popupAlts = null;
+        popupOrder = null;
     }
 
     /** Celda i del menu abierto (para pruebas). */
@@ -1876,7 +1955,15 @@ public final class AurebeshKeyboardView extends View {
     }
 
     /** Opciones del menu abierto, en el orden de las celdas (para pruebas); null si no hay menu. */
-    String[] popupOptions() { return popupAlts == null ? null : popupAlts.clone(); }
+    String[] popupOptions() {
+        if (popupAlts == null) return null;
+        String[] out = new String[popupAlts.length];
+        for (int i = 0; i < out.length; i++) out[i] = popupAlts[popupOrder[i]];
+        return out;
+    }
+
+    /** Celda resaltada del menu abierto (para pruebas): al abrir, la de la alternativa principal, bajo el dedo. */
+    int popupSelectedCell() { return popupIndex; }
 
     private void drawPreview(Canvas c, Key k) {
         float w = Math.max(k.rect.width() * 1.3f, 56 * dp);

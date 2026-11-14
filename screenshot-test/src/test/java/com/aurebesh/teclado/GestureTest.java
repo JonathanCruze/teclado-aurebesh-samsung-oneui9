@@ -236,6 +236,63 @@ public class GestureTest {
         check(rec.typed.toString(), "e", "toque normal");
     }
 
+    /**
+     * Sin caracteres alternativos y con la fila de cifras oculta (digrafos arriba), mantener una letra deja bajo el
+     * dedo su primer acento, tambien cerca del borde derecho (u, o) donde el menu va en espejo, y soltar sin mover lo
+     * escribe: la u da u con tilde, no la u con acento grave. La cifra sigue en el menu, a un lado. En ingles igual.
+     */
+    @Test
+    public void primaryAccentUnderFingerNearEdges() throws Exception {
+        Application app = (Application) RuntimeEnvironment.getApplication();
+        AurebeshKeyboardView kb = view(app, W);
+        Recorder rec = new Recorder();
+        kb.setListener(rec);
+        kb.setAltChars(false);
+        kb.setTopRow("digraphs");
+        layout(kb, W);
+        final float d = kb.getResources().getDisplayMetrics().density;
+        String[][] cases = {{"u", "\u00fa"}, {"o", "\u00f3"}, {"a", "\u00e1"}, {"e", "\u00e9"}, {"i", "\u00ed"}};
+        for (String[] cs : cases) {
+            AurebeshKeyboardView.Key k = kb.keyFor(cs[0]);
+            check(k != null, "tecla " + cs[0]);
+            down(kb, k.rect.centerX(), k.rect.centerY());
+            idle(450);
+            String[] opts = kb.popupOptions();
+            check(opts != null, "menu de la " + cs[0]);
+            int sel = kb.popupSelectedCell();
+            check(opts[sel], cs[1], "celda resaltada de la " + cs[0] + ": " + Arrays.toString(opts));
+            RectF cell = kb.popupCellRect(sel);
+            check(cell.left <= k.rect.centerX() && k.rect.centerX() <= cell.right, "la celda resaltada queda sobre el dedo en la " + cs[0]);
+            check(cell.right <= W + 1f && cell.left >= -1f, "el menu cabe en pantalla en la " + cs[0]);
+            move(kb, k.rect.centerX() + 2 * d, k.rect.centerY() - 1 * d);   // el dedo tiembla un poco
+            up(kb, k.rect.centerX() + 2 * d, k.rect.centerY() - 1 * d);
+            check(rec.typed.toString(), cs[1], "soltar sin mover escribe el acento principal de la " + cs[0]);
+            rec.reset();
+        }
+        // La cifra de la u (7) sigue en el menu, a un lado de la tilde
+        AurebeshKeyboardView.Key u = kb.keyFor("u");
+        down(kb, u.rect.centerX(), u.rect.centerY());
+        idle(450);
+        java.util.List<String> ol = Arrays.asList(kb.popupOptions());
+        check(ol.contains("7") && ol.contains("\u00fc") && ol.contains("u"), "la u ofrece 7, dieresis y la propia u: " + ol);
+        save(render(kb, W), "gestos_menu_u.png");
+        int c7 = ol.indexOf("7");
+        RectF cell7 = kb.popupCellRect(c7);
+        move(kb, cell7.centerX(), cell7.centerY());
+        up(kb, cell7.centerX(), cell7.centerY());
+        check(rec.typed.toString(), "7", "deslizar hasta la cifra la escribe");
+        rec.reset();
+        // Ingles: la u da u con tilde igual
+        kb.setLanguage("en");
+        layout(kb, W);
+        u = kb.keyFor("u");
+        down(kb, u.rect.centerX(), u.rect.centerY());
+        idle(450);
+        check(kb.popupOptions()[kb.popupSelectedCell()], "\u00fa", "ingles: u con tilde bajo el dedo");
+        up(kb, u.rect.centerX(), u.rect.centerY());
+        check(rec.typed.toString(), "\u00fa", "ingles: soltar escribe u con tilde");
+    }
+
     @Test
     public void punctuationOnHold() throws Exception {
         Application app = (Application) RuntimeEnvironment.getApplication();
@@ -249,9 +306,12 @@ public class GestureTest {
         idle(450);
         String[] opts = kb.popupOptions();
         check(opts != null && opts.length == 10, "diez alternativas del punto");
-        check(opts[0], "?", "primera alternativa del punto");
-        check(opts[1], "¿", "segunda alternativa del punto");
-        check(opts[9], "@", "ultima alternativa del punto");
+        java.util.List<String> ol = Arrays.asList(opts);
+        check(ol.containsAll(Arrays.asList("?", "¿", "!", "¡", ":", ";", "-", "\"", "'", "@")), "las diez del punto: " + ol);
+        int q = ol.indexOf("?");
+        check(q == kb.popupSelectedCell(), "la ? es la celda resaltada al abrir");
+        check(kb.popupCellRect(q).contains(dot.rect.centerX(), kb.popupCellRect(q).centerY()), "la ? queda sobre el dedo");
+        check(Math.abs(ol.indexOf("¿") - q) == 1, "la ¿ al lado de la ?");
         RectF c0 = kb.popupCellRect(0), c5 = kb.popupCellRect(5);
         check(c5.bottom <= c0.top + 1f, "segunda fila del menu por encima de la primera");
         near("misma columna en las dos filas", c5.left, c0.left);
@@ -293,7 +353,9 @@ public class GestureTest {
         dot = kb.keyFor(".");
         down(kb, dot.rect.centerX(), dot.rect.centerY());
         idle(450);
-        check(Arrays.asList(kb.popupOptions()).toString(), "[?, !, ,, :, ;, -, \", ', @]", "punto en ingles");
+        java.util.List<String> en = Arrays.asList(kb.popupOptions());
+        check(en.size() == 9 && en.containsAll(Arrays.asList("?", "!", ",", ":", ";", "-", "\"", "'", "@")), "punto en ingles: " + en);
+        check(en.get(kb.popupSelectedCell()), "?", "punto en ingles: la ? bajo el dedo");
         up(kb, dot.rect.centerX(), dot.rect.centerY());
         comma = kb.keyFor(",");
         down(kb, comma.rect.centerX(), comma.rect.centerY());
@@ -305,7 +367,9 @@ public class GestureTest {
         dot = kb.keyFor(".");
         down(kb, dot.rect.centerX(), dot.rect.centerY());
         idle(450);
-        check(Arrays.asList(kb.popupOptions()).toString(), "[?, !, :, ;, -, \", ', @]", "punto en aleman");
+        java.util.List<String> de = Arrays.asList(kb.popupOptions());
+        check(de.size() == 8 && de.containsAll(Arrays.asList("?", "!", ":", ";", "-", "\"", "'", "@")), "punto en aleman: " + de);
+        check(de.get(kb.popupSelectedCell()), "?", "punto en aleman: la ? bajo el dedo");
         up(kb, dot.rect.centerX(), dot.rect.centerY());
         check(rec.typed.toString(), "?!?", "lo escrito al mantener en ingles y aleman");
         // Tocar el punto y la coma sigue escribiendo el signo
@@ -614,7 +678,9 @@ public class GestureTest {
         rec.reset();
         down(kb, com.rect.centerX(), com.rect.centerY());
         idle(450);
-        check(Arrays.asList(kb.popupOptions()).toString(), "[.es, .mx, .org, .net]", "dominios al mantener .com");
+        java.util.List<String> dom = Arrays.asList(kb.popupOptions());
+        check(dom.size() == 4 && dom.containsAll(Arrays.asList(".es", ".mx", ".org", ".net")), "dominios al mantener .com: " + dom);
+        check(dom.get(kb.popupSelectedCell()), ".es", ".es bajo el dedo (cerca del borde el menu va en espejo)");
         up(kb, com.rect.centerX(), com.rect.centerY());
         check(rec.typed.toString(), ".es", "primer dominio");
         rec.reset();
