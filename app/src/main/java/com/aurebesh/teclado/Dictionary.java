@@ -30,6 +30,28 @@ import java.util.Set;
  * normales del idioma ("orden", "fuerza", "ghost") siguen las reglas de su diccionario, y las que en minusculas
  * serian un error evidente de una palabra frecuente ("rael" -> "real", "hoth" -> "both") solo cuentan escritas con
  * su mayuscula, igual que las de menos de cuatro letras.
+ * <p>
+ * <b>Lista ampliada del espanol.</b> words_es.txt lleva, detras de las {@link #CORE} formas mas frecuentes de siempre
+ * (el nucleo), unas noventa mil mas: conjugaciones, plurales, femeninos, diminutivos, verbos con pronombre y
+ * mexicanismos validados con el diccionario RLA-ES (tools/build_dict_es.py). La politica para que una forma rara pero
+ * valida no estropee la correccion de las erratas corrientes se reparte entre la lista y este codigo:
+ * <ul>
+ * <li>Las formas raras son <i>conocidas y completables</i>: escritas tal cual se respetan y se ofrecen al completar,
+ * pero no se corrige hacia ellas a dos ediciones ({@link #scan} solo recorre el nucleo) ni, por su puntuacion
+ * (ln del rango), sin preguntar a una edicion: quedan como sugerencia. El deslizado tampoco las usa
+ * ({@link #coreSize}). Asi ni el coste ni el acierto dependen del tamano de la lista.</li>
+ * <li>La tilde manda: si lo escrito no es una palabra pero lo seria con sus tildes ("platicabamos", "llegare",
+ * "comio"), se le ponen, sea cual sea el rango de la forma acentuada y aunque haya una palabra mas frecuente a una
+ * tecla de distancia ("comio" es "comió", no "como"). Entre dos formas validas, con y sin tilde, sigue decidiendo la
+ * frecuencia ({@link #resolve}: "mas" -> "más", pero "esta" se respeta), y la que se escribe con su tilde no se toca
+ * ("publicó" no pasa a "público").</li>
+ * <li>Lo que casi siempre es una errata no entra en la lista aunque sea una forma valida, y por eso se sigue
+ * corrigiendo: la forma sin tilde de otra mucho mas frecuente ("tenia", "ingles", "medico"), el futuro de subjuntivo
+ * en -ar, que es el futuro escrito sin tilde ("hablare"), y la que esta a una falta de ortografia o a un desliz de
+ * una palabra muchisimo mas usada ("ablando", "carera", "ensenar"). Los umbrales estan en tools/build_dict_es.py.</li>
+ * <li>Las formas nuevas de las familias de {@link #NO_SUGGEST} ("chingaste", "pendejito") se respetan si se
+ * escriben, pero no se proponen ({@link #vetoed}).</li>
+ * </ul>
  */
 final class Dictionary {
 
@@ -42,8 +64,15 @@ final class Dictionary {
 
     private static final Map<String, Dictionary> CACHE = new java.util.concurrent.ConcurrentHashMap<>();   // lectura sin bloqueo
     private static final int MAX_SUGGESTIONS = 3;
-    private static final int MAX_PREFIX_SCAN = 4000;
     private static final int MAX_LEN = 24;
+    /**
+     * Nucleo de la lista: las palabras con rango menor que este (las 40 000 mas frecuentes, que es todo lo que traen
+     * el ingles y el aleman). La busqueda a dos ediciones y el deslizado solo trabajan con ellas; el resto de la lista
+     * espanola son formas conocidas y completables. Vease la politica en el comentario de la clase.
+     */
+    static final int CORE = 40000;
+    /** Bloques de la lista alfabetica con su mejor rango precalculado, para completar sin recorrer todo el prefijo. */
+    private static final int BLOCK_BITS = 6, BLOCK = 1 << BLOCK_BITS;
     private static final double ED2_CUTOFF = 2.6;      // coste maximo de la busqueda a dos ediciones
     /**
      * Puntuacion base de una palabra aprendida del usuario: como una de frecuencia media (rango ~1500), asi
@@ -51,6 +80,11 @@ final class Dictionary {
      */
     static final double PERSONAL_SCORE = Math.log(1500);
     private static final double MAX_EDIT = 2.5;        // coste maximo de una sola edicion (letra cambiada por otra cualquiera)
+    /**
+     * Ventaja (en ln del rango: unas veinte veces mas frecuente) que necesita una palabra a una falta de ortografia
+     * de lo escrito para ganarle a la lectura con tildes. Vease {@link #spellingRival}.
+     */
+    private static final double SPELLING_MARGIN = 3.0;
     /**
      * Longitud desde la que una entrada del lexico Star Wars cuenta siempre. Las mas cortas (Rex, Plo, Gon, AT) solo
      * se reconocen escritas con su caja canonica y nunca sirven de correccion: "gon" o "plo" en minusculas siguen
@@ -91,6 +125,16 @@ final class Dictionary {
             "pinche", "maricon", "maricón", "polla", "gilipollas", "zorra", "perra",
             "fuck", "fucking", "fucked", "fucker", "shit", "shitty", "bitch", "asshole", "cunt", "dick",
             "cock", "pussy", "bastard", "whore", "slut", "nigger", "faggot"));
+
+    /**
+     * Comienzos (sin tildes) de las formas espanolas de las familias de {@link #NO_SUGGEST}: sus flexiones y derivados
+     * que la lista ampliada trae fuera del nucleo ("chingaste", "jodiendo", "pendejito", "cabronazo") tampoco se
+     * proponen. Las del nucleo siguen como estaban: solo las que figuran una a una en NO_SUGGEST.
+     */
+    private static final String[] VETO_STEMS = {
+            "ching", "pendej", "jod", "mierd", "cabron", "mamon", "maricon", "gilipoll", "culer", "culit", "culon",
+            "culot", "culaz", "culos", "puta", "puto", "puti", "pute", "puton", "verga", "vergui", "coño", "coñi", "coñaz",
+            "pinches"};
 
     /** Contracciones inglesas: la lista de frecuencia no lleva apostrofos y la primera pagina del teclado tampoco. */
     private static final Map<String, String> CONTRACTIONS = new HashMap<>();
@@ -155,13 +199,17 @@ final class Dictionary {
 
     final String lang;
     private final String alphabet;
-    private final Map<Character, String> neighbors;                      // teclas vecinas en la distribucion del idioma
+    private final boolean[] closeTable = new boolean[1 << 16];           // [x << 8 | y]: y es tecla vecina de x en la distribucion del idioma, o suena parecido
     private final boolean foldUmlaut;                                    // ü -> u al comparar (no en aleman: es letra propia)
-    private final HashMap<String, Integer> rank = new HashMap<>();
-    private final HashMap<String, String> accented = new HashMap<>();   // sin tildes -> forma con tildes mas frecuente
-    private final String[] sorted;                                       // orden alfabetico, para completar
-    private final String[] byRank;                                       // por frecuencia (indice = rango), para el deslizado
-    private final String[][] byLength = new String[MAX_LEN + 3][];        // palabras por longitud, en orden de frecuencia
+    private final boolean spanish;                                       // la unica lista con formas fuera del nucleo
+    private final String[] byRank;                                       // por frecuencia (indice = rango)
+    // Tablas hash abiertas de enteros (rango + 1; 0 = hueco): con mas de cien mil palabras ocupan una fraccion de lo que
+    // un HashMap con sus nodos y sus Integer, y se consultan igual de rapido
+    private final int[] slots;                                           // palabra -> rango
+    private final int[] accentSlots;                                     // forma sin tildes -> su forma con tildes mas frecuente
+    private final int[] alpha;                                           // rangos en orden alfabetico, para completar
+    private final int[] alphaMin;                                        // mejor rango de cada bloque de BLOCK entradas de alpha
+    private final String[][] byLength = new String[MAX_LEN + 3][];        // palabras del nucleo por longitud, en orden de frecuencia
     private volatile Set<String> personal = Collections.emptySet();      // palabras aprendidas del usuario
     private volatile Map<String, String> personalPlain = Collections.emptyMap();   // forma sin tildes -> palabra aprendida
     // ---- lexico Star Wars: el mismo archivo para los tres idiomas, cargado una vez con cada instancia
@@ -200,30 +248,65 @@ final class Dictionary {
         boolean de = "de".equals(lang);
         alphabet = "en".equals(lang) ? "abcdefghijklmnopqrstuvwxyz"
                 : de ? "abcdefghijklmnopqrstuvwxyzäöüß" : "abcdefghijklmnopqrstuvwxyzñ";
-        neighbors = neighbors(lang);
+        Map<Character, String> neighbors = neighbors(lang);
+        for (int i = 0; i < alphabet.length(); i++) {
+            char x = alphabet.charAt(i);
+            String nb = neighbors.get(x);
+            for (int j = 0; j < alphabet.length(); j++) {
+                char y = alphabet.charAt(j);
+                closeTable[x << 8 | y] = (nb != null && nb.indexOf(y) >= 0)
+                        || PHONETIC.contains("" + x + y) || PHONETIC.contains("" + y + x);
+            }
+        }
         foldUmlaut = !de;
+        spanish = !de && !"en".equals(lang);
         int res = "en".equals(lang) ? R.raw.words_en : de ? R.raw.words_de : R.raw.words_es;
-        List<String> all = new ArrayList<>(40000);
-        BufferedReader r = new BufferedReader(new InputStreamReader(c.getResources().openRawResource(res), "UTF-8"));
+        List<String> all = new ArrayList<>(spanish ? 140000 : 40000);
+        BufferedReader r = new BufferedReader(new InputStreamReader(c.getResources().openRawResource(res), "UTF-8"), 1 << 15);
         try {
             String line;
             while ((line = r.readLine()) != null) {
                 String w = line.trim();
-                if (w.isEmpty() || rank.containsKey(w)) continue;
-                rank.put(w, all.size());
-                all.add(w);
-                String plain = fold(w);
-                if (!plain.equals(w) && !accented.containsKey(plain)) accented.put(plain, w);
+                if (!w.isEmpty()) all.add(w);
             }
         } finally {
             r.close();
         }
-        byRank = all.toArray(new String[0]);
-        sorted = byRank.clone();
-        Arrays.sort(sorted);
+        String[] words = new String[all.size()];
+        int[] table = new int[tableSize(all.size())];
+        int count = 0, accents = 0;
+        for (int i = 0; i < words.length; i++) {
+            String w = all.get(i);
+            if (!insert(table, words, w, count)) continue;         // repetida
+            words[count++] = w;
+            if (hasMark(w)) accents++;
+        }
+        byRank = count == words.length ? words : Arrays.copyOf(words, count);
+        slots = table;
+        accentSlots = new int[tableSize(accents)];
+        int amask = accentSlots.length - 1;
+        for (int i = 0; i < count; i++) {                           // por orden de frecuencia: se queda la primera de cada forma
+            String w = byRank[i];
+            if (!hasMark(w)) continue;
+            int k = mix(foldHash(w)) & amask;
+            while (accentSlots[k] != 0 && !sameFolded(byRank[accentSlots[k] - 1], w)) k = (k + 1) & amask;
+            if (accentSlots[k] == 0) accentSlots[k] = i + 1;
+        }
+        String[] sorted = alphabetical(byRank);
+        alpha = new int[count];
+        alphaMin = new int[(count + BLOCK - 1) >> BLOCK_BITS];
+        Arrays.fill(alphaMin, Integer.MAX_VALUE);
+        for (int i = 0; i < count; i++) {
+            int rk = rankOf(sorted[i]);
+            alpha[i] = rk;
+            if (rk < alphaMin[i >> BLOCK_BITS]) alphaMin[i >> BLOCK_BITS] = rk;
+        }
         List<List<String>> buckets = new ArrayList<>();
         for (int i = 0; i < byLength.length; i++) buckets.add(new ArrayList<String>());
-        for (String w : all) if (w.length() < byLength.length) buckets.get(w.length()).add(w);
+        for (int i = 0; i < count && i < CORE; i++) {
+            String w = byRank[i];
+            if (w.length() < byLength.length) buckets.get(w.length()).add(w);
+        }
         for (int i = 0; i < byLength.length; i++) byLength[i] = buckets.get(i).toArray(new String[0]);
 
         List<String> saga = new ArrayList<>(800);
@@ -250,18 +333,137 @@ final class Dictionary {
         // edicion de suggest(), con el lexico aun apagado (solo cuentan las palabras del idioma y no hay aprendidas)
         HashMap<String, Double> cand = new HashMap<>();
         for (String w : swWords) {
-            if (w.length() < SW_MIN || rank.containsKey(w) || w.equals(swCanon.get(w))) continue;
+            if (w.length() < SW_MIN || rankOf(w) >= 0 || w.equals(swCanon.get(w))) continue;
             cand.clear();
             edits(w, cand);
             double best = Double.MAX_VALUE;
             for (Map.Entry<String, Double> e : cand.entrySet()) {
-                if (!e.getKey().equals(w) && !NO_SUGGEST.contains(e.getKey()) && e.getValue() < best) best = e.getValue();
+                if (!e.getKey().equals(w) && !vetoed(e.getKey()) && e.getValue() < best) best = e.getValue();
             }
             if (best <= SW_CASE_LIMIT) swCaseOnly.add(w);
         }
         ArrayList<String> glide = new ArrayList<>();
         for (String w : swWords) if (w.length() >= SW_MIN && !ordinary(w) && !swCaseOnly.contains(w)) glide.add(w);
         swGlide = glide.toArray(new String[0]);
+    }
+
+    // ---- tablas de la lista: palabra -> rango y forma sin tildes -> forma con tildes
+
+    /** Tamano de una tabla hash abierta para n entradas: potencia de dos, ocupada entre un tercio y dos tercios. */
+    private static int tableSize(int n) {
+        return Math.max(16, Integer.highestOneBit(Math.max(1, n) * 3 / 2) << 1);
+    }
+
+    private static int mix(int h) {
+        h ^= h >>> 16;
+        h *= 0x85ebca6b;
+        return h ^ (h >>> 13);
+    }
+
+    /**
+     * Las palabras en el orden de {@link String#compareTo}. Ordenar cien mil cadenas es lo mas lento de la carga, asi
+     * que primero se ordenan numeros (las cinco primeras letras de cada palabra empaquetadas con su posicion) y solo
+     * los tramos que comparten esas cinco letras se terminan de ordenar comparando cadenas.
+     */
+    private static String[] alphabetical(String[] words) {
+        int n = words.length;
+        String[] sorted = new String[n];
+        boolean packed = n < (1 << 23);
+        long[] keys = new long[packed ? n : 0];
+        for (int i = 0; i < n && packed; i++) {
+            String w = words[i];
+            long k = 0;
+            for (int j = 0; j < 5; j++) {
+                int ch = j < w.length() ? w.charAt(j) : 0;
+                if (ch > 0xFF) packed = false;              // fuera de Latin-1 la clave no conserva el orden: orden corriente
+                k = (k << 8) | ch;
+            }
+            keys[i] = (k << 23) | i;
+        }
+        if (!packed) {
+            System.arraycopy(words, 0, sorted, 0, n);
+            Arrays.sort(sorted);
+            return sorted;
+        }
+        Arrays.sort(keys);
+        for (int i = 0; i < n; i++) sorted[i] = words[(int) (keys[i] & 0x7FFFFF)];
+        for (int i = 0; i < n; ) {
+            int j = i + 1;
+            long prefix = keys[i] >>> 23;
+            while (j < n && (keys[j] >>> 23) == prefix) j++;
+            if (j - i > 1) Arrays.sort(sorted, i, j);
+            i = j;
+        }
+        return sorted;
+    }
+
+    /** Anota la palabra con su rango en la tabla; false si ya estaba. */
+    private static boolean insert(int[] table, String[] words, String w, int rank) {
+        int mask = table.length - 1;
+        int k = mix(w.hashCode()) & mask;
+        while (table[k] != 0) {
+            if (words[table[k] - 1].equals(w)) return false;
+            k = (k + 1) & mask;
+        }
+        table[k] = rank + 1;
+        return true;
+    }
+
+    /** La palabra lleva alguna tilde (o dieresis, donde se pliega): su forma de comparacion es otra. */
+    private boolean hasMark(String w) {
+        for (int i = 0; i < w.length(); i++) {
+            char ch = w.charAt(i);
+            if (ch > 'z' && plain(ch, foldUmlaut) != ch) return true;
+        }
+        return false;
+    }
+
+    /** Hash de la forma de comparacion ({@link #fold}) sin construirla. */
+    private int foldHash(String s) {
+        int h = 0;
+        for (int i = 0; i < s.length(); i++) h = 31 * h + plain(s.charAt(i), foldUmlaut);
+        return h;
+    }
+
+    /** Las dos palabras son la misma sin contar las tildes. */
+    private boolean sameFolded(String a, String b) {
+        int n = a.length();
+        if (b.length() != n) return false;
+        for (int i = 0; i < n; i++) {
+            if (plain(a.charAt(i), foldUmlaut) != plain(b.charAt(i), foldUmlaut)) return false;
+        }
+        return true;
+    }
+
+    /**
+     * Forma con tildes mas frecuente de lo escrito (se compara sin tildes: vale pasar la forma plegada o cualquier
+     * otra), o null si ninguna palabra de la lista con tilde coincide.
+     */
+    private String accented(String v) {
+        int mask = accentSlots.length - 1;
+        for (int k = mix(foldHash(v)) & mask; ; k = (k + 1) & mask) {
+            int e = accentSlots[k];
+            if (e == 0) return null;
+            String w = byRank[e - 1];
+            if (sameFolded(w, v)) return w;
+        }
+    }
+
+    /**
+     * Palabras del nucleo ({@link #CORE}): las que indexa el deslizado. En ingles y aleman, toda la lista.
+     */
+    int coreSize() { return Math.min(byRank.length, CORE); }
+
+    /**
+     * No se propone nunca (ni como correccion, ni al completar): las de {@link #NO_SUGGEST} y, en espanol, las formas
+     * de fuera del nucleo que empiezan como ellas ({@link #VETO_STEMS}). Si se escriben, se respetan.
+     */
+    private boolean vetoed(String w) {
+        if (NO_SUGGEST.contains(w)) return true;
+        if (!spanish || rankOf(w) < CORE) return false;
+        String f = fold(w);
+        for (String stem : VETO_STEMS) if (f.startsWith(stem)) return true;
+        return false;
     }
 
     /**
@@ -328,8 +530,8 @@ final class Dictionary {
      * del lexico, aunque figure en el.
      */
     private boolean ordinary(String w) {
-        if (rank.containsKey(w) && !SW_NAMES.contains(w)) return true;
-        String acc = accented.get(fold(w));
+        if (rankOf(w) >= 0 && !SW_NAMES.contains(w)) return true;
+        String acc = accented(w);
         return acc != null && !acc.equals(w);
     }
 
@@ -414,7 +616,7 @@ final class Dictionary {
 
     /** Palabra del idioma, aprendida o del lexico Star Wars activo (estas, aunque exijan su caja: no se aprenden). */
     boolean contains(String w) {
-        return rank.containsKey(w) || personal.contains(w) || lexicon(w);
+        return rankOf(w) >= 0 || personal.contains(w) || lexicon(w);
     }
 
     /** Entrada del lexico Star Wars (en minusculas), este o no activo: esas no se aprenden como palabras del usuario. */
@@ -431,8 +633,8 @@ final class Dictionary {
     boolean nearFrequent(String w, int maxRank) {
         if (w == null || w.isEmpty()) return false;
         String a = fold(w);
-        if (!a.equals(w) && (rank.containsKey(a) || accented.containsKey(a))) return true;   // con tildes de mas o de otra forma
-        String acc = accented.get(a);
+        if (!a.equals(w) && (rankOf(a) >= 0 || accented(a) != null)) return true;   // con tildes de mas o de otra forma
+        String acc = accented(a);
         if (acc != null && !acc.equals(w)) return true;                                       // la misma sin tilde
         int n = a.length();
         for (int i = 0; i < n; i++) {
@@ -459,15 +661,13 @@ final class Dictionary {
 
     /** La forma (sin tildes) es, o tiene como forma con tildes, una palabra del idioma con rango menor que maxRank. */
     private boolean frequent(String plainForm, int maxRank) {
-        Integer r = rank.get(plainForm);
-        if (r != null && r < maxRank) return true;
-        String acc = accented.get(plainForm);
-        if (acc == null) return false;
-        Integer ar = rank.get(acc);
-        return ar != null && ar < maxRank;
+        int r = rankOf(plainForm);
+        if (r >= 0 && r < maxRank) return true;
+        String acc = accented(plainForm);
+        return acc != null && rankOf(acc) < maxRank;
     }
 
-    int size() { return sorted.length; }
+    int size() { return byRank.length; }
 
     // ---- acceso por rango (lo usa SwipeDecoder para construir su indice; no cambia nada de lo anterior)
 
@@ -476,8 +676,12 @@ final class Dictionary {
 
     /** Rango de frecuencia de una palabra (tal cual aparece en la lista, con tildes), o -1 si no esta. */
     int rankOf(String w) {
-        Integer r = rank.get(w);
-        return r == null ? -1 : r;
+        int mask = slots.length - 1;
+        for (int k = mix(w.hashCode()) & mask; ; k = (k + 1) & mask) {
+            int e = slots[k];
+            if (e == 0) return -1;
+            if (byRank[e - 1].equals(w)) return e - 1;
+        }
     }
 
     /** Palabras aprendidas del usuario (instantanea de solo lectura). */
@@ -492,15 +696,16 @@ final class Dictionary {
     /**
      * Entrada del diccionario para una forma escrita: la misma palabra o, si su forma con tildes
      * es mucho mas frecuente (seis veces o mas), esa forma. Null si no hay nada parecido.
+     * Una palabra de la lista escrita con sus tildes se respeta siempre: "publicó", "vació" o "criticó" no se cambian
+     * por "público", "vacío" o "crítico" por mucho mas frecuentes que sean; quien puso la tilde sabia donde la ponia.
      */
     private String resolve(String v) {
-        Integer own = rank.get(v);
-        String acc = accented.get(fold(v));
+        int own = rankOf(v);
+        String acc = accented(v);
         if (acc != null && !acc.equals(v)) {
-            int ar = rank.get(acc);
-            if (own == null || own >= 6 * (ar + 1)) return acc;
+            if (own < 0 || (own >= 6 * (rankOf(acc) + 1) && !hasMark(v))) return acc;
         }
-        return own == null ? null : v;
+        return own < 0 ? null : v;
     }
 
     /** Puntuacion maxima (ln del rango mas la penalizacion) para corregir sin preguntar, por longitud. */
@@ -514,8 +719,8 @@ final class Dictionary {
      * larga) aunque figure en la cola del diccionario del idioma ("anakin", "skywalker"): asi no la tapan palabras raras.
      */
     private double score(String word, double penalty) {
-        Integer r = rank.get(word);
-        double base = r == null ? PERSONAL_SCORE : Math.log(r + 1);
+        int r = rankOf(word);
+        double base = r < 0 ? PERSONAL_SCORE : Math.log(r + 1);
         if (saga(word)) {
             double s = word.length() > 5 ? SW_LONG_SCORE : PERSONAL_SCORE;
             if (s < base) base = s;
@@ -538,7 +743,7 @@ final class Dictionary {
                 return res;
             }
             if (w.indexOf('\'') >= 0) {              // "don't" se respeta tal cual
-                res.known = rank.containsKey(w.replace("'", ""));
+                res.known = rankOf(w.replace("'", "")) >= 0;
                 return res;
             }
         }
@@ -549,17 +754,22 @@ final class Dictionary {
             learned = plainLearned != null && plainLearned.equals(fold(w));
         }
         boolean inLexicon = swKnown(typed, w);             // del lexico Star Wars, si esta activo
-        res.known = rank.containsKey(w) || learned || inLexicon;
+        res.known = rankOf(w) >= 0 || learned || inLexicon;
 
         HashMap<String, Double> cand = new HashMap<>();
         String acc = learned || inLexicon ? null : resolve(w);
         boolean accentFix = acc != null && !acc.equals(w);
         if (accentFix) put(cand, acc, score(acc, 0));
+        String marked = null;                            // lo escrito con sus tildes, si asi es una palabra y tal cual no
         if (!res.known) {
             String pacc = personalWord(w);               // aprendida con tildes de lo escrito sin ellas
             if (pacc != null && !pacc.equals(w)) put(cand, pacc, score(pacc, 0));
             String sacc = swWord(w);                     // entrada del lexico con tildes ("padme" -> "padmé")
             if (sacc != null && !sacc.equals(w)) put(cand, sacc, score(sacc, 0));
+            for (Map.Entry<String, Double> e : cand.entrySet()) {
+                if (vetoed(e.getKey())) continue;
+                if (marked == null || e.getValue() < cand.get(marked)) marked = e.getKey();
+            }
             edits(w, cand);
             if (n >= 5) scan(w, cand);                   // tambien a dos ediciones
         }
@@ -567,14 +777,20 @@ final class Dictionary {
         String best = null;
         double bestScore = Double.MAX_VALUE;
         for (Map.Entry<String, Double> e : cand.entrySet()) {
-            if (e.getKey().equals(w) || NO_SUGGEST.contains(e.getKey())) continue;
+            if (e.getKey().equals(w) || vetoed(e.getKey())) continue;
             if (e.getValue() < bestScore) { bestScore = e.getValue(); best = e.getKey(); }
         }
-        if (best != null) {
+        if (marked != null) {
+            // La tilde manda: a lo escrito solo le faltan las tildes para ser una palabra, y se le ponen aunque esa
+            // palabra sea rara (su puntuacion no llegaria al limite) o haya otra mas frecuente a una tecla de distancia.
+            // Solo cede ante una falta de ortografia de una palabra muchisimo mas usada ("parese" es "parece")
+            String rival = spellingRival(w, cand.get(marked));
+            res.correction = rival != null ? rival : marked;
+        } else if (best != null) {
             if (!res.known) {
                 // una palabra aprendida a una sola edicion de lo escrito se corrige aunque el limite por longitud
                 // la dejara fuera: el usuario la guardo a proposito
-                boolean personalEdit = n >= 3 && !rank.containsKey(best) && personal.contains(best)
+                boolean personalEdit = n >= 3 && rankOf(best) < 0 && personal.contains(best)
                         && bestScore - PERSONAL_SCORE <= MAX_EDIT;
                 // lo mismo para una entrada del lexico Star Wars; las largas admiten hasta dos errores caros
                 // ("palatino" -> "palpatine"): pocas palabras normales se les parecen tanto
@@ -609,10 +825,49 @@ final class Dictionary {
         for (Map.Entry<String, Double> e : list) {
             if (res.suggestions.size() >= MAX_SUGGESTIONS) break;
             String s = e.getKey();
-            if (s.equals(w) || NO_SUGGEST.contains(s) || res.suggestions.contains(s)) continue;
+            if (s.equals(w) || vetoed(s) || res.suggestions.contains(s)) continue;
             res.suggestions.add(s);
         }
         return res;
+    }
+
+    /**
+     * Palabra de la que lo escrito seria una falta de ortografia corriente (una letra por otra que suena igual, una
+     * hache de mas o de menos, erre o ele sencilla por doble) y que es muchisimo mas frecuente que la lectura con
+     * tildes, de puntuacion {@code markedScore}: su ln del rango queda al menos {@link #SPELLING_MARGIN} por debajo.
+     * Null si no hay ninguna. Los deslices de teclado no cuentan: olvidar la tilde es mucho mas corriente.
+     */
+    private String spellingRival(String w, double markedScore) {
+        int n = w.length();
+        String best = null;
+        double bestScore = markedScore - SPELLING_MARGIN;
+        for (int i = 0; i <= n; i++) {
+            for (int k = 0; k < 4; k++) {
+                String v;
+                if (k == 0) {                                // una hache de mas
+                    if (i >= n || w.charAt(i) != 'h') continue;
+                    v = w.substring(0, i) + w.substring(i + 1);
+                } else if (k == 1) {                         // la hache que falta
+                    v = w.substring(0, i) + 'h' + w.substring(i);
+                } else if (k == 2) {                         // erre o ele sencilla por doble
+                    if (i >= n || (w.charAt(i) != 'r' && w.charAt(i) != 'l')) continue;
+                    v = w.substring(0, i) + w.charAt(i) + w.substring(i);
+                } else {                                     // una letra por otra que suena igual
+                    if (i >= n) continue;
+                    char c = w.charAt(i);
+                    for (int a = 0; a < alphabet.length(); a++) {
+                        char ch = alphabet.charAt(a);
+                        if (ch == c || !(PHONETIC.contains("" + c + ch) || PHONETIC.contains("" + ch + c))) continue;
+                        String r = resolve(w.substring(0, i) + ch + w.substring(i + 1));
+                        if (r != null && !vetoed(r) && score(r, 0) <= bestScore) { best = r; bestScore = score(r, 0); }
+                    }
+                    continue;
+                }
+                String r = resolve(v);
+                if (r != null && !vetoed(r) && score(r, 0) <= bestScore) { best = r; bestScore = score(r, 0); }
+            }
+        }
+        return best;
     }
 
     /**
@@ -632,13 +887,10 @@ final class Dictionary {
         }
         for (int i = 0; i < n; i++) {
             char c = w.charAt(i);
-            String nb = neighbors.get(c);
             for (int a = 0; a < alphabet.length(); a++) {
                 char ch = alphabet.charAt(a);
                 if (ch == c) continue;
-                boolean close = (nb != null && nb.indexOf(ch) >= 0)
-                        || PHONETIC.contains("" + c + ch) || PHONETIC.contains("" + ch + c);
-                offer(cand, w.substring(0, i) + ch + w.substring(i + 1), close ? 0.4 : 2.5);
+                offer(cand, w.substring(0, i) + ch + w.substring(i + 1), close(c, ch) ? 0.4 : 2.5);
             }
         }
         for (int i = 0; i <= n; i++) {
@@ -651,7 +903,8 @@ final class Dictionary {
     }
 
     /**
-     * Busqueda a dos ediciones: palabras de longitud parecida que empiezan por la misma letra, con la
+     * Busqueda a dos ediciones: palabras del nucleo ({@link #CORE}; las raras de mas alla no llegarian al limite de
+     * puntuacion y recorrerlas triplicaria el coste) de longitud parecida que empiezan por la misma letra, con la
      * distancia ponderada (los mismos costes que las variantes a una edicion) y corte temprano. Las palabras
      * aprendidas del usuario (como mucho unos cientos) y el lexico Star Wars (unas setecientas entradas) se
      * recorren con el mismo criterio; hacia las entradas largas del lexico se admite un coste mayor.
@@ -689,9 +942,9 @@ final class Dictionary {
         }
     }
 
+    /** Cambiar x por y es un error probable: tecla vecina o letra de sonido parecido (tabla precalculada del alfabeto). */
     private boolean close(char x, char y) {
-        String nb = neighbors.get(x);
-        return (nb != null && nb.indexOf(y) >= 0) || PHONETIC.contains("" + x + y) || PHONETIC.contains("" + y + x);
+        return x < 256 && y < 256 && closeTable[x << 8 | y];
     }
 
     private static double deleteCost(String a, int i) {
@@ -788,33 +1041,49 @@ final class Dictionary {
         if (old == null || score < old) cand.put(word, score);
     }
 
-    /** Palabras mas frecuentes que empiezan por el prefijo (busqueda binaria en la lista ordenada). */
+    /**
+     * Palabras mas frecuentes que empiezan por el prefijo: una busqueda binaria en el orden alfabetico da el principio
+     * del tramo, otra (a saltos, porque suele ser corto) el final, y de cada bloque de {@link #BLOCK} entradas solo se
+     * mira dentro si su mejor rango puede entrar entre las elegidas. El coste casi no depende de cuantas palabras
+     * compartan el prefijo, y la mayoria de las consultas (prefijos que nadie lleva) acaban en la primera busqueda.
+     */
     List<String> completions(String prefix, int max) {
         List<String> out = new ArrayList<>();
         if (prefix.length() < 2) return out;
-        int lo = 0, hi = sorted.length;
+        int lo = 0, hi = alpha.length;
         while (lo < hi) {
             int mid = (lo + hi) >>> 1;
-            if (sorted[mid].compareTo(prefix) < 0) lo = mid + 1; else hi = mid;
+            if (byRank[alpha[mid]].compareTo(prefix) < 0) lo = mid + 1; else hi = mid;
         }
-        String[] best = new String[max];
-        int[] bestRank = new int[max];
-        Arrays.fill(bestRank, Integer.MAX_VALUE);
-        int scanned = 0;
-        for (int i = lo; i < sorted.length && sorted[i].startsWith(prefix) && scanned < MAX_PREFIX_SCAN; i++, scanned++) {
-            String s = sorted[i];
-            if (s.equals(prefix) || NO_SUGGEST.contains(s)) continue;
-            int r = rank.get(s);
-            for (int j = 0; j < max; j++) {
-                if (r < bestRank[j]) {
-                    for (int k = max - 1; k > j; k--) { best[k] = best[k - 1]; bestRank[k] = bestRank[k - 1]; }
-                    best[j] = s;
-                    bestRank[j] = r;
-                    break;
-                }
+        if (lo >= alpha.length || !byRank[alpha[lo]].startsWith(prefix)) return out;
+        int step = 1;
+        while (lo + step < alpha.length && byRank[alpha[lo + step]].startsWith(prefix)) step <<= 1;
+        int end = lo + (step >> 1) + 1;                    // la ultima que se sabe que empieza asi, mas uno
+        hi = Math.min(alpha.length, lo + step);
+        while (end < hi) {
+            int mid = (end + hi) >>> 1;
+            if (byRank[alpha[mid]].startsWith(prefix)) end = mid + 1; else hi = mid;
+        }
+        int[] best = new int[max];
+        Arrays.fill(best, Integer.MAX_VALUE);
+        int i = lo;
+        while (i < end) {
+            int stop = Math.min(end, (i | (BLOCK - 1)) + 1);
+            if ((i & (BLOCK - 1)) == 0 && stop - i == BLOCK && alphaMin[i >> BLOCK_BITS] >= best[max - 1]) {
+                i = stop;                                // bloque entero sin nada mejor que lo ya elegido
+                continue;
+            }
+            for (; i < stop; i++) {
+                int r = alpha[i];
+                if (r >= best[max - 1]) continue;
+                String s = byRank[r];
+                if (s.equals(prefix) || vetoed(s)) continue;
+                int j = max - 1;
+                while (j > 0 && best[j - 1] > r) { best[j] = best[j - 1]; j--; }
+                best[j] = r;
             }
         }
-        for (String s : best) if (s != null) out.add(s);
+        for (int r : best) if (r != Integer.MAX_VALUE) out.add(byRank[r]);
         return out;
     }
 }

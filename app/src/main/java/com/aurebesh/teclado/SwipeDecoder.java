@@ -6,7 +6,7 @@ import java.util.Set;
 
 /**
  * Reconocedor de escritura deslizando el dedo (estilo SHARK2): compara el trazo del usuario con la
- * polilinea ideal de cada palabra del diccionario (los centros de sus teclas) en dos canales, posicion
+ * polilinea ideal de cada palabra del nucleo del diccionario (los centros de sus teclas) en dos canales, posicion
  * y forma, y suma la frecuencia de la palabra en la misma escala que {@code Dictionary} (ln del rango).
  * <p>
  * El indice se construye una vez por (diccionario, geometria de teclas): secuencias de teclas empaquetadas
@@ -128,12 +128,16 @@ final class SwipeDecoder {
     private final byte[] tmpSeq = new byte[MAX_WORD];
     private float lastLoc;                                   // error de posicion del ultimo candidato puntuado
 
-    /** Construye el indice para un diccionario y una geometria (unas decenas de ms; hacerlo fuera del hilo principal). */
+    /**
+     * Construye el indice para un diccionario y una geometria (unas decenas de ms; hacerlo fuera del hilo principal).
+     * Solo entran las palabras del nucleo ({@link Dictionary#coreSize}): las formas raras de la lista espanola
+     * ampliada triplicarian los candidatos de cada trazo sin que casi nadie las deslice.
+     */
     SwipeDecoder(Dictionary dict, Geometry geo) {
         this.dict = dict;
         this.geo = geo;
         keys = geo.letter.length;
-        int count = dict.size();
+        int count = dict.coreSize();
         offset = new int[count + 1];
         idealLen = new float[count];
         doubles = new byte[count];
@@ -253,7 +257,8 @@ final class SwipeDecoder {
         if (!personal.isEmpty()) {
             float pLog = (float) Math.log(PERSONAL_RANK + 1);
             for (String p : personal) {
-                if (dict.rankOf(p) >= 0) continue;
+                int own = dict.rankOf(p);
+                if (own >= 0 && own < idealLen.length) continue;         // ya esta en el indice
                 found = extra(p, pLog, found, maxLetters, ns, ne, len, lenTol, loopLen, dwells);
             }
         }

@@ -1,0 +1,17 @@
+# Formas de la lista de siempre (las 40 000 de los subtitulos) que se quitan de words_es.txt. Son erratas escritas
+# con tilde cuya forma sin tilde no es ninguna palabra: como al teclado le basta que a lo escrito le falten las
+# tildes para ponerselas (Dictionary.java, "la tilde manda"), con ellas en la lista "desicion" pasaria a "desición"
+# en vez de a "decisión", y "uste" a "usté" en vez de a "usted". Una por linea; lo que sigue a una almohadilla es
+# comentario. Es la unica diferencia entre el principio de words_es.txt y la lista anterior.
+
+desición     # decisión
+usté         # usted
+depués       # después
+companía     # compañía
+lleó         # llegó
+iqué         # "¡qué" mal leido al digitalizar los subtitulos; lo mismo las cinco siguientes
+yqué
+ytú
+oué
+lré
+zé

@@ -3,15 +3,21 @@
     app/src/main/res/raw/words_es.txt, words_en.txt y words_de.txt (una palabra por linea, de mas a menos frecuente).
 
 Fuente: listas de frecuencia de hermitdave/FrequencyWords (licencia MIT, tools/dict/LICENSE-FrequencyWords.md),
-calculadas sobre los subtitulos de OpenSubtitles 2018 (corpus OPUS).
+calculadas sobre los subtitulos de OpenSubtitles 2018 (corpus OPUS). El ingles y el aleman son las 40 000 formas mas
+frecuentes de su lista. El espanol empieza igual y se amplia despues con formas validadas (conjugaciones, plurales,
+diminutivos, verbos con pronombres, mexicanismos): vease tools/build_dict_es.py, que usa ademas la lista completa
+es_full.txt y el diccionario Hunspell RLA-ES (tools/dict/LICENSE-RLA-ES.md, tools/dict/FUENTES-diccionario-es.md).
 
-Uso:  python3 tools/build_dictionaries.py [carpeta con es_50k.txt, en_50k.txt y de_50k.txt] [idiomas...]
-      Sin carpeta, descarga las listas de GitHub. Sin idiomas, genera es, en y de.
+Uso:  python3 tools/build_dictionaries.py [carpeta] [idiomas...]
+      La carpeta trae es_50k.txt, en_50k.txt y de_50k.txt y, para el espanol, es_full.txt, es_MX.dic, es_MX.aff,
+      es_ES.dic y es_ES.aff. Sin carpeta, se descargan de GitHub. Sin idiomas, genera es, en y de.
 """
 import os
 import re
 import sys
 import urllib.request
+
+import build_dict_es
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, 'app', 'src', 'main', 'res', 'raw')
@@ -51,6 +57,8 @@ def build(lang, folder):
         words.append(w)
         if len(words) >= LIMIT:
             break
+    if lang == 'es':                                     # espanol: se amplia con formas validadas (build_dict_es.py)
+        words = build_dict_es.build(words, folder)
     os.makedirs(OUT, exist_ok=True)
     path = os.path.join(OUT, 'words_%s.txt' % lang)
     with open(path, 'w', encoding='utf-8', newline='\n') as f:
@@ -61,5 +69,6 @@ def build(lang, folder):
 if __name__ == '__main__':
     args = sys.argv[1:]
     folder = args.pop(0) if args and args[0] not in RULES else None
-    for lang in args or ('es', 'en', 'de'):
+    # El espanol va el ultimo: su ampliacion consulta las listas inglesa y alemana ya generadas
+    for lang in sorted(args or ('es', 'en', 'de'), key=lambda l: l == 'es'):
         build(lang, folder)

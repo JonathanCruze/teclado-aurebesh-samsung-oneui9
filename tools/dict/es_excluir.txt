@@ -1,0 +1,26 @@
+# Formas que RLA-ES acepta (o que una regla de tools/build_dict_es.py daria por buenas) y que no deben entrar en
+# words_es.txt: casi siempre son una errata corriente y, si figuraran como palabras, el teclado dejaria de corregirla.
+# Una por linea; lo que sigue a una almohadilla es comentario. Solo afecta a las formas nuevas, no a las 40 000 de base.
+
+enseria      # de "enseriarse", que casi nadie usa: es "en seria" escrito junto ("enserio" ya estaba en la lista)
+toad         # imperativo de "toar" en es_ES; en la practica, ingles
+amazo        # sale por la regla de "-azo" (amo); es un nombre de comic
+escusa       # variante antigua de "excusa": hoy es casi siempre la falta de ortografia
+escusas
+avía         # de "aviar"; sin tilde es casi siempre "había" con dos faltas
+avías
+avían
+avíamos
+palatino     # con el lexico Star Wars activo, "palatino" se corrige a Palpatine (Dictionary.java, StarWarsTest)
+palatina
+palatinos
+palatinas
+guitar       # verbo de diccionario ("coser con guita"); en la practica, ingles
+creme        # de "cremar"; en la practica, frances ("creme")
+cremes
+federica     # nombres propios que es_MX trae en minuscula
+federicos
+julias
+juanas
+entonce      # arcaismo; hoy es "entonces" sin la ese
+tells        # plural de "tell" (yacimiento); en la practica, ingles
