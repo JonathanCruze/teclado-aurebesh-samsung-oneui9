@@ -103,7 +103,7 @@ public class StarWarsTest {
     @Test
     public void frequentWordsStillWin() throws IOException {
         Dictionary es = Dictionary.get(app, "es");
-        assertEquals("hola", es.suggest("holq").correction);     // como siempre, aunque exista "holdo"
+        assertEquals("hola", es.suggest("holq").correction);     // como siempre
         assertEquals("hola", es.suggest("holla").correction);
         assertEquals("canción", es.suggest("cancion").correction);
         assertNull(es.suggest("hola").correction);
@@ -204,21 +204,53 @@ public class StarWarsTest {
 
     // ------------------------------------------------------------------ solo con su caja
 
+    /**
+     * El lexico no trae nada de la trilogia de secuelas (episodios VII a IX): ni personajes, ni planetas, ni naves, ni
+     * facciones. Escritos con su mayuscula no se reconocen como del lexico, no se completan y no se corrige hacia ellos;
+     * las palabras normales que coincidian ("rey", "orden", "primera", "resistencia", "canto") siguen siendo solo eso.
+     */
+    @Test
+    public void sequelTrilogyIsNotInTheLexicon() throws IOException {
+        Dictionary es = Dictionary.get(app, "es");
+        Dictionary en = Dictionary.get(app, "en");
+        String[] gone = {"Jannah", "Dameron", "Kylo", "Snoke", "Phasma", "Holdo", "Kanata", "Zorii", "Babu", "Plutt",
+                "Jakku", "Exegol", "Crait", "Pasaana", "Kijimi", "Takodana", "Cantonica", "Starkiller", "Hosnian", "Batuu",
+                "Fulminatrix", "Fathier", "Porg", "Porgs", "Hux", "Maz", "Poe", "Finn", "Rey", "BB"};
+        for (String w : gone) {
+            String lower = w.toLowerCase(java.util.Locale.ROOT);
+            assertNull(w + " ya no tiene forma canonica", es.canonical(lower));
+            assertNull(w + " ya no tiene forma canonica en ingles", en.canonical(lower));
+        }
+        for (String w : new String[]{"Jannah", "Dameron", "Kylo", "Snoke", "Phasma", "Jakku", "Exegol", "Kijimi", "Fulminatrix"}) {
+            assertFalse(w + " no se reconoce", es.suggest(w).known);
+        }
+        assertFalse("ni se completa", es.suggest("damer").suggestions.contains("dameron"));
+        assertFalse(es.suggest("exeg").suggestions.contains("exegol"));
+        for (String w : new String[]{"rey", "orden", "primera", "resistencia", "canto"}) {
+            assertTrue(w + " sigue siendo palabra normal", es.suggest(w).known);
+            assertNull(es.canonical(w));
+        }
+        // El resto de la saga sigue: peliculas I a VI, series y juegos
+        for (String w : new String[]{"skywalker", "ahsoka", "grogu", "andor", "coruscant", "mustafar", "kestis", "thrawn"}) {
+            assertNotNull(w + " sigue en el lexico", es.canonical(w));
+        }
+    }
+
     @Test
     public void shortNamesOnlyCountWithTheirCase() throws IOException {
         Dictionary es = Dictionary.get(app, "es");
-        assertTrue(es.suggest("Maz").known);                     // nombre de tres letras con su caja
-        Dictionary.Result lower = es.suggest("maz");             // en minusculas sigue siendo un error de "mas"
+        assertTrue(es.suggest("Plo").known);                     // nombre de tres letras con su caja
+        Dictionary.Result lower = es.suggest("plo");             // en minusculas sigue siendo un error de otra palabra
         assertFalse(lower.known);
         assertNotNull(lower.correction);
-        assertNotEquals("maz", lower.correction);
+        assertNotEquals("plo", lower.correction);
         assertTrue(es.suggest("Nal").known);
         Dictionary.Result nal = es.suggest("nal");
         assertFalse(nal.known);
         assertNotNull(nal.correction);
         assertFalse(es.contains("nal"));                         // para el diccionario no cuenta como palabra
-        assertTrue(es.suggest("Hux").known);
-        assertFalse(es.suggest("hux").known);
+        assertTrue(es.suggest("Tup").known);
+        assertFalse(es.suggest("tup").known);
         Dictionary en = Dictionary.get(app, "en");
         assertTrue(en.suggest("Kix").known);
         assertFalse(en.suggest("kix").known);

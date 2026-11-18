@@ -52,9 +52,9 @@ final class Dictionary {
     static final double PERSONAL_SCORE = Math.log(1500);
     private static final double MAX_EDIT = 2.5;        // coste maximo de una sola edicion (letra cambiada por otra cualquiera)
     /**
-     * Longitud desde la que una entrada del lexico Star Wars cuenta siempre. Las mas cortas (Rey, Poe, Gon, AT) solo
-     * se reconocen escritas con su caja canonica y nunca sirven de correccion: "gon" o "poe" en minusculas siguen
-     * siendo los errores de "con" y "por" de toda la vida.
+     * Longitud desde la que una entrada del lexico Star Wars cuenta siempre. Las mas cortas (Rex, Plo, Gon, AT) solo
+     * se reconocen escritas con su caja canonica y nunca sirven de correccion: "gon" o "plo" en minusculas siguen
+     * siendo los errores de "con" y "pelo" de toda la vida.
      */
     private static final int SW_MIN = 4;
     /**
@@ -74,13 +74,13 @@ final class Dictionary {
     /**
      * Entradas del lexico que las listas de frecuencia tambien traen (salen de subtitulos de peliculas, y las de la
      * saga estan entre ellas) pero que no son palabras normales de ningun idioma del teclado: se tratan como las
-     * demas del lexico, con su caja ("anakin" -> "Anakin"). Las que si lo son ("orden", "hunter", "rose", "macht",
+     * demas del lexico, con su caja ("anakin" -> "Anakin"). Las que si lo son ("fuerza", "hunter", "solo", "macht",
      * "fett") siguen las reglas del diccionario del idioma. Al final, los sustantivos alemanes propios de la saga.
      */
     private static final Set<String> SW_NAMES = new HashSet<>(Arrays.asList(
             "anakin", "skywalker", "luke", "leia", "vader", "darth", "yoda", "kenobi", "jedi", "sith", "ahsoka",
             "chewbacca", "chewie", "lando", "jabba", "dooku", "jango", "naboo", "kanan", "bridger", "pryce", "quinlan",
-            "biggs", "finn", "ezra", "lars", "owen", "gideon", "beckett", "dexter", "gregor", "galen", "sabine",
+            "biggs", "ezra", "lars", "owen", "gideon", "beckett", "dexter", "gregor", "galen", "sabine",
             "morgan", "jesse", "cody", "hera", "satine", "merrin", "elsbeth", "artoo", "reva", "padawan",
             "lichtschwert", "todesstern", "hyperraum", "hyperantrieb", "droiden"));
 
@@ -355,7 +355,7 @@ final class Dictionary {
 
     /**
      * Lo escrito es una entrada del lexico activo que no es palabra normal del idioma: tal cual o con tildes de mas
-     * ("ahsóka" se respeta); las cortas ("Rey", "Poe", "AT") y las que en minusculas serian otra palabra ("Hoth" en
+     * ("ahsóka" se respeta); las cortas ("Rex", "Plo", "AT") y las que en minusculas serian otra palabra ("Hoth" en
      * ingles) solo con su caja canonica; tambien su plural regular ("ewoks", "wookiees", "Hutts").
      */
     private boolean swKnown(String typed, String w) {
