@@ -269,6 +269,7 @@ public class AurebeshIME extends InputMethodService
             view.applyPrefs(Prefs.hints(this), Prefs.vibrate(this), stripOn, Prefs.digraphs(this),
                     theme.id, Prefs.numbers(this), Prefs.sound(this), Prefs.heightScale(this));
             view.setTopRow(Prefs.topRow(this));                // numeros / digrafos / nada (manda sobre el booleano NUMBERS de applyPrefs)
+            view.setSpanishDigraphs(Prefs.digraphsEs(this));   // ll, rr, qu y gu con tecla y glifo en el teclado espanol
             view.setHintMode(Prefs.hintModeInt(this));         // nunca / siempre / aprendiendo (manda sobre el booleano antiguo)
             view.setSaber(Prefs.saberArgb(this));              // color de la estela al deslizar
             view.setToolbar(Prefs.toolbar(this));

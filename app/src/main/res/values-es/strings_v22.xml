@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="top_row_title">Fila superior</string>
-    <string name="top_row_sub">Qué va encima de las letras: números, los ocho dígrafos Aurebesh o nada. Los números siempre están a una pulsación larga en q a p.</string>
+    <string name="top_row_sub">Qué va encima de las letras: números, los dígrafos (los ocho del Aurebesh; en español, diez con ll, rr, qu y gu) o nada. Los números siempre están a una pulsación larga en q a p.</string>
     <string name="top_row_numbers">Números</string>
     <string name="top_row_digraphs">Dígrafos</string>
     <string name="top_row_none">Nada</string>

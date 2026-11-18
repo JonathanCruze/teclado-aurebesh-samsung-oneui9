@@ -16,6 +16,7 @@ public final class AurebeshTextView extends View {
     private CharSequence content = "";
     private float letterH;
     private boolean digraphs = true;
+    private boolean spanish = false;        // digrafos del espanol (ll, rr, qu, gu), ademas de los del Aurebesh
 
     public AurebeshTextView(Context c, float letterHeightDp, int color) {
         super(c);
@@ -37,11 +38,18 @@ public final class AurebeshTextView extends View {
         invalidate();
     }
 
+    /** Digrafos del espanol tambien (teclado en espanol con la opcion encendida). */
+    public void setSpanishDigraphs(boolean on) {
+        spanish = on;
+        requestLayout();
+        invalidate();
+    }
+
     private float lineH() { return letterH * 1.6f; }
 
     /** Divide los tokens en lineas que caben en el ancho disponible. */
     private List<List<Glyphs.Token>> lines(float maxW) {
-        List<Glyphs.Token> tokens = Glyphs.tokenize(content, digraphs);
+        List<Glyphs.Token> tokens = Glyphs.tokenize(content, digraphs, digraphs && spanish);
         List<List<Glyphs.Token>> lines = new ArrayList<>();
         List<Glyphs.Token> line = new ArrayList<>();
         List<Glyphs.Token> word = new ArrayList<>();

@@ -16,6 +16,13 @@ final class Glyphs {
     private Glyphs() {}
 
     static final String[] DIGRAPHS = {"ch", "ae", "eo", "kh", "ng", "oo", "sh", "th"};
+    /** Digrafos del espanol, compuestos para este teclado con piezas de sus letras (no son del Aurebesh original). */
+    static final String[] DIGRAPHS_ES = {"ll", "rr", "qu", "gu"};
+    /**
+     * Fila de digrafos del teclado espanol: los del idioma primero y despues los del Aurebesh que el espanol usa; kh y
+     * oo se quedan sin tecla (se siguen dibujando con su glifo si se escriben letra a letra).
+     */
+    static final String[] ROW_ES = {"ch", "ll", "rr", "qu", "gu", "ng", "ae", "eo", "sh", "th"};
 
     private static final HashMap<String, Path> PATHS = new HashMap<>();
     private static final HashMap<String, Float> WIDTHS = new HashMap<>();
@@ -147,6 +154,16 @@ final class Glyphs {
      * "sh", "th"... usan su glifo propio.
      */
     static List<Token> tokenize(CharSequence text, boolean useDigraphs) {
+        return tokenize(text, useDigraphs, false);
+    }
+
+    /**
+     * Como {@link #tokenize(CharSequence, boolean)} y, si {@code spanish}, tambien con los digrafos del espanol:
+     * "ll", "rr" y "qu" siempre, y "gu" solo ante e o i, donde la u es muda (guerra, guitarra; en agua o guapo la u
+     * suena y va letra a letra, y con dieresis, pinguino, tampoco). En "ngue" y "ngui" manda la gu del espanol sobre
+     * la ng del Aurebesh (merengue: n + gu + e).
+     */
+    static List<Token> tokenize(CharSequence text, boolean useDigraphs, boolean spanish) {
         String raw = Normalizer.normalize(text.toString(), Normalizer.Form.NFC).toLowerCase(Locale.ROOT);
         List<String> chars = new ArrayList<>();
         for (int i = 0; i < raw.length(); ) {
@@ -160,11 +177,17 @@ final class Glyphs {
         List<Token> out = new ArrayList<>();
         for (int i = 0; i < chars.size(); i++) {
             if (useDigraphs && i + 1 < chars.size()
-                    && chars.get(i).equals(base.get(i)) && chars.get(i + 1).equals(base.get(i + 1))
-                    && isDigraph(base.get(i) + base.get(i + 1))) {
-                out.add(new Token(base.get(i) + base.get(i + 1), null));
-                i++;
-                continue;
+                    && chars.get(i).equals(base.get(i)) && chars.get(i + 1).equals(base.get(i + 1))) {
+                String two = base.get(i) + base.get(i + 1);
+                String next = i + 2 < chars.size() ? base.get(i + 2) : null;
+                boolean es = spanish && isSpanishDigraph(two, next);
+                boolean yields = spanish && two.equals("ng") && i + 3 < chars.size()
+                        && chars.get(i + 2).equals("u") && softVowel(base.get(i + 3));
+                if (es || (isDigraph(two) && !yields)) {
+                    out.add(new Token(two, null));
+                    i++;
+                    continue;
+                }
             }
             String ch = chars.get(i);
             String b = base.get(i);
@@ -184,6 +207,17 @@ final class Glyphs {
     private static boolean isDigraph(String two) {
         for (String d : DIGRAPHS) if (d.equals(two)) return true;
         return false;
+    }
+
+    /** Digrafo del espanol en ese contexto: ll, rr y qu siempre; gu solo ante e o i ({@code next}: la letra siguiente, sin tilde). */
+    private static boolean isSpanishDigraph(String two, String next) {
+        if (two.equals("gu")) return softVowel(next);
+        for (String d : DIGRAPHS_ES) if (d.equals(two)) return true;
+        return false;
+    }
+
+    private static boolean softVowel(String ch) {
+        return "e".equals(ch) || "i".equals(ch);
     }
 
     static final float LATIN_GAP = 0.8f;    // unidades tras un caracter latino sin glifo

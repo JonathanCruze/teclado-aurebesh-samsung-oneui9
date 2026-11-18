@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="es_digraphs_title">Spanische Digraphen</string>
+    <string name="es_digraphs_sub">Auf der spanischen Tastatur bekommen ll, rr, qu und gu eine eigene Taste in der Digraphenreihe und ein eigenes Zeichen. Sie gehören nicht zum ursprünglichen Aurebesh: Sie sind aus Teilen ihrer Buchstaben gebaut. Aus: nur die acht ursprünglichen</string>
+</resources>

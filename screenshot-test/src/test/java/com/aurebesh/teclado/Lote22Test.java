@@ -249,7 +249,8 @@ public class Lote22Test {
         // Fila de digrafos (glifos anchos y bajos): cuadrado limpio sin pistas, pista en el cuadrado con ellas
         kb.setTopRow("digraphs");
         Bitmap dig = render(kb, W);
-        for (String d : Glyphs.DIGRAPHS) {
+        String[] rowKeys = kb.esDigraphs() ? Glyphs.ROW_ES : Glyphs.DIGRAPHS;   // en espanol, diez teclas con ll, rr, qu y gu
+        for (String d : rowKeys) {
             AurebeshKeyboardView.Key k = kb.keyFor(d);
             check(k != null, "fila de digrafos: falta " + d);
             check(inkCount(dig, hintSquare(k), t) == 0, "digrafo " + d + " sin pistas: el glifo no entra en el cuadrado de 12 dp");
@@ -258,7 +259,7 @@ public class Lote22Test {
         kb.setHintMode(1);
         Bitmap digOn = render(kb, W);
         save(digOn, "digrafos_pistas.png");
-        for (String d : Glyphs.DIGRAPHS) {
+        for (String d : rowKeys) {
             RectF sq = hintSquare(kb.keyFor(d));
             check(inkCount(digOn, sq, t) >= 12, "digrafo " + d + " con pistas: la pista abajo a la derecha");
             check(colorCount(digOn, sq, t.glyph, glyphTol) == 0, "digrafo " + d + " con pistas: el glifo fuera del cuadrado");
@@ -398,18 +399,34 @@ public class Lote22Test {
         check(!"1".equals(firstAlt(kb, "q")), "con la fila de numeros la q no lleva el digito como primera alternativa: " + firstAlt(kb, "q"));
         float qTopNumbers = kb.keyFor("q").rect.top;
 
-        // Digrafos: los ocho arriba, de ancho 1,25, en el paso de la fila superior; q..p dan el digito al mantener y pierden su simbolo
+        // Digrafos arriba, en el paso de la fila superior: en espanol diez teclas de una unidad (ch ll rr qu gu ng ae eo sh th);
+        // q..p dan el digito al mantener y pierden su simbolo
         kb.setTopRow("digraphs");
         layout(kb, W);
         check(kb.topRow(), "digraphs", "setTopRow");
         AurebeshKeyboardView.Key ch = kb.keyFor("ch");
         check(ch != null, "tecla ch");
-        for (String d : Glyphs.DIGRAPHS) {
+        check(kb.esDigraphs(), "de fabrica, en espanol, con sus digrafos");
+        for (String d : Glyphs.ROW_ES) {
             AurebeshKeyboardView.Key k = kb.keyFor(d);
             check(k != null, "falta el digrafo " + d);
             near("los digrafos van en la misma fila: " + d, k.rect.top, ch.rect.top, 1f);
-            near("ancho 1,25 de los digrafos: " + d, k.rect.width(), 1.25f * kb.keyFor("q").rect.width(), 2.5f);
+            near("ancho de una unidad en la fila de diez: " + d, k.rect.width(), kb.keyFor("q").rect.width(), 2.5f);
         }
+        check(kb.keyFor("kh") == null && kb.keyFor("oo") == null, "kh y oo no tienen tecla en la fila del espanol");
+        // Con los digrafos del espanol apagados (o en otro idioma), los ocho del Aurebesh de ancho 1,25
+        kb.setSpanishDigraphs(false);
+        layout(kb, W);
+        ch = kb.keyFor("ch");
+        for (String d : Glyphs.DIGRAPHS) {
+            AurebeshKeyboardView.Key k = kb.keyFor(d);
+            check(k != null, "falta el digrafo " + d);
+            near("ancho 1,25 de los ocho originales: " + d, k.rect.width(), 1.25f * kb.keyFor("q").rect.width(), 2.5f);
+        }
+        check(kb.keyFor("ll") == null && kb.keyFor("qu") == null, "sin los del espanol no hay ll ni qu");
+        kb.setSpanishDigraphs(true);
+        layout(kb, W);
+        ch = kb.keyFor("ch");
         check(kb.keyFor("1") == null, "sin teclas de digitos");
         check(kb.keyFor("q").rect.top >= ch.rect.bottom - 1f, "la fila de digrafos va encima de la q");
         near("la q en el mismo sitio que con los numeros", kb.keyFor("q").rect.top, qTopNumbers, 1f);
@@ -759,5 +776,83 @@ public class Lote22Test {
             if (v.getContentDescription() != null && description.equals(v.getContentDescription().toString())) return v;
         }
         return null;
+    }
+
+    // ------------------------------------------------------------------ digrafos del espanol (2.6)
+
+    private static String glyphs(List<Glyphs.Token> tokens) {
+        StringBuilder b = new StringBuilder();
+        for (Glyphs.Token t : tokens) {
+            if (b.length() > 0) b.append(' ');
+            b.append(t.glyph != null ? t.glyph : "<" + t.literal + ">");
+        }
+        return b.toString();
+    }
+
+    /**
+     * Reglas de los digrafos del espanol al pasar texto a glifos: ll, rr y qu siempre; gu solo ante e o i (u muda), no
+     * en agua ni con dieresis; en "ngue" manda la gu sobre la ng del Aurebesh. Sin la bandera, solo los ocho originales.
+     */
+    @Test
+    public void digrafosDelEspanolAlPasarAGlifos() {
+        check(glyphs(Glyphs.tokenize("llave", true, true)), "ll a v e", "llave");
+        check(glyphs(Glyphs.tokenize("perro", true, true)), "p e rr o", "perro");
+        check(glyphs(Glyphs.tokenize("queso", true, true)), "qu e s o", "queso");
+        check(glyphs(Glyphs.tokenize("guerra", true, true)), "gu e rr a", "guerra");
+        check(glyphs(Glyphs.tokenize("guitarra", true, true)), "gu i t a rr a", "guitarra");
+        check(glyphs(Glyphs.tokenize("gu\u00eda", true, true)), "gu \u00ed a", "guia con tilde: la i acentuada tambien cuenta");
+        check(glyphs(Glyphs.tokenize("agua", true, true)), "a g u a", "agua: la u suena, letra a letra");
+        check(glyphs(Glyphs.tokenize("guapo", true, true)), "g u a p o", "guapo");
+        check(glyphs(Glyphs.tokenize("ping\u00fcino", true, true)), "p i ng \u00fc i n o", "pinguino con dieresis: sin gu");
+        check(glyphs(Glyphs.tokenize("merengue", true, true)), "m e r e n gu e", "merengue: n + gu + e");
+        check(glyphs(Glyphs.tokenize("lengua", true, true)), "l e ng u a", "lengua: la ng del Aurebesh sigue");
+        check(glyphs(Glyphs.tokenize("tengo", true, true)), "t e ng o", "tengo");
+        check(glyphs(Glyphs.tokenize("Chewbacca", true, true)), "ch e w b a c c a", "los originales siguen");
+        check(glyphs(Glyphs.tokenize("QUE LLUEVA", true, true)), "qu e < > ll u e v a", "mayusculas");
+        // Sin los del espanol
+        check(glyphs(Glyphs.tokenize("llave guerra queso", true, false)), "l l a v e < > g u e r r a < > q u e s o", "solo originales");
+        check(glyphs(Glyphs.tokenize("llave", true)), "l l a v e", "la firma antigua no cambia");
+        // Con los digrafos apagados, nada
+        check(glyphs(Glyphs.tokenize("chorro", false, true)), "c h o r r o", "digrafos apagados");
+        // Los cuatro glifos existen y tienen ancho
+        for (String d : Glyphs.DIGRAPHS_ES) check(Glyphs.has(d) && Glyphs.width(d) > 4f, "glifo de " + d);
+    }
+
+    /**
+     * Teclado espanol: las teclas ll, rr, qu y gu escriben sus dos letras, la cinta dibuja lo escrito con sus glifos y
+     * al pasar a ingles o apagar la opcion la fila vuelve a los ocho originales. Capturas de la fila y de la cinta.
+     */
+    @Test
+    public void digrafosDelEspanolEnElTecladoYEnLaCinta() throws Exception {
+        AurebeshKeyboardView kb = view(W, Themes.ESTELAR.id, true);
+        kb.setTopRow("digraphs");
+        layout(kb, W);
+        SizeTest.Recorder rec = new SizeTest.Recorder();
+        kb.setListener(rec);
+        for (String d : Glyphs.DIGRAPHS_ES) tap(kb, kb.keyFor(d));
+        check(rec.typed.toString(), "llrrqugu", "las cuatro teclas escriben sus dos letras");
+        kb.setStripText("la guerra del queso en la calle");
+        Bitmap es = render(kb, W);
+        save(es, "digrafos_es_fila.png");
+        kb.setHintMode(1);
+        save(render(kb, W), "digrafos_es_pistas.png");
+        kb.setHintMode(0);
+        // En ingles: ocho originales, y la cinta sin ll ni qu (el dibujo cambia)
+        kb.setLanguage("en");
+        layout(kb, W);
+        check(!kb.esDigraphs(), "en ingles no cuentan");
+        check(kb.keyFor("ll") == null && kb.keyFor("kh") != null && kb.keyFor("oo") != null, "fila original en ingles");
+        Bitmap en = render(kb, W);
+        check(!es.sameAs(en), "la fila y la cinta cambian con el idioma");
+        kb.setLanguage("es");
+        layout(kb, W);
+        check(kb.keyFor("ll") != null && kb.keyFor("kh") == null, "de vuelta al espanol");
+        // La opcion guardada llega al teclado
+        Prefs.get(app).edit().putBoolean(Prefs.DIGRAPHS_ES, false).apply();
+        check(!Prefs.digraphsEs(app), "opcion apagada");
+        check(Prefs.affectsKeyboard(Prefs.DIGRAPHS_ES), "la opcion repinta el teclado");
+        check(MainActivity.keyType(Prefs.DIGRAPHS_ES) == MainActivity.TYPE_BOOL, "se exporta e importa como booleano");
+        Prefs.get(app).edit().remove(Prefs.DIGRAPHS_ES).apply();
+        check(Prefs.digraphsEs(app), "de fabrica, encendida");
     }
 }

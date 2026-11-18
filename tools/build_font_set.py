@@ -11,12 +11,15 @@ import json, math, os, sys, shutil, numpy as np, cv2
 from fontTools.ttLib import TTFont
 from fontTools.pens.recordingPen import RecordingPen
 sys.path.insert(0,os.path.dirname(os.path.abspath(__file__)))
-from glyph_compose import mirror_x, accents, symbols, times_divide, times, plus_minus, divide_candidates, currency, badges
+from glyph_compose import mirror_x, accents, symbols, times_divide, times, plus_minus, divide_candidates, currency, badges, spanish_digraphs, ES_DIGRAPHS
 ROOT=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC=os.path.join(ROOT,'font','base-silvinor-Aurebesh.ttf')
 INCLUDE_TIMES=True           # por (x): el boceto del usuario (dos + en espejo con hueco de un trazo, girados 45 grados)
 DIVIDE_CHOICE='3'            # entre: el * boca abajo con un punto debajo (eleccion del usuario; '1' y '2' siguen en divide_candidates)
 POUND_WHERE='l_vertical'     # libra: la l con los palitos en su barra vertical ('l_diagonal' y 'p_vertical' tambien existen)
+LL_CHOICE='doble_pata'       # ll: la l con la pata dos veces ('dos_astas': la l con otra asta al lado)
+RR_CHOICE='dos_diagonales'   # rr: la r con dos diagonales bajo el mismo techo ('pata_corta': segunda pata corta)
+MUTE_U_CHOICE='cuadro_dentro'    # qu y gu: la u muda es un cuadrado dentro de la letra ('cuadro_esquina', 'muesca')
 
 # ---------------- base: extraer contornos y metricas a unidades (altura de mayusculas = 10, y hacia abajo)
 f=TTFont(SRC); upm=f['head'].unitsPerEm; cap=f['OS/2'].sCapHeight; U=10.0/cap
@@ -72,6 +75,7 @@ G.update(plus_minus(G))       # mas-menos: el + con la barra del - debajo (susti
 G.update(currency(G, POUND_WHERE))   # euro, yen y libra: dos palitos horizontales en un solo trazo, como el $
 if INCLUDE_TIMES: G.update(times(G))
 if DIVIDE_CHOICE: G['\u00f7']=divide_candidates(G)[DIVIDE_CHOICE]
+G.update(spanish_digraphs(G, LL_CHOICE, RR_CHOICE, MUTE_U_CHOICE))   # digrafos del espanol: ll, rr, qu, gu
 
 # ---------------- salidas: json, GlyphData.java
 for p in ('tools/glyphs.json','promo/glyphs.json'): json.dump(G,open(os.path.join(ROOT,p),'w'))
@@ -130,7 +134,9 @@ fb.setupNameTable({'familyName':'Aurek Teclado','styleName':'Regular','uniqueFon
     'licenseInfoURL':'https://openfontlicense.org'})
 fb.setupOS2(sTypoAscender=980,sTypoDescender=-220,sTypoLineGap=0,usWinAscent=980,usWinDescent=220,sCapHeight=700,sxHeight=700,achVendID='AURK')
 fb.setupPost()
-liga=' '.join('sub %s %s by %s;'%(d[0],d[1],gname(d)) for d in sorted(k for k in G if len(k)==2))
-addOpenTypeFeaturesFromString(fb.font, 'languagesystem DFLT dflt; languagesystem latn dflt; feature liga { %s } liga;'%liga)
+# ligaduras: los ocho digrafos del Aurebesh original siempre (liga); los del espanol solo si se pide el conjunto estilistico 1
+liga=' '.join('sub %s %s by %s;'%(d[0],d[1],gname(d)) for d in sorted(k for k in G if len(k)==2 and k not in ES_DIGRAPHS))
+es="sub l l by l_l; sub r r by r_r; sub q u by q_u; sub g' u' [e i uni00E9 uni00ED] by g_u;"
+addOpenTypeFeaturesFromString(fb.font, 'languagesystem DFLT dflt; languagesystem latn dflt; feature liga { %s } liga; feature ss01 { %s } ss01;'%(liga,es))
 fb.save(os.path.join(ROOT,'font','AurekTeclado.ttf'))
 print('glifos:',len(G),'| espacio:',SPACE_ADV,'| fuente: font/AurekTeclado.ttf')

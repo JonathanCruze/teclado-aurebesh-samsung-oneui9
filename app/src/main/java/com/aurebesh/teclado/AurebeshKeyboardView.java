@@ -338,7 +338,7 @@ public final class AurebeshKeyboardView extends View {
         this.vibrate = vibrate;
         if (useDigraphs != digraphs) {
             useDigraphs = digraphs;
-            stripTokens = Glyphs.tokenize(stripText.toString().replace('\n', ' '), useDigraphs);
+            stripTokens = tokens(stripText.toString().replace('\n', ' '));
         }
         theme = Themes.byId(themeId);
         applyTheme();
@@ -692,6 +692,7 @@ public final class AurebeshKeyboardView extends View {
         String l = "en".equals(lang) ? "en" : "de".equals(lang) ? "de" : "es";
         if (l.equals(language)) return;
         language = l;
+        stripTokens = tokens(stripText.toString().replace('\n', ' '));   // los digrafos del espanol dependen del idioma
         rebuildLayouts();
         warmGlide();
     }
@@ -814,8 +815,28 @@ public final class AurebeshKeyboardView extends View {
 
     void setStripText(CharSequence text) {
         stripText = text == null ? "" : text;
-        stripTokens = Glyphs.tokenize(stripText.toString().replace('\n', ' '), useDigraphs);
+        stripTokens = tokens(stripText.toString().replace('\n', ' '));
         invalidate();
+    }
+
+    /**
+     * Digrafos del espanol (ll, rr, qu, gu): con el teclado en espanol tienen tecla en la fila de digrafos y glifo
+     * propio en lo que el teclado dibuja en Aurebesh. Reconstruye las teclas si cambia.
+     */
+    void setSpanishDigraphs(boolean on) {
+        if (spanishDigraphs == on) return;
+        spanishDigraphs = on;
+        stripTokens = tokens(stripText.toString().replace('\n', ' '));
+        rebuildLayouts();
+    }
+    private boolean spanishDigraphs = true;
+
+    /** Los digrafos del espanol cuentan: opcion encendida y teclado en espanol. */
+    boolean esDigraphs() { return spanishDigraphs && "es".equals(language); }
+
+    /** Texto latino a glifos con los digrafos que tocan (los del Aurebesh si estan encendidos y, en espanol, los suyos). */
+    private List<Glyphs.Token> tokens(String s) {
+        return Glyphs.tokenize(s, useDigraphs, useDigraphs && esDigraphs());
     }
 
     void resetToLetters() {
@@ -893,10 +914,15 @@ public final class AurebeshKeyboardView extends View {
         return nums;
     }
 
-    /** Fila de los ocho digrafos Aurebesh (peso 1,25: ocupan las diez unidades), en la pagina 2/2 o como fila superior. */
+    /**
+     * Fila de digrafos, en la pagina 2/2 o como fila superior: los ocho del Aurebesh (peso 1,25: ocupan las diez
+     * unidades) o, en el teclado espanol con sus digrafos encendidos, diez teclas de una unidad ({@link Glyphs#ROW_ES}).
+     */
     private List<Key> digraphsRow() {
         List<Key> dig = new ArrayList<>();
-        for (String d : Glyphs.DIGRAPHS) dig.add(new Key(d, d, d, null, CODE_TEXT, 1.25f));
+        String[] row = esDigraphs() ? Glyphs.ROW_ES : Glyphs.DIGRAPHS;
+        float w = 10f / row.length;
+        for (String d : row) dig.add(new Key(d, d, d, null, CODE_TEXT, w));
         return dig;
     }
 
@@ -2276,7 +2302,7 @@ public final class AurebeshKeyboardView extends View {
         for (int i = 0; i < n; i++) {
             String word = suggestions.get(i);
             emojiAt[i] = isEmoji(word);
-            List<Glyphs.Token> tk = !showStrip || emojiAt[i] ? null : Glyphs.tokenize(word, useDigraphs);
+            List<Glyphs.Token> tk = !showStrip || emojiAt[i] ? null : tokens(word);
             tokens.add(tk);
             float tw = 0;
             if (tk != null) {

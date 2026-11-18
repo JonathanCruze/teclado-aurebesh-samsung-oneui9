@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="es_digraphs_title">Dígrafos del español</string>
+    <string name="es_digraphs_sub">En el teclado español, ll, rr, qu y gu tienen tecla en la fila de dígrafos y glifo propio. No son del Aurebesh original: están hechos con piezas de sus letras. Apagado, solo los ocho originales</string>
+</resources>

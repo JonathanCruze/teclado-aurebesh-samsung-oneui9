@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="top_row_title">Obere Reihe</string>
-    <string name="top_row_sub">Was über den Buchstaben steht: Zahlen, die acht Aurebesh-Digraphen oder nichts. Zahlen sind auf q bis p immer per langem Druck da.</string>
+    <string name="top_row_sub">Was über den Buchstaben steht: Zahlen, die Digraphen (die acht aus dem Aurebesh; auf Spanisch zehn mit ll, rr, qu und gu) oder nichts. Zahlen sind auf q bis p immer per langem Druck da.</string>
     <string name="top_row_numbers">Zahlen</string>
     <string name="top_row_digraphs">Digraphen</string>
     <string name="top_row_none">Nichts</string>

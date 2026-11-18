@@ -10,6 +10,7 @@ final class Prefs {
     static final String HINTS = "show_latin_hints";
     static final String VIBRATE = "vibrate";
     static final String DIGRAPHS = "digraphs";
+    static final String DIGRAPHS_ES = "digraphs_es";   // digrafos del espanol (ll, rr, qu, gu) en el teclado espanol; de fabrica, si
     static final String STRIP = "show_strip";
     static final String THEME = "theme";
     static final String NUMBERS = "number_row";
@@ -64,6 +65,7 @@ final class Prefs {
     static boolean hints(Context c) { return get(c).getBoolean(HINTS, false); }
     static boolean vibrate(Context c) { return get(c).getBoolean(VIBRATE, true); }
     static boolean digraphs(Context c) { return get(c).getBoolean(DIGRAPHS, true); }
+    static boolean digraphsEs(Context c) { return get(c).getBoolean(DIGRAPHS_ES, true); }
     /** Tema efectivo; "auto" se resuelve con el modo oscuro del telefono (Estelar de dia, Noche de noche). */
     static String theme(Context c) {
         String t = themePref(c);
@@ -249,6 +251,7 @@ final class Prefs {
             case SPACE_SLIDE: case AUTO_REPLACE: case AUTO_CAPS: case PREVIEW: case LONGPRESS: case VIBRATION:
             case SOUND_VOLUME: case HEIGHT_PCT: case BOTTOM_DP: case SPLIT_WIDTH: case SHORTCUTS:
             case SABER: case STARWARS: case HINT_MODE: case TOOLBAR_ITEMS: case ALT_CHARS: case TOP_ROW: case LEARN_USES:
+            case DIGRAPHS_ES:
             case AiModels.MODEL: case AiModels.MODE: case AiModels.REMOTE_URL: case AiModels.REMOTE_MODEL:
                 return true;
             default:

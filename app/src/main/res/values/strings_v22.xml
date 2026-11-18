@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="top_row_title">Top row</string>
-    <string name="top_row_sub">What sits above the letters: numbers, the eight Aurebesh digraphs, or nothing. Numbers are always one long press away on q to p.</string>
+    <string name="top_row_sub">What sits above the letters: numbers, the digraphs (the eight Aurebesh ones; in Spanish, ten with ll, rr, qu and gu), or nothing. Numbers are always one long press away on q to p.</string>
     <string name="top_row_numbers">Numbers</string>
     <string name="top_row_digraphs">Digraphs</string>
     <string name="top_row_none">Nothing</string>

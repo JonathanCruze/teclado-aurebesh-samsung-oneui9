@@ -148,7 +148,7 @@ public final class MainActivity extends Activity {
                     if (key == null) return;
                     refreshControls();
                     if (Prefs.THEME.equals(key)) checkTheme();   // otro tema efectivo: la app entera se repinta
-                    if (Prefs.STRIP.equals(key) || Prefs.DIGRAPHS.equals(key)) applyPreviewPrefs();   // el campo del panel pasa a Aurebesh (o vuelve)
+                    if (Prefs.STRIP.equals(key) || Prefs.DIGRAPHS.equals(key) || Prefs.DIGRAPHS_ES.equals(key)) applyPreviewPrefs();   // el campo del panel pasa a Aurebesh (o vuelve)
                     if (Prefs.LEARNED.equals(key) || Prefs.CUSTOM_SOUND.equals(key) || Prefs.SHORTCUTS.equals(key)
                             || Prefs.EMOJI_RECENT.equals(key) || AiModels.MODEL.equals(key)) refreshDataCard();
                 }
@@ -1026,6 +1026,7 @@ public final class MainActivity extends Activity {
         chipRow(g, R.string.top_lang_title, getString(R.string.top_lang_hint), langGroup());
         chipRow(g, R.string.top_row_title, getString(R.string.top_row_sub), topRowGroup());
         optionRow(g, R.string.opt_digraphs, R.string.opt_digraphs_sub, Prefs.DIGRAPHS, Prefs.digraphs(this));
+        optionRow(g, R.string.es_digraphs_title, R.string.es_digraphs_sub, Prefs.DIGRAPHS_ES, Prefs.digraphsEs(this));
         optionRow(g, R.string.alt_chars_title, R.string.alt_chars_sub, R.string.alt_chars_hint, Prefs.ALT_CHARS, Prefs.altChars(this));
         g = group(body, R.string.ux_group_alphabet);
         // Cuantas letras han perdido ya su pista en Aprendiendo: asi se ve que las que faltan no son un fallo
@@ -1326,7 +1327,7 @@ public final class MainActivity extends Activity {
             Prefs.HAND, Prefs.HAND + "_wide", Prefs.HAND_LAST, Prefs.TOOLBAR, Prefs.TOOLBAR_ITEMS, Prefs.LEARN,
             Prefs.DOUBLE_SPACE, Prefs.GLIDE, Prefs.SCREENSHOTS, Prefs.APP_LANG, Prefs.KEYBOARD_LANG, Prefs.SPACE_SLIDE,
             Prefs.LONGPRESS, Prefs.VIBRATION, Prefs.SOUND_VOLUME, Prefs.SPLIT, Prefs.SPLIT_WIDTH, Prefs.SABER, Prefs.STARWARS,
-            Prefs.ALT_CHARS, Prefs.LEARN_USES};
+            Prefs.ALT_CHARS, Prefs.LEARN_USES, Prefs.DIGRAPHS_ES};
 
     /** Claves del servidor propio: solo se exportan con la casilla marcada (la clave nunca sin ella). */
     private static final String[] REMOTE_KEYS = {AiModels.MODE, AiModels.REMOTE_URL, AiModels.REMOTE_MODEL, AiModels.REMOTE_KEY};
@@ -1340,7 +1341,7 @@ public final class MainActivity extends Activity {
             case Prefs.HINTS: case Prefs.VIBRATE: case Prefs.DIGRAPHS: case Prefs.STRIP: case "dark_theme": case Prefs.NUMBERS:
             case Prefs.SOUND: case Prefs.AUTOCORRECT: case Prefs.AUTO_REPLACE: case Prefs.AUTO_CAPS: case Prefs.PREVIEW:
             case Prefs.TOOLBAR: case Prefs.LEARN: case Prefs.DOUBLE_SPACE: case Prefs.GLIDE: case Prefs.SCREENSHOTS:
-            case Prefs.STARWARS: case Prefs.ALT_CHARS:
+            case Prefs.STARWARS: case Prefs.ALT_CHARS: case Prefs.DIGRAPHS_ES:
                 return TYPE_BOOL;
             case Prefs.SOUND_VOLUME: case Prefs.LEARN_USES:
                 return TYPE_INT;
@@ -1804,6 +1805,7 @@ public final class MainActivity extends Activity {
         preview.applyPrefs(Prefs.hints(this), Prefs.vibrate(this), Prefs.strip(this), Prefs.digraphs(this),
                 Prefs.theme(this), Prefs.numbers(this), Prefs.sound(this), scale);   // Prefs.theme resuelve los automaticos
         preview.setTopRow(Prefs.topRow(this));              // numeros / digrafos / nada (manda sobre el booleano antiguo)
+        preview.setSpanishDigraphs(Prefs.digraphsEs(this)); // ll, rr, qu y gu en el teclado espanol
         preview.setHintMode(Prefs.hintModeInt(this));      // nunca / siempre / aprendiendo (manda sobre el booleano antiguo)
         preview.setSaber(Prefs.saberArgb(this));
         preview.setHandMode(Prefs.handMode(this));
@@ -1819,8 +1821,16 @@ public final class MainActivity extends Activity {
         preview.setLongPressMs(Prefs.longPressMs(this));
         preview.setHaptics(Prefs.vibrationLevel(this));
         preview.setBottomPad(Prefs.bottomDp(this) * dp);
-        if (translation != null) translation.setDigraphs(Prefs.digraphs(this));
+        if (translation != null) {
+            translation.setDigraphs(Prefs.digraphs(this));
+            translation.setSpanishDigraphs(spanishDigraphs());
+        }
         syncPreview();   // el campo del panel pasa a Aurebesh (o vuelve a latino) con "Todo en Aurebesh"
+    }
+
+    /** Los digrafos del espanol cuentan en lo que la app dibuja en Aurebesh: opcion encendida y app (y teclado) en espanol. */
+    private boolean spanishDigraphs() {
+        return Prefs.digraphsEs(this) && "es".equals(AppLocale.current(this));
     }
 
     /** Deslizar sobre el espacio en la copia: con un solo idioma, "auto" mueve el cursor (como en el IME). */
@@ -1868,12 +1878,13 @@ public final class MainActivity extends Activity {
                 : contentWidth - px(120);
         if (measurePaint.getTypeface() == null) measurePaint.setTypeface(Typeface.create(Typeface.MONOSPACE, Typeface.BOLD));
         boolean digraphs = Prefs.digraphs(this);
+        boolean spanish = digraphs && spanishDigraphs();
         int from = 0;
         int len = t.length();
         if (len > 160) from = len - 160;   // una linea nunca lleva mas
         while (from < len) {
             float w = 0;
-            for (Glyphs.Token tok : Glyphs.tokenize(t.substring(from), digraphs)) w += Glyphs.tokenWidth(tok, letterH, measurePaint);
+            for (Glyphs.Token tok : Glyphs.tokenize(t.substring(from), digraphs, spanish)) w += Glyphs.tokenWidth(tok, letterH, measurePaint);
             if (w <= avail) break;
             from += Character.charCount(t.codePointAt(from));
         }

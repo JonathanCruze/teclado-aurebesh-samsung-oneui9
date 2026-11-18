@@ -323,3 +323,42 @@ def badges(G,k=BADGE_LETTER,gap=BADGE_GAP):
     """(c) y (r) con aire: la letra al k y el mismo marco para los dos (el que pida el mas ancho, la r)."""
     grow=max(badge_grow(G[ch],k,gap) for ch in '©®')
     return {ch:badge_air(G[ch],k,gap,grow) for ch in '©®'}
+
+# ---------------- digrafos del espanol: ll, rr, qu y gu (no existen en el Aurebesh original; se componen con lo que hay)
+ES_DIGRAPHS=('ll','rr','qu','gu')
+def spanish_digraphs(G, ll='doble_pata', rr='dos_diagonales', mute_u='cuadro_dentro'):
+    """Letra doble = su diagonal dos veces: la ll es la l con la pata repetida un trazo mas arriba y la rr la r con una
+    segunda diagonal paralela bajo el mismo techo, con un hueco de un trazo (variantes: 'dos_astas', la l con otra asta
+    al lado, y 'pata_corta', la r con una segunda pata corta). La u muda de que/qui y gue/gui es un cuadrado de un trazo
+    dentro de la q y de la g (como el del 0), el mismo cuadrado que arriba y por duplicado marca la u que si suena (la
+    dieresis): es lo que mejor se lee en pequeno. Variantes: 'cuadro_esquina' (el cuadrado en la esquina inferior
+    derecha: en texto corrido parece un punto) y 'muesca' (la muesca diagonal de la u dentro de la letra: en la g se
+    empasta con su banderin)."""
+    l,r,q,g=G['l'],G['r'],G['q'],G['g']; out={}
+    lx0,ly0,lx1,ly1=bbox(l['p']); top=ly0
+    if ll=='dos_astas':
+        out['ll']=_metrics(_U(copy_polys(l['p'])+[rect(lx1+T,top,lx1+2*T,10)]),l)
+    else:
+        # pata de la l: de (0, 7.2)-(0.81, 5.96) al asta en (4.43, 8.46)-(4.43, 10); la copia sube dos trazos en perpendicular
+        tick=[[0.0,7.2],[0.81,5.96],[4.43,8.46],[4.43,10.0],[4.05,10.0]]
+        dy=2*T/math.cos(math.atan2(8.46-5.96,4.43-0.81))
+        up=[[x,max(y-dy,top)] for x,y in tick]
+        out['ll']=_metrics(_U(copy_polys(l['p'])+[up]),l)
+    if rr=='pata_corta':
+        out['rr']=_metrics(_U(copy_polys(r['p'])+[[[2.3,3.87],[4.11,3.87],[1.83,6.9],[0.02,6.9]]]),r)
+    else:
+        # la diagonal de la r mide 1.81 en horizontal: la copia va 3.3 a la derecha (hueco de casi un trazo) y los techos se funden
+        out['rr']=_metrics(_U(copy_polys(r['p'])+translate(copy_polys(r['p']),3.3,0)),r)
+    qx0,qy0,qx1,qy1=bbox(q['p']); gx0,gy0,gx1,gy1=bbox(g['p'])
+    if mute_u=='muesca':
+        out['qu']=_metrics(_U(copy_polys(q['p'])+[[[5.61,3.84],[3.91,3.84],[2.2,5.55],[3.9,5.55]]]),q)
+        out['gu']=_metrics(_U(copy_polys(g['p'])+[[[6.6,3.84],[5.0,3.84],[3.6,5.24],[5.2,5.24]]]),g)
+    elif mute_u=='cuadro_esquina':
+        # esquina inferior derecha de la caja de la letra: en la q es su esquina abierta; en la g, fuera de la diagonal
+        out['qu']=_metrics(copy_polys(q['p'])+[rect(qx1-T,10-T,qx1,10)],q)
+        out['gu']=_metrics(copy_polys(g['p'])+[rect(gx1-T,10-T,gx1,10)],g)
+    else:
+        # centro del hueco de cada letra: q (1.54-7.18, 3.84-8.46); g, bajo su banderin y a un trazo de la diagonal
+        out['qu']=_metrics(copy_polys(q['p'])+[_square(4.36,6.15)],q)
+        out['gu']=_metrics(copy_polys(g['p'])+[_square(3.6,6.5)],g)
+    return out
