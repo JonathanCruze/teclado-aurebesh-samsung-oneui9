@@ -246,6 +246,32 @@ public class SettingsTest {
         return null;
     }
 
+    /**
+     * "Digrafos del espanol" esta en Idiomas y teclas bajo "Digrafos": encendido de fabrica, el interruptor guarda la
+     * preferencia y la copia del teclado de la app cambia su fila de digrafos al momento (diez teclas con ll, rr, qu y
+     * gu, u ocho originales).
+     */
+    @Test
+    public void spanishDigraphsSwitchTogglesThePreference() {
+        MainActivity a = create();
+        openCategory(a, R.string.cat_keys, MainActivity.PAGE_KEYS);
+        String title = a.getString(R.string.es_digraphs_title);
+        assertTrue("la fila Digrafos del espanol esta en Idiomas y teclas", hasText(a, title));
+        assertTrue("con su subtitulo", hasText(a, a.getString(R.string.es_digraphs_sub)));
+        Switch sw = switchFor(a, title);
+        assertNotNull("interruptor de digrafos del espanol", sw);
+        assertTrue("encendido de fabrica", Prefs.digraphsEs(app));
+        assertTrue(sw.isChecked());
+        sw.performClick();
+        assertFalse("al tocarlo se apaga la preferencia", Prefs.digraphsEs(app));
+        assertFalse(sw.isChecked());
+        sw.performClick();
+        assertTrue("otro toque la vuelve a encender", Prefs.digraphsEs(app));
+        boolean reset = false;
+        for (String k : MainActivity.RESET_KEYS) reset |= Prefs.DIGRAPHS_ES.equals(k);
+        assertTrue("Restablecer ajustes tambien la devuelve a fabrica", reset);
+    }
+
     @Test
     public void altCharsSwitchReflectsAndTogglesThePreference() {
         MainActivity a = create();
