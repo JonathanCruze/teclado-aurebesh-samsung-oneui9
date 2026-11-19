@@ -336,7 +336,8 @@ public class GeometriaTest {
     @Test
     public void alternativasPorIdioma() throws Exception {
         // Tablas (sin vista)
-        check(Alternatives.alts("es", "c") == null, "es: la c no lleva cedilla");
+        check(Arrays.toString(Alternatives.alts("es", "c")).equals("[\u00e7]"), "es: la c lleva su cedilla al mantener");
+        check(Alternatives.hint("es", "c") == null, "es: pero no la insinua en la tecla");
         check(Alternatives.alts("es", "s") == null, "es: la s no lleva eszett");
         check(Alternatives.alts("es", "n") == null, "es: la n no insinua nada (la n con virgulilla tiene tecla)");
         check(Alternatives.alts("es", "ñ") == null, "es: la n con virgulilla no tiene alternativas");
@@ -363,7 +364,7 @@ public class GeometriaTest {
         kb.setLanguage("es");
         layout(kb, W);
         check(kb.keyFor("s").alts == null, "vista es: la s sin alternativas");
-        check(kb.keyFor("c").alts == null, "vista es: la c sin alternativas");
+        check(Arrays.toString(kb.keyFor("c").alts).equals("[\u00e7]"), "vista es: la c solo con su cedilla");
         check(kb.keyFor("ñ").alts == null, "vista es: la n con virgulilla sin alternativas");
         check("á".equals(kb.keyFor("a").alts[0]), "vista es: la a da a con tilde");
         kb.setLanguage("de");

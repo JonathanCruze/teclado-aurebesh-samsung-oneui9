@@ -12,6 +12,7 @@ from fontTools.ttLib import TTFont
 from fontTools.pens.recordingPen import RecordingPen
 sys.path.insert(0,os.path.dirname(os.path.abspath(__file__)))
 from glyph_compose import mirror_x, accents, symbols, times_divide, times, plus_minus, divide_candidates, currency, badges, spanish_digraphs, ES_DIGRAPHS
+from glyph_compose import small_digits, fractions, interrobang, cedilla
 ROOT=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC=os.path.join(ROOT,'font','base-silvinor-Aurebesh.ttf')
 INCLUDE_TIMES=True           # por (x): el boceto del usuario (dos + en espejo con hueco de un trazo, girados 45 grados)
@@ -20,6 +21,9 @@ POUND_WHERE='l_vertical'     # libra: la l con los palitos en su barra vertical 
 LL_CHOICE='doble_pata'       # ll: la l con la pata dos veces ('dos_astas': la l con otra asta al lado)
 RR_CHOICE='dos_diagonales'   # rr: la r con dos diagonales bajo el mismo techo ('pata_corta': segunda pata corta)
 MUTE_U_CHOICE='cuadro_dentro'    # qu y gu: la u muda es un cuadrado dentro de la letra ('cuadro_esquina', 'muesca')
+FRACTION_BAR='recta'         # fracciones: diagonal fina entre numerador y denominador ('zigzag': la / Aurebesh)
+INTERROBANG='alitas_derecha' # exclarrogativo: el ? con las alitas del ! detras ('alitas_izquierda', 'encima')
+CEDILLA='cuadro'             # c con cedilla: un cuadrado bajo las barras cortas de la c ('rabito': pata bajo la barra larga)
 
 # ---------------- base: extraer contornos y metricas a unidades (altura de mayusculas = 10, y hacia abajo)
 f=TTFont(SRC); upm=f['head'].unitsPerEm; cap=f['OS/2'].sCapHeight; U=10.0/cap
@@ -76,6 +80,10 @@ G.update(currency(G, POUND_WHERE))   # euro, yen y libra: dos palitos horizontal
 if INCLUDE_TIMES: G.update(times(G))
 if DIVIDE_CHOICE: G['\u00f7']=divide_candidates(G)[DIVIDE_CHOICE]
 G.update(spanish_digraphs(G, LL_CHOICE, RR_CHOICE, MUTE_U_CHOICE))   # digrafos del espanol: ll, rr, qu, gu
+G.update(small_digits(G))                  # superindices y subindices: los numerales en pequeno
+G.update(fractions(G, FRACTION_BAR))       # fracciones: numerador, barra y denominador
+G.update(interrobang(G, INTERROBANG))      # exclarrogativo: el ? con las alitas del !
+G.update(cedilla(G, CEDILLA))              # c con cedilla
 
 # ---------------- salidas: json, GlyphData.java
 for p in ('tools/glyphs.json','promo/glyphs.json'): json.dump(G,open(os.path.join(ROOT,p),'w'))

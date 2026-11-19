@@ -148,11 +148,11 @@ public class GestureTest {
         check(o.startsWith("[("), "la o del espanol empieza por su simbolo: " + o);
         for (String ch : new String[]{"\u00f3", "\u00f2", "\u00f6", "\u00f4", "\u00f5"}) check(o.contains(ch), "falta " + ch + " en la o: " + o);
         check(!o.contains("\u00f8") && !o.contains("\u0153"), "la o del espanol no ofrece la o nordica ni la oe: " + o);
-        check(Arrays.toString(kb.keyFor("c").alts), "[\"]", "en espanol la c solo lleva su simbolo, sin cedilla");
+        check(Arrays.toString(kb.keyFor("c").alts), "[\", \u00e7]", "en espanol la c lleva su simbolo y, al mantener, la cedilla");
         check(Arrays.toString(kb.keyFor("s").alts), "[#]", "en espanol la s solo lleva su simbolo, sin eszett");
         kb.setAltChars(false);
         layout(kb, W);
-        check(kb.keyFor("c").alts == null, "sin caracteres alternativos, en espanol la c no lleva nada (ni cedilla)");
+        check(Arrays.toString(kb.keyFor("c").alts), "[\u00e7]", "sin caracteres alternativos, en espanol la c solo lleva su cedilla");
         check(kb.keyFor("s").alts == null, "sin caracteres alternativos, en espanol la s no lleva nada (ni eszett)");
         kb.setAltChars(true);
         layout(kb, W);
@@ -293,6 +293,102 @@ public class GestureTest {
         check(rec.typed.toString(), "\u00fa", "ingles: soltar escribe u con tilde");
     }
 
+    /**
+     * Mantener un numero ofrece su superindice (el que queda bajo el dedo y sale al soltar), su subindice y las
+     * fracciones que empiezan por el, dibujados con los numerales Aurebesh en pequeno; un toque sigue dando el numero.
+     * En la pagina de signos, mantener ? ofrece tambien el exclarrogativo; y en espanol la c, su cedilla.
+     */
+    @Test
+    public void digitsFractionsInterrobangAndCedillaOnHold() throws Exception {
+        Application app = (Application) RuntimeEnvironment.getApplication();
+        AurebeshKeyboardView kb = view(app, W);
+        Recorder rec = new Recorder();
+        kb.setListener(rec);
+        String[][] want = {
+                {"0", "\u2070", "\u2080"},
+                {"1", "\u00b9", "\u2081", "\u00bd", "\u2153", "\u00bc", "\u2155", "\u2159", "\u2150", "\u215b", "\u2151"},
+                {"2", "\u00b2", "\u2082", "\u2154", "\u2156"},
+                {"3", "\u00b3", "\u2083", "\u00be", "\u2157", "\u215c"},
+                {"4", "\u2074", "\u2084", "\u2158"},
+                {"5", "\u2075", "\u2085", "\u215a", "\u215d"},
+                {"6", "\u2076", "\u2086"},
+                {"7", "\u2077", "\u2087", "\u215e"},
+                {"8", "\u2078", "\u2088"},
+                {"9", "\u2079", "\u2089"}};
+        for (String[] w : want) {
+            AurebeshKeyboardView.Key k = kb.keyFor(w[0]);
+            check(k != null, "tecla " + w[0]);
+            down(kb, k.rect.centerX(), k.rect.centerY());
+            idle(450);
+            String[] opts = kb.popupOptions();
+            check(opts != null && opts.length == w.length - 1, "menu del " + w[0] + ": " + Arrays.toString(opts));
+            java.util.List<String> ol = Arrays.asList(opts);
+            for (int i = 1; i < w.length; i++) {
+                check(ol.contains(w[i]), "el " + w[0] + " ofrece " + w[i] + ": " + ol);
+                check(Glyphs.has(w[i]) && Glyphs.width(w[i]) > 2f, "glifo de " + w[i]);
+            }
+            int sel = kb.popupSelectedCell();
+            check(opts[sel], w[1], "bajo el dedo, el superindice del " + w[0]);
+            RectF cell = kb.popupCellRect(sel);
+            check(cell.left <= k.rect.centerX() && k.rect.centerX() <= cell.right, "el superindice queda sobre el dedo en el " + w[0]);
+            for (int i = 0; i < opts.length; i++) {
+                RectF c = kb.popupCellRect(i);
+                check(c.left >= -1f && c.right <= W + 1f, "el menu del " + w[0] + " cabe en pantalla");
+            }
+            if ("1".equals(w[0])) save(render(kb, W), "numeros_menu_1.png");
+            up(kb, k.rect.centerX(), k.rect.centerY());
+            check(rec.typed.toString(), w[1], "soltar sin mover escribe el superindice del " + w[0]);
+            rec.reset();
+            // deslizar hasta la ultima alternativa (el subindice o la ultima fraccion) la escribe
+            down(kb, k.rect.centerX(), k.rect.centerY());
+            idle(450);
+            String last = w[w.length - 1];
+            RectF lc = kb.popupCellRect(Arrays.asList(kb.popupOptions()).indexOf(last));
+            move(kb, lc.centerX(), lc.centerY());
+            up(kb, lc.centerX(), lc.centerY());
+            check(rec.typed.toString(), last, "deslizar hasta " + last);
+            rec.reset();
+            tap(kb, k);
+            check(rec.typed.toString(), w[0], "un toque sigue escribiendo el " + w[0]);
+            rec.reset();
+        }
+        // Lo que se escribe se dibuja con sus glifos en la cinta
+        check(Glyphs.tokenize("x\u00b2 + \u00bd", true).get(1).glyph, "\u00b2", "el superindice tiene glifo al dibujar");
+
+        // La c del espanol: cedilla al mantener, sin pista en la tecla
+        kb.setAltChars(false);
+        layout(kb, W);
+        AurebeshKeyboardView.Key c = kb.keyFor("c");
+        down(kb, c.rect.centerX(), c.rect.centerY());
+        idle(450);
+        check(Arrays.asList(kb.popupOptions()).toString(), "[\u00e7, c]", "menu de la c");
+        check(kb.popupOptions()[kb.popupSelectedCell()], "\u00e7", "la cedilla bajo el dedo");
+        save(render(kb, W), "gestos_menu_c.png");
+        up(kb, c.rect.centerX(), c.rect.centerY());
+        check(rec.typed.toString(), "\u00e7", "mantener la c escribe la cedilla");
+        rec.reset();
+        check(Alternatives.hint("es", "c") == null, "la c no lleva pista de cedilla en la tecla");
+        check(Alternatives.hint("es", "a") != null, "las vocales siguen con la suya");
+        check(Glyphs.has("\u00e7") && Glyphs.has("\u203d"), "glifos de la cedilla y del exclarrogativo");
+        kb.setAltChars(true);
+        layout(kb, W);
+
+        // Pagina de signos: mantener ? ofrece ¿ y el exclarrogativo
+        tap(kb, kb.keyFor(AurebeshKeyboardView.CODE_MODE));
+        layout(kb, W);
+        AurebeshKeyboardView.Key q = kb.keyFor("?");
+        check(q != null, "tecla ? en la pagina de signos");
+        down(kb, q.rect.centerX(), q.rect.centerY());
+        idle(450);
+        java.util.List<String> qo = Arrays.asList(kb.popupOptions());
+        check(qo.contains("\u00bf") && qo.contains("\u203d"), "la ? ofrece ¿ y el exclarrogativo: " + qo);
+        save(render(kb, W), "gestos_menu_interrogacion.png");
+        RectF ib = kb.popupCellRect(qo.indexOf("\u203d"));
+        move(kb, ib.centerX(), ib.centerY());
+        up(kb, ib.centerX(), ib.centerY());
+        check(rec.typed.toString(), "\u203d", "deslizar hasta el exclarrogativo lo escribe");
+    }
+
     @Test
     public void punctuationOnHold() throws Exception {
         Application app = (Application) RuntimeEnvironment.getApplication();
@@ -305,34 +401,35 @@ public class GestureTest {
         down(kb, dot.rect.centerX(), dot.rect.centerY());
         idle(450);
         String[] opts = kb.popupOptions();
-        check(opts != null && opts.length == 10, "diez alternativas del punto");
+        check(opts != null && opts.length == 11, "once alternativas del punto");
         java.util.List<String> ol = Arrays.asList(opts);
-        check(ol.containsAll(Arrays.asList("?", "¿", "!", "¡", ":", ";", "-", "\"", "'", "@")), "las diez del punto: " + ol);
+        check(ol.containsAll(Arrays.asList("?", "¿", "!", "¡", ":", ";", "-", "\"", "'", "@", "\u203d")), "las once del punto: " + ol);
         int q = ol.indexOf("?");
         check(q == kb.popupSelectedCell(), "la ? es la celda resaltada al abrir");
         check(kb.popupCellRect(q).contains(dot.rect.centerX(), kb.popupCellRect(q).centerY()), "la ? queda sobre el dedo");
         check(Math.abs(ol.indexOf("¿") - q) == 1, "la ¿ al lado de la ?");
-        RectF c0 = kb.popupCellRect(0), c5 = kb.popupCellRect(5);
-        check(c5.bottom <= c0.top + 1f, "segunda fila del menu por encima de la primera");
-        near("misma columna en las dos filas", c5.left, c0.left);
+        RectF c0 = kb.popupCellRect(0), c6 = kb.popupCellRect(6);     // once celdas: seis abajo y cinco arriba
+        check(c6.bottom <= c0.top + 1f, "segunda fila del menu por encima de la primera");
+        near("misma columna en las dos filas", c6.left, c0.left);
         save(render(kb, W), "gestos_menu_punto.png");
         up(kb, dot.rect.centerX(), dot.rect.centerY());
         check(rec.typed.toString(), "?", "mantener el punto da ?");
         rec.reset();
 
-        // Deslizar hasta la celda de ! (indice 2) y soltar
+        // Deslizar hasta la celda de ! y soltar
         down(kb, dot.rect.centerX(), dot.rect.centerY());
         idle(450);
-        RectF c2 = kb.popupCellRect(2);
+        RectF c2 = kb.popupCellRect(Arrays.asList(kb.popupOptions()).indexOf("!"));
         move(kb, c2.centerX(), c2.centerY());
         up(kb, c2.centerX(), c2.centerY());
         check(rec.typed.toString(), "!", "celda de la exclamacion");
         rec.reset();
 
-        // Y una celda de la fila de arriba (indice 7: ")
+        // Y una celda de la fila de arriba (las comillas)
         down(kb, dot.rect.centerX(), dot.rect.centerY());
         idle(450);
-        RectF c7 = kb.popupCellRect(7);
+        RectF c7 = kb.popupCellRect(Arrays.asList(kb.popupOptions()).indexOf("\""));
+        check(c7.bottom <= kb.popupCellRect(0).top + 1f, "las comillas estan en la fila de arriba");
         move(kb, c7.centerX(), c7.centerY());
         up(kb, c7.centerX(), c7.centerY());
         check(rec.typed.toString(), "\"", "celda de la fila superior");
@@ -354,7 +451,7 @@ public class GestureTest {
         down(kb, dot.rect.centerX(), dot.rect.centerY());
         idle(450);
         java.util.List<String> en = Arrays.asList(kb.popupOptions());
-        check(en.size() == 9 && en.containsAll(Arrays.asList("?", "!", ",", ":", ";", "-", "\"", "'", "@")), "punto en ingles: " + en);
+        check(en.size() == 10 && en.containsAll(Arrays.asList("?", "!", ",", ":", ";", "-", "\"", "'", "@", "\u203d")), "punto en ingles: " + en);
         check(en.get(kb.popupSelectedCell()), "?", "punto en ingles: la ? bajo el dedo");
         up(kb, dot.rect.centerX(), dot.rect.centerY());
         comma = kb.keyFor(",");
@@ -368,7 +465,7 @@ public class GestureTest {
         down(kb, dot.rect.centerX(), dot.rect.centerY());
         idle(450);
         java.util.List<String> de = Arrays.asList(kb.popupOptions());
-        check(de.size() == 8 && de.containsAll(Arrays.asList("?", "!", ":", ";", "-", "\"", "'", "@")), "punto en aleman: " + de);
+        check(de.size() == 9 && de.containsAll(Arrays.asList("?", "!", ":", ";", "-", "\"", "'", "@", "\u203d")), "punto en aleman: " + de);
         check(de.get(kb.popupSelectedCell()), "?", "punto en aleman: la ? bajo el dedo");
         up(kb, dot.rect.centerX(), dot.rect.centerY());
         check(rec.typed.toString(), "?!?", "lo escrito al mantener en ingles y aleman");

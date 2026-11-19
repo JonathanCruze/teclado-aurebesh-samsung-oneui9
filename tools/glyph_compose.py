@@ -362,3 +362,75 @@ def spanish_digraphs(G, ll='doble_pata', rr='dos_diagonales', mute_u='cuadro_den
         out['qu']=_metrics(copy_polys(q['p'])+[_square(4.36,6.15)],q)
         out['gu']=_metrics(copy_polys(g['p'])+[_square(3.6,6.5)],g)
     return out
+
+# ---------------- superindices, subindices y fracciones: los numerales Aurebesh en pequeno
+SUPER='\u2070\u00b9\u00b2\u00b3\u2074\u2075\u2076\u2077\u2078\u2079'       # 0..9 arriba
+SUB='\u2080\u2081\u2082\u2083\u2084\u2085\u2086\u2087\u2088\u2089'         # 0..9 abajo
+FRACTIONS={'\u00bd':(1,2),'\u2153':(1,3),'\u2154':(2,3),'\u00bc':(1,4),'\u00be':(3,4),'\u2155':(1,5),'\u2156':(2,5),
+           '\u2157':(3,5),'\u2158':(4,5),'\u2159':(1,6),'\u215a':(5,6),'\u2150':(1,7),'\u215b':(1,8),'\u215c':(3,8),
+           '\u215d':(5,8),'\u215e':(7,8),'\u2151':(1,9)}
+SMALL_S=0.56       # escala de un numeral pequeno (superindice o subindice)
+SMALL_GROW=0.16    # ... engordado para que el trazo no se quede en la mitad (0.87 -> 1.19)
+FRAC_S=0.5         # escala de numerador y denominador
+FRAC_GROW=0.14
+FRAC_GAP=0.55      # aire entre cada numeral y la barra
+def _small(g,s,grow):
+    """Poligonos del numeral g a escala s, engordados grow, pegados al origen (esquina superior izquierda en 0,0)."""
+    p=offset_polys(scale(copy_polys(g['p']),s,s),grow) if grow else scale(copy_polys(g['p']),s,s)
+    x0,y0,x1,y1=bbox(p); return translate(p,-x0,-y0),x1-x0,y1-y0
+def _side(base,polys,k=0.6):
+    """Metricas de un glifo pequeno: margenes laterales de base reducidos a k."""
+    x0,y0,x1,y1=bbox(polys); polys=translate(polys,-x0,0); rsb=base['adv']-base['lsb']-base['w']
+    return {'w':round(x1-x0,3),'p':polys,'lsb':round(base['lsb']*k,3),'adv':round(base['lsb']*k+(x1-x0)+rsb*k,3)}
+def small_digits(G):
+    """Superindices (colgados del borde superior de las letras) y subindices (apoyados en la linea base): el numeral
+    Aurebesh al 56 por ciento, con el trazo engordado."""
+    out={}
+    for d in range(10):
+        p,w,h=_small(G[str(d)],SMALL_S,SMALL_GROW)
+        out[SUPER[d]]=_side(G[str(d)],translate(copy_polys(p),0,LETTER_TOP))
+        out[SUB[d]]=_side(G[str(d)],translate(copy_polys(p),0,10-h))
+    return out
+def fractions(G, bar='recta'):
+    """Fracciones: numerador arriba a la izquierda, denominador abajo a la derecha y entre ellos la barra, como el %
+    de la fuente (dos cajas y una barra). bar='recta': una diagonal fina, del grosor de los numerales pequenos, que es lo
+    que mejor se lee; 'zigzag': la / Aurebesh a toda la altura de las letras (queda pegada a los numerales)."""
+    out={}; sl=G['/']; sx0,sy0,sx1,sy1=bbox(sl['p'])
+    for ch,(a,b) in FRACTIONS.items():
+        pn,wn,hn=_small(G[str(a)],FRAC_S,FRAC_GROW); pd,wd,hd=_small(G[str(b)],FRAC_S,FRAC_GROW)
+        if bar=='recta':
+            t=1.05; xm=wn+FRAC_GAP+0.9; slash=[[[xm+1.5-t/2,LETTER_TOP],[xm+1.5+t/2,LETTER_TOP],[xm-1.5+t/2,10],[xm-1.5-t/2,10]]]
+            xd=xm+0.9+FRAC_GAP
+        else:
+            # la / de la fuente estirada a la altura de las letras; su tramo alto queda a la derecha del numerador y el
+            # bajo, a la izquierda del denominador, con FRAC_GAP de aire a cada lado
+            k=(10-LETTER_TOP)/(sy1-sy0); half=(sx1-sx0)/2
+            slash=translate(scale(translate(copy_polys(sl['p']),-sx0,-sy0),1.0,k),wn+FRAC_GAP-half+0.2,LETTER_TOP)
+            xd=wn+FRAC_GAP+half+0.2+FRAC_GAP-0.2
+        polys=translate(pn,0,LETTER_TOP)+slash+translate(pd,xd,10-hd)
+        out[ch]=_side(G['%'],polys,1.0)
+    return out
+
+# ---------------- exclarrogativo y c con cedilla
+def interrobang(G, how='alitas_derecha'):
+    """El ? Aurebesh con las alitas del ! (sus dos paralelogramos inclinados): 'alitas_derecha', las alitas detras del
+    ?, a medio trazo, en el lado convexo de su arco; 'alitas_izquierda', delante (se juntan con el gancho del ?);
+    'encima', el ! centrado sobre el ? como en el signo latino (se empasta)."""
+    q,e=G['?'],G['!']; gap=T/2
+    if how=='alitas_derecha':
+        polys=copy_polys(q['p'])+translate(copy_polys(e['p']),q['w']+gap,0)
+    elif how=='encima':
+        polys=_U(copy_polys(q['p'])+translate(copy_polys(e['p']),(q['w']-e['w'])/2+0.9,0))
+    else:
+        polys=copy_polys(e['p'])+translate(copy_polys(q['p']),e['w']+gap,0)
+    return {'\u203d':_metrics(polys,q)}
+def cedilla(G, how='cuadro'):
+    """La c con cedilla: 'cuadro', un cuadrado de un trazo bajo las dos barras cortas de la c, dentro de su caja (la
+    marca de debajo, como las de arriba, es un cuadrado); 'rabito', una pata inclinada bajo la barra larga."""
+    c=G['c']
+    if how=='rabito':
+        mark=[[4.63,10.0],[6.17,10.0],[5.0,11.6],[3.46,11.6]]
+    else:
+        mark=rect(1.155,10-T,1.155+T,10)
+    return {'\u00e7':derived(c,copy_polys(c['p'])+[mark])}
+

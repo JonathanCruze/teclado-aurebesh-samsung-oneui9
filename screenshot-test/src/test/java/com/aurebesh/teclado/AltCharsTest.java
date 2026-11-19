@@ -236,9 +236,10 @@ public class AltCharsTest {
         check("?".equals(first(kb, "m")), "es: la m da ?: " + alts(kb, "m"));
         check("!".equals(first(kb, "ñ")), "es: la n con virgulilla da !: " + alts(kb, "ñ"));
         check("#".equals(first(kb, "s")) && kb.keyFor("s").alts.length == 1, "es: la s solo da #: " + alts(kb, "s"));
-        check("\"".equals(first(kb, "c")) && kb.keyFor("c").alts.length == 1, "es: la c solo da comillas: " + alts(kb, "c"));
+        check("\"".equals(first(kb, "c")) && kb.keyFor("c").alts.length == 2 && has(kb, "c", "\u00e7"),
+                "es: la c da comillas y, al mantener, su cedilla: " + alts(kb, "c"));
         check("(".equals(first(kb, "o")) && has(kb, "o", "ó"), "es: la o da ( y luego sus acentos: " + alts(kb, "o"));
-        check(first(kb, "1") == null, "es: los digitos de la fila de numeros no llevan simbolo");
+        check("\u00b9".equals(first(kb, "1")), "es: los digitos de la fila de numeros no llevan simbolo; al mantener, su superindice: " + alts(kb, "1"));
 
         kb.setLanguage("en");
         layout(kb, W);

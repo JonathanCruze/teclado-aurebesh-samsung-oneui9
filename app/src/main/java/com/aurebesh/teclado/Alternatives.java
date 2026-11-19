@@ -23,6 +23,7 @@ final class Alternatives {
         ES.put("i", new String[]{"\u00ed", "\u00ec", "\u00ee", "\u00ef"});
         ES.put("o", new String[]{"\u00f3", "\u00f2", "\u00f4", "\u00f6", "\u00f5"});
         ES.put("u", new String[]{"\u00fa", "\u00fc", "\u00f9", "\u00fb"});
+        ES.put("c", new String[]{"\u00e7"});      // la cedilla, al mantener (catalan, portugues, frances); no se insinua en la tecla
 
         EN.put("a", new String[]{"\u00e1", "\u00e0", "\u00e2", "\u00e4", "\u00e3", "\u00e5", "\u00e6"});
         EN.put("e", new String[]{"\u00e9", "\u00e8", "\u00ea", "\u00eb"});
@@ -95,7 +96,28 @@ final class Alternatives {
         if (letter == null) return null;
         if ("en".equals(lang)) return null;
         if ("de".equals(lang)) return "s".equals(letter) ? "\u00df" : null;
+        if ("aeiou".indexOf(letter) < 0) return null;       // solo las vocales: la c tiene su cedilla al mantener, sin pista
         String[] a = ES.get(letter);
         return a == null ? null : a[0];
+    }
+
+    // Numeros: al mantener, el superindice (el que sale al soltar sin mover), el subindice y las fracciones que
+    // empiezan por ese numero, como en el teclado de Samsung pero completas.
+    private static final String[][] DIGIT_ALTS = {
+            {"\u2070", "\u2080"},                                                                               // 0
+            {"\u00b9", "\u2081", "\u00bd", "\u2153", "\u00bc", "\u2155", "\u2159", "\u2150", "\u215b", "\u2151"},   // 1: 1/2 1/3 1/4 1/5 1/6 1/7 1/8 1/9
+            {"\u00b2", "\u2082", "\u2154", "\u2156"},                                                         // 2: 2/3 2/5
+            {"\u00b3", "\u2083", "\u00be", "\u2157", "\u215c"},                                               // 3: 3/4 3/5 3/8
+            {"\u2074", "\u2084", "\u2158"},                                                                    // 4: 4/5
+            {"\u2075", "\u2085", "\u215a", "\u215d"},                                                         // 5: 5/6 5/8
+            {"\u2076", "\u2086"},                                                                               // 6
+            {"\u2077", "\u2087", "\u215e"},                                                                    // 7: 7/8
+            {"\u2078", "\u2088"},                                                                               // 8
+            {"\u2079", "\u2089"}};                                                                              // 9
+
+    /** Alternativas de un numero al mantenerlo: superindice, subindice y sus fracciones; null si no es un digito. */
+    static String[] digit(String d) {
+        if (d == null || d.length() != 1 || d.charAt(0) < '0' || d.charAt(0) > '9') return null;
+        return DIGIT_ALTS[d.charAt(0) - '0'].clone();
     }
 }

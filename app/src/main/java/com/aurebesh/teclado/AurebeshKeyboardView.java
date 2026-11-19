@@ -909,8 +909,9 @@ public final class AurebeshKeyboardView extends View {
 
     private List<Key> digitsRow() {
         List<Key> nums = new ArrayList<>();
-        for (char c = '1'; c <= '9'; c++) nums.add(sym(String.valueOf(c), 1f));
-        nums.add(sym("0", 1f));
+        // al mantener: superindice, subindice y fracciones del numero (Alternatives.digit)
+        for (char c = '1'; c <= '9'; c++) nums.add(sym(String.valueOf(c), 1f, Alternatives.digit(String.valueOf(c))));
+        nums.add(sym("0", 1f, Alternatives.digit("0")));
         return nums;
     }
 
@@ -979,7 +980,7 @@ public final class AurebeshKeyboardView extends View {
         row(symbols, sym("!", 1f, "\u00a1"), sym("@", 1f), sym("#", 1f), sym("$", 1f, "\u20ac"), sym("%", 1f, "\u2030"),
                 sym("^", 1f), sym("&", 1f), sym("*", 1f, "\u2022"), sym("(", 1f), sym(")", 1f));
         row(symbols, special("1/2", CODE_PAGE, 1.5f), sym("-", 1f, "\u2013"), sym("'", 1f, "\u2018"), sym("\"", 1f, "\u201c"),
-                sym(":", 1f), sym(";", 1f), sym(",", 1f), sym("?", 1f, "\u00bf"), special("", CODE_DELETE, 1.5f));
+                sym(":", 1f), sym(";", 1f), sym(",", 1f), sym("?", 1f, "\u00bf", "\u203d"), special("", CODE_DELETE, 1.5f));
         bottomRow(symbols, "abc");
 
         // Signos 2/2: digrafos Aurebesh, signos del espanol y simbolos menos frecuentes
@@ -996,9 +997,10 @@ public final class AurebeshKeyboardView extends View {
 
     /** Alternativas del punto al mantenerlo: la puntuacion completa del idioma (la primera es la que sale al soltar sin mover). */
     private String[] dotAlts() {
-        if ("es".equals(language)) return new String[]{"?", "\u00bf", "!", "\u00a1", ":", ";", "-", "\"", "'", "@"};
-        if ("de".equals(language)) return new String[]{"?", "!", ":", ";", "-", "\"", "'", "@"};
-        return new String[]{"?", "!", ",", ":", ";", "-", "\"", "'", "@"};
+        // el exclarrogativo, al final: no mueve de sitio lo que ya se sabia de memoria
+        if ("es".equals(language)) return new String[]{"?", "\u00bf", "!", "\u00a1", ":", ";", "-", "\"", "'", "@", "\u203d"};
+        if ("de".equals(language)) return new String[]{"?", "!", ":", ";", "-", "\"", "'", "@", "\u203d"};
+        return new String[]{"?", "!", ",", ":", ";", "-", "\"", "'", "@", "\u203d"};
     }
 
     /** Alternativas de la coma: en espanol los signos de apertura; en ingles !; en aleman ;. */
