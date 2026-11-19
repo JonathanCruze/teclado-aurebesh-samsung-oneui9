@@ -62,6 +62,11 @@ Para actualizar, descarga el nuevo APK e instálalo encima: conserva tus ajustes
   como sugerencia. Salen de la lista 663 erratas que venían de los subtítulos y se daban por buenas (*hize*, *estubo*,
   *tambien*), se quita la tilde que sobra (*dió* → *dio*) y se separan las palabras juntas (*porfavor* → *por favor*,
   *aver* → *a ver*). En un banco de 567 erratas reales acierta 527 (antes 462), sin regresiones.
+- **Probado de punta a punta.** Una revisión independiente tecleó frases en el propio servicio del teclado y encontró siete
+  defectos que las pruebas del diccionario no veían, todos corregidos y con prueba: el contexto ya no cambia una corrección
+  de tilde por otra palabra (*como asi* → *como así*, no *como si*), las palabras que tenías aprendidas siguen siendo
+  destino de corrección, *Padme* y *Leia* se respetan con el léxico Star Wars, y las palabras juntas que la versión
+  anterior había aprendido sola (*alomejor*) se separan al actualizar.
 - **Deslizar para escribir** reconoce también las 40 000 formas nuevas más usadas (79 332 palabras en total).
 - **Dígrafos del español: ll, rr, qu y gu.** Los ocho dígrafos del Aurebesh son los del inglés; en español casi solo servía
   *ch*. Cuatro glifos nuevos hechos con piezas de sus letras: la *ll* es la *l* con la pata dos veces, la *rr* la *r* con
