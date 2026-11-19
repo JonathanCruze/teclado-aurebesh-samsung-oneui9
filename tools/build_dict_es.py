@@ -21,7 +21,8 @@ erratas que se le quitan) y le anade, de mas a menos frecuente, formas validas d
      preteritos, imperfecto, futuro, condicional, subjuntivos en -ra, gerundio y participios); de los mil verbos
      siguientes, las basicas; y de cualquier palabra frecuente, sus flexiones con que aparezcan un par de veces. No
      se rellenan "vosotros", el voseo, el futuro de subjuntivo ni el imperfecto de subjuntivo en -se, que en Mexico
-     casi no se escriben: de esos solo entra lo que los subtitulos usan.
+     casi no se escriben: de esos solo entra lo que los subtitulos usan. A los verbos de es_verbos.txt (los de un
+     chat de todos los dias) se les pegan ademas los pronombres por regla: "platicarle", "chécame", "deposítale".
 
 Politica para que una forma rara pero valida no estropee la correccion (vease tambien Dictionary.java):
 

@@ -55,17 +55,33 @@ sobre los verbos y sustantivos de AnCora y GSD; los tiempos varían un 15 % de u
 
 | | Lista anterior | Lista ampliada |
 |---|---|---|
-| Palabras | 40 000 | 134 653 |
-| `words_es.txt` | 347 864 bytes | 1 360 714 bytes |
-| APK | 1 553 718 bytes | 1 967 414 bytes |
-| Verbos cubiertos (tipos / apariciones) | 49,27 % / 86,64 % | 89,46 % / 98,17 % |
-| Sustantivos cubiertos (tipos / apariciones) | 55,25 % / 91,35 % | 81,44 % / 97,51 % |
-| Verbos bien escritos que el corrector cambiaría por otra palabra (tipos / apariciones) | 4,98 % / 1,62 % | 1,67 % / 0,34 % |
-| Sustantivos bien escritos que cambiaría (tipos / apariciones) | 5,66 % / 0,99 % | 3,12 % / 0,44 % |
-| Erratas reales corregidas (`erratas_es.tsv`, 567 casos) | 462 | 483 |
-| Carga del diccionario (mediana de 20) | 55 ms | 126 ms |
-| Memoria del diccionario | 4,3 MB | 9,5 MB |
-| `suggest()`, 2000 entradas (media / p95) | 984 µs / 2984 µs | 574 µs / 1607 µs |
-| Deslizado: palabras indexadas, reconocimiento (media / p95), acierto | 39 995, 131 µs / 304 µs, 293 de 300 | 39 995, 138 µs / 316 µs, 293 de 300 |
+| Palabras | 40 000 | 149 110 (39 337 de núcleo) |
+| `words_es.txt` | 347 864 bytes | 1 534 859 bytes |
+| APK | 1 553 718 bytes | 2 028 854 bytes |
+| Verbos cubiertos (tipos / apariciones) | 49,27 % / 86,64 % | 90,34 % / 98,30 % |
+| Sustantivos cubiertos (tipos / apariciones) | 55,25 % / 91,35 % | 80,86 % / 97,41 % |
+| Verbos bien escritos que el corrector cambiaría por otra palabra (tipos / apariciones) | 4,98 % / 1,62 % | 1,81 % / 0,39 % |
+| Sustantivos bien escritos que cambiaría (tipos / apariciones) | 5,66 % / 0,99 % | 3,57 % / 0,51 % |
+| Erratas reales corregidas (`erratas_es.tsv`, los 567 casos de siempre) | 462 | 527 |
+| Erratas de un solo error de las 3000 palabras más frecuentes (132 743, banco de la revisión) | 112 822 | 112 664 |
+| Carga del diccionario (mediana de 20) | 55 ms | 112 ms |
+| Memoria del diccionario | 4,3 MB | 10,6 MB |
+| `suggest()`, 2000 entradas (media / p95) | 984 µs / 2984 µs | 616 µs / 1671 µs |
+| Deslizado: palabras indexadas, reconocimiento (media / p95), acierto en el núcleo | 39 995, 131 µs / 304 µs, 293 de 300 | 79 332, 275 µs / 712 µs, 293 de 300 |
+| Deslizado de las formas nuevas más usadas (primera / entre las tres) | 0 de 400 | 313 / 387 de 400 |
 
-De las 40 000 formas anteriores siguen 39 989 (99,97 %), en el mismo orden (correlación de rangos 1,000000).
+De las 40 000 formas anteriores siguen 39 337 (98,34 %), en el mismo orden (correlación de rangos 1,000000): las
+663 que faltan son sus erratas. `erratas_es.tsv` trae además dos clases de la revisión, que salen enteras (40 de 40
+deslices de una palabra frecuente que con tilde serían una forma rara y 100 de 100 formas verbales sin tilde que se
+respetan).
+
+## Lo que se queda fuera a propósito
+
+- En el banco de 132 743 erratas quedan 158 menos corregidas que con la lista de 40 000 (311 dejan de corregirse y 153
+  empiezan a corregirse). De las 311, 182 son palabras válidas de la lista ampliada que ahora se respetan («bañas»,
+  «verbos», «borro», «causalidad») y 128 son lecturas con tilde entre 3 y 60 veces más frecuentes que la palabra de la
+  que el banco las supone errata («metodo» es «método» y no «metido»; «llevalo», «llévalo» y no «llevarlo»). Bajar más
+  los umbrales de `tools/build_dict_es.py` las recupera a costa de volver a cambiar palabras bien escritas.
+- No se rellenan el imperfecto de subjuntivo en -se, «vosotros» ni el voseo: entran las formas que los subtítulos usan.
+- No hay una segunda fuente de validez general para lo que RLA-ES no trae (terminaciones en -itis, -ería, -ólogo…):
+  una regla así daba por buenas erratas atestiguadas («desición»). Lo corriente va, a mano, en `es_extra.dic`.

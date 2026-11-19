@@ -100,9 +100,11 @@ pdte
 rvdo
 teléf
 atta
-sras
-avda
-ltda
+prof
+
+# ---- voces de diccionario de cuatro letras que nadie teclea y tapan una errata
+lene
+urca
 
 # ---- derivados que la regla de tools/build_dict_es.py daria por buenos y son erratas, nombres o titulos
 testamente
