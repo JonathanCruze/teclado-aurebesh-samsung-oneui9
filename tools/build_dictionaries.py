@@ -57,13 +57,17 @@ def build(lang, folder):
         words.append(w)
         if len(words) >= LIMIT:
             break
+    core = len(words)
     if lang == 'es':                                     # espanol: se amplia con formas validadas (build_dict_es.py)
-        words = build_dict_es.build(words, folder)
+        words, core = build_dict_es.build(words, folder)
     os.makedirs(OUT, exist_ok=True)
     path = os.path.join(OUT, 'words_%s.txt' % lang)
     with open(path, 'w', encoding='utf-8', newline='\n') as f:
-        f.write('\n'.join(words) + '\n')
-    print('%s: %d palabras -> %s' % (lang, len(words), os.path.relpath(path, ROOT)))
+        f.write('\n'.join(words[:core]) + '\n')
+        if core < len(words):                            # una linea en blanco separa el nucleo de las formas nuevas:
+            f.write('\n' + '\n'.join(words[core:]) + '\n')   # de ahi saca Dictionary.java el tamano del nucleo
+    print('%s: %d palabras%s -> %s' % (lang, len(words), ' (%d de nucleo)' % core if core < len(words) else '',
+                                      os.path.relpath(path, ROOT)))
 
 
 if __name__ == '__main__':

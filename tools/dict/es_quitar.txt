@@ -1,9 +1,11 @@
-# Formas de la lista de siempre (las 40 000 de los subtitulos) que se quitan de words_es.txt. Son erratas escritas
-# con tilde cuya forma sin tilde no es ninguna palabra: como al teclado le basta que a lo escrito le falten las
-# tildes para ponerselas (Dictionary.java, "la tilde manda"), con ellas en la lista "desicion" pasaria a "desición"
-# en vez de a "decisión", y "uste" a "usté" en vez de a "usted". Una por linea; lo que sigue a una almohadilla es
-# comentario. Es la unica diferencia entre el principio de words_es.txt y la lista anterior.
+# Formas de la lista de siempre (las 40 000 de los subtitulos) que se quitan de words_es.txt: son erratas que el teclado
+# daria por buenas, propondria al completar y usaria como destino de correccion. Una por linea; lo que sigue a una
+# almohadilla es comentario. Con lo que tools/build_dict_es.py quita por regla (la forma sin tilde que RLA-ES rechaza y
+# cuya forma con tilde, valida, es tres veces mas frecuente: "tambien", "podria", "corazon") es la unica diferencia
+# entre el nucleo de words_es.txt y la lista anterior.
 
+# ---- erratas escritas con tilde cuya forma sin tilde no es ninguna palabra: con ellas en la lista, "desicion" pasaria
+# a "desición" en vez de a "decisión", y "uste" a "usté" en vez de a "usted"
 desición     # decisión
 usté         # usted
 depués       # después
@@ -15,3 +17,147 @@ ytú
 oué
 lré
 zé
+
+# ---- con una tilde que no llevan: el teclado se la quita o se la pone en su sitio ("dió" -> "dio", "despúes" ->
+# "después"), y con ellas en la lista se quedarian asi para siempre
+tí
+fué
+fuí
+dió
+vió
+ví
+fé
+bién
+dá
+vá
+yá
+nó
+tán
+fín
+trás
+pués
+casí
+felíz
+estár
+jóven
+exámen
+crímen
+órden
+sóla
+élla
+díos
+diós
+cúal
+cúando
+cúanto
+quíen
+qúe
+alguién
+despúes
+sólamente
+exáctamente
+díficil
+polícia
+família
+vámos
+estámos
+estábais
+váis
+quiéres
+crées
+sábes
+díme
+dáme
+díle
+házlo
+véte
+deténte
+manténte
+estáte
+destruído
+construído
+incluído
+huída
+huído
+léon
+és
+én
+ón
+ía
+éi
+síi
+síp
+
+# ---- faltas de ortografia, letras mal leidas al digitalizar (l por I, i por ¡), palabras juntas, trozos de palabra y
+# creditos de los subtitulos. Las palabras juntas mas corrientes ("porfavor", "talvez", "aver") las separa el teclado
+# (Dictionary.JOINED)
+ios
+uu
+ias
+talvez
+porfavor
+thesubfactory
+menoyos
+uld
+enserio
+aqu
+untranslated
+ikerslot
+manana
+osea
+yyo
+ies
+carino
+asique
+fnmicrosoft
+llendo
+lgual
+lba
+tamabin
+conciente
+lncluso
+akallabeth
+ue
+aver
+aveces
+dijistes
+alquien
+hicistes
+ninos
+nde
+nisiquiera
+coje
+entoces
+ysi
+ilama
+pequeno
+mier
+ipor
+denuevo
+hize
+lmposible
+deacuerdo
+nosostros
+lglesia
+ivamos
+estubo
+dano
+yno
+quizo
+yahora
+enmedio
+ldiota
+cojer
+pequena
+nose
+jhon
+quer
+conosco
+nostros
+francisvhl
+inconciente
+cecause
+lntento
+ilegar
+lremos
+estube

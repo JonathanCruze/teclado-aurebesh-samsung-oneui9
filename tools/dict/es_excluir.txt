@@ -24,3 +24,131 @@ julias
 juanas
 entonce      # arcaismo; hoy es "entonces" sin la ese
 tells        # plural de "tell" (yacimiento); en la practica, ingles
+
+# ---- formas que no existen y RLA-ES da por conjugacion ("construamos" por "construyamos" lo quita ya una regla)
+síamos       # de "ser" con la regla de los verbos en -er; lo mismo las dos siguientes
+sían
+sías
+séis         # es "seis" o "seáis"
+aquéllo      # "aquello" nunca lleva tilde
+deses        # "desees" con una e de menos
+necesitareis # futuro de subjuntivo de vosotros: es "necesitaréis" sin tilde (la regla general quita los demas)
+dejareis
+pasareis
+
+# ---- raras que tapan una errata corriente
+intensión    # frente a "intención"
+intensiones
+demonstrar   # arcaismo: hoy es "demostrar" con una letra de mas
+logar        # "lugar" o "lograr"
+delos        # "de los", "de las" y "a mis" escritos juntos
+delas
+amis
+apropósito   # "a propósito"
+osea         # "o sea" (de "osear")
+aveces       # "a veces" (de "avezar")
+ensenó       # de "ensenar"; es "enseñó"
+raigan       # "traigan"
+asín         # vulgarismo de "así"
+losé         # de "losar"; es "lo sé"
+adió         # de "adiar"; es "adiós"
+ería
+dícelo       # es "díselo": "dice" no es imperativo
+vividamente  # lleva tilde: "vívidamente"
+
+# ---- nombres propios y palabras de otros idiomas que el diccionario da por formas de verbos y nombres comunes raros
+federicas
+jorges
+pedros
+diegos
+franciscos
+santiagos
+mirandas
+enriques
+bernardos
+catalinas
+lázaros
+jerónimos
+zapatas
+valencias
+marías
+lucías
+antonino
+gordiano
+macarena
+salome
+breen        # de "brear"
+laureen      # de "laurear"
+gaye         # de "gayar"
+hume         # de "humar"
+fido
+roan
+carden
+aren         # ingles "aren't"
+places
+mayan
+juniors
+dieses       # de "dar", pero su recuento es del aleman
+diesen
+
+# ---- abreviaturas, que el diccionario trae sin su punto y nadie teclea asi (se quedan "atte", "aprox", "gral")
+edit
+geom
+trad
+univ
+pdte
+rvdo
+teléf
+atta
+sras
+avda
+ltda
+
+# ---- derivados que la regla de tools/build_dict_es.py daria por buenos y son erratas, nombres o titulos
+testamente
+apartamente
+campamente
+probamente
+bellaza
+canonazo
+yakaza
+capaza
+habaza
+meaza
+partito
+venditas
+megamente
+naito
+danita
+danitas
+janita
+seita
+teito
+erito
+taito
+chaito
+reita
+leito
+prito
+prita
+elita
+belita
+denita
+visualita
+maurazos
+ultracristo
+telemundo
+antimonitor
+superseñores
+supercerdo
+superpuerta
+antitabernas
+ciberhombres
+cibercerebro
+
+# ---- flexiones de entradas de es_extra.dic que estan a una errata de una palabra frecuentisima
+naca         # "nada"; "naco" si esta
+nacas
+cuatas       # "cuántas"
+milpas       # "millas"
+mensajee     # "mensaje" con una e repetida

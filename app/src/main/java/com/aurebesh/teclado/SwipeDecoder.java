@@ -275,14 +275,14 @@ final class SwipeDecoder {
         int first = -1;
         for (int i = 0; i < found; i++) {
             String w = topWord[i] != null ? topWord[i] : dict.word(topRank[i]);
-            if (Dictionary.noSuggest(w)) continue;
+            if (dict.vetoed(w)) continue;
             first = i;
             break;
         }
         if (first < 0 || topScore[first] > REJECT_SCORE || topLoc[first] > REJECT_LOC) return out;
         for (int i = first; i < found && out.size() < MAX_RESULTS; i++) {
             String w = topWord[i] != null ? topWord[i] : dict.word(topRank[i]);
-            if (Dictionary.noSuggest(w) || out.contains(w)) continue;
+            if (dict.vetoed(w) || out.contains(w)) continue;
             out.add(w);
         }
         // La hermana con o sin tilde de la mejor (misma secuencia de teclas) siempre va justo despues
@@ -312,7 +312,7 @@ final class SwipeDecoder {
             for (int k = 0; k < wl && same; k++) same = seq[oo + k] == seq[off + k];
             if (same) {
                 String w = dict.word(o);
-                if (!Dictionary.noSuggest(w)) return w;
+                if (!dict.vetoed(w)) return w;
             }
         }
         return null;

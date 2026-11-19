@@ -31,26 +31,37 @@ import java.util.Set;
  * serian un error evidente de una palabra frecuente ("rael" -> "real", "hoth" -> "both") solo cuentan escritas con
  * su mayuscula, igual que las de menos de cuatro letras.
  * <p>
- * <b>Lista ampliada del espanol.</b> words_es.txt lleva, detras de las {@link #CORE} formas mas frecuentes de siempre
- * (el nucleo), unas noventa mil mas: conjugaciones, plurales, femeninos, diminutivos, verbos con pronombre y
- * mexicanismos validados con el diccionario RLA-ES (tools/build_dict_es.py). La politica para que una forma rara pero
- * valida no estropee la correccion de las erratas corrientes se reparte entre la lista y este codigo:
+ * <b>Lista ampliada del espanol.</b> words_es.txt lleva, detras de las formas mas frecuentes de siempre (el nucleo,
+ * {@link #coreSize}: una linea en blanco del archivo marca donde acaba), unas cien mil mas: conjugaciones, plurales,
+ * femeninos, diminutivos, verbos con pronombre y mexicanismos validados con el diccionario RLA-ES
+ * (tools/build_dict_es.py). La politica para que una forma rara pero valida no estropee la correccion de las erratas
+ * corrientes se reparte entre la lista y este codigo:
  * <ul>
  * <li>Las formas raras son <i>conocidas y completables</i>: escritas tal cual se respetan y se ofrecen al completar,
  * pero no se corrige hacia ellas a dos ediciones ({@link #scan} solo recorre el nucleo) ni, por su puntuacion
- * (ln del rango), sin preguntar a una edicion: quedan como sugerencia. El deslizado tampoco las usa
- * ({@link #coreSize}). Asi ni el coste ni el acierto dependen del tamano de la lista.</li>
- * <li>La tilde manda: si lo escrito no es una palabra pero lo seria con sus tildes ("platicabamos", "llegare",
- * "comio"), se le ponen, sea cual sea el rango de la forma acentuada y aunque haya una palabra mas frecuente a una
- * tecla de distancia ("comio" es "comió", no "como"). Entre dos formas validas, con y sin tilde, sigue decidiendo la
- * frecuencia ({@link #resolve}: "mas" -> "más", pero "esta" se respeta), y la que se escribe con su tilde no se toca
- * ("publicó" no pasa a "público").</li>
+ * (ln del rango), sin preguntar a una edicion: quedan como sugerencia. Asi ni el coste ni el acierto dependen del
+ * tamano de la lista.</li>
+ * <li>La tilde manda, con tope: si lo escrito no es una palabra pero lo seria con sus tildes ("platicabamos",
+ * "llegare", "comio"), se le ponen aunque la forma acentuada sea rara. Cede ante una errata corriente (tecla vecina,
+ * letras bailadas, letra que falta o sobra, falta de ortografia) de una palabra del nucleo: siempre que la forma con
+ * tilde sea de fuera del nucleo ("peto" es "pero" y no "petó"; "duos", "dios" y no "dúos") y, si es del nucleo, solo
+ * cuando la otra es muchisimo mas frecuente ({@link #TILDE_MARGIN}: "comi" es "como", pero "metodo" es "método" y no
+ * "metido"). La forma con tilde queda entonces como primera sugerencia. Tambien se quita la tilde que sobra
+ * ("dió", "fué", "exámen").</li>
+ * <li>Entre dos formas validas, con y sin tilde, las dos del nucleo, sigue decidiendo la frecuencia
+ * ({@link #resolve}: "mas" -> "más", pero "esta" se respeta); la que se escribe con su tilde no se toca ("publicó" no
+ * pasa a "público"), y la forma sin tilde de fuera del nucleo tampoco: "alcanzara", "agendo" o "facture" son otro
+ * tiempo del verbo que "alcanzará", "agendó" y "facturé", y solo la lista decide cuando la diferencia de uso es tan
+ * abrumadora que no entran. La otra se ofrece como primera sugerencia.</li>
  * <li>Lo que casi siempre es una errata no entra en la lista aunque sea una forma valida, y por eso se sigue
  * corrigiendo: la forma sin tilde de otra mucho mas frecuente ("tenia", "ingles", "medico"), el futuro de subjuntivo
  * en -ar, que es el futuro escrito sin tilde ("hablare"), y la que esta a una falta de ortografia o a un desliz de
- * una palabra muchisimo mas usada ("ablando", "carera", "ensenar"). Los umbrales estan en tools/build_dict_es.py.</li>
- * <li>Las formas nuevas de las familias de {@link #NO_SUGGEST} ("chingaste", "pendejito") se respetan si se
+ * una palabra muchisimo mas usada ("ablando", "carera", "memos"). Los umbrales estan en tools/build_dict_es.py. De las
+ * que si entran y se parecen a una palabra frecuente, esa se ofrece como sugerencia sin cambiar lo escrito.</li>
+ * <li>Las formas de las familias de {@link #NO_SUGGEST} ("chingaste", "pendejito", "cabrones") se respetan si se
  * escriben, pero no se proponen ({@link #vetoed}).</li>
+ * <li>Las palabras que se escriben juntas por costumbre ("porfavor", "talvez", "aver") no estan en la lista y se
+ * separan ({@link #FIXED}).</li>
  * </ul>
  */
 final class Dictionary {
@@ -65,12 +76,6 @@ final class Dictionary {
     private static final Map<String, Dictionary> CACHE = new java.util.concurrent.ConcurrentHashMap<>();   // lectura sin bloqueo
     private static final int MAX_SUGGESTIONS = 3;
     private static final int MAX_LEN = 24;
-    /**
-     * Nucleo de la lista: las palabras con rango menor que este (las 40 000 mas frecuentes, que es todo lo que traen
-     * el ingles y el aleman). La busqueda a dos ediciones y el deslizado solo trabajan con ellas; el resto de la lista
-     * espanola son formas conocidas y completables. Vease la politica en el comentario de la clase.
-     */
-    static final int CORE = 40000;
     /** Bloques de la lista alfabetica con su mejor rango precalculado, para completar sin recorrer todo el prefijo. */
     private static final int BLOCK_BITS = 6, BLOCK = 1 << BLOCK_BITS;
     private static final double ED2_CUTOFF = 2.6;      // coste maximo de la busqueda a dos ediciones
@@ -85,6 +90,17 @@ final class Dictionary {
      * de lo escrito para ganarle a la lectura con tildes. Vease {@link #spellingRival}.
      */
     private static final double SPELLING_MARGIN = 3.0;
+    /**
+     * Ventaja (en ln del rango, contado el coste de la errata) que necesita una palabra del nucleo a un desliz de lo
+     * escrito para ganarle a la lectura con tildes cuando esa tambien es del nucleo: "comi" es "como" (rango 30) y no
+     * "comí" (5500), y "temia" es "tenía" y no "temía"; pero "metodo" es "método" y no "metido", y "comio" es "comió".
+     * Olvidar una tilde es treinta o cuarenta veces mas corriente que pulsar una tecla vecina concreta o bailar dos
+     * letras ({@link #TILDE_MARGIN}: errata de coste hasta {@link #CHEAP_EDIT}), y cientos de veces mas que comerse una
+     * letra o meter una de mas ({@link #TILDE_MARGIN_FAR}). Vease {@link #slipRival}.
+     */
+    private static final double TILDE_MARGIN = 2.8, TILDE_MARGIN_FAR = 3.4, CHEAP_EDIT = 0.6;
+    /** Coste maximo de la errata de un rival de la lectura con tildes: todo menos una letra cambiada por otra lejana. */
+    private static final double SLIP_EDIT = 2.0;
     /**
      * Longitud desde la que una entrada del lexico Star Wars cuenta siempre. Las mas cortas (Rex, Plo, Gon, AT) solo
      * se reconocen escritas con su caja canonica y nunca sirven de correccion: "gon" o "plo" en minusculas siguen
@@ -123,18 +139,51 @@ final class Dictionary {
             "puta", "puto", "putas", "putos", "mierda", "joder", "coño", "cabron", "cabrón", "carajo",
             "pendejo", "pendeja", "chingar", "chingada", "chingado", "verga", "culo", "culero", "mamón",
             "pinche", "maricon", "maricón", "polla", "gilipollas", "zorra", "perra",
+            "tetona", "tetonas", "tetazas", "picha", "pichas", "cipote", "cipotes", "bollera", "bolleras", "panocha",
+            "panochas", "piruja", "pirujas", "ojete", "ojetes", "madrazo", "madrazos", "madriza", "madrizas",
+            "cabrones", "cabrona", "cabronazo", "mierdas", "culos", "maricones", "pendejos", "pendejas", "pendejada",
+            "putita", "putitas", "putada", "hijoputa", "negrata", "chupavergas", "chupapollas", "comemierda",
+            "pajero", "pajeros",
             "fuck", "fucking", "fucked", "fucker", "shit", "shitty", "bitch", "asshole", "cunt", "dick",
             "cock", "pussy", "bastard", "whore", "slut", "nigger", "faggot"));
 
     /**
-     * Comienzos (sin tildes) de las formas espanolas de las familias de {@link #NO_SUGGEST}: sus flexiones y derivados
-     * que la lista ampliada trae fuera del nucleo ("chingaste", "jodiendo", "pendejito", "cabronazo") tampoco se
-     * proponen. Las del nucleo siguen como estaban: solo las que figuran una a una en NO_SUGGEST.
+     * Comienzos (sin tildes) de las formas espanolas de las familias de {@link #NO_SUGGEST}: sus flexiones, derivados y
+     * compuestos que la lista ampliada trae fuera del nucleo ("chingaste", "jodiendo", "pendejito", "comemierdas",
+     * "encabronado") tampoco se proponen. Las del nucleo siguen como estaban: solo las que figuran una a una en
+     * NO_SUGGEST ("jodido" si se propone: es de las tres mil palabras mas escritas). Solo en espanol: en ingles
+     * "follow" o "jodie" no tienen nada que ver.
      */
     private static final String[] VETO_STEMS = {
-            "ching", "pendej", "jod", "mierd", "cabron", "mamon", "maricon", "gilipoll", "culer", "culit", "culon",
-            "culot", "culaz", "culos", "puta", "puto", "puti", "pute", "puton", "verga", "vergui", "coño", "coñi", "coñaz",
-            "pinches"};
+            "ching", "pendej", "apendej", "jode", "joda", "jodi", "jodo", "mierd", "comemierd", "cabron", "encabron",
+            "mamon", "maricon", "gilipoll", "soplapoll", "calientapoll", "chupapoll", "chupaverg", "culer", "culit",
+            "culon", "culot", "culaz", "culos", "puta", "puto", "puti", "pute", "puton", "hijoput", "verga", "vergui",
+            "coño", "coñi", "coñaz", "pinches", "malparid", "puñeter", "caga", "cago", "cague", "pajea", "pajee", "pajeo",
+            "pajer", "folla", "folle", "follo", "negrat", "chupamel", "chupasel", "mamamel", "mamasel", "violame",
+            "violal"};
+
+    /** Palabras corrientes que empiezan como una de {@link #VETO_STEMS} sin ser de su familia. */
+    private static final Set<String> VETO_EXCEPT = new HashSet<>(Arrays.asList(
+            "putativo", "putativa", "putativos", "putativas", "putin", "jodie", "vergara", "follaje", "follajes",
+            "folleto", "folletos", "folletín", "folletines", "follón", "follones", "cagoule"));
+
+    /**
+     * Palabras que en un chat se escriben juntas por costumbre y son dos o tres ("porfavor", "talvez", "aver"), y unas
+     * pocas faltas corrientes que quedan a mas de una letra de su palabra ("llendo", "nose"): no estan en la lista y se
+     * cambian al cerrarlas, como una correccion mas (el chip de lo escrito las recupera). Solo en espanol.
+     */
+    private static final Map<String, String> FIXED = new HashMap<>();
+    static {
+        String[] pairs = {
+                "aver", "a ver", "aveces", "a veces", "talvez", "tal vez", "osea", "o sea", "porfavor", "por favor",
+                "enserio", "en serio", "almenos", "al menos", "derrepente", "de repente", "apesar", "a pesar",
+                "asique", "así que", "amenudo", "a menudo", "alomejor", "a lo mejor", "sinembargo", "sin embargo",
+                "deacuerdo", "de acuerdo", "porsupuesto", "por supuesto", "atravez", "a través", "envez", "en vez",
+                "denuevo", "de nuevo", "nisiquiera", "ni siquiera", "enmedio", "en medio", "yahora", "y ahora",
+                "porcierto", "por cierto", "derepente", "de repente", "nose", "no sé", "llendo", "yendo",
+                "coje", "coge", "cojer", "coger", "ivamos", "íbamos"};
+        for (int i = 0; i + 1 < pairs.length; i += 2) FIXED.put(pairs[i], pairs[i + 1]);
+    }
 
     /** Contracciones inglesas: la lista de frecuencia no lleva apostrofos y la primera pagina del teclado tampoco. */
     private static final Map<String, String> CONTRACTIONS = new HashMap<>();
@@ -203,6 +252,12 @@ final class Dictionary {
     private final boolean foldUmlaut;                                    // ü -> u al comparar (no en aleman: es letra propia)
     private final boolean spanish;                                       // la unica lista con formas fuera del nucleo
     private final String[] byRank;                                       // por frecuencia (indice = rango)
+    /**
+     * Nucleo de la lista: las palabras con rango menor que este. En espanol, las de la lista de siempre (el archivo
+     * las separa de las formas nuevas con una linea en blanco); en ingles y aleman, que no tienen mas, toda la lista.
+     * La busqueda a dos ediciones y el deslizado solo trabajan con ellas; el resto son formas conocidas y completables.
+     */
+    private final int core;
     // Tablas hash abiertas de enteros (rango + 1; 0 = hueco): con mas de cien mil palabras ocupan una fraccion de lo que
     // un HashMap con sus nodos y sus Integer, y se consultan igual de rapido
     private final int[] slots;                                           // palabra -> rango
@@ -261,26 +316,30 @@ final class Dictionary {
         foldUmlaut = !de;
         spanish = !de && !"en".equals(lang);
         int res = "en".equals(lang) ? R.raw.words_en : de ? R.raw.words_de : R.raw.words_es;
-        List<String> all = new ArrayList<>(spanish ? 140000 : 40000);
+        List<String> all = new ArrayList<>(spanish ? 170000 : 40000);
+        int mark = -1;                                              // linea en blanco: hasta ahi llega el nucleo
         BufferedReader r = new BufferedReader(new InputStreamReader(c.getResources().openRawResource(res), "UTF-8"), 1 << 15);
         try {
             String line;
             while ((line = r.readLine()) != null) {
                 String w = line.trim();
                 if (!w.isEmpty()) all.add(w);
+                else if (mark < 0 && !all.isEmpty()) mark = all.size();
             }
         } finally {
             r.close();
         }
         String[] words = new String[all.size()];
         int[] table = new int[tableSize(all.size())];
-        int count = 0, accents = 0;
+        int count = 0, accents = 0, coreCount = -1;
         for (int i = 0; i < words.length; i++) {
+            if (i == mark) coreCount = count;
             String w = all.get(i);
             if (!insert(table, words, w, count)) continue;         // repetida
             words[count++] = w;
             if (hasMark(w)) accents++;
         }
+        core = coreCount < 0 ? count : coreCount;
         byRank = count == words.length ? words : Arrays.copyOf(words, count);
         slots = table;
         accentSlots = new int[tableSize(accents)];
@@ -303,7 +362,7 @@ final class Dictionary {
         }
         List<List<String>> buckets = new ArrayList<>();
         for (int i = 0; i < byLength.length; i++) buckets.add(new ArrayList<String>());
-        for (int i = 0; i < count && i < CORE; i++) {
+        for (int i = 0; i < core; i++) {
             String w = byRank[i];
             if (w.length() < byLength.length) buckets.get(w.length()).add(w);
         }
@@ -449,20 +508,18 @@ final class Dictionary {
         }
     }
 
-    /**
-     * Palabras del nucleo ({@link #CORE}): las que indexa el deslizado. En ingles y aleman, toda la lista.
-     */
-    int coreSize() { return Math.min(byRank.length, CORE); }
+    /** Palabras del nucleo: las de la lista de siempre, sin las formas nuevas del espanol. En ingles y aleman, todas. */
+    int coreSize() { return core; }
 
     /**
-     * No se propone nunca (ni como correccion, ni al completar): las de {@link #NO_SUGGEST} y, en espanol, las formas
-     * de fuera del nucleo que empiezan como ellas ({@link #VETO_STEMS}). Si se escriben, se respetan.
+     * No se propone nunca (ni como correccion, ni al completar, ni al deslizar): las de {@link #NO_SUGGEST} y, en
+     * espanol, las formas de fuera del nucleo que empiezan como ellas ({@link #VETO_STEMS}). Si se escriben, se respetan.
      */
-    private boolean vetoed(String w) {
+    boolean vetoed(String w) {
         if (NO_SUGGEST.contains(w)) return true;
-        if (!spanish || rankOf(w) < CORE) return false;
+        if (!spanish || rankOf(w) < core) return false;
         String f = fold(w);
-        for (String stem : VETO_STEMS) if (f.startsWith(stem)) return true;
+        for (String stem : VETO_STEMS) if (f.startsWith(stem)) return !VETO_EXCEPT.contains(w);
         return false;
     }
 
@@ -698,15 +755,30 @@ final class Dictionary {
      * es mucho mas frecuente (seis veces o mas), esa forma. Null si no hay nada parecido.
      * Una palabra de la lista escrita con sus tildes se respeta siempre: "publicó", "vació" o "criticó" no se cambian
      * por "público", "vacío" o "crítico" por mucho mas frecuentes que sean; quien puso la tilde sabia donde la ponia.
+     * Tambien se respeta la forma sin tilde de fuera del nucleo: si la lista la trae junto a la otra ("alcanzara" y
+     * "alcanzará", "agendo" y "agendó") es que su generador no vio una diferencia de uso abrumadora, y la regla de las
+     * seis veces, pensada para "mas" y "más", le cambiaria el tiempo al verbo. Y en espanol, lo escrito con una tilde
+     * que no es la suya es la palabra sin ella o con ella en su sitio ("dió", "fué", "exámen", "despúes").
      */
     private String resolve(String v) {
         int own = rankOf(v);
         String acc = accented(v);
+        if (own < 0 && spanish && hasMark(v)) {             // con una tilde que no es la suya: la mas frecuente de las
+            int p = rankOf(fold(v));                         // lecturas, con o sin tilde ("crées" es "crees", no "creés")
+            if (p >= 0 && (acc == null || p < rankOf(acc))) return byRank[p];
+        }
         if (acc != null && !acc.equals(v)) {
-            if (own < 0 || (own >= 6 * (rankOf(acc) + 1) && !hasMark(v))) return acc;
+            if (own < 0 || (own < core && own >= TWIN_RATIO * (rankOf(acc) + 1) && !hasMark(v))) return acc;
         }
         return own < 0 ? null : v;
     }
+
+    /**
+     * Veces que el rango de una forma del nucleo tiene que superar al de su forma con tildes para ceder ante ella:
+     * las seis de siempre, menos lo que bajaron los rangos al quitar de la lista sus erratas (un 1,7 %), para que los
+     * pares que estaban en el limite ("limite" y "límite") sigan como estaban.
+     */
+    private static final double TWIN_RATIO = 5.9;
 
     /** Puntuacion maxima (ln del rango mas la penalizacion) para corregir sin preguntar, por longitud. */
     private static double limit(int n) {
@@ -754,24 +826,53 @@ final class Dictionary {
             learned = plainLearned != null && plainLearned.equals(fold(w));
         }
         boolean inLexicon = swKnown(typed, w);             // del lexico Star Wars, si esta activo
-        res.known = rankOf(w) >= 0 || learned || inLexicon;
+        int own = rankOf(w);
+        res.known = own >= 0 || learned || inLexicon;
+        if (spanish && !res.known) {                       // "porfavor", "talvez": dos palabras escritas como una
+            String fixed = FIXED.get(w);
+            if (fixed != null) {
+                res.correction = fixed;
+                res.suggestions.add(fixed);
+                return res;
+            }
+        }
 
         HashMap<String, Double> cand = new HashMap<>();
         String acc = learned || inLexicon ? null : resolve(w);
         boolean accentFix = acc != null && !acc.equals(w);
         if (accentFix) put(cand, acc, score(acc, 0));
         String marked = null;                            // lo escrito con sus tildes, si asi es una palabra y tal cual no
+        String rival = null;                             // palabra del nucleo de la que lo escrito seria un desliz
+        String hint = null;                              // primera sugerencia que no se aplica sola
         if (!res.known) {
             String pacc = personalWord(w);               // aprendida con tildes de lo escrito sin ellas
             if (pacc != null && !pacc.equals(w)) put(cand, pacc, score(pacc, 0));
             String sacc = swWord(w);                     // entrada del lexico con tildes ("padme" -> "padmé")
             if (sacc != null && !sacc.equals(w)) put(cand, sacc, score(sacc, 0));
+            if (accentFix && vetoed(acc)) return res;    // "cabron": es la que es, sin su tilde; ni se le pone ni se cambia
             for (Map.Entry<String, Double> e : cand.entrySet()) {
                 if (vetoed(e.getKey())) continue;
                 if (marked == null || e.getValue() < cand.get(marked)) marked = e.getKey();
             }
-            edits(w, cand);
+            if (spanish && marked != null && marked.equals(acc)) {
+                HashMap<String, Double> one = new HashMap<>();
+                edits(w, one);
+                rival = slipRival(w, marked, one);
+                for (Map.Entry<String, Double> e : one.entrySet()) put(cand, e.getKey(), e.getValue());
+            } else {
+                edits(w, cand);
+            }
             if (n >= 5) scan(w, cand);                   // tambien a dos ediciones
+        } else if (spanish && own >= core && !learned && !inLexicon) {
+            // Forma rara pero valida: se respeta, y se ofrece (sin aplicarla) la otra lectura mas probable: la misma con
+            // su tilde ("alcanzara": "alcanzará") o la palabra frecuente de la que seria un desliz ("lisos": "listos")
+            String twin = accented(w);
+            if (twin != null && !twin.equals(w) && !vetoed(twin)) hint = twin;
+            else {
+                HashMap<String, Double> one = new HashMap<>();
+                edits(w, one);
+                hint = slipRival(w, w, one);
+            }
         }
 
         String best = null;
@@ -782,10 +883,12 @@ final class Dictionary {
         }
         if (marked != null) {
             // La tilde manda: a lo escrito solo le faltan las tildes para ser una palabra, y se le ponen aunque esa
-            // palabra sea rara (su puntuacion no llegaria al limite) o haya otra mas frecuente a una tecla de distancia.
-            // Solo cede ante una falta de ortografia de una palabra muchisimo mas usada ("parese" es "parece")
-            String rival = spellingRival(w, cand.get(marked));
+            // palabra sea rara (su puntuacion no llegaria al limite). Cede ante una falta de ortografia de una palabra
+            // muchisimo mas usada ("parese" es "parece") y ante un desliz de una palabra del nucleo ("peto" es "pero")
+            String spelling = spellingRival(w, cand.get(marked));
+            if (spelling != null) rival = spelling;
             res.correction = rival != null ? rival : marked;
+            if (rival != null) hint = marked;
         } else if (best != null) {
             if (!res.known) {
                 // una palabra aprendida a una sola edicion de lo escrito se corrige aunque el limite por longitud
@@ -822,6 +925,7 @@ final class Dictionary {
             }
         });
         if (res.correction != null) res.suggestions.add(res.correction);
+        if (hint != null && !hint.equals(res.correction)) res.suggestions.add(hint);
         for (Map.Entry<String, Double> e : list) {
             if (res.suggestions.size() >= MAX_SUGGESTIONS) break;
             String s = e.getKey();
@@ -857,7 +961,9 @@ final class Dictionary {
                     char c = w.charAt(i);
                     for (int a = 0; a < alphabet.length(); a++) {
                         char ch = alphabet.charAt(a);
-                        if (ch == c || !(PHONETIC.contains("" + c + ch) || PHONETIC.contains("" + ch + c))) continue;
+                        if (ch == c || !(PHONETIC.contains("" + c + ch) || PHONETIC.contains("" + ch + c)
+                                || (c == 'n' && ch == 'ñ'))) continue;
+                        if (soft(c, ch) && !(i + 1 < n && (w.charAt(i + 1) == 'e' || w.charAt(i + 1) == 'i'))) continue;
                         String r = resolve(w.substring(0, i) + ch + w.substring(i + 1));
                         if (r != null && !vetoed(r) && score(r, 0) <= bestScore) { best = r; bestScore = score(r, 0); }
                     }
@@ -866,6 +972,42 @@ final class Dictionary {
                 String r = resolve(v);
                 if (r != null && !vetoed(r) && score(r, 0) <= bestScore) { best = r; bestScore = score(r, 0); }
             }
+        }
+        return best;
+    }
+
+    /** Pareja que solo suena igual delante de e o i: c y s, c y z, g y j ("nesesito", "haser", "jente"; no "colo"). */
+    private static boolean soft(char a, char b) {
+        if (a > b) { char t = a; a = b; b = t; }
+        return (a == 'c' && (b == 's' || b == 'z')) || (a == 'g' && b == 'j');
+    }
+
+    /**
+     * Palabra del nucleo de la que lo escrito seria una errata corriente (tecla vecina, letras bailadas, letra que
+     * falta o sobra: todo lo de {@link #edits} menos una letra cambiada por otra lejana) y que debe ganarle a la
+     * lectura con tildes {@code marked}, o null. Si esa lectura es de fuera del nucleo basta con que la correccion
+     * normal se aplicara sola ({@link #limit}): hacia una forma rara no se corrige habiendo una frecuente tan cerca.
+     * Si es del nucleo, la otra tiene que ser mucho mas frecuente ({@link #TILDE_MARGIN}). Con {@code marked}
+     * igual a lo escrito (una palabra rara ya valida) devuelve la frecuente que se ofrece como sugerencia.
+     * {@code one} son las variantes a una edicion de lo escrito con su puntuacion.
+     */
+    private String slipRival(String w, String marked, Map<String, Double> one) {
+        int rank = rankOf(marked);
+        if (rank < 0) return null;
+        double top = limit(w.length());
+        double own = rank < core ? Math.log(rank + 1) : Double.MAX_VALUE;
+        String best = null;
+        for (Map.Entry<String, Double> e : one.entrySet()) {
+            String c = e.getKey();
+            double sc = e.getValue();
+            if (sc > top) continue;
+            int r = rankOf(c);
+            if (r < 0 || r >= core) continue;
+            double cost = sc - Math.log(r + 1);
+            if (cost > SLIP_EDIT + 1e-9 || sc > own - (cost <= CHEAP_EDIT + 1e-9 ? TILDE_MARGIN : TILDE_MARGIN_FAR)) continue;
+            if (c.equals(w) || c.equals(marked) || vetoed(c) || sameFolded(c, w)) continue;
+            best = c;
+            top = sc;
         }
         return best;
     }
@@ -890,7 +1032,10 @@ final class Dictionary {
             for (int a = 0; a < alphabet.length(); a++) {
                 char ch = alphabet.charAt(a);
                 if (ch == c) continue;
-                offer(cand, w.substring(0, i) + ch + w.substring(i + 1), close(c, ch) ? 0.4 : 2.5);
+                // una ene por una eñe ("ninos", "manana") es falta corriente; al reves no, y a dos ediciones abriria
+                // demasiadas palabras frecuentes con eñe ("senir" no es "señor")
+                boolean cheap = close(c, ch) || (spanish && c == 'n' && ch == 'ñ');
+                offer(cand, w.substring(0, i) + ch + w.substring(i + 1), cheap ? 0.4 : 2.5);
             }
         }
         for (int i = 0; i <= n; i++) {
@@ -903,7 +1048,7 @@ final class Dictionary {
     }
 
     /**
-     * Busqueda a dos ediciones: palabras del nucleo ({@link #CORE}; las raras de mas alla no llegarian al limite de
+     * Busqueda a dos ediciones: palabras del nucleo ({@link #coreSize}; las raras de mas alla no llegarian al limite de
      * puntuacion y recorrerlas triplicaria el coste) de longitud parecida que empiezan por la misma letra, con la
      * distancia ponderada (los mismos costes que las variantes a una edicion) y corte temprano. Las palabras
      * aprendidas del usuario (como mucho unos cientos) y el lexico Star Wars (unas setecientas entradas) se

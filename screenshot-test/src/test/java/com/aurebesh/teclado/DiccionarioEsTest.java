@@ -13,9 +13,12 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -27,7 +30,8 @@ import static org.junit.Assert.assertTrue;
  * contenido y no por tamano exacto. Conjugaciones de verbos regulares e irregulares en todos los tiempos y personas
  * ("ustedes" incluida), verbos con pronombres, sustantivos con plural, femenino, diminutivo y aumentativo, adverbios en
  * -mente y mexicanismos; que las erratas corrientes se siguen corrigiendo (erratas_es.tsv: quinientas erratas reales
- * con su correccion) y que la tilde manda; que no entran formas basura; que las raras ni se proponen como correccion
+ * con su correccion) y que la tilde manda, con tope; que una forma verbal valida sin tilde no cambia de tiempo; que
+ * no entran formas basura ni quedan en el nucleo las erratas de siempre; que las raras ni se proponen como correccion
  * ni entran en el deslizado; y que el ingles y el aleman siguen con sus 40 000 palabras.
  */
 @RunWith(RobolectricTestRunner.class)
@@ -179,10 +183,30 @@ public class DiccionarioEsTest {
         assertEquals("de", es.word(0));
         assertEquals("que", es.word(1));
         assertEquals("no", es.word(2));
-        assertTrue("el nucleo son las 40 000 de siempre: " + es.rankOf("jueguitos"), es.rankOf("jueguitos") < Dictionary.CORE);
-        assertTrue("las formas nuevas van detras: " + es.rankOf("platicaré"), es.rankOf("platicaré") >= Dictionary.CORE - 100);
-        assertTrue("lista ampliada: " + es.size(), es.size() > 100000 && es.size() < 160000);
-        assertEquals(Dictionary.CORE, es.coreSize());
+        assertTrue("lista ampliada: " + es.size(), es.size() > 100000 && es.size() < 175000);
+        // El nucleo es lo que queda de la lista de siempre y no un numero fijo: en el archivo lo separa de las formas
+        // nuevas una linea en blanco, y de ahi lo saca el diccionario
+        String ultima = null, primera = null;
+        int nucleo = 0;
+        boolean dentro = true;
+        BufferedReader r = new BufferedReader(new InputStreamReader(app.getResources().openRawResource(R.raw.words_es), "UTF-8"));
+        try {
+            String line;
+            while ((line = r.readLine()) != null) {
+                if (line.isEmpty()) { dentro = false; continue; }
+                if (dentro) { ultima = line; nucleo++; }
+                else if (primera == null) primera = line;
+            }
+        } finally {
+            r.close();
+        }
+        assertFalse("el archivo marca donde acaba el nucleo", dentro);
+        assertEquals(nucleo, es.coreSize());
+        assertEquals("la ultima del nucleo", ultima, es.word(es.coreSize() - 1));
+        assertEquals("la primera forma nueva", primera, es.word(es.coreSize()));
+        assertTrue("el nucleo son las de siempre menos sus erratas: " + nucleo, nucleo > 39000 && nucleo < 40000);
+        assertTrue("jueguitos es del nucleo: " + es.rankOf("jueguitos"), es.rankOf("jueguitos") >= 0 && es.rankOf("jueguitos") < es.coreSize());
+        assertTrue("las formas nuevas van detras: " + es.rankOf("platicaré"), es.rankOf("platicaré") >= es.coreSize());
         for (String lang : new String[]{"en", "de"}) {
             Dictionary d = Dictionary.get(app, lang);
             assertEquals(lang + " no cambia de tamano", 40000, d.size());
@@ -250,6 +274,108 @@ public class DiccionarioEsTest {
     }
 
     @Test
+    public void laTildeTieneTope() {
+        // Lo escrito es una errata corriente de una palabra frecuente y, con tilde, una forma rara de fuera del nucleo:
+        // gana la correccion de siempre, y la forma con tilde, si esta en la lista, queda como segunda sugerencia
+        String[][] casos = {
+                {"peto", "pero"}, {"tene", "tiene"}, {"deci", "decir"}, {"quere", "quiere"}, {"duos", "dios"},
+                {"ronde", "donde"}, {"obre", "sobre"}, {"adio", "adiós"}, {"espeto", "espero"}, {"podo", "poco"},
+                {"tento", "tengo"}, {"tare", "tarde"}, {"hacelo", "hacerlo"}, {"amonos", "vámonos"}, {"sias", "días"},
+                {"ladre", "padre"}, {"neve", "nueve"}, {"nevo", "nuevo"}, {"tente", "gente"}, {"ficho", "dicho"}};
+        for (String[] c : casos) {
+            Dictionary.Result r = es.suggest(c[0]);
+            assertEquals(c[0] + " " + r.suggestions, c[1], r.correction);
+        }
+        for (String[] c : new String[][]{{"peto", "petó"}, {"duos", "dúos"}, {"amonos", "ámonos"}, {"tento", "tentó"}}) {
+            assertTrue(c[1], es.rankOf(c[1]) >= es.coreSize());
+            assertEquals(c[0], c[1], es.suggest(c[0]).suggestions.get(1));
+            assertNull(c[1] + " escrita con su tilde se respeta", es.suggest(c[1]).correction);
+        }
+        // si la forma con tilde es del nucleo, la otra tiene que ser muchisimo mas frecuente
+        assertEquals("como", es.suggest("comi").correction);
+        assertEquals("comí", es.suggest("comi").suggestions.get(1));
+        for (String[] c : new String[][]{{"metodo", "método"}, {"funcion", "función"}, {"unicos", "únicos"},
+                {"llevalo", "llévalo"}, {"matame", "mátame"}, {"movio", "movió"}, {"vendre", "vendré"}}) {
+            assertEquals(c[0], c[1], es.suggest(c[0]).correction);
+        }
+        // sin una palabra frecuente tan cerca, la forma rara sigue recibiendo su tilde
+        assertEquals("platicábamos", es.suggest("platicabamos").correction);
+        assertEquals("chécalo", es.suggest("checalo").correction);
+        // la tilde que sobra o esta en otra vocal tambien se arregla (y esas formas ya no estan en la lista)
+        for (String[] c : new String[][]{{"dió", "dio"}, {"fué", "fue"}, {"tí", "ti"}, {"vió", "vio"}, {"exámen", "examen"},
+                {"jóven", "joven"}, {"despúes", "después"}, {"díficil", "difícil"}, {"crées", "crees"}, {"véte", "vete"}}) {
+            assertEquals(c[0], -1, es.rankOf(c[0]));
+            assertEquals(c[0], c[1], es.suggest(c[0]).correction);
+        }
+    }
+
+    @Test
+    public void unVerboValidoSinTildeNoCambiaDeTiempo() {
+        // "alcanzara" (subjuntivo) no es "alcanzará", ni "agendo" es "agendó", ni "facture" es "facturé": las dos formas
+        // estan en la lista, la escrita se respeta y la otra se ofrece la primera
+        String[][] pares = {
+                {"alcanzara", "alcanzará"}, {"mejorara", "mejorará"}, {"recordaran", "recordarán"},
+                {"colgaran", "colgarán"}, {"aguantara", "aguantará"}, {"castigara", "castigará"},
+                {"acordaras", "acordarás"}, {"continuaran", "continuarán"}, {"tardaran", "tardarán"},
+                {"extrañara", "extrañará"}, {"ahorrara", "ahorrará"}, {"funcionara", "funcionará"},
+                {"agendo", "agendó"}, {"agende", "agendé"}, {"facture", "facturé"}, {"adjunte", "adjunté"},
+                {"vacune", "vacuné"}, {"desenchufo", "desenchufó"}, {"tramito", "tramitó"}, {"timbro", "timbró"},
+                {"estallo", "estalló"}, {"agoto", "agotó"}, {"marques", "marqués"}, {"borro", "borró"}};
+        for (String[] p : pares) {
+            assertTrue(p[0] + " esta en la lista", es.rankOf(p[0]) >= 0);
+            assertTrue(p[1] + " esta en la lista", es.rankOf(p[1]) >= 0);
+            Dictionary.Result r = es.suggest(p[0]);
+            assertTrue(p[0], r.known);
+            assertNull(p[0] + " -> " + r.correction, r.correction);
+            if (es.rankOf(p[0]) >= es.coreSize()) assertEquals(p[0] + " " + r.suggestions, p[1], r.suggestions.get(0));
+            assertNull(p[1], es.suggest(p[1]).correction);
+        }
+        // salvo diferencia de uso abrumadora: la forma sin tilde no entra y se le pone
+        for (String[] p : new String[][]{{"amare", "amaré"}, {"genero", "género"}, {"comprare", "compraré"}, {"cascara", "cáscara"}}) {
+            assertEquals(p[0], -1, es.rankOf(p[0]));
+            assertEquals(p[0], p[1], es.suggest(p[0]).correction);
+        }
+    }
+
+    @Test
+    public void unaFormaRaraOfreceLaPalabraFrecuenteQueSeLeParece() {
+        // Formas validas que estan a una tecla de una palabra muy frecuente: se respetan, y la frecuente va la primera
+        // de las sugerencias, sin aplicarse sola
+        for (String[] c : new String[][]{{"bañas", "balas"}, {"verbos", "vernos"}, {"causalidad", "casualidad"},
+                {"legua", "lengua"}, {"sudas", "dudas"}}) {
+            Dictionary.Result r = es.suggest(c[0]);
+            assertTrue(c[0], r.known);
+            assertNull(c[0] + " -> " + r.correction, r.correction);
+            assertTrue(c[0] + " " + r.suggestions, r.suggestions.contains(c[1]));
+        }
+        // ... y las que casi nunca se quieren escribir no entran en la lista: se corrigen como siempre
+        for (String[] c : new String[][]{{"memos", "menos"}, {"miso", "mismo"}, {"nade", "nadie"}, {"henos", "hemos"},
+                {"mientra", "mientras"}, {"incuso", "incluso"}, {"docto", "doctor"}, {"naca", "nada"},
+                {"llegad", "llegar"}, {"sabed", "sabes"}, {"trabajad", "trabajar"}, {"dormid", "dormir"}}) {
+            assertEquals(c[0], -1, es.rankOf(c[0]));
+            assertEquals(c[0], c[1], es.suggest(c[0]).correction);
+        }
+    }
+
+    @Test
+    public void lasPalabrasJuntasSeSeparan() {
+        for (String[] c : new String[][]{{"porfavor", "por favor"}, {"talvez", "tal vez"}, {"aver", "a ver"},
+                {"osea", "o sea"}, {"enserio", "en serio"}, {"aveces", "a veces"}, {"asique", "así que"},
+                {"deacuerdo", "de acuerdo"}, {"denuevo", "de nuevo"}, {"nose", "no sé"}, {"llendo", "yendo"}}) {
+            Dictionary.Result r = es.suggest(c[0]);
+            assertEquals(c[0], -1, es.rankOf(c[0]));
+            assertFalse(c[0], r.known);
+            assertEquals(c[0], c[1], r.correction);
+        }
+        es.setPersonal(Arrays.asList("aver"));           // aprendida (desde el chip de lo escrito): se respeta
+        assertTrue(es.suggest("aver").known);
+        assertNull(es.suggest("aver").correction);
+        // en ingles y aleman no hay nada de esto
+        Dictionary en = Dictionary.cached("en");
+        if (en != null) assertFalse("por favor".equals(en.suggest("porfavor").correction));
+    }
+
+    @Test
     public void erratasRealesNoPeorQueConLaListaAnterior() throws IOException {
         // Aciertos por clase con la lista de 40 000 palabras y el corrector anterior (medidos con DiccBench): el suelo
         Map<String, Integer> suelo = new HashMap<>();
@@ -258,6 +384,10 @@ public class DiccionarioEsTest {
         suelo.put("desliz", 66);
         suelo.put("ortografia", 132);
         suelo.put("se-respetan", 45);
+        // ... y las dos clases que anadio la revision, que tienen que salir enteras: el desliz de una palabra frecuente
+        // que con tilde seria una forma rara, y la forma verbal valida sin tilde (antes, 37 de 40 y 21 de 100)
+        suelo.put("desliz-tilde", 40);
+        suelo.put("verbo-sin-tilde", 100);
         Map<String, int[]> cuenta = new HashMap<>();
         StringBuilder fallos = new StringBuilder();
         BufferedReader r = new BufferedReader(new InputStreamReader(getClass().getResourceAsStream("/erratas_es.tsv"), "UTF-8"));
@@ -284,9 +414,10 @@ public class DiccionarioEsTest {
             assertTrue(e.getKey() + ": " + c[1] + " de " + c[0] + ", antes " + e.getValue() + ";" + fallos, c[1] >= e.getValue());
             total += c[1];
         }
-        assertTrue("en conjunto mejora (antes 462): " + total, total >= 478);
+        assertTrue("en conjunto mejora (antes 462 + 58 de las clases nuevas): " + total, total >= 462 + 140 + 40);
         assertTrue("al menos 500 erratas reales", cuenta.get("tilde")[0] + cuenta.get("tilde-rara")[0]
                 + cuenta.get("desliz")[0] + cuenta.get("ortografia")[0] >= 500);
+        assertTrue("las palabras juntas se separan: " + cuenta.get("juntas")[1], cuenta.get("juntas")[1] >= 15);
     }
 
     @Test
@@ -305,7 +436,24 @@ public class DiccionarioEsTest {
                 "llevarón", "televisón", "pedazito", "amigito", "posiones", "aeropuesto", "idota", "esquisita",
                 "pobresita", "especiamente", "murillo", "hermosillo", "sedona", "remote", "vanilla", "tranquillo",
                 // palabras de otros idiomas y nombres
-                "toad", "guitar", "tells", "oven", "bread", "salad", "responded", "creme", "federica", "palatino"};
+                "toad", "guitar", "tells", "oven", "bread", "salad", "responded", "creme", "federica", "palatino",
+                "federicas", "jorges", "breen", "gaye", "dieses", "edit", "univ", "pdte",
+                // formas que no existen y el diccionario de referencia da por conjugacion; el voseo
+                "disminuamos", "construamos", "síamos", "sían", "conducí", "decí", "hacé", "tené", "queré", "necesitareis",
+                "séis", "aquéllo",
+                // imperativos de vosotros, a una tecla de un infinitivo o de una segunda persona
+                "llegad", "sabed", "trabajad", "dormid", "pedid", "estaos", "haceos", "soltadle", "matadme",
+                // erratas de la lista de siempre: sin su tilde, con una que no llevan, ortografia y palabras juntas
+                "tambien", "despues", "podria", "corazon", "oir", "lider", "maiz", "dolar", "egoista", "ibamos",
+                "tí", "fué", "dió", "vió", "fuí", "bién", "jóven", "exámen", "despúes", "construído",
+                "llendo", "estubo", "hize", "quizo", "dijistes", "conciente", "manana", "ninos", "pequeno", "carino",
+                "aver", "enserio", "talvez", "porfavor", "asique", "denuevo", "deacuerdo", "osea", "aveces", "thesubfactory",
+                // derivados y verbos con pronombre que una regla daria por buenos
+                "testamente", "apartamente", "bellaza", "canonazo", "megamente", "telemundo", "dícelo", "siéntante",
+                "levántante", "sela", "selo", "dete", "dite", "intensión", "delos", "amis",
+                // formas raras a una errata de una palabra frecuentisima, y las que caen con ellas
+                "memos", "miso", "nade", "mientra", "henos", "roda", "incuso", "halar", "docto", "naca", "mensajee",
+                "ensenó", "cremé", "losé"};
         List<String> dentro = new ArrayList<>();
         for (String w : basura) if (es.rankOf(w) >= 0) dentro.add(w);
         assertTrue("no deberian estar: " + dentro, dentro.isEmpty());
@@ -323,7 +471,7 @@ public class DiccionarioEsTest {
             assertEquals(prefijo, esperadas, es.completions(prefijo, 3));
         }
         // una forma rara se ofrece al completar
-        assertTrue(es.rankOf("platicaríamos") >= Dictionary.CORE);
+        assertTrue(es.rankOf("platicaríamos") >= es.coreSize());
         assertTrue(es.suggest("platicaría").suggestions.toString(), es.suggest("platicaría").suggestions.contains("platicaríamos"));
         // pero una errata sigue yendo a la palabra frecuente, no a una rara que se le parezca mas
         assertEquals("gracias", es.suggest("grcias").correction);
@@ -331,12 +479,58 @@ public class DiccionarioEsTest {
         assertEquals("trabajo", es.suggest("trbajo").correction);
         // las formas nuevas de las familias vetadas se respetan si se escriben, pero no se proponen
         for (String w : new String[]{"chingaste", "pendejito", "jodiéndome"}) {
-            assertTrue(w, es.rankOf(w) >= Dictionary.CORE);
+            assertTrue(w, es.rankOf(w) >= es.coreSize());
             assertTrue(w, es.suggest(w).known);
             String prefijo = w.substring(0, w.length() - 2);
             assertFalse(w + " al completar " + prefijo, es.completions(prefijo, 5).contains(w));
             assertFalse(w + " como sugerencia", es.suggest(prefijo).suggestions.contains(w));
         }
+    }
+
+    @Test
+    public void lasFamiliasVetadasNoSeProponen() {
+        // Recorre toda la lista: ninguna forma nueva de las familias malsonantes se propone (ni completa, ni corrige)
+        String[] raices = {"ching", "pendej", "apendej", "mierd", "comemierd", "cabron", "encabron", "maricon", "gilipoll",
+                "soplapoll", "calientapoll", "chupapoll", "hijoput", "malparid", "puñeter", "jode", "joda", "jodi", "jodo",
+                "folla", "folle", "follo", "caga", "cago", "cague", "pajea", "pajee", "pajeo", "pajer", "puta", "puto",
+                "puti", "verga", "coño"};
+        Set<String> inocentes = new HashSet<>(Arrays.asList("putativo", "putativa", "putativos", "putativas", "follaje",
+                "follajes", "folleto", "folletos", "folletín", "folletines", "follón", "follones", "vergara", "putin",
+                "jodie", "cagoule"));
+        List<String> sueltas = new ArrayList<>();
+        int vistas = 0;
+        for (int r = es.coreSize(); r < es.size(); r++) {
+            String w = es.word(r);
+            String f = Dictionary.deaccent(w);
+            for (String raiz : raices) {
+                if (!f.startsWith(raiz) || inocentes.contains(w)) continue;
+                vistas++;
+                if (!es.vetoed(w)) sueltas.add(w);
+                break;
+            }
+        }
+        assertTrue("formas de esas familias fuera del nucleo: " + vistas, vistas > 200);
+        assertTrue("se propondrian: " + sueltas, sueltas.isEmpty());
+        // las del nucleo, una a una; y las sueltas que senalo la revision
+        for (String w : new String[]{"cabrones", "mierdas", "culos", "maricones", "pendejos", "putita", "hijoputa", "negrata",
+                "chupavergas", "chupapollas", "comemierda", "encabronado", "soplapollas", "malparido", "puñeteros", "folló",
+                "follada", "cagaron", "cágate", "pajero", "tetona", "pichas", "cipote", "bollera", "panocha", "piruja",
+                "ojetes", "madrazo", "madriza", "chúpamelo", "mámamela"}) {
+            if (es.rankOf(w) < 0) continue;
+            assertTrue(w, es.vetoed(w));
+            assertTrue(w + " se respeta si se escribe", es.suggest(w).known);
+            assertNull(w, es.suggest(w).correction);
+            String prefijo = w.substring(0, w.length() - 1);
+            assertFalse(w + " al completar", es.completions(prefijo, 8).contains(w));
+            assertFalse(w + " como sugerencia", es.suggest(prefijo).suggestions.contains(w));
+        }
+        // sin pasarse: palabras corrientes que empiezan igual, y las del nucleo que no estan una a una
+        for (String w : new String[]{"putativo", "follaje", "folleto", "jodido", "cagney", "vergonzoso", "coñac"}) {
+            assertFalse(w, es.vetoed(w));
+        }
+        // escrita sin su tilde, una vetada se queda como esta: ni se le pone ni se cambia por otra
+        assertNull(es.suggest("cabron").correction);
+        assertNull(es.suggest("chingon").correction);
     }
 
     @Test

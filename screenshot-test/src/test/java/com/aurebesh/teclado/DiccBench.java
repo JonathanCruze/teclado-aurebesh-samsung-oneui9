@@ -37,6 +37,11 @@ import java.util.Random;
  * Con -Ddicc.formas=archivo (el que escribe tools/dict_cobertura.py --formas: verbos y sustantivos de texto real, bien
  * escritos) cuenta ademas cuantos conoce el diccionario, cuantos deja como estan sin conocerlos y cuantos cambiaria
  * por otra palabra, que es lo que mas molesta de un corrector.
+ * <p>
+ * Consultas sueltas, para comparar dos listas o dos versiones del corrector sobre un banco propio:
+ * mvn -q -o test -Dtest=DiccBench#consultar -Ddicc.consultas=/carpeta -Ddicc.respuestas=/otra [-Ddicc.sw=true]
+ * lee cada q_NOMBRE.txt de la carpeta (una entrada por linea; solo cuenta lo que va antes del primer tabulador) y
+ * escribe r_NOMBRE.txt con lo escrito, K o U (conocida o no), la correccion (o "-"), las sugerencias y el rango.
  */
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 35, qualifiers = "es-rES-w411dp-h914dp-xxhdpi")
@@ -102,6 +107,45 @@ public class DiccBench {
         double s = 0;
         for (long x : v) s += x;
         return s / v.length;
+    }
+
+    @Test
+    public void consultar() throws Exception {
+        String in = System.getProperty("dicc.consultas");
+        if (in == null || in.isEmpty()) return;
+        Application app = (Application) RuntimeEnvironment.getApplication();
+        File outDir = new File(System.getProperty("dicc.respuestas", "target/dicc-respuestas"));
+        outDir.mkdirs();
+        Dictionary d = Dictionary.get(app, System.getProperty("dicc.idioma", "es"));
+        d.setPersonal(null);
+        d.setStarWars("true".equals(System.getProperty("dicc.sw", "false")));
+        File[] files = new File(in).listFiles();
+        if (files == null) return;
+        Arrays.sort(files);
+        for (File f : files) {
+            if (!f.getName().startsWith("q_")) continue;
+            BufferedReader r = new BufferedReader(new InputStreamReader(new java.io.FileInputStream(f), "UTF-8"));
+            PrintWriter out = new PrintWriter(new File(outDir, "r_" + f.getName().substring(2)), "UTF-8");
+            try {
+                String line;
+                while ((line = r.readLine()) != null) {
+                    if (line.isEmpty()) continue;
+                    String typed = line.split("\t")[0];
+                    Dictionary.Result res = d.suggest(typed);
+                    StringBuilder sb = new StringBuilder();
+                    for (String s : res.suggestions) {
+                        if (sb.length() > 0) sb.append(',');
+                        sb.append(s);
+                    }
+                    out.println(typed + "\t" + (res.known ? "K" : "U") + "\t" + (res.correction == null ? "-" : res.correction)
+                            + "\t" + sb + "\t" + d.rankOf(typed.toLowerCase(Locale.ROOT)));
+                }
+            } finally {
+                r.close();
+                out.close();
+            }
+        }
+        d.setStarWars(false);
     }
 
     @Test

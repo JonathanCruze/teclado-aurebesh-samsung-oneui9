@@ -9,27 +9,37 @@ FrequencyWords.
 | `es_50k.txt` | Las 40 000 formas de siempre, que encabezan la lista en su mismo orden | hermitdave/FrequencyWords (subtítulos de OpenSubtitles 2018) | MIT (`LICENSE-FrequencyWords.md`) | https://raw.githubusercontent.com/hermitdave/FrequencyWords/master/content/2018/es/es_50k.txt |
 | `es_full.txt` | Recuento de cada forma: qué entra y en qué orden | hermitdave/FrequencyWords | MIT | https://raw.githubusercontent.com/hermitdave/FrequencyWords/master/content/2018/es/es_full.txt |
 | `es_MX.dic`, `es_MX.aff`, `es_ES.dic`, `es_ES.aff` | Qué formas son válidas; paradigmas de los verbos; entradas propias de México | RLA-ES 2.9 (Santiago Bosio y colaboradores), copia del repositorio de diccionarios de LibreOffice, etiqueta `libreoffice-25.8.1.1` | GPL 3+ / LGPL 3+ / MPL 1.1+, a elegir (`LICENSE-RLA-ES.md`) | https://raw.githubusercontent.com/LibreOffice/dictionaries/libreoffice-25.8.1.1/es/es_MX.dic (y los otros tres) |
-| `tools/dict/es_extra.dic` | Mexicanismos y coloquialismos que RLA-ES no trae | Escrita a mano para este teclado | La del repositorio | — |
-| `tools/dict/es_excluir.txt`, `tools/dict/es_quitar.txt` | Formas válidas que casi siempre son una errata y no deben entrar; erratas con tilde que se quitan de la lista de siempre | Escritas a mano para este teclado | La del repositorio | — |
+| `tools/dict/es_extra.dic` | Mexicanismos, coloquialismos de chat y palabras corrientes que RLA-ES no trae | Escrita a mano para este teclado | La del repositorio | — |
+| `tools/dict/es_verbos.txt` | Verbos de uso diario en México a los que se rellena el paradigma completo | Escrita a mano para este teclado | La del repositorio | — |
+| `tools/dict/es_excluir.txt`, `tools/dict/es_quitar.txt` | Formas válidas que casi siempre son una errata y no deben entrar; erratas que se quitan de la lista de siempre | Escritas a mano para este teclado (la segunda, con las erratas del núcleo que señaló la revisión) | La del repositorio | — |
 
 Solo para medir (no entra nada de ellos en la lista): los treebanks UD_Spanish-AnCora y UD_Spanish-GSD de Universal
 Dependencies (`LICENSE-UniversalDependencies.md`), con `tools/dict_cobertura.py`.
 
 ## Qué entra
 
-1. Las 40 000 formas de siempre, en su orden, menos once erratas con tilde (`es_quitar.txt`).
+1. Las 40 000 formas de siempre, en su orden, menos sus erratas: por regla, la forma sin tilde que RLA-ES rechaza y
+   cuya forma con tilde es tres veces más frecuente («tambien», «podria», «corazon»: 515); y, una a una, las de
+   `es_quitar.txt` (con una tilde que no llevan, faltas de ortografía, palabras juntas y restos de los créditos de
+   los subtítulos: 148). Lo que queda es el **núcleo**: en `words_es.txt` una línea en blanco lo separa de las formas
+   nuevas, y de ahí saca `Dictionary.java` su tamaño.
 2. Las formas de los subtítulos que RLA-ES acepta, a partir de un recuento mínimo (más bajo si son flexiones de una
    palabra frecuente o entradas propias de es_MX; más alto si solo las acepta es_ES, que son casi todas de «vosotros»).
 3. Tres familias que RLA-ES no trae completas, validadas por regla y por uso: verbo con pronombres enclíticos bien
    acentuado, diminutivos, golpes en -azo, superlativos y adverbios en -mente de una palabra válida, y compuestos con
    prefijo.
-4. El paradigma completo (formas simples, sin «vosotros» ni futuro de subjuntivo) de los mil verbos más usados y de los
-   de `es_extra.dic`, aunque no aparezca en los subtítulos: esas formas van al final de la lista.
+4. El paradigma completo (formas simples; sin «vosotros», voseo, futuro de subjuntivo ni imperfecto de subjuntivo
+   en -se, que solo entran si los subtítulos los usan) de los mil verbos más usados, de los de `es_extra.dic` y de los
+   de `es_verbos.txt`, aunque no aparezca en los subtítulos; y las formas básicas de los mil verbos siguientes. Esas
+   formas van al final de la lista.
+5. La pareja sin tilde de toda forma verbal que solo se distingue de otro tiempo por la tilde final («agendo» y
+   «agendó», «facture» y «facturé», «alcanzara» y «alcanzará»), para que el teclado no cambie el tiempo del verbo.
 
 Y qué no entra, aunque sea una forma válida (la política, con sus umbrales, está en `tools/build_dict_es.py` y en el
 comentario de `Dictionary.java`): la forma sin tilde de otra mucho más frecuente, el futuro de subjuntivo en -ar, lo
-que está a una falta de ortografía o a un desliz de una palabra muchísimo más usada, lo que choca con el léxico Star
-Wars y las flexiones de palabras raras que además son palabras corrientes del inglés o del alemán.
+que está a una falta de ortografía o a un desliz de una palabra muchísimo más usada, los imperativos de «vosotros»,
+el voseo, lo que choca con el léxico Star Wars y las flexiones de palabras raras que además son palabras corrientes
+del inglés o del alemán.
 
 ## Regenerar y medir
 
