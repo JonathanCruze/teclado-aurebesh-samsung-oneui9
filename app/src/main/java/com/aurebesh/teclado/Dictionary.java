@@ -395,6 +395,7 @@ final class Dictionary {
         HashMap<String, Double> cand = new HashMap<>();
         for (String w : swWords) {
             if (w.length() < SW_MIN || rankOf(w) >= 0 || w.equals(swCanon.get(w))) continue;
+            if (hasMark(w)) continue;          // "padmé": sus variantes pierden la tilde ("padré" -> "padre") y no dicen nada de ella
             cand.clear();
             edits(w, cand);
             double best = Double.MAX_VALUE;
@@ -557,6 +558,15 @@ final class Dictionary {
         personal = set;
     }
 
+    /**
+     * Clave de la tabla que separa palabras juntas ("alomejor", "sinembargo"). La version anterior, que no tenia la
+     * tabla, las aprendia sola por repeticion; {@link Prefs#migrate} las quita una vez de las aprendidas para que la
+     * tabla actue. Despues, quien quiera conservar una la guarda con el chip de lo escrito y se respeta.
+     */
+    static boolean fixedKey(String w) {
+        return w != null && FIXED.containsKey(w.toLowerCase(Locale.ROOT));
+    }
+
     /** La palabra esta entre las aprendidas del usuario (se comparan en minusculas, como se guardan). */
     boolean isPersonal(String w) {
         return w != null && personal.contains(w.toLowerCase(Locale.ROOT));
@@ -601,9 +611,24 @@ final class Dictionary {
         return acc != null && !acc.equals(w);
     }
 
-    /** Entrada del lexico activo, de {@link #SW_MIN} letras o mas, que no es palabra normal del idioma. */
+    /**
+     * Como {@link #ordinary}, pero del diccionario solo cuenta el nucleo: una entrada del lexico que la lista trae en su
+     * cola ("separatista", "inquisidores", "milenario") no es destino de correccion como palabra del idioma, asi que
+     * tiene que seguir siendolo como entrada del lexico; si no, su errata acababa en la forma inglesa o alemana.
+     */
+    private boolean coreWord(String w) {
+        int r = rankOf(w);
+        if (r >= 0 && r < core && !SW_NAMES.contains(w)) return true;
+        String acc = accented(w);
+        return acc != null && !acc.equals(w);
+    }
+
+    /**
+     * Entrada del lexico activo, de {@link #SW_MIN} letras o mas, que no es palabra frecuente del idioma. La caja la
+     * decide {@link #canonical} con {@link #ordinary}: una palabra de la lista, aunque sea de la cola, no cambia de caja.
+     */
     private boolean lexicon(String w) {
-        return starWars && w.length() >= SW_MIN && swCanon.containsKey(w) && !ordinary(w);
+        return starWars && w.length() >= SW_MIN && swCanon.containsKey(w) && !coreWord(w);
     }
 
     /**
@@ -632,7 +657,9 @@ final class Dictionary {
         if (canon == null && !w.equals(fold(w))) canon = swCanon.get(fold(w));
         if (canon != null) {
             String entry = canon.toLowerCase(Locale.ROOT);
-            return saga(entry) || (!ordinary(entry) && canon.equals(typed));
+            // con su caja canonica tambien la que solo es "normal" por parecerse a una palabra con tilde y no esta en
+            // la lista: "Leia" se respeta, "leia" sigue siendo "leía"
+            return saga(entry) || (canon.equals(typed) && (!ordinary(entry) || rankOf(entry) < 0));
         }
         int n = w.length();
         if (n <= SW_MIN || w.charAt(n - 1) != 's') return false;
@@ -806,6 +833,8 @@ final class Dictionary {
             double s = word.length() > 5 ? SW_LONG_SCORE : PERSONAL_SCORE;
             if (s < base) base = s;
         }
+        // una aprendida que la lista trae en su cola ("platicamos", "agendar") sigue siendo destino de correccion
+        if (r >= core && PERSONAL_SCORE < base && personal.contains(word)) base = PERSONAL_SCORE;
         return base + penalty;
     }
 
@@ -902,7 +931,7 @@ final class Dictionary {
             if (!res.known) {
                 // una palabra aprendida a una sola edicion de lo escrito se corrige aunque el limite por longitud
                 // la dejara fuera: el usuario la guardo a proposito
-                boolean personalEdit = n >= 3 && rankOf(best) < 0 && personal.contains(best)
+                boolean personalEdit = n >= 3 && (rankOf(best) < 0 || rankOf(best) >= core) && personal.contains(best)
                         && bestScore - PERSONAL_SCORE <= MAX_EDIT;
                 // lo mismo para una entrada del lexico Star Wars; las largas admiten hasta dos errores caros
                 // ("palatino" -> "palpatine"): pocas palabras normales se les parecen tanto

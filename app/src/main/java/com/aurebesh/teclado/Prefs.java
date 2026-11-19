@@ -409,6 +409,28 @@ final class Prefs {
         return out;
     }
 
+    private static final String MIGRATED = "migrated";    // ultima migracion de datos aplicada (en las preferencias de la pantalla)
+
+    /**
+     * Migraciones de datos de una sola vez, al arrancar el teclado o la app. 1 (version 2.6): salen de las palabras
+     * aprendidas las que la tabla nueva separa ("alomejor" -> "a lo mejor"); la version anterior las aprendia sola por
+     * repeticion y, aprendidas, la tabla no actuaria justo para quien las escribe por costumbre.
+     */
+    static void migrate(Context c) {
+        SharedPreferences ui = ui(c);
+        if (ui.getInt(MIGRATED, 0) >= 1) return;
+        StringBuilder b = new StringBuilder();
+        boolean changed = false;
+        for (String w : get(c).getString(LEARNED, "").split("\n")) {
+            if (w.isEmpty()) continue;
+            if (Dictionary.fixedKey(w)) { changed = true; continue; }
+            if (b.length() > 0) b.append('\n');
+            b.append(w);
+        }
+        if (changed) get(c).edit().putString(LEARNED, b.toString()).apply();
+        ui.edit().putInt(MIGRATED, 1).apply();
+    }
+
     /** Guarda una palabra aprendida (la mas reciente primero; como mucho 500). */
     static void addLearnedWord(Context c, String w) {
         if (w == null) return;

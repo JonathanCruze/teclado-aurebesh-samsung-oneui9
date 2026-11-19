@@ -258,7 +258,8 @@ final class SwipeDecoder {
             float pLog = (float) Math.log(PERSONAL_RANK + 1);
             for (String p : personal) {
                 int own = dict.rankOf(p);
-                if (own >= 0 && own < idealLen.length) continue;         // ya esta en el indice
+                if (own >= 0 && own < dict.coreSize()) continue;         // del nucleo: ya esta en el indice con su rango
+                // una aprendida de la cola de la lista puntua como aprendida, no con su rango real (aunque este indexada)
                 found = extra(p, pLog, found, maxLetters, ns, ne, len, lenTol, loopLen, dwells);
             }
         }

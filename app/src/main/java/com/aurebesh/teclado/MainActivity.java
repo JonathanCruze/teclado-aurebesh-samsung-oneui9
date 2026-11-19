@@ -216,6 +216,7 @@ public final class MainActivity extends Activity {
         // tarjetas claras tinta oscura y con tarjetas oscuras tinta clara, antes de que Material cree nada
         setTheme(AppPalette.of(this).lightCards() ? R.style.AppTheme_Claro : R.style.AppTheme_Oscuro);
         super.onCreate(savedInstanceState);
+        Prefs.migrate(this);                 // datos de versiones anteriores (una sola vez; tambien al arrancar el teclado)
         dp = getResources().getDisplayMetrics().density;
         pal = AppPalette.of(this);                       // los colores de la app salen del tema efectivo del teclado
         surface = pal.bg;

@@ -164,6 +164,7 @@ public class AurebeshIME extends InputMethodService
     @Override
     public void onCreate() {
         super.onCreate();
+        Prefs.migrate(this);                 // datos de versiones anteriores (una sola vez)
         learning = new Learning(this);
         Prefs.get(this).registerOnSharedPreferenceChangeListener(prefsListener);
         ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
@@ -687,7 +688,9 @@ public class AurebeshIME extends InputMethodService
                     boolean start = "<s>".equals(prev);
                     boolean caps = start && autoCaps && capsAtCursor(ic);  // al inicio de frase, los chips ya en mayuscula
                     List<String> chips = new ArrayList<>();
-                    for (String s : bigrams.next(prev, 3)) {
+                    for (String s : bigrams.next(prev, 6)) {
+                        if (chips.size() >= 3) break;
+                        if (dict != null && dict.vetoed(s)) continue;        // las familias vetadas tampoco como palabra siguiente
                         String canon = canonicalOf(s);                       // "ahsoka" -> "Ahsoka"
                         chips.add(canon != null ? canon : caps ? capitalize(s) : s);
                     }
@@ -788,7 +791,10 @@ public class AurebeshIME extends InputMethodService
     private void rankResult(String word, Dictionary.Result r) {
         computedWord = word;
         pendingCorrection = r.correction;
-        if (bigrams != null && !r.known && r.correction != null && r.suggestions.size() > 1) {   // contexto: candidato que mejor sigue a la anterior
+        // contexto: candidato que mejor sigue a la anterior. No cuando la correccion es lo mismo que se escribio salvo
+        // tildes o espacios ("asi" -> "así", "dió" -> "dio", "porfavor" -> "por favor"): ahi no hay duda de la palabra,
+        // y el contexto la cambiaba por otra ("como asi" -> "como si", "no habria" -> "no había")
+        if (bigrams != null && !r.known && r.correction != null && r.suggestions.size() > 1 && !sameLetters(word, r.correction)) {
             InputConnection ic = getCurrentInputConnection();
             String prev = ic != null ? previousWord(ic, word) : null;
             if (prev != null) {
@@ -805,6 +811,13 @@ public class AurebeshIME extends InputMethodService
                 }
             }
         }
+    }
+
+    /** Las mismas letras, sin contar tildes, mayusculas ni espacios. */
+    static boolean sameLetters(String typed, String correction) {
+        String a = Dictionary.deaccent(typed.toLowerCase(Locale.ROOT));
+        String b = Dictionary.deaccent(correction.toLowerCase(Locale.ROOT)).replace(" ", "");
+        return a.equals(b);
     }
 
     private void clearSuggestions() {
