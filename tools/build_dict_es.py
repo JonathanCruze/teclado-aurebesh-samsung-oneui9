@@ -378,7 +378,7 @@ STANDALONE_GER = ('dando', 'yendo', 'siendo', 'estando', 'habiendo')
 # por buenos "sela", "selo", "dete" o "dite", que son "se la", "se lo", "de te" y "di te" escritos juntos. Con dos
 # pronombres llevan tilde ("dámelo", "póntelo") y no se confunden con nada
 MONO = {'da': 'me te le les lo la los las nos', 'di': 'me le les lo la nos', 'dé': 'me le les se nos',
-        'den': 'me le les se nos lo la', 've': 'te lo la los las', 'haz': 'me te le les lo la los las nos',
+        'den': 'me le les se nos lo la', 've': 'me te lo la los las', 'haz': 'me te le les lo la los las nos',
         'pon': 'me te le les lo la los las', 'ten': 'me te le lo la los las', 'ven': 'te', 'sal': 'te'}
 # La tercera persona del presente de los verbos con imperativo propio no lo es: "dícelo" es "díselo" mal escrito,
 # y "hácelo", "pónelo" o "tiénelo" son "hazlo", "ponlo" y "tenlo"
@@ -948,6 +948,56 @@ def build(base, folder):
         fill(len(top) + vi, lemma, False)
     log('paradigmas: %d verbos completos y %d con las formas basicas' % (len(top), len(listed)))
 
+    # ---- pronombres pegados por regla a los verbos de es_verbos.txt, salgan o no en los subtitulos: "platicarle",
+    # "chécame", "deposítale", "agéndame". Van al final. A los demas verbos no: la regla daria miles de formas que
+    # nadie escribe ("amanecerles", "fínjanos", "chambéennos"), y las que se usan ya entran por su recuento
+    def imperatives(lemma):
+        """(tu, usted, ustedes) de un verbo regular o de raiz irregular: "platica", "platique", "platiquen"."""
+        forms = verb_forms[lemma]
+        ar = lemma.endswith('ar')
+        stem = lemma[:-2]
+        found = {}
+        for f in forms:
+            if len(f) < 3 or f[-1] not in 'ae' or f + 's' not in forms or f + 'n' not in forms:
+                continue
+            if f in fut_subj or f in subj_se or f in subj_ra or f.startswith(lemma) or f.endswith('aba') or f == stem + 'ía':
+                continue                                 # ni imperfecto, ni condicional, ni los otros subjuntivos
+            present = (f[-1] == 'a') == ar
+            found.setdefault(present, []).append(f)
+        tu = found.get(True, [])
+        usted = found.get(False, [])
+        if len(tu) != 1 or len(usted) != 1:
+            return None                                  # "da", "ve", "pon", "ten": van por la tabla y por su uso
+        return tu[0], usted[0], usted[0] + 'n'
+
+    glue = daily
+    glued = 0
+    for vi, lemma in enumerate(glue):
+        if not lemma.endswith(('ar', 'er', 'ir')) or lemma not in hosts:
+            continue
+        accusative = dative = personal = True            # casi todos son transitivos; el reflexivo, solo si se usa
+        reflexive = count(lemma + 'se') > 0
+        imp = imperatives(lemma)
+        tu, usted, ustedes = imp if imp is not None else (None, None, None)
+        made = []
+        if accusative:
+            made += [(lemma, t) for t in ('lo', 'la', 'los', 'las')] + [(h, t) for h in imp or () for t in ('lo', 'la')]
+            made += [(tu, t) for t in ('los', 'las')]
+        if dative:
+            made += [(lemma, t) for t in ('le', 'les')] + [(h, 'le') for h in imp or ()] + [(tu, 'les')]
+        if personal:
+            made += [(lemma, t) for t in ('me', 'te', 'nos')] + [(h, t) for h in imp or () for t in ('me', 'nos')]
+        if reflexive:
+            made += [(lemma, 'se'), (lemma, 'me'), (lemma, 'te'), (tu, 'te'), (usted, 'se'), (ustedes, 'se')]
+        for host, tail in made:
+            w = enclitic(host, tail, 1) if host is not None else None
+            if w is not None and PATTERN.match(w) and w not in base_set and w not in chosen:
+                fill_order.setdefault(w, (len(top) + len(listed) + vi, w))
+                encl[w] = host
+                take(w, 'enclitico')
+                glued += 1
+    log('pronombres pegados por regla: %d formas de %d verbos' % (glued, len(glue)))
+
     # ---- parejas que solo distingue la tilde final y son del mismo verbo ("agendo" y "agendó", "facture" y "facturé",
     # "alcanzara" y "alcanzará"): si la forma con tilde esta en la lista, la otra entra tambien, salga lo que salga en
     # los subtitulos, para que el teclado no cambie el tiempo del verbo (politica a, mas abajo)
@@ -1121,7 +1171,7 @@ def build(base, folder):
     for w, why in chosen.items():
         reasons[why] += 1
     counted = sorted((w for w in chosen if w in counts), key=lambda w: (-counts[w], order[w]))
-    uncounted = sorted((w for w in chosen if w not in counts), key=lambda w: fill_order.get(w, (len(top) + len(listed), w)))
+    uncounted = sorted((w for w in chosen if w not in counts), key=lambda w: fill_order.get(w, (len(top) + len(listed) + len(glue), w)))
     words = list(base) + counted + uncounted
     log('nuevas: %d (%s)' % (len(chosen), ', '.join('%s %d' % kv for kv in sorted(reasons.items()))))
     log('sin recuento en los subtitulos (van al final): %d' % len(uncounted))

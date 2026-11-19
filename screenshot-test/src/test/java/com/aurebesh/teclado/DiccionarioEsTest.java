@@ -31,8 +31,8 @@ import static org.junit.Assert.assertTrue;
  * ("ustedes" incluida), verbos con pronombres, sustantivos con plural, femenino, diminutivo y aumentativo, adverbios en
  * -mente y mexicanismos; que las erratas corrientes se siguen corrigiendo (erratas_es.tsv: quinientas erratas reales
  * con su correccion) y que la tilde manda, con tope; que una forma verbal valida sin tilde no cambia de tiempo; que
- * no entran formas basura ni quedan en el nucleo las erratas de siempre; que las raras ni se proponen como correccion
- * ni entran en el deslizado; y que el ingles y el aleman siguen con sus 40 000 palabras.
+ * no entran formas basura ni quedan en el nucleo las erratas de siempre; que las raras no se imponen como correccion
+ * y el deslizado solo toma las mas usadas; y que el ingles y el aleman siguen con sus 40 000 palabras.
  */
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 35, qualifiers = "es-rES-w411dp-h914dp-xxhdpi")
@@ -175,6 +175,77 @@ public class DiccionarioEsTest {
                 + " checará cheque chequen checando checado chécalo chambear chambeo chambeas chambea chambeamos chambean"
                 + " chambeé chambeaste chambeó chambearon chambearé chambeando apapachar trapear manejar estacionar"
                 + " chismear cotorrear");
+    }
+
+    @Test
+    public void usoDiarioQueFaltaba() {
+        // verbos irregulares que el diccionario de referencia trae sueltos y a medias
+        conocidas("haber, andar y caber", "hube hubiste hubo hubimos hubieron hubiera hubiéramos anduve anduviste anduvo"
+                + " anduvimos anduvieron anduviera anduviéramos caber quepo cabes cabe cabemos caben cupe cupiste cupimos"
+                + " cupieron cabía cabré cabría quepa quepas quepan cupiera cupieras cabiendo cabido");
+        // verbos de todos los dias en Mexico, con todo su paradigma aunque los subtitulos apenas los traigan
+        conocidas("verbos diarios", "agendo agendas agenda agendamos agendan agendé agendaste agendó agendaron agendaré"
+                + " agendaría agende agendes agenden agendando agendado reagendar reagendamos reprogramo reprogramar"
+                + " googleo googlear googleando texteo textear hackear hackea hackeando hackearon masajeo desinstalo"
+                + " desinstalar trapeo trapeas trapeamos trapeé trapeando cotizo cotizas cotizó cotizamos cotizando"
+                + " reenvío reenvías reenviamos reenviaste reenviando reenviaré facturo facturas facturamos facturé"
+                + " facturando adjunto adjuntas adjuntamos adjunté adjuntando vacuno vacunamos vacunaron capacito"
+                + " capacitamos cachó cachamos truena tronó chismeo chismeando tuiteo depositaría rentábamos"
+                + " felicitábamos sobraría reiniciamos ubicaste timbro tramito tramitamos estaciono estacionamos");
+        // verbos con pronombre que casi no salen en los subtitulos, y los imperativos con -le
+        conocidas("pronombres", "platicarte platicarle platícale platíqueme checarte checarle checarla chécame chécale"
+                + " chécala chéquelo depositarte depositarle deposítame deposítale reenvíame reenvíalo compárteme"
+                + " agéndame agendarlo facturarle cotízame márcales márqueme confírmeme cancélame préstalo mándaselo"
+                + " cáele cómele piénsale apréndele apágale atínale bríncale cálmale ándenle córranle jálenle"
+                + " lléguenle muévanle");
+        // chat, prestamos y cosas de casa
+        conocidas("chat", "finde findes apá amá jeje jejeje jiji jajajaja cel depa oki plis porfis abue holis like likes"
+                + " link links podcast podcasts router routers sticker stickers emoji emojis selfie selfies laptop"
+                + " laptops app apps hashtag hashtags whatsapp");
+        conocidas("Mexico", "bolillo bolillos tinaco tinacos plumón plumones chícharo chícharos crayón crayones champiñón"
+                + " champiñones changarro garnachas apapachos jefita carnal carnala fregón tapatío morras güeros"
+                + " padrísima chingos defeño gasolinería desarmador destapador engrapadora rostizado boletería"
+                + " manicurista ostiones basquetbolista patineta pijamada puntaje televisora narco regaño maña megas");
+        conocidas("lo que el diccionario de referencia no trae", "juguetería pescadería verdulería plastilina reembolsos"
+                + " chequeo chequeos escaneos prospectos combos babuinos supernovas cocteles diabético diabética"
+                + " traqueotomía trillón poquitín criminalista parlanchín calabacín celulitis fortachón reubicación"
+                + " fibrosis glaucoma exhumación ginecología radiólogo urólogo odontólogo ortodoncista humidificador"
+                + " mamografía reprogramación pancreatitis colonoscopía amoxicilina tendinitis gingivitis sedación");
+        // ninguna de estas se cambia por otra (antes: "finde" -> "fines", "depa" -> "sepa", "links" -> "libros")
+        for (String w : new String[]{"finde", "jeje", "cel", "depa", "bolillo", "porfis", "apá", "amá", "links", "plumones",
+                "tinaco", "hackeando", "hackea", "cotizo", "cotizó", "trapeo", "cachó", "cabiendo", "cupieras", "cáele",
+                "cómele", "piénsale", "préstalo", "chingos", "morras", "defeño"}) {
+            Dictionary.Result r = es.suggest(w);
+            assertTrue(w, r.known);
+            assertNull(w + " -> " + r.correction, r.correction);
+        }
+        // y sin su tilde la reciben, como cualquier otra
+        for (String[] c : new String[][]{{"checame", "chécame"}, {"depositame", "deposítame"}, {"reenviame", "reenvíame"},
+                {"agendame", "agéndame"}, {"gasolineria", "gasolinería"}, {"jugueteria", "juguetería"},
+                {"mamografia", "mamografía"}}) {
+            assertEquals(c[0], c[1], es.suggest(c[0]).correction);
+        }
+        // Palabras corrientes que el lexico Star Wars trae como nombres: con el lexico activo siguen siendo palabras
+        // normales, sin mayuscula forzada ("depa" no es Depa Billaba)
+        conocidas("corrientes y de la saga", "depa dogma concordia rugosa separatista separatistas milenario inquisidores");
+        es.setStarWars(true);
+        for (String w : new String[]{"depa", "dogma", "concordia", "separatista", "milenario"}) {
+            assertTrue(w, es.suggest(w).known);
+            assertNull(w, es.suggest(w).correction);
+            assertNull(w, es.canonical(w));
+        }
+        es.setStarWars(false);
+    }
+
+    @Test
+    public void elDeslizadoTomaLasFormasNuevasMasUsadas() throws IOException {
+        Application app = (Application) RuntimeEnvironment.getApplication();
+        assertTrue(es.glideSize() > es.coreSize() && es.glideSize() < es.size());
+        for (String w : new String[]{"platicamos", "depositaron", "checando", "rentamos", "estaciono"}) {
+            assertTrue(w + " se puede deslizar: " + es.rankOf(w), es.rankOf(w) >= es.coreSize() && es.rankOf(w) < es.glideSize());
+        }
+        assertTrue("las ultimas, sin uso en los subtitulos, no", es.rankOf("chéquelo") >= es.glideSize());
+        for (String lang : new String[]{"en", "de"}) assertEquals(lang, 40000, Dictionary.get(app, lang).glideSize());
     }
 
     @Test

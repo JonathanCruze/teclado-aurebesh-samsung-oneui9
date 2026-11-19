@@ -40,7 +40,7 @@ import java.util.Set;
  * <li>Las formas raras son <i>conocidas y completables</i>: escritas tal cual se respetan y se ofrecen al completar,
  * pero no se corrige hacia ellas a dos ediciones ({@link #scan} solo recorre el nucleo) ni, por su puntuacion
  * (ln del rango), sin preguntar a una edicion: quedan como sugerencia. Asi ni el coste ni el acierto dependen del
- * tamano de la lista.</li>
+ * tamano de la lista. El deslizado reconoce el nucleo y las formas nuevas mas usadas ({@link #glideSize}).</li>
  * <li>La tilde manda, con tope: si lo escrito no es una palabra pero lo seria con sus tildes ("platicabamos",
  * "llegare", "comio"), se le ponen aunque la forma acentuada sea rara. Cede ante una errata corriente (tecla vecina,
  * letras bailadas, letra que falta o sobra, falta de ortografia) de una palabra del nucleo: siempre que la forma con
@@ -99,6 +99,8 @@ final class Dictionary {
      * letra o meter una de mas ({@link #TILDE_MARGIN_FAR}). Vease {@link #slipRival}.
      */
     private static final double TILDE_MARGIN = 2.8, TILDE_MARGIN_FAR = 3.4, CHEAP_EDIT = 0.6;
+    /** Formas de fuera del nucleo (las mas frecuentes) que tambien se pueden deslizar. Vease {@link #glideSize}. */
+    private static final int GLIDE_TAIL = 40000;
     /** Coste maximo de la errata de un rival de la lectura con tildes: todo menos una letra cambiada por otra lejana. */
     private static final double SLIP_EDIT = 2.0;
     /**
@@ -510,6 +512,13 @@ final class Dictionary {
 
     /** Palabras del nucleo: las de la lista de siempre, sin las formas nuevas del espanol. En ingles y aleman, todas. */
     int coreSize() { return core; }
+
+    /**
+     * Palabras que indexa el deslizado: el nucleo y las {@link #GLIDE_TAIL} formas nuevas mas usadas ("platicamos",
+     * "depositaron", "checaste"). El resto de la cola (formas que los subtitulos casi no traen) no entra: alargaria
+     * cada reconocimiento sin que casi nadie las deslice, y siguen pudiendose teclear y completar.
+     */
+    int glideSize() { return Math.min(byRank.length, core + GLIDE_TAIL); }
 
     /**
      * No se propone nunca (ni como correccion, ni al completar, ni al deslizar): las de {@link #NO_SUGGEST} y, en

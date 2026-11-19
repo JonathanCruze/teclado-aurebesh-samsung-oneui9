@@ -130,14 +130,14 @@ final class SwipeDecoder {
 
     /**
      * Construye el indice para un diccionario y una geometria (unas decenas de ms; hacerlo fuera del hilo principal).
-     * Solo entran las palabras del nucleo ({@link Dictionary#coreSize}): las formas raras de la lista espanola
-     * ampliada triplicarian los candidatos de cada trazo sin que casi nadie las deslice.
+     * Entran las palabras de {@link Dictionary#glideSize}: el nucleo y las formas nuevas mas usadas de la lista
+     * espanola ampliada; las mas raras alargarian cada trazo sin que casi nadie las deslice.
      */
     SwipeDecoder(Dictionary dict, Geometry geo) {
         this.dict = dict;
         this.geo = geo;
         keys = geo.letter.length;
-        int count = dict.coreSize();
+        int count = dict.glideSize();
         offset = new int[count + 1];
         idealLen = new float[count];
         doubles = new byte[count];

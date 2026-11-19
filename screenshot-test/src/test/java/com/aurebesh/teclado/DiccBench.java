@@ -254,6 +254,26 @@ public class DiccBench {
             Arrays.sort(tss);
             out.println(String.format(Locale.ROOT, "DESLIZADO palabras indexadas=%d indice=%.1f ms decode media=%.0f us p95=%d us acierto=%d/%d (JVM)",
                     indexed, build[build.length / 2] / 1000.0, mean(ts), tss[(int) (tss.length * 0.95)], top1, strokes.size()));
+            // las formas nuevas mas usadas (las primeras de fuera del nucleo): la buscada, la primera o entre las tres
+            int nuevas = 0, primera = 0, tres = 0;
+            Random rnd2 = new Random(5);
+            for (int r = d.coreSize(); r < d.size() && nuevas < 400; r += 7) {
+                String w = d.word(r);
+                if (w.length() < 6 || d.vetoed(w)) continue;
+                float[][] st = stroke(g, dp, w, 0.15f, rnd2);
+                if (st == null) continue;
+                long[] tt = new long[st[0].length];
+                for (int k = 0; k < tt.length; k++) tt[k] = 1000 + 8L * k;
+                List<String> got = dec.decode(st[0], st[1], tt, tt.length);
+                nuevas++;
+                for (int k = 0; k < got.size() && k < 3; k++) {
+                    if (!Dictionary.deaccent(got.get(k)).equals(Dictionary.deaccent(w))) continue;
+                    tres++;
+                    if (k == 0) primera++;
+                    break;
+                }
+            }
+            out.println(String.format(Locale.ROOT, "DESLIZADO formas nuevas: primera=%d entre tres=%d de %d", primera, tres, nuevas));
 
             // ---- erratas reales
             Map<String, int[]> byClass = new LinkedHashMap<>();

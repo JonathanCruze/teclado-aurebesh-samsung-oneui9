@@ -1,7 +1,8 @@
-# Verbos de uso diario en Mexico que el diccionario RLA-ES trae pero los subtitulos usan poco: tools/build_dict_es.py
-# les rellena el paradigma completo, como a los mil mas usados, aunque sus formas no aparezcan en los subtitulos. Uno
-# por linea, en infinitivo; lo que sigue a una almohadilla es comentario. Los verbos que RLA-ES no trae van en
-# es_extra.dic con la marca /RED.
+# Verbos de uso diario en un chat de Mexico que el diccionario RLA-ES trae: tools/build_dict_es.py les rellena el
+# paradigma completo, como a los mil mas usados, y les pega los pronombres por regla ("platicarle", "márcame",
+# "deposítale", "agéndalo"), aunque esas formas no aparezcan en los subtitulos. Uno por linea, en infinitivo; lo que
+# sigue a una almohadilla es comentario. Los verbos que RLA-ES no trae van en es_extra.dic con la marca /RED; los de
+# alli que llevan complemento se repiten aqui para que reciban tambien sus pronombres.
 
 agendar
 adjuntar
@@ -62,3 +63,63 @@ hornear
 freír
 calentar
 enfriar
+
+# ---- recados: los de siempre, para que no falte ninguna forma con pronombre
+mandar
+enviar
+llamar
+marcar
+avisar
+pasar
+esperar
+pagar
+prestar
+comprar
+vender
+llevar
+buscar
+compartir
+guardar
+borrar
+subir
+bajar
+abrir
+cerrar
+apartar
+recoger
+dejar
+contestar
+responder
+escribir
+ayudar
+cuidar
+invitar
+saludar
+recordar
+preguntar
+explicar
+enseñar
+mostrar
+cobrar
+apuntar
+anotar
+revisar
+arreglar
+limpiar
+sacar
+meter
+cambiar
+probar
+usar
+checar
+mensajear
+apapachar
+googlear
+textear
+hackear
+reagendar
+reprogramar
+desinstalar
+resetear
+postear
+masajear
