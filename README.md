@@ -12,18 +12,18 @@
 
 <p align="center">
   <a href="https://github.com/JonathanCruze/teclado-aurebesh-samsung-oneui9/raw/main/releases/TecladoAurebesh.apk">
-    <img src="https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20%20DESCARGAR%20APK%20%E2%80%94%20Teclado%20Aurebesh%202.5.2-1B2838?style=for-the-badge&logoColor=white&labelColor=1B2838&color=7FD3F0" alt="Descargar APK">
+    <img src="https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20%20DESCARGAR%20APK%20%E2%80%94%20Teclado%20Aurebesh%202.6-1B2838?style=for-the-badge&logoColor=white&labelColor=1B2838&color=7FD3F0" alt="Descargar APK">
   </a>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/versi%C3%B3n-2.5.2-7FD3F0?style=flat-square" alt="versión 2.5.2">
+  <img src="https://img.shields.io/badge/versi%C3%B3n-2.6-7FD3F0?style=flat-square" alt="versión 2.6">
   <img src="https://img.shields.io/badge/Android-8.0%2B-3DDC84?style=flat-square" alt="Android 8+">
   <img src="https://img.shields.io/badge/Samsung-One%20UI%209.0-1428A0?style=flat-square" alt="Samsung One UI 9.0">
   <img src="https://img.shields.io/badge/sin%20anuncios-%E2%9C%93-2E7D32?style=flat-square" alt="sin anuncios">
   <img src="https://img.shields.io/badge/funciona-offline-455A64?style=flat-square" alt="offline">
   <img src="https://img.shields.io/badge/sin%20recopilaci%C3%B3n%20de%20datos-%E2%9C%93-2E7D32?style=flat-square" alt="sin recopilación de datos">
-  <img src="https://img.shields.io/badge/licencias-OFL%20%C2%B7%20MIT%20%C2%B7%20Apache--2.0-6A1B9A?style=flat-square" alt="licencias">
+  <img src="https://img.shields.io/badge/licencias-OFL%20%C2%B7%20MIT%20%C2%B7%20MPL--1.1%20%C2%B7%20Apache--2.0-6A1B9A?style=flat-square" alt="licencias">
 </p>
 
 > **Compatibilidad.** Optimizado y probado en **Samsung Galaxy con One UI 9.0 (Android 17)**. Cualquier otra versión de
@@ -47,6 +47,36 @@
    momento, mantén pulsada la barra espaciadora.
 
 Para actualizar, descarga el nuevo APK e instálalo encima: conserva tus ajustes.
+
+### Novedades de la 2.6
+- **Diccionario español de 40 000 a 149 110 formas.** Conjugaciones completas de los verbos más usados (todos los tiempos y
+  personas, con pronombres pegados: *dámelo*, *vámonos*, *platicarle*, *chécame*), plurales, femeninos, diminutivos,
+  adverbios en *-mente* y español de México (*ahorita*, *chamba*, *órale*, *güey*, *alberca*, *depa*). En texto real
+  (treebanks AnCora y GSD) el teclado conoce el 98,3 % de los verbos y el 97,4 % de los sustantivos que aparecen (antes
+  86,6 % y 91,4 %), y las palabras bien escritas que cambiaba por otra bajan del 1,62 % al 0,39 % en verbos y del 0,99 %
+  al 0,51 % en sustantivos. Las formas se validan con el diccionario ortográfico RLA-ES y se ordenan por su uso.
+- **El corrector, más fino.** Las formas raras se reconocen y se completan, pero solo se corrige hacia las palabras
+  frecuentes. Si a lo escrito solo le falta la tilde, se la pone (*comio* → *comió*, *platicabamos* → *platicábamos*),
+  salvo que sea el desliz corriente de una palabra frecuente (*peto* → *pero*); una palabra escrita con su tilde ya no
+  se toca (*publicó* no pasa a *público*) y las formas verbales sin tilde se respetan (*alcanzara*, *agendo*), con la otra
+  como sugerencia. Salen de la lista 663 erratas que venían de los subtítulos y se daban por buenas (*hize*, *estubo*,
+  *tambien*), se quita la tilde que sobra (*dió* → *dio*) y se separan las palabras juntas (*porfavor* → *por favor*,
+  *aver* → *a ver*). En un banco de 567 erratas reales acierta 527 (antes 462), sin regresiones.
+- **Deslizar para escribir** reconoce también las 40 000 formas nuevas más usadas (79 332 palabras en total).
+- **Dígrafos del español: ll, rr, qu y gu.** Los ocho dígrafos del Aurebesh son los del inglés; en español casi solo servía
+  *ch*. Cuatro glifos nuevos hechos con piezas de sus letras: la *ll* es la *l* con la pata dos veces, la *rr* la *r* con
+  dos diagonales bajo un techo, y la *u* muda de *qu* y *gu* es un cuadrado dentro de la letra. La fila de dígrafos del
+  teclado español pasa a diez teclas (*ch ll rr qu gu ng ae eo sh th*); al dibujar en Aurebesh, *gu* solo se funde ante
+  *e* o *i* (en *agua* o *pingüino* va letra a letra). Opción **Dígrafos del español** en *Idiomas y teclas*, encendida de
+  fábrica; apagada vuelven los ocho originales. Hoja de diseño con las alternativas: `promo/out/previa_digrafos_es.png`.
+- **Léxico Star Wars sin la trilogía de secuelas.** Fuera 63 entradas de los episodios VII a IX (Rey, Finn, Poe Dameron,
+  Kylo Ren, Jannah, BB, Jakku, Exegol, la Resistencia, la Primera Orden…). Quedan 626 de las películas I a VI, Rogue One,
+  Solo, las series y los juegos.
+- **Medido y dicho:** en un barrido de 132 743 erratas de las 3 000 palabras más frecuentes el corrector queda 158
+  aciertos por debajo de la versión anterior (0,12 %): son sobre todo palabras válidas de la lista ampliada que ahora se
+  respetan y lecturas con tilde más probables que la que el barrido supone. La carga del diccionario pasa de 55 a unos
+  110 ms y su memoria de 4,3 a 10,6 MB (medido en escritorio; en el teléfono se carga en segundo plano). El APK pasa de
+  1,55 a 2,03 MB. Fuentes, método y licencias en `tools/dict/FUENTES-diccionario-es.md`.
 
 ### Novedades de la 2.5.2
 - **El acento correcto bajo el dedo.** Al mantener una letra, la celda que queda sobre el dedo (y la que se escribe al
@@ -379,8 +409,10 @@ a partir de un prompt. El resultado se puede reemplazar, insertar, copiar o rein
 
 Los teléfonos Samsung suelen venir sin corrector ortográfico del sistema para teclados de terceros, así que el teclado lleva el suyo:
 
-- Diccionarios de 40 000 palabras por idioma (`app/src/main/res/raw/words_es.txt`, `words_en.txt`, `words_de.txt`), generados por
-  `tools/build_dictionaries.py` a partir de las listas de frecuencia de FrequencyWords (MIT).
+- Diccionarios (`app/src/main/res/raw/words_es.txt`, `words_en.txt`, `words_de.txt`) generados por `tools/build_dictionaries.py`:
+  40 000 palabras en inglés y alemán a partir de las listas de frecuencia de FrequencyWords (MIT), y 149 110 formas en
+  español (`tools/build_dict_es.py`): un núcleo de 39 337 palabras frecuentes, hacia las que se corrige, y las formas
+  validadas con el diccionario ortográfico RLA-ES, que se reconocen y se completan.
 - Palabra desconocida → mejor candidato a **una o dos ediciones**, con el coste de cada error: cambiar una letra por una vecina en el
   teclado o por otra de sonido parecido (s/z, c/s, b/v…) cuesta poco, una sustitución arbitraria mucho; "fuersa" → "fuerza",
   "nesecito" → "necesito". **Restauración de tildes** ("mas" → "más", "cancion" → "canción"); las parejas ambiguas (esta/está) se respetan.
@@ -422,7 +454,7 @@ app/src/main/java/com/aurebesh/teclado/
 app/src/main/res/raw/        words_*.txt, bigrams_*.txt, emoji.txt, emoji_names.txt
 app/src/main/res/            strings (es/en/de), colores, tema, icono, method.xml (tres subtipos)
 screenshot-test/             pruebas Robolectric: ScreenshotTest, SwipeTest, PredictionTest
-tools/build_dictionaries.py  diccionarios desde FrequencyWords
+tools/build_dictionaries.py  diccionarios desde FrequencyWords (el español, con tools/build_dict_es.py y RLA-ES)
 tools/build_bigrams.py       tablas de bigramas desde los corpus abiertos
 tools/build_emoji.py         emoji.txt y emoji_names.txt desde Unicode y CLDR
 tools/build_font_set.py      glifos desde la fuente Aurebesh de SilvinoR
@@ -458,7 +490,7 @@ español, inglés y alemán; siguen el idioma del teléfono o el que elijas en A
 
 ## Fuente
 Los glifos salen de la fuente **Aurebesh de SilvinoR** (`font/base-silvinor-Aurebesh.ttf`, SIL Open Font License 1.1,
-`font/OFL-silvinor.md`): letras, numerales, puntuación, signos y los ocho dígrafos como ligaduras. A ese conjunto se añaden la ñ con
+`font/OFL-silvinor.md`): letras, numerales, puntuación, signos y los ocho dígrafos como ligaduras (los cuatro del español, *ll rr qu gu*, van en el conjunto estilístico `ss01`). A ese conjunto se añaden la ñ con
 cuadrado y las vocales con tilde. `tools/build_font_set.py` genera a partir de ello `GlyphData.java` (vectores con avance y margen de
 cada glifo, que es lo que dibuja el teclado) y **`font/AurekTeclado.ttf`**, una fuente OpenType instalable con las mismas ligaduras,
 también bajo OFL (con nombre propio, como exige la licencia por el nombre reservado "Aurebesh").
@@ -535,6 +567,10 @@ Después, `python3 promo/make_promo.py` compone las imágenes promocionales. Nec
   también bajo OFL.
 - **Listas de palabras** de [FrequencyWords](https://github.com/hermitdave/FrequencyWords) © 2016 Hermit Dave, licencia MIT
   (`tools/dict/LICENSE-FrequencyWords.md`), construidas sobre los subtítulos de OpenSubtitles (corpus OPUS).
+- **Validación del diccionario español** con [RLA-ES](https://github.com/sbosio/rla-es) 2.9 (Recursos Lingüísticos Abiertos del
+  Español, Santiago Bosio y colaboradores), triple licencia GPL 3+ / LGPL 3+ / MPL 1.1+. La lista `words_es.txt` deriva en
+  parte de él y se distribuye bajo MPL 1.1 (`tools/dict/LICENSE-RLA-ES.md`); sus fuentes y el generador están en este
+  repositorio.
 - **Tablas de predicción (bigramas)**, distribuidas bajo **CC BY-SA 4.0**: contienen frases de Mozilla Common Voice (CC0 y extractos
   de Wikipedia CC BY-SA 3.0), treebanks de Universal Dependencies (CC BY-SA 4.0 / CC BY 4.0), Europarl (vía NLTK), SQuAD-es (MIT) y
   Google Books Ngram (CC BY 3.0) vía symspellpy y orgtre. Detalle y atribuciones en `tools/dict/FUENTES-bigramas.md`.
