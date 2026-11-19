@@ -230,4 +230,41 @@ public class FlujoCorrectorTest {
         List<String> c = chips();
         assertFalse("chips tras 'me ': " + c, c != null && c.contains("chingaste"));
     }
+
+    /**
+     * Una palabra que la lista no trae, escrita con una tilde que puede ser suya (apellidos, gentilicios, palabras
+     * raras), se deja como esta: antes "Jaén" pasaba a "Jane" y "leonés" a "leones". La tilde que no puede ser suya
+     * se sigue quitando o poniendo en su sitio.
+     */
+    @Test
+    public void laTildeQuePuedeSerSuyaSeRespetaYLaImposibleSeQuita() throws Exception {
+        for (String w : new String[]{"Ja\u00e9n", "leon\u00e9s", "D\u00edez", "Mac\u00edas", "Zo\u00e9", "de\u00e1n", "subsecretar\u00eda",
+                "P\u00e1ez", "bong\u00f3s", "bord\u00f3n", "cup\u00e9", "pal\u00e9"}) {
+            assertEquals(w, "voy a " + w + " ", typed("voy a " + w + " "));
+        }
+        String[][] wrong = {{"di\u00f3", "dio"}, {"fu\u00e9", "fue"}, {"ex\u00e1men", "examen"}, {"desp\u00faes", "despu\u00e9s"},
+                {"cr\u00e9es", "crees"}, {"bi\u00e9n", "bien"}, {"fu\u00ed", "fui"}, {"vi\u00f3", "vio"}};
+        for (String[] c : wrong) assertEquals(c[0], "ya " + c[1] + " ", typed("ya " + c[0] + " "));
+        // la regla, por casos
+        for (String w : new String[]{"ja\u00e9n", "leon\u00e9s", "d\u00edez", "mac\u00edas", "p\u00e1ez", "le\u00eda", "c\u00e1mara", "\u00e1rbol", "trav\u00e9s"}) {
+            assertTrue(w, Dictionary.tildePosible(w));
+        }
+        for (String w : new String[]{"di\u00f3", "fu\u00e9", "fu\u00ed", "bi\u00e9n", "ex\u00e1men", "cr\u00e9es", "d\u00edme", "gui\u00f3n", "c\u00e1m\u00e1ra"}) {
+            assertFalse(w, Dictionary.tildePosible(w));
+        }
+    }
+
+    /** Una palabra guardada por el usuario se completa y se corrige hacia ella aunque su familia este vetada. */
+    @Test
+    public void laAprendidaDeFamiliaVetadaSigueSiendoDelUsuario() throws Exception {
+        Prefs.addLearnedWord(app, "chingaste");
+        settle();
+        assertEquals("te chingaste ", typed("te chingast "));
+    }
+
+    /** Las entradas del lexico que la lista trae en su cola siguen corrigiendose ("milenario", del Halcon). */
+    @Test
+    public void lasEntradasDelLexicoDeLaColaSiguenCorrigiendose() throws Exception {
+        assertEquals("un culto milenario ", typed("un culto milenaro "));
+    }
 }

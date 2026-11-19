@@ -395,7 +395,6 @@ final class Dictionary {
         HashMap<String, Double> cand = new HashMap<>();
         for (String w : swWords) {
             if (w.length() < SW_MIN || rankOf(w) >= 0 || w.equals(swCanon.get(w))) continue;
-            if (hasMark(w)) continue;          // "padmé": sus variantes pierden la tilde ("padré" -> "padre") y no dicen nada de ella
             cand.clear();
             edits(w, cand);
             double best = Double.MAX_VALUE;
@@ -528,6 +527,7 @@ final class Dictionary {
     boolean vetoed(String w) {
         if (NO_SUGGEST.contains(w)) return true;
         if (!spanish || rankOf(w) < core) return false;
+        if (personal.contains(w)) return false;            // guardada por el usuario: se completa, se corrige hacia ella y se desliza
         String f = fold(w);
         for (String stem : VETO_STEMS) if (f.startsWith(stem)) return !VETO_EXCEPT.contains(w);
         return false;
@@ -714,7 +714,11 @@ final class Dictionary {
 
     /** Entrada del lexico Star Wars (en minusculas), este o no activo: esas no se aprenden como palabras del usuario. */
     boolean inLexicon(String w) {
-        return w != null && (swCanon.containsKey(w) || swPlain.containsKey(fold(w)));
+        if (w == null) return false;
+        String e = swCanon.containsKey(w) ? w : swPlain.get(fold(w));
+        // no cuenta la entrada que este idioma trata como otra palabra sin su tilde ("leia" es "leía" en espanol): si
+        // el usuario rechaza esa correccion, la palabra tiene que poder aprenderse
+        return e != null && !(rankOf(e) < 0 && ordinary(e));
     }
 
     /**
@@ -794,19 +798,85 @@ final class Dictionary {
      * Tambien se respeta la forma sin tilde de fuera del nucleo: si la lista la trae junto a la otra ("alcanzara" y
      * "alcanzará", "agendo" y "agendó") es que su generador no vio una diferencia de uso abrumadora, y la regla de las
      * seis veces, pensada para "mas" y "más", le cambiaria el tiempo al verbo. Y en espanol, lo escrito con una tilde
-     * que no es la suya es la palabra sin ella o con ella en su sitio ("dió", "fué", "exámen", "despúes").
+     * que no puede ser suya ({@link #tildePosible}) es la palabra sin ella o con ella en su sitio ("dió", "fué",
+     * "exámen", "despúes").
      */
     private String resolve(String v) {
+        return resolve(v, true);
+    }
+
+    /**
+     * {@code strip}: se admite quitar la tilde que sobra. Solo a lo escrito tal cual: a las variantes a una edicion no,
+     * porque entonces "Jaén" (que la lista no trae) pasaba por "Jané" y acababa en "Jane", o "Padmé" en "padre".
+     */
+    private String resolve(String v, boolean strip) {
         int own = rankOf(v);
         String acc = accented(v);
-        if (own < 0 && spanish && hasMark(v)) {             // con una tilde que no es la suya: la mas frecuente de las
-            int p = rankOf(fold(v));                         // lecturas, con o sin tilde ("crées" es "crees", no "creés")
+        if (strip && own < 0 && spanish && hasMark(v) && !tildePosible(v)) {   // con una tilde que no es la suya: la mas
+            int p = rankOf(fold(v));                         // frecuente de las lecturas, con o sin tilde ("crées" es "crees")
             if (p >= 0 && (acc == null || p < rankOf(acc))) return byRank[p];
         }
         if (acc != null && !acc.equals(v)) {
             if (own < 0 || (own < core && own >= TWIN_RATIO * (rankOf(acc) + 1) && !hasMark(v))) return acc;
         }
         return own < 0 ? null : v;
+    }
+
+    private static boolean vowel(char c) {
+        return "aeiou\u00e1\u00e9\u00ed\u00f3\u00fa\u00fc".indexOf(c) >= 0;
+    }
+
+    private static boolean strongVowel(char c) {
+        return "aeo\u00e1\u00e9\u00f3".indexOf(c) >= 0;
+    }
+
+    /**
+     * La tilde de lo escrito puede ser suya segun las reglas de acentuacion: una sola tilde y, o bien deshace un
+     * diptongo (i o u con tilde junto a vocal abierta: "Macías", "Díez", "subsecretaría"), o va en una aguda acabada en
+     * vocal, n o s ("Jaén", "leonés", "Zoé"), en una llana acabada en otra consonante ("Páez") o en una esdrujula.
+     * Entonces la palabra que la lista no trae se deja como esta: es un apellido, un gentilicio o una palabra rara bien
+     * escrita, y quitarle la tilde la convertia en otra ("leonés" en "leones"). No puede ser suya en un monosilabo
+     * ("dió", "fué", "bién", "fuí") ni en una llana acabada en vocal, n o s ("exámen", "crées", "díme").
+     */
+    static boolean tildePosible(String v) {
+        int n = v.length();
+        int marks = 0, nuclei = 0, markNucleus = -1;
+        boolean markHiatus = false;
+        int i = 0;
+        while (i < n) {
+            char c = v.charAt(i);
+            if (!vowel(c)) { i++; continue; }
+            if (c == 'u' && i > 0 && (v.charAt(i - 1) == 'q' || v.charAt(i - 1) == 'g') && i + 1 < n
+                    && "ei\u00e9\u00ed".indexOf(v.charAt(i + 1)) >= 0) { i++; continue; }   // u muda de que, qui, gue, gui
+            int j = i;
+            while (j < n && vowel(v.charAt(j))) j++;
+            for (int k = i; k < j; k++) {                    // grupo de vocales: un nucleo por cada tramo sin hiato
+                char x = v.charAt(k);
+                boolean weakMark = x == '\u00ed' || x == '\u00fa';
+                boolean hiatus = false;
+                if (k > i) {
+                    char p = v.charAt(k - 1);
+                    boolean pWeakMark = p == '\u00ed' || p == '\u00fa';
+                    hiatus = (strongVowel(p) && strongVowel(x)) || (weakMark && strongVowel(p)) || (pWeakMark && strongVowel(x));
+                }
+                if (k == i || hiatus) nuclei++;
+                if (x > 'z' && x != '\u00fc') {              // vocal con tilde
+                    marks++;
+                    markNucleus = nuclei;
+                    if (weakMark && ((k > i && strongVowel(v.charAt(k - 1))) || (k + 1 < j && strongVowel(v.charAt(k + 1))))) markHiatus = true;
+                }
+            }
+            i = j;
+        }
+        if (marks != 1) return false;
+        if (markHiatus) return true;
+        if (nuclei <= 1) return false;
+        int fromEnd = nuclei - markNucleus + 1;
+        char last = v.charAt(n - 1);
+        boolean vns = vowel(last) || last == 'n' || last == 's';
+        if (fromEnd == 1) return vns;
+        if (fromEnd == 2) return !vns;
+        return true;
     }
 
     /**
@@ -1211,7 +1281,7 @@ final class Dictionary {
      * palabra aprendida o del lexico Star Wars, con {@link #PERSONAL_SCORE} (o {@link #SW_LONG_SCORE}) + penalizacion.
      */
     private void offer(Map<String, Double> cand, String variant, double penalty) {
-        String r = resolve(variant);
+        String r = resolve(variant, false);              // a una variante no se le quita la tilde: solo a lo escrito
         if (r != null) put(cand, r, score(r, penalty));
         String p = personalWord(variant);
         if (p != null && !p.equals(r)) put(cand, p, score(p, penalty));
