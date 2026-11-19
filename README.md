@@ -12,12 +12,12 @@
 
 <p align="center">
   <a href="https://github.com/JonathanCruze/teclado-aurebesh-samsung-oneui9/raw/main/releases/TecladoAurebesh.apk">
-    <img src="https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20%20DESCARGAR%20APK%20%E2%80%94%20Teclado%20Aurebesh%202.7-1B2838?style=for-the-badge&logoColor=white&labelColor=1B2838&color=7FD3F0" alt="Descargar APK">
+    <img src="https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20%20DESCARGAR%20APK%20%E2%80%94%20Teclado%20Aurebesh%202.7.1-1B2838?style=for-the-badge&logoColor=white&labelColor=1B2838&color=7FD3F0" alt="Descargar APK">
   </a>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/versi%C3%B3n-2.7-7FD3F0?style=flat-square" alt="versión 2.7">
+  <img src="https://img.shields.io/badge/versi%C3%B3n-2.7.1-7FD3F0?style=flat-square" alt="versión 2.7.1">
   <img src="https://img.shields.io/badge/Android-8.0%2B-3DDC84?style=flat-square" alt="Android 8+">
   <img src="https://img.shields.io/badge/Samsung-One%20UI%209.0-1428A0?style=flat-square" alt="Samsung One UI 9.0">
   <img src="https://img.shields.io/badge/sin%20anuncios-%E2%9C%93-2E7D32?style=flat-square" alt="sin anuncios">
@@ -48,13 +48,30 @@
 
 Para actualizar, descarga el nuevo APK e instálalo encima: conserva tus ajustes.
 
+### Novedades de la 2.7.1
+Una revisión independiente de los menús de la 2.7 (más de un millón de menús abiertos en 17 100 combinaciones de ancho,
+idioma, fila superior, modo a una mano, teclado dividido y altura) encontró varios defectos, corregidos aquí:
+- **El menú del 1 ya no escribe ⅕ por un temblor del dedo.** Tenía diez celdas en dos filas y, al no caber sobre la fila
+  de números, caía sobre la propia tecla. Ahora un menú solo usa dos filas si caben sobre la tecla; si no, va en una
+  fila de celdas más estrechas. El 1 se queda con ocho alternativas (¹ ₁ ½ ⅓ ¼ ⅕ ⅙ ⅛); ⅐ y ⅑ conservan su glifo.
+- **El dedo nunca está quieto:** la celda resaltada no cambia hasta que el dedo se mueve 6 dp desde donde estaba al
+  abrirse el menú. Soltar "sin mover" escribe siempre la alternativa principal, también cuando el menú queda encajado
+  contra un borde (a una mano, pantallas estrechas, teclado dividido).
+- **El menú del punto vuelve a ser el de siempre.** Añadirle el ‽ movía de sitio los demás signos (subir recto ya no daba
+  el punto y coma) y, a una mano izquierda en pantallas estrechas, mantener el punto escribía ¿. El ‽ sale al mantener
+  la tecla **?** de la página de signos.
+- **La ç no la deshace el corrector:** *Barça* pasaba a *Bracca*, *força* a *forma* y *ça* a *a*. Lo escrito con cedilla
+  se respeta siempre.
+- **El ‽ cierra frase** como ? y !: corrige la palabra anterior, no deja el espacio del deslizado delante y pide mayúscula
+  después. Y tras un superíndice, subíndice o fracción (*5 m²*, *3½*), el doble espacio pone su punto.
+
 ### Novedades de la 2.7
 - **Números: superíndices, subíndices y fracciones al mantener.** Cada número de la fila de números ofrece su superíndice
   (el que se escribe al soltar sin mover: *m²*, *x³*), su subíndice (*H₂O*) y las fracciones que empiezan por él: el 1 da
   ½ ⅓ ¼ ⅕ ⅙ ⅐ ⅛ ⅑; el 2, ⅔ ⅖; el 3, ¾ ⅗ ⅜; el 4, ⅘; el 5, ⅚ ⅝; el 7, ⅞. Se dibujan con los numerales Aurebesh en pequeño,
   arriba o abajo, y las fracciones con una diagonal fina entre numerador y denominador.
-- **Exclarrogativo ‽** al mantener la tecla **?** de la página de signos y al final del menú del punto: es el **?** Aurebesh
-  con las alitas del **!** detrás.
+- **Exclarrogativo ‽** al mantener la tecla **?** de la página de signos: es el **?** Aurebesh con las alitas del **!**
+  detrás.
 - **Ç al mantener la c** en español (con mayúsculas, Ç). No se insinúa en la tecla. Su glifo es la *c* con un cuadrado bajo
   sus barras cortas.
 - Treinta y nueve glifos nuevos en total; hoja de diseño con las alternativas en `promo/out/previa_numeros.png` y capturas

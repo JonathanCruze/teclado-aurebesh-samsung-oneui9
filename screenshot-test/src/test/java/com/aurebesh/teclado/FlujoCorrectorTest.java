@@ -267,4 +267,31 @@ public class FlujoCorrectorTest {
     public void lasEntradasDelLexicoDeLaColaSiguenCorrigiendose() throws Exception {
         assertEquals("un culto milenario ", typed("un culto milenaro "));
     }
+
+    /** Lo escrito con cedilla es a proposito (solo sale manteniendo la c): el corrector no lo cambia por otra palabra. */
+    @Test
+    public void laCedillaNoSeCorrige() throws Exception {
+        for (String w : new String[]{"el Bar\u00e7a ", "\u00e7a ", "for\u00e7a ", "feli\u00e7 ", "cabe\u00e7a ", "esperan\u00e7a ", "gar\u00e7on "}) {
+            assertEquals(w, w, typed(w));
+        }
+        assertEquals("el Barca ", typed("el Barca "));
+    }
+
+    /**
+     * El exclarrogativo cierra la palabra y la frase como ? y !: corrige lo anterior y pide mayuscula despues. Y tras un
+     * superindice o una fraccion, el doble espacio pone su punto.
+     */
+    @Test
+    public void elExclarrogativoCierraFraseYLosSuperindicesAdmitenElPunto() throws Exception {
+        assertEquals("como as\u00ed\u203d", typed("como asi\u203d"));
+        assertEquals("por favor\u203d", typed("porfavor\u203d"));
+        assertTrue(AurebeshIME.afterInterrobang("hola\u203d "));
+        assertTrue(AurebeshIME.afterInterrobang("\u203d  "));
+        assertFalse(AurebeshIME.afterInterrobang("hola\u203d"));
+        assertFalse(AurebeshIME.afterInterrobang("hola "));
+        assertFalse(AurebeshIME.afterInterrobang(""));
+        assertEquals("mide 5 m\u00b2. ", typed("mide 5 m\u00b2  "));
+        assertEquals("son 3\u00bd. ", typed("son 3\u00bd  "));
+        assertEquals("mide 5 m2. ", typed("mide 5 m2  "));
+    }
 }

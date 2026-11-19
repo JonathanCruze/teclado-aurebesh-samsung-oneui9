@@ -306,7 +306,7 @@ public class GestureTest {
         kb.setListener(rec);
         String[][] want = {
                 {"0", "\u2070", "\u2080"},
-                {"1", "\u00b9", "\u2081", "\u00bd", "\u2153", "\u00bc", "\u2155", "\u2159", "\u2150", "\u215b", "\u2151"},
+                {"1", "\u00b9", "\u2081", "\u00bd", "\u2153", "\u00bc", "\u2155", "\u2159", "\u215b"},
                 {"2", "\u00b2", "\u2082", "\u2154", "\u2156"},
                 {"3", "\u00b3", "\u2083", "\u00be", "\u2157", "\u215c"},
                 {"4", "\u2074", "\u2084", "\u2158"},
@@ -339,6 +339,22 @@ public class GestureTest {
             up(kb, k.rect.centerX(), k.rect.centerY());
             check(rec.typed.toString(), w[1], "soltar sin mover escribe el superindice del " + w[0]);
             rec.reset();
+            // el dedo nunca esta quieto: pulsando en la parte alta de la tecla y moviendose un pelo sigue siendo el superindice
+            // (el menu del 1, de dos filas, se recortaba contra el borde y el primer movimiento saltaba a un quinto)
+            float d1 = kb.getResources().getDisplayMetrics().density;
+            for (float fy : new float[]{0.15f, 0.5f, 0.85f}) {
+                float y0 = k.rect.top + k.rect.height() * fy;
+                down(kb, k.rect.centerX(), y0);
+                idle(450);
+                check(kb.popupCellRect(0).top >= kb.popupCellRect(kb.popupOptions().length - 1).top - 1f
+                        && kb.popupCellRect(0).bottom <= kb.popupCellRect(kb.popupOptions().length - 1).bottom + 1f,
+                        "el menu del " + w[0] + " es de una sola fila en la fila de numeros");
+                move(kb, k.rect.centerX() + d1, y0 - 2 * d1);
+                move(kb, k.rect.centerX() - d1, y0 - 4 * d1);
+                up(kb, k.rect.centerX() - d1, y0 - 4 * d1);
+                check(rec.typed.toString(), w[1], "con el dedo temblando en el " + w[0] + " (altura " + fy + ")");
+                rec.reset();
+            }
             // deslizar hasta la ultima alternativa (el subindice o la ultima fraccion) la escribe
             down(kb, k.rect.centerX(), k.rect.centerY());
             idle(450);
@@ -389,6 +405,73 @@ public class GestureTest {
         check(rec.typed.toString(), "\u203d", "deslizar hasta el exclarrogativo lo escribe");
     }
 
+    /**
+     * En cualquier ancho de telefono, a una mano o no, en espanol y en aleman, y con cualquier fila superior: al abrir
+     * el menu de una tecla la celda resaltada es la que queda bajo el dedo, todas las celdas caben en la vista y un
+     * temblor de 1 dp en cualquier direccion sigue escribiendo la alternativa principal. (El punto a una mano izquierda
+     * en pantallas estrechas llego a escribir el signo de apertura; el 1, un quinto.)
+     */
+    @Test
+    public void primaryStaysUnderFingerInEveryWidthAndMode() throws Exception {
+        Application app = (Application) RuntimeEnvironment.getApplication();
+        float d = app.getResources().getDisplayMetrics().density;
+        int menus = 0;
+        for (int wdp : new int[]{320, 360, 411, 480}) {
+            int w = Math.round(wdp * d);
+            for (String lang : new String[]{"es", "de"}) {
+                for (int hand = 0; hand <= 2; hand++) {
+                    for (String top : new String[]{"numbers", "none"}) {
+                        AurebeshKeyboardView kb = view(app, w);
+                        Recorder rec = new Recorder();
+                        kb.setListener(rec);
+                        kb.setLanguage(lang);
+                        kb.setTopRow(top);
+                        kb.setHandMode(hand);
+                        layout(kb, w);
+                        for (int page = 0; page < 2; page++) {
+                            if (page == 1) { tap(kb, kb.keyFor(AurebeshKeyboardView.CODE_MODE)); layout(kb, w); }
+                            java.util.List<AurebeshKeyboardView.Key> keys = kb.keysWithAlts();
+                            for (AurebeshKeyboardView.Key k : keys) {
+                                String where = wdp + " dp " + lang + " mano " + hand + " fila " + top + " pagina " + page + " tecla " + k.output;
+                                float cx = k.rect.centerX(), cy = k.rect.centerY();
+                                down(kb, cx, cy);
+                                idle(450);
+                                String[] opts = kb.popupOptions();
+                                check(opts != null, "menu abierto: " + where);
+                                int sel = kb.popupSelectedCell();
+                                RectF cell = kb.popupCellRect(sel);
+                                check(cell.left <= cx && cx <= cell.right, "la celda resaltada no esta bajo el dedo: " + where
+                                        + " celda " + cell + " dedo " + cx + " " + Arrays.toString(opts));
+                                for (int i = 0; i < opts.length; i++) {
+                                    RectF c = kb.popupCellRect(i);
+                                    check(c.left >= -1f && c.right <= w + 1f && c.top >= -1f, "celda fuera de la vista: " + where);
+                                }
+                                String primary = opts[sel];
+                                up(kb, cx, cy);
+                                String plain = rec.typed.toString();
+                                rec.reset();
+                                float[][] moves = {{d, 0}, {-d, 0}, {0, -d}};
+                                for (float[] m : moves) {
+                                    down(kb, cx, cy);
+                                    idle(450);
+                                    move(kb, cx + m[0], cy + m[1]);
+                                    up(kb, cx + m[0], cy + m[1]);
+                                    check(rec.typed.toString(), plain, "el temblor cambia lo escrito (" + primary + "): " + where);
+                                    rec.reset();
+                                }
+                                menus++;
+                            }
+                            kb.resetToLetters();
+                            layout(kb, w);
+                            if (page == 0) continue;
+                        }
+                    }
+                }
+            }
+        }
+        check(menus > 2000, "menus comprobados: " + menus);
+    }
+
     @Test
     public void punctuationOnHold() throws Exception {
         Application app = (Application) RuntimeEnvironment.getApplication();
@@ -401,16 +484,21 @@ public class GestureTest {
         down(kb, dot.rect.centerX(), dot.rect.centerY());
         idle(450);
         String[] opts = kb.popupOptions();
-        check(opts != null && opts.length == 11, "once alternativas del punto");
+        check(opts != null && opts.length == 10, "diez alternativas del punto");
         java.util.List<String> ol = Arrays.asList(opts);
-        check(ol.containsAll(Arrays.asList("?", "¿", "!", "¡", ":", ";", "-", "\"", "'", "@", "\u203d")), "las once del punto: " + ol);
+        check(ol.containsAll(Arrays.asList("?", "¿", "!", "¡", ":", ";", "-", "\"", "'", "@")), "las diez del punto: " + ol);
+        check(!ol.contains("\u203d"), "el exclarrogativo no va en el punto (movia de sitio las demas): sale al mantener ?");
         int q = ol.indexOf("?");
         check(q == kb.popupSelectedCell(), "la ? es la celda resaltada al abrir");
         check(kb.popupCellRect(q).contains(dot.rect.centerX(), kb.popupCellRect(q).centerY()), "la ? queda sobre el dedo");
         check(Math.abs(ol.indexOf("¿") - q) == 1, "la ¿ al lado de la ?");
-        RectF c0 = kb.popupCellRect(0), c6 = kb.popupCellRect(6);     // once celdas: seis abajo y cinco arriba
-        check(c6.bottom <= c0.top + 1f, "segunda fila del menu por encima de la primera");
-        near("misma columna en las dos filas", c6.left, c0.left);
+        RectF c0 = kb.popupCellRect(0), c5 = kb.popupCellRect(5);     // diez celdas: cinco abajo y cinco arriba
+        check(c5.bottom <= c0.top + 1f, "segunda fila del menu por encima de la primera");
+        near("misma columna en las dos filas", c5.left, c0.left);
+        // la rejilla de siempre: ; justo encima de ? y ¡ ! ¿ a su izquierda
+        RectF cq = kb.popupCellRect(q), cs = kb.popupCellRect(ol.indexOf(";"));
+        near("; encima de ?", cs.left, cq.left);
+        check(cs.bottom <= cq.top + 1f, "; en la fila de arriba");
         save(render(kb, W), "gestos_menu_punto.png");
         up(kb, dot.rect.centerX(), dot.rect.centerY());
         check(rec.typed.toString(), "?", "mantener el punto da ?");
@@ -451,7 +539,7 @@ public class GestureTest {
         down(kb, dot.rect.centerX(), dot.rect.centerY());
         idle(450);
         java.util.List<String> en = Arrays.asList(kb.popupOptions());
-        check(en.size() == 10 && en.containsAll(Arrays.asList("?", "!", ",", ":", ";", "-", "\"", "'", "@", "\u203d")), "punto en ingles: " + en);
+        check(en.size() == 9 && en.containsAll(Arrays.asList("?", "!", ",", ":", ";", "-", "\"", "'", "@")), "punto en ingles: " + en);
         check(en.get(kb.popupSelectedCell()), "?", "punto en ingles: la ? bajo el dedo");
         up(kb, dot.rect.centerX(), dot.rect.centerY());
         comma = kb.keyFor(",");
@@ -465,7 +553,7 @@ public class GestureTest {
         down(kb, dot.rect.centerX(), dot.rect.centerY());
         idle(450);
         java.util.List<String> de = Arrays.asList(kb.popupOptions());
-        check(de.size() == 9 && de.containsAll(Arrays.asList("?", "!", ":", ";", "-", "\"", "'", "@", "\u203d")), "punto en aleman: " + de);
+        check(de.size() == 8 && de.containsAll(Arrays.asList("?", "!", ":", ";", "-", "\"", "'", "@")), "punto en aleman: " + de);
         check(de.get(kb.popupSelectedCell()), "?", "punto en aleman: la ? bajo el dedo");
         up(kb, dot.rect.centerX(), dot.rect.centerY());
         check(rec.typed.toString(), "?!?", "lo escrito al mantener en ingles y aleman");

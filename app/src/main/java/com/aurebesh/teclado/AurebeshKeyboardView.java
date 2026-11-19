@@ -177,6 +177,11 @@ public final class AurebeshKeyboardView extends View {
     private String[] popupAlts;
     private int popupIndex;                 // celda resaltada del menu (indice de celda, no de alternativa)
     private int[] popupOrder;               // celda i del menu -> indice en popupAlts (el orden cambia cerca de los bordes)
+    /** Lo que el dedo tiene que moverse desde donde estaba al abrirse el menu para que la celda resaltada cambie. */
+    static final float POPUP_SLOP_DP = 6f;
+    private float holdX, holdY;             // donde esta el dedo que mantiene la tecla (antes de abrirse el menu)
+    private float popupAnchorX, popupAnchorY;   // donde estaba al abrirse
+    private boolean popupMoved;             // ya se movio de verdad: desde entonces manda la celda bajo el dedo
     private final RectF popupRect = new RectF();
     private float popupCell;
     private float popupCellH;               // alto de cada fila del menu
@@ -997,10 +1002,10 @@ public final class AurebeshKeyboardView extends View {
 
     /** Alternativas del punto al mantenerlo: la puntuacion completa del idioma (la primera es la que sale al soltar sin mover). */
     private String[] dotAlts() {
-        // el exclarrogativo, al final: no mueve de sitio lo que ya se sabia de memoria
-        if ("es".equals(language)) return new String[]{"?", "\u00bf", "!", "\u00a1", ":", ";", "-", "\"", "'", "@", "\u203d"};
-        if ("de".equals(language)) return new String[]{"?", "!", ":", ";", "-", "\"", "'", "@", "\u203d"};
-        return new String[]{"?", "!", ",", ":", ";", "-", "\"", "'", "@", "\u203d"};
+        // el exclarrogativo no va aqui: una celda mas cambiaba de sitio las que ya se sabian de memoria; sale al mantener ?
+        if ("es".equals(language)) return new String[]{"?", "\u00bf", "!", "\u00a1", ":", ";", "-", "\"", "'", "@"};
+        if ("de".equals(language)) return new String[]{"?", "!", ":", ";", "-", "\"", "'", "@"};
+        return new String[]{"?", "!", ",", ":", ";", "-", "\"", "'", "@"};
     }
 
     /** Alternativas de la coma: en espanol los signos de apertura; en ingles !; en aleman ;. */
@@ -1863,15 +1868,23 @@ public final class AurebeshKeyboardView extends View {
         popupCell = Math.max(k.rect.width(), 46 * dp);
         popupCols = n;
         popupRows = 1;
-        if (popupCell * n > avail) {
-            popupRows = 2;
-            popupCols = (n + 1) / 2;
-            popupCell = Math.min(popupCell, avail / popupCols);
-        }
         popupCellH = 64 * dp;
+        if (popupCell * n > avail) {
+            // Dos filas solo si caben sobre la tecla. En la primera fila del teclado (los numeros, o la q sin fila
+            // superior) no caben: el menu se recortaba contra el borde, caia sobre la tecla y el dedo, y el primer
+            // temblor saltaba a la fila de arriba (mantener el 1 escribia un quinto). Ahi, una fila de celdas mas estrechas.
+            if (k.rect.top + insetY() - 5 * dp >= 2 * popupCellH) {
+                popupRows = 2;
+                popupCols = (n + 1) / 2;
+                popupCell = Math.min(popupCell, avail / popupCols);
+            } else {
+                popupCell = avail / n;
+            }
+        }
         float h = popupCellH * popupRows;
         float total = popupCell * popupCols;
         float cx = k.rect.centerX();
+        float leftMin = 2 * dp, leftMax = Math.max(leftMin, getWidth() - total - 2 * dp);
         // Orden de las celdas y posicion: la principal, sobre el dedo, en la columna que deje el menu en pantalla (la
         // suya si cabe; si no, la mas cercana). Lo que va delante de la principal (signo o cifra) se queda a su
         // izquierda; las demas alternativas se reparten: las primeras a su derecha y, si no caben, las ultimas a su
@@ -1879,23 +1892,18 @@ public final class AurebeshKeyboardView extends View {
         int[] order = new int[n];
         int cell;
         if (popupRows == 1) {
-            int cMax = clampCol(n, (int) Math.floor((cx - 2 * dp) / popupCell - 0.5f));
-            int cMin = clampCol(n, (int) Math.ceil((cx - (getWidth() - total - 2 * dp)) / popupCell - 0.5f));
-            int c = Math.max(cMin, Math.min(cMax, primary));
-            int i = 0;
-            if (c >= primary) {
-                int right = n - 1 - c;                                     // celdas a la derecha de la principal
-                for (int j = 0; j < primary; j++) order[i++] = j;          // cabeza
-                for (int j = n - 1; j >= primary + 1 + right; j--) order[i++] = j;   // las ultimas, invertidas, a la izquierda
-                order[i++] = primary;
-                for (int j = primary + 1; j <= primary + right; j++) order[i++] = j; // las primeras, a la derecha
+            int cMax = clampCol(n, (int) Math.floor((cx - leftMin) / popupCell - 0.5f));
+            int cMin = clampCol(n, (int) Math.ceil((cx - leftMax) / popupCell - 0.5f));
+            int c;
+            if (cMin <= cMax) {
+                c = Math.max(cMin, Math.min(cMax, primary));
             } else {
-                int drop = primary - c;                                    // cabeza que no cabe a la izquierda: al final
-                for (int j = drop; j < primary; j++) order[i++] = j;
-                order[i++] = primary;
-                for (int j = primary + 1; j < n; j++) order[i++] = j;
-                for (int j = 0; j < drop; j++) order[i++] = j;
+                // el menu casi llena el ancho y ninguna columna lo deja entero en pantalla con la principal sobre el
+                // dedo: se encaja el menu y la principal va en la columna que de verdad queda bajo el dedo
+                float l = Math.max(leftMin, Math.min(leftMax, cx - (primary + 0.5f) * popupCell));
+                c = clampCol(n, (int) Math.floor((cx - l) / popupCell));
             }
+            rowOrder(order, n, primary, c);
             cell = c;
         } else {
             for (int i = 0; i < n; i++) order[i] = i;
@@ -1904,9 +1912,23 @@ public final class AurebeshKeyboardView extends View {
                 order = mirroredOrder(n, popupCols, primary);              // columnas en espejo: la principal abajo a la derecha
                 cell = indexOf(order, primary);
             }
+            // Si aun asi hay que encajar el menu (a una mano, pantallas estrechas) y la principal deja de estar bajo el
+            // dedo, la fila de abajo se recoloca alrededor de la columna que de verdad queda bajo el; la de arriba, de
+            // izquierda a derecha si el dedo cae en la mitad izquierda y en espejo si no
+            float l = Math.max(leftMin, Math.min(leftMax, cx - (cell % popupCols + 0.5f) * popupCell));
+            int under = clampCol(popupCols, (int) Math.floor((cx - l) / popupCell));
+            if (under != cell % popupCols && primary < popupCols) {
+                rowOrder(order, popupCols, primary, under);
+                int rest = n - popupCols;
+                for (int j = 0; j < rest; j++) order[popupCols + j] = popupCols + (under * 2 < popupCols ? j : rest - 1 - j);
+                cell = under;
+            }
         }
         popupOrder = order;
         popupIndex = cell;
+        popupAnchorX = holdX;
+        popupAnchorY = holdY;
+        popupMoved = false;
         float left = cx - (cell % popupCols + 0.5f) * popupCell;
         left = Math.max(2 * dp, Math.min(getWidth() - total - 2 * dp, left));
         float top = Math.max(0, k.rect.top + insetY() - 5 * dp - h);     // a 5 dp sobre la cara, sea cual sea el aire de la celda
@@ -1916,6 +1938,29 @@ public final class AurebeshKeyboardView extends View {
 
     private static int clampCol(int n, int c) {
         return Math.max(0, Math.min(n - 1, c));
+    }
+
+    /**
+     * Orden de una fila de {@code count} alternativas (las 0..count-1) con la principal en la columna {@code c}: lo que
+     * va delante de la principal se queda a su izquierda; de las demas, las primeras a su derecha y las ultimas, en
+     * orden inverso, a su izquierda. Si la columna es menor que el indice de la principal, la cabeza que no cabe a la
+     * izquierda pasa al final.
+     */
+    private static void rowOrder(int[] out, int count, int primary, int c) {
+        int i = 0;
+        if (c >= primary) {
+            int right = count - 1 - c;                                    // celdas a la derecha de la principal
+            for (int j = 0; j < primary; j++) out[i++] = j;               // cabeza
+            for (int j = count - 1; j >= primary + 1 + right; j--) out[i++] = j;   // las ultimas, invertidas, a la izquierda
+            out[i++] = primary;
+            for (int j = primary + 1; j <= primary + right; j++) out[i++] = j;     // las primeras, a la derecha
+        } else {
+            int drop = primary - c;                                       // cabeza que no cabe a la izquierda: al final
+            for (int j = drop; j < primary; j++) out[i++] = j;
+            out[i++] = primary;
+            for (int j = primary + 1; j < count; j++) out[i++] = j;
+            for (int j = 0; j < drop; j++) out[i++] = j;
+        }
     }
 
     /**
@@ -1980,6 +2025,13 @@ public final class AurebeshKeyboardView extends View {
         float left = popupRect.left + col * popupCell;
         float bottom = popupRect.bottom - row * popupCellH;
         return new RectF(left, bottom - popupCellH, left + popupCell, bottom);
+    }
+
+    /** Teclas de la pagina actual que abren menu al mantenerlas (para pruebas). */
+    List<Key> keysWithAlts() {
+        List<Key> out = new ArrayList<>();
+        for (List<Key> row : current) for (Key k : row) if (k.code == CODE_TEXT && k.alts != null) out.add(k);
+        return out;
     }
 
     /** Opciones del menu abierto, en el orden de las celdas (para pruebas); null si no hay menu. */
@@ -2559,6 +2611,8 @@ public final class AurebeshKeyboardView extends View {
         switch (action) {
             case MotionEvent.ACTION_DOWN:
             case MotionEvent.ACTION_POINTER_DOWN: {
+                holdX = e.getX(idx);
+                holdY = e.getY(idx);
                 if (glideState == GLIDE_GLIDING) finishGlide();          // un segundo dedo cierra el trazo en curso
                 else if (glideState == GLIDE_PENDING) resetGlide(true);  // y el toque pendiente se suelta como toque normal
                 for (int i = pressed.size() - 1; i >= 0; i--) {
@@ -2661,7 +2715,15 @@ public final class AurebeshKeyboardView extends View {
                         }
                     }
                     float x = e.getX(i), y = e.getY(i);
+                    if (popupKey == null && old == longPressKey) { holdX = x; holdY = y; }   // el dedo deriva antes de abrirse el menu
                     if (popupKey != null && old == popupKey) {       // deslizar por el menu
+                        // El dedo nunca esta quieto: hasta que no se mueve de verdad desde donde estaba al abrirse el
+                        // menu, manda la alternativa principal. Sin esto, con el dedo cerca del borde de su celda (el
+                        // menu encajado contra un lado de la pantalla), un temblor de 1 dp escribia la vecina.
+                        if (!popupMoved) {
+                            if (Math.hypot(x - popupAnchorX, y - popupAnchorY) < POPUP_SLOP_DP * dp) continue;
+                            popupMoved = true;
+                        }
                         if (popupAbandoned(x, y)) {                   // alejarse lo cierra sin escribir nada
                             closePopup();
                             cancelPointer(pid);

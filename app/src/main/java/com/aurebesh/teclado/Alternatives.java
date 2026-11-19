@@ -105,7 +105,8 @@ final class Alternatives {
     // empiezan por ese numero, como en el teclado de Samsung pero completas.
     private static final String[][] DIGIT_ALTS = {
             {"\u2070", "\u2080"},                                                                               // 0
-            {"\u00b9", "\u2081", "\u00bd", "\u2153", "\u00bc", "\u2155", "\u2159", "\u2150", "\u215b", "\u2151"},   // 1: 1/2 1/3 1/4 1/5 1/6 1/7 1/8 1/9
+            // 1: 1/2 1/3 1/4 1/5 1/6 1/8 (un septimo y un noveno tienen glifo, pero no celda: con ocho caben en una fila)
+            {"\u00b9", "\u2081", "\u00bd", "\u2153", "\u00bc", "\u2155", "\u2159", "\u215b"},
             {"\u00b2", "\u2082", "\u2154", "\u2156"},                                                         // 2: 2/3 2/5
             {"\u00b3", "\u2083", "\u00be", "\u2157", "\u215c"},                                               // 3: 3/4 3/5 3/8
             {"\u2074", "\u2084", "\u2158"},                                                                    // 4: 4/5

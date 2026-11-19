@@ -908,8 +908,18 @@ final class Dictionary {
         return base + penalty;
     }
 
-    /** Sugerencias y correccion para lo que se lleva escrito de una palabra. */
+    /**
+     * Sugerencias y correccion para lo que se lleva escrito de una palabra. Lo escrito con c con cedilla no se corrige
+     * nunca sin preguntar: la cedilla solo sale manteniendo la c, asi que es a proposito ("Barça", "força", "ça"), y
+     * ninguna lista la trae; las sugerencias se siguen ofreciendo.
+     */
     Result suggest(String typed) {
+        Result res = compute(typed);
+        if (res.correction != null && (typed.indexOf('\u00e7') >= 0 || typed.indexOf('\u00c7') >= 0)) res.correction = null;
+        return res;
+    }
+
+    private Result compute(String typed) {
         Result res = new Result();
         String w = typed.toLowerCase(Locale.ROOT);
         int n = w.length();

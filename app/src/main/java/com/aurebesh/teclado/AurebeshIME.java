@@ -52,7 +52,7 @@ public class AurebeshIME extends InputMethodService
         implements AurebeshKeyboardView.Listener, KeyboardTray.Host, EmojiTray.Host, AiTray.Host,
         ToolsTray.Host, EditTray.Host {
 
-    private static final String SEPARATORS = " .,;:!?\n";
+    private static final String SEPARATORS = " .,;:!?\u203d\n";      // el exclarrogativo cierra la palabra como ? y !
     private static final long DOUBLE_SPACE_MS = 500;
 
     private FrameLayout root;
@@ -99,7 +99,7 @@ public class AurebeshIME extends InputMethodService
     private int selStart = -1, selEnd = -1, candStart = -1;
 
     // Escritura deslizando: la ultima palabra escrita con un trazo, para cambiarla por un chip o borrarla entera
-    private static final String GLIDE_PUNCTUATION = ".,;:!?";
+    private static final String GLIDE_PUNCTUATION = ".,;:!?\u203d";
     private String glideWord;                     // tal cual se escribio (con mayusculas), o null
     private List<String> glideAlts;               // alternativas que se muestran en la barra
     private String glideAnchor;                   // texto previo al cursor al poner los chips: si cambia, se quitan
@@ -547,7 +547,7 @@ public class AurebeshIME extends InputMethodService
         while (end > 0 && s.charAt(end - 1) == ' ') end--;
         if (end == 0) return "<s>";
         char c = s.charAt(end - 1);
-        if (".!?\n".indexOf(c) >= 0) return "<s>";
+        if (".!?\u203d\n".indexOf(c) >= 0) return "<s>";
         int i = end;
         while (i > 0 && (Character.isLetter(s.charAt(i - 1)) || s.charAt(i - 1) == '\'')) i--;
         return i == end ? null : s.substring(i, end).toLowerCase(Locale.ROOT);
@@ -631,7 +631,21 @@ public class AurebeshIME extends InputMethodService
 
     /** El editor pide mayuscula en el cursor (inicio de frase, campo en mayusculas). */
     private static boolean capsAtCursor(InputConnection ic, EditorInfo info) {
-        return info != null && info.inputType != InputType.TYPE_NULL && ic.getCursorCapsMode(info.inputType) != 0;
+        if (info == null || info.inputType == InputType.TYPE_NULL) return false;
+        if (ic.getCursorCapsMode(info.inputType) != 0) return true;
+        // el exclarrogativo tambien cierra frase, y el editor no lo sabe
+        boolean sentences = (info.inputType & InputType.TYPE_MASK_CLASS) == InputType.TYPE_CLASS_TEXT
+                && (info.inputType & InputType.TYPE_TEXT_FLAG_CAP_SENTENCES) != 0;
+        return sentences && afterInterrobang(ic.getTextBeforeCursor(4, 0));
+    }
+
+    /** Lo anterior al cursor es un exclarrogativo seguido de espacios: empieza frase. */
+    static boolean afterInterrobang(CharSequence before) {
+        if (before == null) return false;
+        int e = before.length();
+        if (e == 0 || before.charAt(e - 1) != ' ') return false;
+        while (e > 0 && before.charAt(e - 1) == ' ') e--;
+        return e > 0 && before.charAt(e - 1) == '\u203d';
     }
 
     private boolean capsAtCursor(InputConnection ic) { return capsAtCursor(ic, getCurrentInputEditorInfo()); }
@@ -891,7 +905,7 @@ public class AurebeshIME extends InputMethodService
             if (before != null && before.length() == 1) {
                 char c = before.charAt(0);
                 if (c != ' ' && c != '\n' && "([{\u00bf\u00a1\u00ab\u201c".indexOf(c) < 0) ic.commitText(" ", 1);
-                if (".!?".indexOf(c) >= 0 && Character.isLowerCase(best.charAt(0))) {
+                if (".!?\u203d".indexOf(c) >= 0 && Character.isLowerCase(best.charAt(0))) {
                     best = best.substring(0, 1).toUpperCase(Locale.ROOT) + best.substring(1);
                 }
             }
@@ -1072,7 +1086,8 @@ public class AurebeshIME extends InputMethodService
     }
 
     private static boolean endsSentence(char c) {
-        return Character.isLetterOrDigit(c) || ")]}\"'»”’".indexOf(c) >= 0;
+        // tambien superindices, subindices y fracciones ("5 m²", "3½"): son numeros para Unicode, no letras ni digitos
+        return Character.isLetterOrDigit(c) || Character.getType(c) == Character.OTHER_NUMBER || ")]}\"'»”’".indexOf(c) >= 0;
     }
 
     // ------------------------------------------------------------------ teclas
