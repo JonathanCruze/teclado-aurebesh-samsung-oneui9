@@ -6,7 +6,7 @@
     <string name="aj_sec_smart">Intelligente Eingabe</string>
     <string name="aj_sec_touch">Tippen und Feedback</string>
     <string name="aj_sec_clipboard">Zwischenablage</string>
-    <string name="aj_sec_help">Hilfe und Gesten</string>
+    <string name="aj_sec_help">Hilfe</string>
 
     <!-- Diseno -->
     <string name="aj_theme_auto">Automatisch</string>
@@ -27,14 +27,14 @@
     <string name="aj_height">Tastaturhöhe</string>
     <string name="aj_height_sub">Die Tastenreihen werden höher oder niedriger; die Breite bleibt gleich</string>
     <string name="aj_bottom">Abstand nach unten</string>
-    <string name="aj_bottom_sub">Platz unter der letzten Reihe, damit du nicht bis zum Rand greifst; ab 24 dp erscheint dort die Taste ∨ zum Ausblenden</string>
+    <string name="aj_bottom_sub">Lässt unter der Tastatur Platz, damit du nicht an den Rand kommst. Bei Mittel oder Groß erscheint dort die Taste ∨ zum Ausblenden.</string>
     <string name="aj_size_from_keyboard">Du kannst es auch von der Tastatur aus anpassen: ?123 › Größensymbol</string>
-    <string name="aj_size_screen_inner">Jetzt eingestellt: Innendisplay (%1$d dp). Das Frontdisplay behält eigene Höhe, eigenen Abstand und Einhandmodus.</string>
+    <string name="aj_size_screen_inner">Du stellst gerade das Innendisplay ein. Das Frontdisplay behält eigene Höhe, eigenen Abstand und Einhandmodus.</string>
     <string name="aj_size_screen_cover">Jetzt eingestellt: Frontdisplay. Das Innendisplay behält eigene Höhe, eigenen Abstand und Einhandmodus.</string>
 
     <!-- Escritura inteligente -->
-    <string name="aj_auto_replace">Automatisch ersetzen</string>
-    <string name="aj_auto_replace_sub">Leerzeichen oder Satzzeichen ersetzt das Wort durch den markierten Vorschlag; die Rücktaste holt das Getippte zurück</string>
+    <string name="aj_auto_replace">Autokorrektur</string>
+    <string name="aj_auto_replace_sub">Beim Leerzeichen oder Satzzeichen wird das Wort durch den markierten Vorschlag ersetzt. Wolltest du das nicht, drück Löschen und dein Wort kommt zurück.</string>
     <string name="aj_auto_caps">Automatische Großschreibung</string>
     <string name="aj_auto_caps_sub">Großbuchstabe am Anfang jedes Satzes</string>
     <string name="aj_learned_row">Persönliches Wörterbuch · %1$d</string>
@@ -62,10 +62,10 @@
     <string name="aj_space_none">Nichts</string>
 
     <!-- Tocar y respuesta -->
-    <string name="aj_preview">Blase beim Tippen</string>
-    <string name="aj_preview_sub">Zeigt das Zeichen und seinen lateinischen Buchstaben über dem Finger; nie in Passwortfeldern</string>
-    <string name="aj_longpress">Verzögerung für langes Drücken</string>
-    <string name="aj_longpress_sub">Wie lange du eine Taste hältst, bis ihre Alternativen erscheinen</string>
+    <string name="aj_preview">Taste beim Drücken vergrößern</string>
+    <string name="aj_preview_sub">Zeigt das Zeichen und seinen normalen Buchstaben groß über dem Finger. Bei Passwörtern erscheint es nicht.</string>
+    <string name="aj_longpress">Haltedauer einer Taste</string>
+    <string name="aj_longpress_sub">Wie lange du den Finger auf einer Taste lässt, bis ihre Akzente und Symbole erscheinen.</string>
     <string name="aj_lp_short">Kurz</string>
     <string name="aj_lp_medium">Mittel</string>
     <string name="aj_lp_long">Lang</string>
@@ -81,7 +81,7 @@
     <string name="aj_vib_strong">Stark</string>
 
     <!-- Portapapeles -->
-    <string name="aj_clipboard_body">Alles, was du kopierst, bleibt im 📋-Verlauf der Tastatur, auf diesem Telefon. Hier legst du fest, ob auch aktuelle Screenshots vorgeschlagen werden.</string>
+    <string name="aj_clipboard_body">Die Tastatur merkt sich, was du kopierst, damit du es wieder einfügen kannst (Symbol 📋). Gespeichert wird nur auf diesem Telefon; löschen kannst du es unter Datenschutz und Daten. Hier legst du fest, ob sie dir auch aktuelle Screenshots anbietet.</string>
 
     <!-- Ayuda y gestos: filas nuevas de 1.10 -->
     <string name="aj_gesture_comma">Komma gedrückt halten</string>
@@ -91,9 +91,9 @@
     <string name="aj_gesture_shift_hold">Umschalttaste halten und Buchstaben tippen</string>
     <string name="aj_gesture_shift_hold_result">Großbuchstaben nur, solange du sie hältst, wie an einer Computertastatur</string>
     <string name="aj_gesture_space">Auf der Leertaste wischen</string>
-    <string name="aj_gesture_space_result">Bewegt den Cursor Buchstabe für Buchstabe; bei mehreren aktivierten Sprachen wechselt es stattdessen die Sprache (einstellbar unter Intelligente Eingabe)</string>
+    <string name="aj_gesture_space_result">Bewegt den Cursor Buchstabe für Buchstabe; bei mehreren aktivierten Sprachen wechselt es stattdessen die Sprache (einstellbar unter Wischen, Tippen und Feedback)</string>
     <string name="aj_gesture_hide">∨ unter den Tasten</string>
-    <string name="aj_gesture_hide_result">Blendet die Tastatur aus; die Taste erscheint ab 24 dp Abstand nach unten</string>
+    <string name="aj_gesture_hide_result">Blendet die Tastatur aus. Siehst du die Taste nicht, wähle unter Größe und Anordnung einen Abstand Mittel oder Groß</string>
     <string name="aj_gesture_resize">Größensymbol in ?123</string>
     <string name="aj_gesture_resize_result">Anpassungsmodus: Ziehe die Griffe, um Höhe und Abstand nach unten zu ändern, auf jedem Bildschirm eines Faltgeräts getrennt</string>
 

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="es_digraphs_title">Spanish digraphs</string>
-    <string name="es_digraphs_sub">In the Spanish keyboard, ll, rr, qu and gu get their own key in the digraph row and their own glyph. They are not part of original Aurebesh: they are built from pieces of their letters. Off, only the eight original digraphs</string>
+    <string name="es_digraphs_title">Spanish double letters</string>
+    <string name="es_digraphs_sub">Adds keys and symbols for ll, rr, qu and gu to the Spanish keyboard. They are not part of original Aurebesh: they were made for this keyboard from pieces of its letters.</string>
 </resources>

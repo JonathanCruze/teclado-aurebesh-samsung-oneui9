@@ -7,9 +7,9 @@
     <string name="app_lang_es">Español</string>
     <string name="app_lang_en">English</string>
     <string name="app_lang_de">Deutsch</string>
-    <string name="tool_ai">Intelligence</string>
+    <string name="tool_ai">AI assistant</string>
     <string name="gesture_glide">Slide over the letters</string>
-    <string name="gesture_glide_result">Writes the word; backspace right after removes it whole</string>
+    <string name="gesture_glide_result">Writes the word. Press delete right after and it removes the whole word</string>
     <string name="gesture_ai">✦ at the left of the bar</string>
     <string name="gesture_ai_result">Spelling, writing style, summary, bullet points, table and Composer, with a local model or your own server</string>
     <string name="opt_split">Split keyboard</string>
@@ -19,18 +19,18 @@
 
     <!-- Top of the app: language of app + keyboard, keyboard button -->
     <string name="top_lang_title">Language of the app and the keyboard</string>
-    <string name="top_lang_hint">The keyboard switches to this language too. The globe key still cycles between the languages you turned on.</string>
+    <string name="top_lang_hint">Changes the language of the app and the keyboard. If you use several languages, the globe key switches between them.</string>
     <string name="top_keyboard_choose">Choose keyboard</string>
     <string name="top_keyboard_enable">Turn on the keyboard</string>
-    <string name="top_status_done">✓ Aurebesh is your current keyboard</string>
+    <string name="top_status_done">Keyboard turned on</string>
     <string name="top_status_enable">Step 1 of 2 · Turn on Aurebesh in your phone settings, then come back here</string>
     <string name="top_status_choose">Step 2 of 2 · Choose Aurebesh as your current keyboard</string>
     <!-- Foldables -->
     <string name="fold_section">Foldables · Galaxy Z Fold</string>
     <string name="fold_title">Split keyboard when unfolded</string>
     <string name="fold_body">On an unfolded Galaxy Z Fold the keyboard splits into two halves with the same key positions as Samsung Keyboard, to type with both thumbs. On a regular phone or a Galaxy Z Flip nothing changes: leave it on "When unfolded".</string>
-    <string name="fold_detected_wide">This screen is wide (%1$d dp): the keyboard splits here</string>
-    <string name="fold_detected_phone">This screen is phone-sized (%1$d dp): the keyboard doesn\'t split here</string>
+    <string name="fold_detected_wide">This screen is wide: the keyboard splits here</string>
+    <string name="fold_detected_phone">On this screen the keyboard doesn\'t split: it is narrow</string>
 
     <!-- Collapsible settings sections: quick navigation and one-line summaries -->
     <string name="nav_go">Go to</string>
@@ -46,8 +46,8 @@
     <string name="sum_hand">one hand: %1$s</string>
     <string name="sum_wide">wide screen</string>
     <string name="sum_phone">phone screen</string>
-    <string name="sum_ai_ready">On this phone · %1$s ready</string>
-    <string name="sum_ai_none">On this phone · no model downloaded yet</string>
+    <string name="sum_ai_ready">Ready: %1$s</string>
+    <string name="sum_ai_none">Optional. Not set up yet</string>
     <string name="sum_ai_remote">Your own server · %1$s</string>
     <string name="sum_gestures">%1$d gestures and shortcuts</string>
 </resources>

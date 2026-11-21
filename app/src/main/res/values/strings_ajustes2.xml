@@ -4,7 +4,7 @@
 
     <!-- Diseno: sable de luz -->
     <string name="aj_saber">Lightsaber trail</string>
-    <string name="aj_saber_sub">Color of the trail when you glide to type; the core is always white</string>
+    <string name="aj_saber_sub">Color of the trail your finger leaves when you glide to type.</string>
     <string name="saber_blue">Blue</string>
     <string name="saber_blue_who">Anakin and Obi-Wan</string>
     <string name="saber_green">Green</string>
@@ -20,12 +20,12 @@
     <string name="aj_sum_saber">%1$s saber</string>
 
     <!-- Diseno: letras latinas en tres modos -->
-    <string name="aj_hint_mode_sub">Small Latin letter at the bottom right of each key. In Learning, a letter\'s hint disappears once you have pressed it 40 times; rare letters (q, w, k, x, z) keep it longer. You can reset the progress to see them all again</string>
+    <string name="aj_hint_mode_sub">The everyday letter, small, in a corner of each key.</string>
     <string name="aj_hint_off">Never</string>
     <string name="aj_hint_on">Always</string>
     <string name="aj_hint_learning">Learning</string>
-    <string name="aj_hint_reset">Reset progress</string>
-    <string name="aj_hint_reset_done">All Latin letters are shown again</string>
+    <string name="aj_hint_reset">Show all the letters again</string>
+    <string name="aj_hint_reset_done">Every key shows its normal letter again.</string>
     <string name="aj_sum_hints_learning">Latin letters: learning</string>
 
     <!-- Escritura inteligente: Star Wars y diccionario personal -->
@@ -63,7 +63,7 @@
     <string name="aj_remove_sound">Remove</string>
     <string name="aj_clip_confirm">Empty the clipboard history, pinned items included?</string>
     <string name="aj_export_settings">Export settings…</string>
-    <string name="aj_export_settings_sub">A JSON file with your settings, shortcuts, personal dictionary and word pairs. Never your server key unless you tick the box</string>
+    <string name="aj_export_settings_sub">Creates a file with your settings, shortcuts and personal dictionary to take to another phone. It never includes your server key unless you tick the box.</string>
     <string name="aj_export_include_key">Include my own server (URL, model and key)</string>
     <string name="aj_import_settings">Import settings…</string>
     <string name="aj_import_settings_sub">Reads a file exported from this keyboard; only known settings with the right type are applied</string>

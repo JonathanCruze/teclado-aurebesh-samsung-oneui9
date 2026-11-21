@@ -410,7 +410,7 @@ public class AppTemaTest {
             Prefs.get(app).edit().putString(Prefs.THEME, t.id).apply();
             MainActivity a = create();
             AppPalette pal = new AppPalette(t);
-            TextView topTitle = textView(a, a.getString(R.string.top_lang_title));
+            TextView topTitle = textView(a, a.getString(R.string.setup_title));   // la tarjeta de arriba: los tres pasos
             TextView tryTitle = textView(a, a.getString(R.string.try_title));
             assertNotNull(topTitle);
             assertNotNull(tryTitle);
@@ -528,7 +528,7 @@ public class AppTemaTest {
      */
     /**
      * En la pantalla externa de un Z Flip (ventana casi cuadrada y estrecha en un Samsung) One UI usa siempre el teclado
-     * Samsung: el estado de arriba lo dice en vez de "es tu teclado actual". En un telefono normal, el estado de siempre.
+     * Samsung: bajo "Teclado activado" se dice eso en vez de donde usarlo. En un telefono normal, el texto de siempre.
      */
     @Test
     public void enLaPantallaExternaDelFlipElEstadoAvisaDelTecladoSamsung() throws Exception {
@@ -538,12 +538,13 @@ public class AppTemaTest {
         MainActivity normal = create();
         assertFalse(normal.onCoverScreen());
         assertNotNull(textViewWithText(normal, app.getString(R.string.top_status_done)));
+        assertNotNull("donde usarlo y como volver", textViewWithText(normal, app.getString(R.string.setup_done_body)));
 
         RuntimeEnvironment.setQualifiers("es-rES-w360dp-h400dp-xxhdpi");
         MainActivity cover = create();
         assertTrue(cover.onCoverScreen());
         assertNotNull("el estado avisa", textViewWithText(cover, cover.getString(R.string.top_status_cover)));
-        assertNull(textViewWithText(cover, cover.getString(R.string.top_status_done)));
+        assertNull("en la tapa no se dice que ya se puede usar en cualquier app", textViewWithText(cover, cover.getString(R.string.setup_done_body)));
 
         org.robolectric.shadows.ShadowBuild.setManufacturer("Google");
         RuntimeEnvironment.setQualifiers("es-rES-w360dp-h400dp-xxhdpi");

@@ -5,7 +5,7 @@
     <string name="ux_preview_collapse">Tastaturvorschau einklappen</string>
     <string name="ux_preview_expand">Tastaturvorschau ausklappen</string>
     <string name="ux_preview_clear">Geschriebenes löschen</string>
-    <string name="ux_group_alphabet">Das Alphabet lernen</string>
+    <string name="ux_group_alphabet">Hilfsbuchstaben</string>
     <string name="ux_group_correction">Korrektur</string>
     <string name="ux_group_dictionary">Wörterbuch und Lernen</string>
     <string name="ux_group_press">Beim Drücken einer Taste</string>

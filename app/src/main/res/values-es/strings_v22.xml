@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="top_row_title">Fila superior</string>
-    <string name="top_row_sub">Qué va encima de las letras: números, los dígrafos (los ocho del Aurebesh; en español, diez con ll, rr, qu y gu) o nada. Los números siempre están a una pulsación larga en q a p.</string>
+    <string name="top_row_title">Fila de arriba</string>
+    <string name="top_row_sub">Elige qué ves encima de las letras. Los números también salen si mantienes pulsadas las teclas de la q a la p.</string>
     <string name="top_row_numbers">Números</string>
-    <string name="top_row_digraphs">Dígrafos</string>
+    <string name="top_row_digraphs">Letras dobles</string>
     <string name="top_row_none">Nada</string>
     <string name="theme_auto_group">Automáticos</string>
     <string name="theme_auto_republic">República</string>
-    <string name="theme_auto_republic_sub">Se ajusta al tema del sistema</string>
+    <string name="theme_auto_republic_sub">Sigue el modo claro u oscuro</string>
     <string name="theme_auto_imperio">Imperio</string>
-    <string name="theme_auto_imperio_sub">Se ajusta al tema del sistema</string>
+    <string name="theme_auto_imperio_sub">Sigue el modo claro u oscuro</string>
     <string name="theme_fixed_group">Siempre el mismo</string>
-    <string name="immersive_title">Todo en Aurebesh</string>
-    <string name="immersive_sub">Muestra lo escrito y las sugerencias en Aurebesh sobre las teclas</string>
+    <string name="immersive_title">Ver en Aurebesh lo que escribes</string>
+    <string name="immersive_sub">Lo que escribes y las sugerencias se muestran en Aurebesh encima de las teclas. Tu mensaje se sigue enviando en letras normales.</string>
     <string name="immersive_short">todo en Aurebesh</string>
 </resources>

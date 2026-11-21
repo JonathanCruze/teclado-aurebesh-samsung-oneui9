@@ -4,7 +4,7 @@
 
     <!-- Diseno: sable de luz -->
     <string name="aj_saber">Lichtschwert-Spur</string>
-    <string name="aj_saber_sub">Farbe der Spur beim Wischen zum Schreiben; der Kern ist immer weiß</string>
+    <string name="aj_saber_sub">Farbe der Spur, die dein Finger beim Wischen hinterlässt.</string>
     <string name="saber_blue">Blau</string>
     <string name="saber_blue_who">Anakin und Obi-Wan</string>
     <string name="saber_green">Grün</string>
@@ -20,12 +20,12 @@
     <string name="aj_sum_saber">Schwert %1$s</string>
 
     <!-- Diseno: letras latinas en tres modos -->
-    <string name="aj_hint_mode_sub">Kleiner lateinischer Buchstabe unten rechts auf jeder Taste. Bei Lernen verschwindet der Hinweis eines Buchstabens, sobald du ihn 40-mal getippt hast; seltene Buchstaben (q, x, y, ß) behalten ihn länger. Den Fortschritt kannst du zurücksetzen, um wieder alle zu sehen</string>
+    <string name="aj_hint_mode_sub">Der gewohnte Buchstabe, klein, in einer Ecke jeder Taste.</string>
     <string name="aj_hint_off">Nie</string>
     <string name="aj_hint_on">Immer</string>
     <string name="aj_hint_learning">Lernen</string>
-    <string name="aj_hint_reset">Fortschritt zurücksetzen</string>
-    <string name="aj_hint_reset_done">Alle lateinischen Buchstaben sind wieder sichtbar</string>
+    <string name="aj_hint_reset">Alle Buchstaben wieder anzeigen</string>
+    <string name="aj_hint_reset_done">Alle Tasten zeigen wieder ihren normalen Buchstaben.</string>
     <string name="aj_sum_hints_learning">lateinische Buchstaben: lernen</string>
 
     <!-- Escritura inteligente: Star Wars y diccionario personal -->
@@ -63,7 +63,7 @@
     <string name="aj_remove_sound">Entfernen</string>
     <string name="aj_clip_confirm">Verlauf der Zwischenablage leeren, einschließlich der angepinnten Einträge?</string>
     <string name="aj_export_settings">Einstellungen exportieren…</string>
-    <string name="aj_export_settings_sub">Eine JSON-Datei mit deinen Einstellungen, Kürzeln, deinem persönlichen Wörterbuch und Wortpaaren. Nie dein Serverschlüssel, außer du setzt das Häkchen</string>
+    <string name="aj_export_settings_sub">Erstellt eine Datei mit deinen Einstellungen, Kürzeln und deinem persönlichen Wörterbuch für ein anderes Telefon. Dein Serverschlüssel ist nie dabei, außer du setzt das Häkchen.</string>
     <string name="aj_export_include_key">Eigenen Server einschließen (URL, Modell und Schlüssel)</string>
     <string name="aj_import_settings">Einstellungen importieren…</string>
     <string name="aj_import_settings_sub">Liest eine aus dieser Tastatur exportierte Datei; nur bekannte Einstellungen mit passendem Typ werden übernommen</string>

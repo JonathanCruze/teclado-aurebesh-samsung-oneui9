@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Panel "Intelligence" (writing assist) -->
-    <string name="ai_title">Intelligence</string>
+    <string name="ai_title">AI assistant</string>
     <string name="ai_badge_local">Local · %1$s</string>
     <string name="ai_badge_remote">Server · %1$s</string>
     <string name="ai_badge_none">No model</string>
@@ -54,7 +54,7 @@
     <string name="ai_err_no_model">No model is installed. Choose one in the settings.</string>
 
     <!-- Settings -->
-    <string name="ai_section">Intelligence</string>
+    <string name="ai_section">AI assistant</string>
     <string name="ai_engine">Where the AI runs</string>
     <string name="ai_engine_local">On this phone</string>
     <string name="ai_engine_remote">Your own server</string>

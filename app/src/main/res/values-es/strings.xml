@@ -2,7 +2,7 @@
 <resources>
     <string name="app_name">Teclado Aurebesh</string>
 
-    <string name="tagline">El alfabeto de Star Wars en tu teclado. Lo que escribes se envía en letras normales, así cualquiera puede leerlo.</string>
+    <string name="tagline">Las teclas se ven en Aurebesh, el alfabeto de Star Wars. Tus mensajes salen en letras normales: quien los recibe no nota nada.</string>
 
     <string name="step_1">Paso 1 de 2</string>
     <string name="step_2">Paso 2 de 2</string>
@@ -17,9 +17,9 @@
     <string name="try_title">Pruébalo</string>
     <string name="try_hint">Escribe algo</string>
     <string name="real_title">Con el teclado del sistema</string>
-    <string name="real_sub">Aquí aparece el teclado elegido en Ajustes; sirve para probar un campo normal y uno de PIN numérico.</string>
-    <string name="real_text_hint">Texto normal</string>
-    <string name="real_pin_hint">PIN numérico</string>
+    <string name="real_sub">Toca una casilla y escribe. Si sale otro teclado, aún te falta elegir Aurebesh.</string>
+    <string name="real_text_hint">Escribe un mensaje</string>
+    <string name="real_pin_hint">Escribe un PIN (solo números)</string>
 
     <string name="appearance">Apariencia</string>
     <string name="opt_theme">Tema</string>
@@ -29,16 +29,16 @@
     <string name="theme_imperial">Imperial</string>
     <string name="theme_arena">Arena</string>
     <string name="theme_contraste">Contraste</string>
-    <string name="opt_hints">Letra latina en las teclas</string>
+    <string name="opt_hints">Letra normal en cada tecla</string>
     <string name="opt_hints_sub">Letra latina pequeña en la esquina de cada tecla, útil mientras aprendes el alfabeto</string>
-    <string name="opt_strip">Todo en Aurebesh</string>
-    <string name="opt_strip_sub">Muestra lo escrito y las sugerencias en Aurebesh sobre las teclas</string>
+    <string name="opt_strip">Ver en Aurebesh lo que escribes</string>
+    <string name="opt_strip_sub">Lo que escribes y las sugerencias se muestran en Aurebesh encima de las teclas. Tu mensaje se sigue enviando en letras normales.</string>
     <string name="opt_toolbar">Barra de herramientas</string>
-    <string name="opt_toolbar_sub">Añade una fila sobre las teclas con ✦ inteligencia, 😊 emojis, 📋 portapapeles y modo a una mano, y ⚙ ajustes en ?123; sin ella el teclado es más bajo</string>
+    <string name="opt_toolbar_sub">Añade una fila sobre las teclas con ✦ asistente de IA, 😊 emojis, 📋 portapapeles y modo a una mano, y ⚙ ajustes en ?123; sin ella el teclado es más bajo</string>
 
     <string name="typing">Escritura</string>
-    <string name="opt_digraphs">Dígrafos</string>
-    <string name="opt_digraphs_sub">Escribe ch, sh, th, ae, eo, kh, ng y oo con un solo glifo Aurebesh; apagado, letra a letra</string>
+    <string name="opt_digraphs">Letras dobles (ch, sh, th…)</string>
+    <string name="opt_digraphs_sub">Aurebesh tiene un símbolo propio para ch, sh, th, ae, eo, kh, ng y oo. Activado, los ves con ese símbolo. Apagado, letra por letra. Tu mensaje no cambia.</string>
     <string name="opt_numbers">Fila de números</string>
     <string name="opt_numbers_sub">Fila 1…0 sobre las letras; sin ella el teclado es más bajo y los números pasan a pulsación larga en q⁠…⁠p</string>
     <string name="opt_sound">Sonido al pulsar</string>
@@ -46,8 +46,8 @@
     <string name="hand_none">Desactivado</string>
     <string name="hand_left">Izquierda</string>
     <string name="hand_right">Derecha</string>
-    <string name="opt_autocorrect">Texto predictivo</string>
-    <string name="opt_autocorrect_sub">Hasta tres palabras sobre las teclas mientras escribes, con los diccionarios integrados de español, inglés y alemán y sin internet; toca una para usarla, y la resaltada es la corrección de erratas y tildes</string>
+    <string name="opt_autocorrect">Sugerencias de palabras</string>
+    <string name="opt_autocorrect_sub">Mientras escribes verás hasta tres palabras encima de las teclas. Toca una para usarla. La resaltada corrige erratas y acentos. Funciona sin internet.</string>
     <string name="opt_vibrate">Vibración al pulsar</string>
 
     <string name="gestures">Gestos</string>
@@ -58,7 +58,7 @@
     <string name="gesture_caps">Doble toque en mayúsculas</string>
     <string name="gesture_caps_result">Bloqueo de mayúsculas</string>
     <string name="gesture_symbols">Tecla ?123</string>
-    <string name="gesture_symbols_result">Signos como en Samsung Keyboard; 1/2 abre la segunda página con dígrafos, ¿ ¡ « » y más</string>
+    <string name="gesture_symbols_result">Signos como en Samsung Keyboard; 1/2 abre la segunda página con letras dobles, ¿ ¡ « » y más</string>
     <string name="gesture_marks">Mantener el punto</string>
     <string name="gesture_marks_result">Menú de signos: ? ¿ ! ¡ : ; - \" \' @; soltar sin mover da ?</string>
     <string name="gesture_switch">Globo</string>
@@ -88,7 +88,7 @@
     <string name="sound_current">Actual: %1$s</string>
     <string name="sound_error">No se pudo usar ese archivo</string>
     <string name="opt_learn">Aprender palabras nuevas</string>
-    <string name="opt_learn_sub">Guarda en este teléfono las palabras que aceptas y los pares de palabras que escribes, y los sugiere la próxima vez</string>
+    <string name="opt_learn_sub">Recuerda las palabras nuevas que usas y cuál sueles escribir después de otra, y te las sugiere. Se guardan solo en tu teléfono.</string>
     <string name="learn_clear">Olvidar palabras y pares aprendidos</string>
     <string name="learn_cleared">Palabras y pares aprendidos olvidados</string>
     <string name="opt_double_space">Punto con doble espacio</string>
@@ -102,11 +102,11 @@
     <string name="clipboard_clear">Borrar todo</string>
     <string name="clipboard_empty">Copia un texto y aparecerá aquí. Toca uno para pegarlo.</string>
 
-    <string name="compat_title">Experimental en este dispositivo</string>
-    <string name="compat_body">Teclado Aurebesh está optimizado y probado en Samsung Galaxy con One UI 9.0 (Android 17). Este dispositivo: %1$s. Otras versiones de Android pueden fallar.</string>
+    <string name="compat_title">Puede que algo se vea distinto en tu teléfono</string>
+    <string name="compat_body">Este teclado se probó en teléfonos Samsung Galaxy con One UI 9. En el tuyo (%1$s) algún detalle puede verse diferente o fallar. Si te pasa, mantén pulsada la barra espaciadora para volver a tu teclado de antes.</string>
     <string name="footer_compat_ok">Optimizado para Samsung One UI 9.0 · este teléfono: %1$s</string>
     <string name="footer_compat_other">Optimizado para Samsung One UI 9.0 · este teléfono: %1$s (experimental)</string>
     <string name="credits">Fuente Aurebesh © 2022 SilvinoR, SIL Open Font License 1.1. Listas de palabras: FrequencyWords de Hermit Dave (MIT), sobre OpenSubtitles. Tablas de predicción (bigramas) CC BY-SA 4.0: contienen frases de Mozilla Common Voice (CC0 / extractos de Wikipedia CC BY-SA 3.0), treebanks Universal Dependencies (CC BY-SA 4.0 / CC BY 4.0), Europarl (NLTK), SQuAD-es (MIT) y Google Books Ngram (CC BY 3.0) vía symspellpy y orgtre; ver tools/dict/FUENTES-bigramas.md. Star Wars y Aurebesh son marcas de Lucasfilm Ltd.; proyecto de aficionado sin afiliación.</string>
 
-    <string name="footer">Versión %1$s. Internet solo se usa para descargar un modelo de IA cuando tú lo pides o para tu propio servidor. Solo se guardan en este teléfono el historial del portapapeles, las palabras que decides conservar y los modelos que descargas.</string>
+    <string name="footer">Versión %1$s · Proyecto de aficionados, sin relación con Lucasfilm.</string>
 </resources>

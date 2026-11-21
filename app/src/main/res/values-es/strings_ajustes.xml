@@ -6,7 +6,7 @@
     <string name="aj_sec_smart">Escritura inteligente</string>
     <string name="aj_sec_touch">Tocar y respuesta</string>
     <string name="aj_sec_clipboard">Portapapeles</string>
-    <string name="aj_sec_help">Ayuda y gestos</string>
+    <string name="aj_sec_help">Ayuda</string>
 
     <!-- Diseno -->
     <string name="aj_theme_auto">Automático</string>
@@ -27,14 +27,14 @@
     <string name="aj_height">Alto del teclado</string>
     <string name="aj_height_sub">Las filas de teclas crecen o se encogen; el ancho no cambia</string>
     <string name="aj_bottom">Margen inferior</string>
-    <string name="aj_bottom_sub">Espacio bajo la última fila para no llegar al borde; desde 24 dp aparece ahí el botón ∨ de ocultar el teclado</string>
+    <string name="aj_bottom_sub">Deja un espacio debajo del teclado para no tocar el borde. Con Mediano o Grande aparece ahí el botón ∨ para ocultar el teclado.</string>
     <string name="aj_size_from_keyboard">También puedes ajustarlo desde el teclado: ?123 › icono de tamaño</string>
-    <string name="aj_size_screen_inner">Ahora ajustas: pantalla interior (%1$d dp). La tapa guarda su propio alto, margen y modo a una mano.</string>
+    <string name="aj_size_screen_inner">Ahora ajustas la pantalla interior. La tapa guarda su propio alto, margen y modo a una mano.</string>
     <string name="aj_size_screen_cover">Ahora ajustas: tapa. La pantalla interior guarda su propio alto, margen y modo a una mano.</string>
 
     <!-- Escritura inteligente -->
-    <string name="aj_auto_replace">Sustitución automática</string>
-    <string name="aj_auto_replace_sub">El espacio o un signo cambia la palabra por la sugerencia resaltada; retroceso recupera lo que escribiste</string>
+    <string name="aj_auto_replace">Corrección automática</string>
+    <string name="aj_auto_replace_sub">Al pulsar espacio o un signo, cambia la palabra por la sugerencia resaltada. Si no la querías, pulsa borrar y vuelve la tuya.</string>
     <string name="aj_auto_caps">Mayúsculas automáticas</string>
     <string name="aj_auto_caps_sub">Mayúscula al empezar cada frase</string>
     <string name="aj_learned_row">Diccionario personal · %1$d</string>
@@ -62,10 +62,10 @@
     <string name="aj_space_none">Nada</string>
 
     <!-- Tocar y respuesta -->
-    <string name="aj_preview">Burbuja al pulsar</string>
-    <string name="aj_preview_sub">Muestra el glifo y su letra latina sobre el dedo; nunca en contraseñas</string>
-    <string name="aj_longpress">Retardo de pulsación larga</string>
-    <string name="aj_longpress_sub">Cuánto mantienes una tecla hasta que salen sus alternativas</string>
+    <string name="aj_preview">Ampliar la tecla al pulsarla</string>
+    <string name="aj_preview_sub">Muestra en grande el símbolo y su letra normal encima del dedo. En contraseñas no aparece.</string>
+    <string name="aj_longpress">Tiempo para mantener pulsada una tecla</string>
+    <string name="aj_longpress_sub">Cuánto esperas con el dedo en una tecla para ver sus acentos y símbolos.</string>
     <string name="aj_lp_short">Corto</string>
     <string name="aj_lp_medium">Medio</string>
     <string name="aj_lp_long">Largo</string>
@@ -81,7 +81,7 @@
     <string name="aj_vib_strong">Fuerte</string>
 
     <!-- Portapapeles -->
-    <string name="aj_clipboard_body">Todo lo que copias se guarda en el historial 📋 del teclado, en este teléfono. Aquí eliges si también se sugieren las capturas recientes.</string>
+    <string name="aj_clipboard_body">El teclado recuerda lo que copias para que puedas pegarlo otra vez (icono 📋). Se guarda solo en este teléfono y puedes borrarlo en Privacidad y datos. Aquí eliges si también te ofrece tus capturas recientes.</string>
 
     <!-- Ayuda y gestos: filas nuevas de 1.10 -->
     <string name="aj_gesture_comma">Mantener la coma</string>
@@ -89,11 +89,11 @@
     <string name="aj_gesture_delete_hold">Mantener borrar</string>
     <string name="aj_gesture_delete_hold_result">Borra cada vez más rápido; pasados unos 2 s, palabras enteras</string>
     <string name="aj_gesture_shift_hold">Mantener mayúsculas y tocar letras</string>
-    <string name="aj_gesture_shift_hold_result">Mayúsculas solo mientras la mantienes, como en el teclado de un ordenador</string>
+    <string name="aj_gesture_shift_hold_result">Mayúsculas solo mientras la mantienes, como en el teclado de una computadora</string>
     <string name="aj_gesture_space">Deslizar sobre el espacio</string>
-    <string name="aj_gesture_space_result">Mueve el cursor letra a letra; con varios idiomas activados cambia de idioma en su lugar (se elige en Escritura inteligente)</string>
+    <string name="aj_gesture_space_result">Mueve el cursor letra a letra; con varios idiomas activados cambia de idioma en su lugar (lo eliges en Deslizar, tocar y respuesta)</string>
     <string name="aj_gesture_hide">∨ bajo las teclas</string>
-    <string name="aj_gesture_hide_result">Oculta el teclado; el botón aparece con un margen inferior de 24 dp o más</string>
+    <string name="aj_gesture_hide_result">Oculta el teclado. Si no ves el botón, elige un margen inferior Mediano o Grande en Tamaño y distribución</string>
     <string name="aj_gesture_resize">Icono de tamaño en ?123</string>
     <string name="aj_gesture_resize_result">Modo de ajuste: arrastra los tiradores para cambiar el alto y el margen inferior, por separado en cada pantalla de un plegable</string>
 

@@ -7,9 +7,9 @@
     <string name="app_lang_es">Español</string>
     <string name="app_lang_en">English</string>
     <string name="app_lang_de">Deutsch</string>
-    <string name="tool_ai">Intelligenz</string>
+    <string name="tool_ai">KI-Assistent</string>
     <string name="gesture_glide">Über die Buchstaben wischen</string>
-    <string name="gesture_glide_result">Schreibt das Wort; Rücktaste direkt danach löscht es ganz</string>
+    <string name="gesture_glide_result">Schreibt das Wort. Drückst du direkt danach Löschen, verschwindet es ganz</string>
     <string name="gesture_ai">✦ links in der Leiste</string>
     <string name="gesture_ai_result">Rechtschreibung, Schreibstil, Zusammenfassung, Aufzählung, Tabelle und Verfassen, mit lokalem Modell oder eigenem Server</string>
     <string name="opt_split">Geteilte Tastatur</string>
@@ -19,18 +19,18 @@
 
     <!-- Oben in der App: Sprache von App und Tastatur, Tastatur-Schaltflaeche -->
     <string name="top_lang_title">Sprache der App und der Tastatur</string>
-    <string name="top_lang_hint">Die Tastatur wechselt ebenfalls zu dieser Sprache. Die Globus-Taste wechselt weiterhin zwischen den aktivierten Sprachen.</string>
+    <string name="top_lang_hint">Ändert die Sprache der App und der Tastatur. Nutzt du mehrere Sprachen, wechselt die Globus-Taste zwischen ihnen.</string>
     <string name="top_keyboard_choose">Tastatur wählen</string>
     <string name="top_keyboard_enable">Tastatur aktivieren</string>
-    <string name="top_status_done">✓ Aurebesh ist deine aktuelle Tastatur</string>
+    <string name="top_status_done">Tastatur aktiviert</string>
     <string name="top_status_enable">Schritt 1 von 2 · Aktiviere Aurebesh in den Einstellungen des Telefons und komm dann hierher zurück</string>
     <string name="top_status_choose">Schritt 2 von 2 · Wähle Aurebesh als aktuelle Tastatur</string>
     <!-- Faltbare -->
     <string name="fold_section">Faltbare · Galaxy Z Fold</string>
     <string name="fold_title">Geteilte Tastatur im aufgeklappten Zustand</string>
     <string name="fold_body">Auf einem aufgeklappten Galaxy Z Fold teilt sich die Tastatur in zwei Hälften mit denselben Tastenpositionen wie die Samsung-Tastatur, zum Tippen mit beiden Daumen. Auf einem normalen Telefon oder einem Galaxy Z Flip ändert sich nichts: lass es auf „Aufgeklappt“.</string>
-    <string name="fold_detected_wide">Dieser Bildschirm ist breit (%1$d dp): hier teilt sich die Tastatur</string>
-    <string name="fold_detected_phone">Dieser Bildschirm hat Telefongröße (%1$d dp): hier teilt sich die Tastatur nicht</string>
+    <string name="fold_detected_wide">Dieser Bildschirm ist breit: Hier wird die Tastatur geteilt</string>
+    <string name="fold_detected_phone">Auf diesem Bildschirm wird die Tastatur nicht geteilt: Er ist schmal</string>
 
     <!-- Einklappbare Einstellungsbereiche: Schnellzugriff und einzeilige Zusammenfassung -->
     <string name="nav_go">Gehe zu</string>
@@ -46,8 +46,8 @@
     <string name="sum_hand">eine Hand: %1$s</string>
     <string name="sum_wide">breiter Bildschirm</string>
     <string name="sum_phone">Telefonbildschirm</string>
-    <string name="sum_ai_ready">Auf diesem Telefon · %1$s bereit</string>
-    <string name="sum_ai_none">Auf diesem Telefon · noch kein Modell heruntergeladen</string>
+    <string name="sum_ai_ready">Bereit: %1$s</string>
+    <string name="sum_ai_none">Optional. Noch nicht eingerichtet</string>
     <string name="sum_ai_remote">Eigener Server · %1$s</string>
     <string name="sum_gestures">%1$d Gesten und Kurzbefehle</string>
 </resources>

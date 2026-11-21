@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Panel "Inteligencia" (asistente de escritura) -->
-    <string name="ai_title">Inteligencia</string>
+    <string name="ai_title">Asistente de IA</string>
     <string name="ai_badge_local">Local · %1$s</string>
     <string name="ai_badge_remote">Servidor · %1$s</string>
     <string name="ai_badge_none">Sin modelo</string>
@@ -54,7 +54,7 @@
     <string name="ai_err_no_model">No hay ningún modelo instalado. Elige uno en los ajustes.</string>
 
     <!-- Ajustes -->
-    <string name="ai_section">Inteligencia</string>
+    <string name="ai_section">Asistente de IA</string>
     <string name="ai_engine">Dónde se ejecuta la IA</string>
     <string name="ai_engine_local">En este teléfono</string>
     <string name="ai_engine_remote">Servidor propio</string>
@@ -84,7 +84,7 @@
     <string name="ai_download_failed">La descarga falló</string>
     <string name="ai_verify_failed">El archivo descargado está dañado</string>
     <string name="ai_server_title">Servidor propio</string>
-    <string name="ai_server_sub">Ollama, LM Studio o llama.cpp en tu ordenador. API compatible con OpenAI.</string>
+    <string name="ai_server_sub">Ollama, LM Studio o llama.cpp en tu computadora. API compatible con OpenAI.</string>
     <string name="ai_key_optional">Clave API (opcional)</string>
     <string name="ai_remote_model">Nombre del modelo</string>
     <string name="ai_test">Probar conexión</string>

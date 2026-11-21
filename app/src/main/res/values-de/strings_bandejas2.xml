@@ -23,7 +23,7 @@
     <string name="tools_label_resize">Größe und Position</string>
     <string name="tools_label_hide">Tastatur ausblenden</string>
     <string name="tools_label_settings">Einstellungen</string>
-    <string name="tools_label_ai">Intelligenz</string>
+    <string name="tools_label_ai">KI-Assistent</string>
 
     <!-- Textbearbeitung -->
     <string name="edit_title">Textbearbeitung</string>

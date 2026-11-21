@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Panel "Intelligenz" (Schreibassistent) -->
-    <string name="ai_title">Intelligenz</string>
+    <string name="ai_title">KI-Assistent</string>
     <string name="ai_badge_local">Lokal · %1$s</string>
     <string name="ai_badge_remote">Server · %1$s</string>
     <string name="ai_badge_none">Kein Modell</string>
@@ -54,7 +54,7 @@
     <string name="ai_err_no_model">Kein Modell installiert. Wähle eines in den Einstellungen.</string>
 
     <!-- Einstellungen -->
-    <string name="ai_section">Intelligenz</string>
+    <string name="ai_section">KI-Assistent</string>
     <string name="ai_engine">Wo die KI läuft</string>
     <string name="ai_engine_local">Auf diesem Telefon</string>
     <string name="ai_engine_remote">Eigener Server</string>

@@ -11,7 +11,7 @@
     <string name="aj_open_page">Opens the %1$s page</string>
 
     <!-- Resumenes nuevos -->
-    <string name="sum_top_row">top row: %1$s</string>
+    <string name="sum_top_row">%1$s on top</string>
     <string name="sum_top_row_none">no top row</string>
     <string name="sum_digraphs">digraphs</string>
     <string name="sum_alt_chars">alternative characters</string>

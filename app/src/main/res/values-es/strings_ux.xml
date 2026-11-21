@@ -5,7 +5,7 @@
     <string name="ux_preview_collapse">Plegar la vista previa del teclado</string>
     <string name="ux_preview_expand">Desplegar la vista previa del teclado</string>
     <string name="ux_preview_clear">Borrar lo escrito</string>
-    <string name="ux_group_alphabet">Aprender el alfabeto</string>
+    <string name="ux_group_alphabet">Letras de ayuda</string>
     <string name="ux_group_correction">Corrección</string>
     <string name="ux_group_dictionary">Diccionario y aprendizaje</string>
     <string name="ux_group_press">Al pulsar una tecla</string>

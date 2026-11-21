@@ -2,7 +2,7 @@
 <resources>
     <string name="app_name">Aurebesh-Tastatur</string>
 
-    <string name="tagline">Das Star-Wars-Alphabet auf deiner Tastatur. Was du tippst, wird in normalen Buchstaben gesendet, sodass es jeder lesen kann.</string>
+    <string name="tagline">Die Tasten zeigen Aurebesh, das Alphabet aus Star Wars. Deine Nachrichten gehen in normalen Buchstaben raus: Wer sie bekommt, merkt nichts.</string>
 
     <string name="step_1">Schritt 1 von 2</string>
     <string name="step_2">Schritt 2 von 2</string>
@@ -17,9 +17,9 @@
     <string name="try_title">Probier es aus</string>
     <string name="try_hint">Schreib etwas</string>
     <string name="real_title">Mit der Systemtastatur</string>
-    <string name="real_sub">Hier erscheint die in den Einstellungen gewählte Tastatur, um ein normales Feld und ein Feld für eine numerische PIN auszuprobieren.</string>
-    <string name="real_text_hint">Normaler Text</string>
-    <string name="real_pin_hint">Numerische PIN</string>
+    <string name="real_sub">Tippe in ein Feld und schreib. Erscheint eine andere Tastatur, musst du Aurebesh noch auswählen.</string>
+    <string name="real_text_hint">Schreib eine Nachricht</string>
+    <string name="real_pin_hint">Gib eine PIN ein (nur Zahlen)</string>
 
     <string name="appearance">Aussehen</string>
     <string name="opt_theme">Design</string>
@@ -29,16 +29,16 @@
     <string name="theme_imperial">Imperial</string>
     <string name="theme_arena">Sand</string>
     <string name="theme_contraste">Kontrast</string>
-    <string name="opt_hints">Lateinische Buchstaben auf den Tasten</string>
+    <string name="opt_hints">Normaler Buchstabe auf jeder Taste</string>
     <string name="opt_hints_sub">Kleiner lateinischer Buchstabe in der Ecke jeder Taste, praktisch, während du das Alphabet lernst</string>
-    <string name="opt_strip">Alles in Aurebesh</string>
-    <string name="opt_strip_sub">Zeigt Getipptes und Vorschläge in Aurebesh über den Tasten</string>
+    <string name="opt_strip">Getipptes in Aurebesh sehen</string>
+    <string name="opt_strip_sub">Getipptes und Vorschläge werden über den Tasten in Aurebesh angezeigt. Deine Nachricht wird weiterhin in normalen Buchstaben gesendet.</string>
     <string name="opt_toolbar">Symbolleiste</string>
-    <string name="opt_toolbar_sub">Fügt über den Tasten eine Reihe mit ✦ Intelligenz, 😊 Emojis, 📋 Zwischenablage und Einhandmodus hinzu, in ?123 auch ⚙ Einstellungen; ohne sie ist die Tastatur niedriger</string>
+    <string name="opt_toolbar_sub">Fügt über den Tasten eine Reihe mit ✦ KI-Assistent, 😊 Emojis, 📋 Zwischenablage und Einhandmodus hinzu, in ?123 auch ⚙ Einstellungen; ohne sie ist die Tastatur niedriger</string>
 
     <string name="typing">Eingabe</string>
-    <string name="opt_digraphs">Digraphen</string>
-    <string name="opt_digraphs_sub">Schreibt ch, sh, th, ae, eo, kh, ng und oo als ein einziges Aurebesh-Zeichen; aus: Buchstabe für Buchstabe</string>
+    <string name="opt_digraphs">Doppelbuchstaben (ch, sh, th…)</string>
+    <string name="opt_digraphs_sub">Aurebesh hat ein eigenes Zeichen für ch, sh, th, ae, eo, kh, ng und oo. An: Du siehst sie als dieses Zeichen. Aus: Buchstabe für Buchstabe. Deine Nachricht bleibt gleich.</string>
     <string name="opt_numbers">Zahlenreihe</string>
     <string name="opt_numbers_sub">Reihe 1…0 über den Buchstaben; ohne sie ist die Tastatur niedriger und die Zahlen liegen auf langem Drücken von q⁠…⁠p</string>
     <string name="opt_sound">Ton beim Tippen</string>
@@ -46,8 +46,8 @@
     <string name="hand_none">Aus</string>
     <string name="hand_left">Links</string>
     <string name="hand_right">Rechts</string>
-    <string name="opt_autocorrect">Textvorschläge</string>
-    <string name="opt_autocorrect_sub">Bis zu drei Wörter über den Tasten beim Tippen, aus den integrierten Wörterbüchern für Spanisch, Englisch und Deutsch, ohne Internet; tippe eines an, um es zu übernehmen; das markierte ist die Korrektur von Tippfehlern und Akzenten</string>
+    <string name="opt_autocorrect">Wortvorschläge</string>
+    <string name="opt_autocorrect_sub">Beim Tippen siehst du bis zu drei Wörter über den Tasten. Tippe eines an, um es zu übernehmen. Das markierte korrigiert Tippfehler und Akzente. Funktioniert ohne Internet.</string>
     <string name="opt_vibrate">Vibration beim Tippen</string>
 
     <string name="gestures">Gesten</string>
@@ -60,7 +60,7 @@
     <string name="gesture_caps">Umschalttaste doppelt tippen</string>
     <string name="gesture_caps_result">Feststelltaste</string>
     <string name="gesture_symbols">"?123-Taste"</string>
-    <string name="gesture_symbols_result">Symbole wie bei der Samsung-Tastatur angeordnet; 1/2 öffnet die zweite Seite mit Digraphen, ¿ ¡ « » und mehr</string>
+    <string name="gesture_symbols_result">Symbole wie bei der Samsung-Tastatur angeordnet; 1/2 öffnet die zweite Seite mit Doppelbuchstaben, ¿ ¡ « » und mehr</string>
     <string name="gesture_switch">Globus</string>
     <string name="gesture_switch_result">Nächste Aurebesh-Sprache (erscheint, wenn mehrere aktiviert sind)</string>
     <string name="gesture_picker">Leertaste gedrückt halten</string>
@@ -88,7 +88,7 @@
     <string name="sound_current">Aktuell: %1$s</string>
     <string name="sound_error">Diese Datei konnte nicht verwendet werden</string>
     <string name="opt_learn">Neue Wörter lernen</string>
-    <string name="opt_learn_sub">Speichert auf diesem Telefon die Wörter, die du übernimmst, und die Wortpaare, die du tippst, und schlägt sie beim nächsten Mal vor</string>
+    <string name="opt_learn_sub">Merkt sich neue Wörter, die du benutzt, und welches Wort du meist nach einem anderen tippst, und schlägt sie vor. Gespeichert wird nur auf deinem Telefon.</string>
     <string name="learn_clear">Gelernte Wörter und Paare vergessen</string>
     <string name="learn_cleared">Gelernte Wörter und Paare wurden vergessen</string>
     <string name="opt_double_space">Punkt durch doppeltes Leerzeichen</string>
@@ -102,11 +102,11 @@
     <string name="clipboard_clear">Alles löschen</string>
     <string name="clipboard_empty">Kopiere einen Text, und er erscheint hier. Tippe auf einen Eintrag, um ihn einzufügen.</string>
 
-    <string name="compat_title">Experimentell auf diesem Gerät</string>
-    <string name="compat_body">Die Aurebesh-Tastatur ist für Samsung-Galaxy-Telefone mit One UI 9.0 (Android 17) optimiert und getestet. Dieses Gerät: %1$s. Auf anderen Android-Versionen kann es zu Fehlern kommen.</string>
+    <string name="compat_title">Auf deinem Telefon kann etwas anders aussehen</string>
+    <string name="compat_body">Diese Tastatur wurde auf Samsung-Galaxy-Telefonen mit One UI 9 getestet. Auf deinem (%1$s) kann manches anders aussehen oder nicht richtig funktionieren. Halte dann die Leertaste gedrückt, um zu deiner vorherigen Tastatur zurückzukehren.</string>
     <string name="footer_compat_ok">Optimiert für Samsung One UI 9.0 · dieses Telefon: %1$s</string>
     <string name="footer_compat_other">Optimiert für Samsung One UI 9.0 · dieses Telefon: %1$s (experimentell)</string>
     <string name="credits">Aurebesh-Schrift © 2022 SilvinoR, SIL Open Font License 1.1. Wortlisten: FrequencyWords von Hermit Dave (MIT), auf Basis von OpenSubtitles. Vorhersagetabellen (Bigramme) CC BY-SA 4.0: aus Sätzen von Mozilla Common Voice (CC0 / Wikipedia-Auszüge CC BY-SA 3.0), Universal-Dependencies-Baumbanken (CC BY-SA 4.0 / CC BY 4.0), Europarl (NLTK), SQuAD-es (MIT) und Google Books Ngram (CC BY 3.0) über symspellpy und orgtre; siehe tools/dict/FUENTES-bigramas.md. Star Wars und Aurebesh sind Marken von Lucasfilm Ltd.; Fanprojekt, nicht verbunden.</string>
 
-    <string name="footer">Version %1$s. Das Internet wird nur genutzt, um auf Wunsch ein KI-Modell herunterzuladen oder für deinen eigenen Server. Nur der Verlauf der Zwischenablage, die Wörter, die du behalten möchtest, und heruntergeladene Modelle werden gespeichert, und zwar auf diesem Telefon.</string>
+    <string name="footer">Version %1$s · Fanprojekt, ohne Verbindung zu Lucasfilm.</string>
 </resources>

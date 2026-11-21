@@ -192,24 +192,27 @@ public class Settings2Test {
         assertEquals("on", Prefs.hintMode(app));
         assertEquals(1, Prefs.hintModeInt(app));
         MainActivity a = create();
-        SettingsTest.openCategory(a, R.string.cat_keys, MainActivity.PAGE_KEYS);
-        TextView learning = textView(a, a.getString(R.string.aj_hint_learning));
+        SettingsTest.openCategory(a, R.string.cat_learn, MainActivity.PAGE_LEARN);
+        // "Aprendiendo" tambien es un chip de "¿Sabes leer Aurebesh?" en la principal: se busca el de la pagina, junto a "Nunca"
+        TextView never = textView(a, a.getString(R.string.aj_hint_off));
+        assertNotNull("chip Nunca", never);
+        TextView learning = sibling(never, a.getString(R.string.aj_hint_learning));
         assertNotNull("chip Aprendiendo", learning);
         learning.performClick();
         assertEquals("learning", Prefs.get(app).getString(Prefs.HINT_MODE, null));
         assertEquals(2, Prefs.hintModeInt(app));
         assertTrue("el booleano antiguo sigue en paralelo", Prefs.hints(app));
-        TextView never = sibling(learning, a.getString(R.string.aj_hint_off));   // "Nunca" tambien es un chip del dividido (en Tamano)
-        assertNotNull(never);
-        never.performClick();
-        assertEquals("off", Prefs.hintMode(app));
-        assertFalse(Prefs.hints(app));
-        // "Reiniciar progreso" borra los contadores del modo Aprendiendo
+        // "Volver a mostrar todas las letras" (solo en Aprendiendo) borra los contadores
         Prefs.get(app).edit().putString(Prefs.HINT_COUNTS, "a 12\nb 40").apply();
         TextView reset = textView(a, a.getString(R.string.aj_hint_reset));
         assertNotNull(reset);
+        assertTrue("el boton se ve en Aprendiendo", visibleUpToRoot(reset));
         reset.performClick();
         assertFalse(Prefs.get(app).contains(Prefs.HINT_COUNTS));
+        never.performClick();
+        assertEquals("off", Prefs.hintMode(app));
+        assertFalse(Prefs.hints(app));
+        assertFalse("fuera de Aprendiendo no hay nada que volver a mostrar", visibleUpToRoot(reset));
     }
 
     // ------------------------------------------------------------------ buscador

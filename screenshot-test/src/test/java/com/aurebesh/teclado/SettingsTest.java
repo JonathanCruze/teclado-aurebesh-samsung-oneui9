@@ -130,9 +130,9 @@ public class SettingsTest {
         // Pantalla principal: "Pruebalo", el titulo de la lista y una fila por categoria, en este orden
         assertTrue("falta la tarjeta Pruebalo", hasText(a, a.getString(R.string.try_title)));
         assertTrue("falta el titulo de la lista", hasText(a, a.getString(R.string.cat_list_title)));
-        int[] titles = {R.string.cat_keys, R.string.cat_style, R.string.cat_size, R.string.aj_sec_smart, R.string.cat_touch,
+        int[] titles = {R.string.cat_learn, R.string.cat_keys, R.string.cat_style, R.string.cat_size, R.string.aj_sec_smart, R.string.cat_touch,
                 R.string.aj_sec_clipboard, R.string.ai_section, R.string.cat_privacy, R.string.aj_sec_help};
-        String[] keys = {MainActivity.PAGE_KEYS, MainActivity.PAGE_STYLE, MainActivity.PAGE_SIZE, MainActivity.PAGE_SMART,
+        String[] keys = {MainActivity.PAGE_LEARN, MainActivity.PAGE_KEYS, MainActivity.PAGE_STYLE, MainActivity.PAGE_SIZE, MainActivity.PAGE_SMART,
                 MainActivity.PAGE_TOUCH, MainActivity.PAGE_CLIPBOARD, MainActivity.PAGE_AI, MainActivity.PAGE_PRIVACY, MainActivity.PAGE_HELP};
         List<View> order = all(a);
         int last = -1;
@@ -149,12 +149,12 @@ public class SettingsTest {
         // Las secciones antiguas ya no son titulos: ni Diseno ni Mas ajustes ni los chips "Ir a"
         assertFalse(hasText(a, a.getString(R.string.aj_sec_design)));
         assertFalse(hasText(a, a.getString(R.string.nav_go)));
-        // El resumen de Ayuda cuenta las filas de gestos y el de Idiomas y teclas dice la fila superior
-        assertTrue(hasText(a, a.getString(R.string.sum_gestures, 18)));
+        // El resumen de Ayuda dice que hay dentro y el de Idiomas y teclas, el idioma y la fila de arriba
+        assertTrue(hasText(a, a.getString(R.string.sum_help_desc)));
         assertTrue(textContains(a, a.getString(R.string.sum_top_row, a.getString(R.string.top_row_numbers).toLowerCase())));
         // La descripcion accesible de cada fila es "Titulo. resumen"
         View help = categoryRow(a, R.string.aj_sec_help);
-        assertEquals(a.getString(R.string.aj_sec_help) + ". " + a.getString(R.string.sum_gestures, 18), help.getContentDescription().toString());
+        assertEquals(a.getString(R.string.aj_sec_help) + ". " + a.getString(R.string.sum_help_desc), help.getContentDescription().toString());
         // Ninguna pagina esta abierta ni construida hasta que se toca su fila
         assertEquals(null, a.openPageKey());
         assertFalse("las filas de las paginas no se construyen de antemano", hasText(a, a.getString(R.string.aj_saber)));

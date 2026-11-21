@@ -3,9 +3,9 @@
     <string name="theme_santuario">Santuario Jedi</string>
     <string name="theme_sith">Templo Sith</string>
     <string name="theme_auto_templos">Templos</string>
-    <string name="theme_auto_templos_sub">Se ajusta al tema del sistema</string>
-    <string name="learn_uses_title">Aprender palabras nuevas</string>
-    <string name="learn_uses_sub">Una palabra desconocida entra en tu diccionario personal solo después de escribirla en este número de mensajes distintos. Las que parecen erratas de palabras comunes esperan a que las conserves a propósito.</string>
+    <string name="theme_auto_templos_sub">Sigue el modo claro u oscuro</string>
+    <string name="learn_uses_title">Cuándo recordar una palabra</string>
+    <string name="learn_uses_sub">Elige en cuántos mensajes tienes que escribir una palabra nueva para que el teclado la recuerde. Así no guarda errores de dedo.</string>
     <string name="learn_uses_2">Tras 2 usos</string>
     <string name="learn_uses_3">Tras 3 usos</string>
     <string name="learn_uses_5">Tras 5 usos</string>

@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="top_row_title">Top row</string>
-    <string name="top_row_sub">What sits above the letters: numbers, the digraphs (the eight Aurebesh ones; in Spanish, ten with ll, rr, qu and gu), or nothing. Numbers are always one long press away on q to p.</string>
+    <string name="top_row_sub">Choose what you see above the letters. Numbers also come up when you hold the keys q to p.</string>
     <string name="top_row_numbers">Numbers</string>
-    <string name="top_row_digraphs">Digraphs</string>
+    <string name="top_row_digraphs">Double letters</string>
     <string name="top_row_none">Nothing</string>
     <string name="theme_auto_group">Automatic</string>
     <string name="theme_auto_republic">Republic</string>
-    <string name="theme_auto_republic_sub">Follows the system theme</string>
+    <string name="theme_auto_republic_sub">Follows light or dark mode</string>
     <string name="theme_auto_imperio">Empire</string>
-    <string name="theme_auto_imperio_sub">Follows the system theme</string>
+    <string name="theme_auto_imperio_sub">Follows light or dark mode</string>
     <string name="theme_fixed_group">Always the same</string>
-    <string name="immersive_title">Everything in Aurebesh</string>
-    <string name="immersive_sub">Shows what you type and the suggestions in Aurebesh above the keys</string>
+    <string name="immersive_title">See what you type in Aurebesh</string>
+    <string name="immersive_sub">What you type and the suggestions are shown in Aurebesh above the keys. Your message is still sent in normal letters.</string>
     <string name="immersive_short">everything in Aurebesh</string>
 </resources>

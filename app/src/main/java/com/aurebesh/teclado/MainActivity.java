@@ -92,8 +92,15 @@ public final class MainActivity extends Activity {
     private int screenWidthDp;
     private int contentWidth;                            // ancho util de la columna en px (reparto de las muestras de tema)
 
-    private TextView topStatus;                          // estado del teclado bajo el boton de arriba
-    private Button keyboardButton;                       // "Elegir teclado" / "Activar el teclado"
+    private TextView topStatus;                          // bajo "Teclado activado": donde usarlo, o el aviso de la pantalla externa del Flip
+    private View setupSteps, setupDone;                  // dentro de la tarjeta de arriba: los tres pasos, o "Teclado activado"
+    private final TextView[] stepMark = new TextView[3]; // circulo con el numero del paso (o la marca de hecho)
+    private final TextView[] stepTitle = new TextView[3];
+    private final View[] stepDetail = new View[3];       // explicacion y boton del paso (solo el paso en curso)
+    private Boolean homeArranged;                        // orden con el que esta colocada la principal: teclado elegido o no (null = sin colocar)
+    private TextView levelSub, hintSub;                  // frase de la opcion elegida en "¿Sabes leer Aurebesh?" y en "Letra normal en cada tecla"
+    private View hintResetRow;                           // "Volver a mostrar todas las letras" y el contador (solo en Aprendiendo)
+    private TextView hintLearned;                        // "Letras que ya lees sin ayuda: N"
 
     /** Las dos pantallas: la principal (lista) y la pagina abierta, dentro del contenedor de contenido de la ventana. */
     private FrameLayout rootFrame;
@@ -106,6 +113,8 @@ public final class MainActivity extends Activity {
     private LinearLayout pageContent;                    // columna donde se coloca la tarjeta de la pagina abierta
     private TextView pageTitle;
     private View topCard, tryCard, listCard, footCard, compatCard;   // tarjetas de la principal (se ocultan al buscar)
+    private View levelCard, safeCard, langCard;          // "¿Sabes leer Aurebesh?", "¿Es seguro?" e idioma (tambien se ocultan al buscar)
+    private View searchBox;                              // caja del buscador (se recoloca con el resto de la principal)
     private LinearLayout searchResults;                  // tarjeta con los resultados del buscador
     private View searchEmpty;                            // tarjeta "Ningun ajuste coincide"
 
@@ -202,8 +211,8 @@ public final class MainActivity extends Activity {
     private static final String STATE_QUERY = "query";
 
     /** Claves de las paginas (categorias), en el orden de la lista. */
-    static final String PAGE_KEYS = "keys", PAGE_STYLE = "style", PAGE_SIZE = "size", PAGE_SMART = "smart", PAGE_TOUCH = "touch",
-            PAGE_CLIPBOARD = "clipboard", PAGE_AI = "ai", PAGE_PRIVACY = "privacy", PAGE_HELP = "help";
+    static final String PAGE_LEARN = "learn", PAGE_KEYS = "keys", PAGE_STYLE = "style", PAGE_SIZE = "size", PAGE_SMART = "smart",
+            PAGE_TOUCH = "touch", PAGE_CLIPBOARD = "clipboard", PAGE_AI = "ai", PAGE_PRIVACY = "privacy", PAGE_HELP = "help";
 
     @Override
     protected void attachBaseContext(Context base) {
@@ -240,13 +249,18 @@ public final class MainActivity extends Activity {
         root.setPadding(px(16), px(16), px(16), basePadBottom);
         homeColumn = root;
         scroll = scroller(root);
+        // Orden de quien acaba de instalarla; con el teclado ya elegido, updateSetup sube la lista (arrangeHome)
         buildHeader(root);
-        topCard = buildTop(root);
-        buildSearch(root);
-        compatCard = buildCompat(root);
+        topCard = buildSetup(root);
         tryCard = buildTryCard(root);
+        levelCard = buildLevel(root);
+        safeCard = buildSafe(root);
+        buildSearch(root);
         listCard = buildCategoryList(root);
+        langCard = buildLanguage(root);
+        compatCard = buildCompat(root);
         footCard = buildFooter(root);
+        homeArranged = Boolean.FALSE;
 
         // Pagina abierta: barra superior (atras + titulo) y su propia columna desplazable
         buildPageView();
@@ -296,7 +310,7 @@ public final class MainActivity extends Activity {
             case "design": return PAGE_STYLE;
             case "fold": return PAGE_SIZE;
             case "more": return PAGE_PRIVACY;
-            case PAGE_KEYS: case PAGE_STYLE: case PAGE_SIZE: case PAGE_SMART: case PAGE_TOUCH:
+            case PAGE_LEARN: case PAGE_KEYS: case PAGE_STYLE: case PAGE_SIZE: case PAGE_SMART: case PAGE_TOUCH:
             case PAGE_CLIPBOARD: case PAGE_AI: case PAGE_PRIVACY: case PAGE_HELP:
                 return section;
             default: return null;
@@ -464,7 +478,7 @@ public final class MainActivity extends Activity {
         bigHeader.setAlpha(1f - f * 0.85f);
     }
 
-    /** Aviso solo fuera de Samsung One UI 9.x: el teclado se probo ahi; en otros dispositivos es experimental. */
+    /** Aviso solo fuera de Samsung One UI 9.x: el teclado se probo ahi; en otros telefonos algo puede verse distinto. */
     private View buildCompat(LinearLayout root) {
         if (DeviceInfo.optimized()) return null;
         LinearLayout c = cardColumn();
@@ -476,57 +490,92 @@ public final class MainActivity extends Activity {
     }
 
     /**
-     * Lo primero de la app: los tres idiomas (cambian a la vez la app y el teclado) y el boton para
-     * elegir el teclado, con el estado de la activacion debajo.
+     * Lo primero de la app. Sin el teclado elegido: los tres pasos (encenderlo en los ajustes del telefono, elegirlo y
+     * probarlo), con el boton del paso en curso y el aviso de Android explicado antes de que salga. Ya elegido, la
+     * tarjeta se queda en "Teclado activado", donde usarlo y el boton para cambiar de teclado.
      */
-    private View buildTop(LinearLayout root) {
+    private View buildSetup(LinearLayout root) {
         LinearLayout c = cardColumn();
-        c.setPadding(px(20), px(18), px(20), px(20));
-        c.addView(text(getString(R.string.top_lang_title), 13, secondary, true), block(0));
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        String current = AppLocale.current(this);
-        for (int i = 0; i < TOP_LANGS.length; i++) {
-            final String id = TOP_LANGS[i];
-            boolean selected = id.equals(current);
-            LinearLayout item = column();
-            item.setGravity(Gravity.CENTER_HORIZONTAL);
-            TextView icon = text(id.toUpperCase(java.util.Locale.ROOT), 18, selected ? pal.onAccent : ink, true);
-            icon.setGravity(Gravity.CENTER);
-            GradientDrawable bg = new GradientDrawable();
-            bg.setShape(GradientDrawable.OVAL);
-            bg.setColor(selected ? pal.accent : pal.surface2);
-            icon.setBackground(bg);
-            item.addView(icon, new LinearLayout.LayoutParams(px(56), px(56)));
-            TextView name = text(getString(TOP_LANG_NAMES[i]), 13, ink, selected);
-            name.setGravity(Gravity.CENTER_HORIZONTAL);
-            item.addView(name, block(6));
-            item.setBackground(ripple(0));
-            item.setPadding(0, px(6), 0, px(6));
-            item.setSelected(selected);
-            item.setContentDescription(getString(TOP_LANG_NAMES[i]));
-            a11y(item, RadioButton.class, true, null);
-            item.setOnClickListener(new View.OnClickListener() {
-                @Override public void onClick(View v) {
-                    Prefs.setLanguage(MainActivity.this, id);   // app y teclado a la vez
-                    requestRecreate();
-                }
-            });
-            row.addView(item, new LinearLayout.LayoutParams(0, WRAP, 1f));
-        }
-        c.addView(row, block(10));
-        c.addView(text(getString(R.string.top_lang_hint), 13, secondary, false), block(4));
-        keyboardButton = button();
-        c.addView(keyboardButton, block(16));
+        c.setPadding(px(20), px(18), px(20), px(18));
+        LinearLayout steps = column();
+        steps.addView(text(getString(R.string.setup_title), 18, ink, true), block(0));
+        steps.addView(text(getString(R.string.setup_sub), 14, secondary, false), block(2));
+        stepRow(steps, 0, R.string.setup_1_title, R.string.setup_1_body, R.string.setup_1_button, R.string.setup_1_note,
+                new View.OnClickListener() {
+                    @Override public void onClick(View v) {
+                        try {
+                            startActivity(new Intent(Settings.ACTION_INPUT_METHOD_SETTINGS));
+                        } catch (android.content.ActivityNotFoundException e) {
+                            startActivity(new Intent(Settings.ACTION_SETTINGS));   // sin esa pantalla, los ajustes generales
+                        }
+                    }
+                });
+        stepRow(steps, 1, R.string.setup_2_title, R.string.setup_2_body, R.string.setup_2_button, 0, showPicker);
+        stepRow(steps, 2, R.string.setup_3_title, R.string.setup_3_body, 0, 0, null);
+        steps.addView(text(getString(R.string.setup_back_hint), 13, secondary, false), block(16));
+        c.addView(steps, block(0));
+        setupSteps = steps;
+
+        LinearLayout done = new LinearLayout(this);
+        done.setOrientation(LinearLayout.HORIZONTAL);
+        ImageView ok = iconView(UiIcons.CHECK, pal.accentInk, 22);
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(pal.accentTile);
+        bg.setCornerRadius(px(12));
+        ok.setBackground(bg);
+        done.addView(ok, new LinearLayout.LayoutParams(px(40), px(40)));
+        LinearLayout col = column();
+        col.addView(text(getString(R.string.top_status_done), 17, ink, true), block(0));
         topStatus = text("", 14, secondary, false);
-        c.addView(topStatus, block(8));
+        col.addView(topStatus, block(2));
+        TextView change = chipButton(R.string.setup_done_change, showPicker);
+        LinearLayout.LayoutParams chp = new LinearLayout.LayoutParams(WRAP, WRAP);
+        chp.topMargin = px(12);
+        col.addView(change, chp);
+        LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(0, WRAP, 1f);
+        cp.leftMargin = px(14);
+        done.addView(col, cp);
+        done.setVisibility(View.GONE);
+        c.addView(done, block(0));
+        setupDone = done;
         root.addView(c, block(16));
         return c;
     }
 
+    /** Un paso de la puesta en marcha: circulo con su numero, titulo y, plegable, la explicacion con su boton y su nota. */
+    private void stepRow(LinearLayout parent, int index, int title, int body, int buttonRes, int note, View.OnClickListener onClick) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        TextView mark = text(String.valueOf(index + 1), 14, ink, true);
+        mark.setGravity(Gravity.CENTER);
+        mark.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        row.addView(mark, new LinearLayout.LayoutParams(px(28), px(28)));
+        LinearLayout col = column();
+        TextView t = text(getString(title), 16, ink, true);
+        col.addView(t, block(3));
+        LinearLayout detail = column();
+        detail.addView(text(getString(body), 14, secondary, false), block(2));
+        if (buttonRes != 0) {
+            Button b = button();
+            b.setText(buttonRes);
+            styleButton(b, true);
+            b.setOnClickListener(onClick);
+            detail.addView(b, block(12));
+        }
+        if (note != 0) detail.addView(text(getString(note), 13, secondary, false), block(10));
+        col.addView(detail, block(0));
+        LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(0, WRAP, 1f);
+        cp.leftMargin = px(12);
+        row.addView(col, cp);
+        parent.addView(row, block(16));
+        stepMark[index] = mark;
+        stepTitle[index] = t;
+        stepDetail[index] = detail;
+    }
+
     /**
-     * Tarjeta "Pruebalo": solo los campos con el teclado del sistema (texto normal y PIN numerico); la copia del
-     * teclado vive en el panel de vista previa de abajo.
+     * Tarjeta "Pruebalo": los campos con el teclado del sistema (un mensaje y un PIN numerico); la copia del teclado
+     * vive en el panel de vista previa de abajo. Sin el teclado elegido es el tercer paso y va bajo la tarjeta de arriba.
      */
     private View buildTryCard(LinearLayout root) {
         LinearLayout c = cardColumn();
@@ -540,21 +589,97 @@ public final class MainActivity extends Activity {
         return c;
     }
 
+    /**
+     * "¿Sabes leer Aurebesh?": el mismo ajuste que "Letra normal en cada tecla" (Aprender Aurebesh), preguntado con
+     * las palabras de quien llega: No (letra siempre), Aprendiendo o Si (solo Aurebesh). Debajo, la frase de la opcion
+     * elegida y el enlace al alfabeto.
+     */
+    private View buildLevel(LinearLayout root) {
+        LinearLayout c = cardColumn();
+        levelSub = text("", 14, secondary, false);
+        ChipGroup g = new ChipGroup(Prefs.HINT_MODE, "on", HINT_MODES, LEVEL_NAMES) {
+            @Override String current() { return Prefs.hintMode(MainActivity.this); }
+            @Override void pick(String id) { saveHintMode(id); }
+            @Override void refresh() {
+                super.refresh();
+                levelSub.setText(nameOf(HINT_MODES, HINT_SUBS, current()));
+            }
+        };
+        chipRow(c, R.string.level_title, null, g, levelSub);
+        g.refresh();
+        homeLink(c, R.string.level_link, PAGE_LEARN);
+        root.addView(c, block(12));
+        return c;
+    }
+
+    /** Guarda el modo de las letras de ayuda (y el booleano antiguo, que se mantiene en paralelo). */
+    private void saveHintMode(String id) {
+        Prefs.get(this).edit().putString(Prefs.HINT_MODE, id).putBoolean(Prefs.HINTS, !"off".equals(id)).apply();
+    }
+
+    /** "¿Es seguro?": lo que escribes se queda en el telefono, dicho arriba y no en el pie; enlaza con Privacidad y datos. */
+    private View buildSafe(LinearLayout root) {
+        LinearLayout c = cardColumn();
+        LinearLayout col = column();
+        col.setPadding(px(18), px(16), px(18), px(8));
+        col.addView(text(getString(R.string.safe_title), 16, ink, true), block(0));
+        col.addView(text(getString(R.string.safe_body), 14, secondary, false), block(4));
+        c.addView(col, block(0));
+        homeLink(c, R.string.safe_link, PAGE_PRIVACY);
+        root.addView(c, block(12));
+        return c;
+    }
+
+    /** Fila de enlace al pie de una tarjeta de la principal: texto en el color de acento y ›; abre una pagina. */
+    private void homeLink(LinearLayout parent, int label, final String pageKey) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setMinimumHeight(px(48));
+        row.setPadding(px(18), px(6), px(12), px(8));
+        row.setBackground(ripple(0x00000000));
+        row.addView(text(getString(label), 14, pal.accentText, true), new LinearLayout.LayoutParams(0, WRAP, 1f));
+        row.addView(chevronView(), new LinearLayout.LayoutParams(px(24), px(24)));
+        row.setContentDescription(getString(label));
+        a11y(row, Button.class, false, null);
+        row.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                Page p = pages.get(pageKey);
+                if (p != null) openPage(p, true);
+            }
+        });
+        parent.addView(row, block(0));
+    }
+
+    /** Idioma de la app y del teclado, al final de la principal (los mismos tres botones estan en Idiomas y teclas). */
+    private View buildLanguage(LinearLayout root) {
+        LinearLayout c = cardColumn();
+        chipRow(c, R.string.top_lang_title, null, langGroup());
+        root.addView(c, block(12));
+        return c;
+    }
+
+    /**
+     * Orden de la principal. Sin el teclado elegido manda la puesta en marcha: pasos, prueba, nivel de lectura y
+     * seguridad antes de los ajustes. Con el teclado ya elegido, la lista de ajustes sube justo bajo el buscador y lo
+     * demas queda debajo.
+     */
+    private void arrangeHome(boolean done) {
+        if (homeColumn == null || (homeArranged != null && homeArranged == done)) return;
+        homeArranged = done;
+        View[] order = done
+                ? new View[]{bigHeader, topCard, searchBox, searchResults, searchEmpty, listCard, levelCard, tryCard, safeCard, langCard, compatCard, footCard}
+                : new View[]{bigHeader, topCard, tryCard, levelCard, safeCard, searchBox, searchResults, searchEmpty, listCard, langCard, compatCard, footCard};
+        homeColumn.removeAllViews();
+        for (View v : order) if (v != null) homeColumn.addView(v);
+    }
+
+    /** Pie de la principal: la version y que es un proyecto de aficionados; licencias y detalles, en Ayuda > Acerca de. */
     private View buildFooter(LinearLayout root) {
-        LinearLayout foot = column();
-        foot.setGravity(Gravity.CENTER_HORIZONTAL);
         TextView footer = text(getString(R.string.footer, getString(R.string.version)), 13, pal.onBgSecondary, false);
         footer.setGravity(Gravity.CENTER_HORIZONTAL);
-        foot.addView(footer, block(0));
-        TextView compat = text(getString(DeviceInfo.optimized() ? R.string.footer_compat_ok : R.string.footer_compat_other,
-                DeviceInfo.label()), 12, pal.onBgSecondary, false);
-        compat.setGravity(Gravity.CENTER_HORIZONTAL);
-        foot.addView(compat, block(6));
-        TextView credits = text(getString(R.string.credits), 12, pal.onBgSecondary, false);
-        credits.setGravity(Gravity.CENTER_HORIZONTAL);
-        foot.addView(credits, block(6));
-        root.addView(foot, block(24));
-        return foot;
+        root.addView(footer, block(20));
+        return footer;
     }
 
     // ------------------------------------------------------------------ panel de vista previa
@@ -851,6 +976,7 @@ public final class MainActivity extends Activity {
 
     /** Las categorias, en el orden de la lista. Cada icono es un dibujo de UiIcons (decorativo). */
     private void declarePages() {
+        pages.put(PAGE_LEARN, new Page(PAGE_LEARN, R.string.cat_learn, UiIcons.LEARN));
         pages.put(PAGE_KEYS, new Page(PAGE_KEYS, R.string.cat_keys, UiIcons.KEYS));
         pages.put(PAGE_STYLE, new Page(PAGE_STYLE, R.string.cat_style, UiIcons.STYLE));
         pages.put(PAGE_SIZE, new Page(PAGE_SIZE, R.string.cat_size, UiIcons.SIZE));
@@ -893,7 +1019,7 @@ public final class MainActivity extends Activity {
         col.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
         col.addView(text(getString(p.titleRes), 16, ink, false), block(0));
         TextView summary = text("", 14, secondary, false);
-        summary.setMaxLines(1);
+        summary.setMaxLines(2);                          // nunca cortado con puntos suspensivos en un telefono
         summary.setEllipsize(android.text.TextUtils.TruncateAt.END);
         col.addView(summary, block(2));
         LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(0, WRAP, 1f);
@@ -954,6 +1080,7 @@ public final class MainActivity extends Activity {
         LinearLayout body = column();
         p.body = body;
         switch (p.key) {
+            case PAGE_LEARN: buildLearn(body); break;
             case PAGE_KEYS: buildKeys(body); break;
             case PAGE_STYLE: buildStyle(body); break;
             case PAGE_SIZE: buildSize(body); break;
@@ -1021,55 +1148,116 @@ public final class MainActivity extends Activity {
 
     // ------------------------------------------------------------------ paginas
 
-    /** Idiomas y teclas: idioma del teclado, fila superior, digrafos, caracteres alternativos, letras latinas y Todo en Aurebesh. */
+    /**
+     * Aprender Aurebesh: la letra normal en cada tecla (siempre, mientras se aprende o nunca), ver en Aurebesh lo que
+     * se escribe y la tabla del alfabeto, con las letras que ya se leen sin ayuda marcadas.
+     */
+    private void buildLearn(LinearLayout body) {
+        LinearLayout g = group(body, R.string.ux_group_alphabet);
+        hintSub = text("", 14, secondary, false);
+        hintLearned = text("", 13, secondary, false);
+        TextView reset = chipButton(R.string.aj_hint_reset, new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                // Vuelven a verse todas las letras: contadores fuera de las preferencias y de la copia del teclado
+                Prefs.get(MainActivity.this).edit().remove(Prefs.HINT_COUNTS).apply();
+                if (preview != null) preview.resetHintCounts();
+                refreshHintRow();
+                Toast.makeText(MainActivity.this, R.string.aj_hint_reset_done, Toast.LENGTH_SHORT).show();
+            }
+        });
+        LinearLayout resetRow = column();
+        resetRow.addView(hintLearned, block(0));
+        LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(WRAP, WRAP);
+        rp.topMargin = px(8);
+        resetRow.addView(reset, rp);
+        hintResetRow = resetRow;
+        LinearLayout extra = column();
+        extra.addView(hintSub, block(0));
+        extra.addView(resetRow, block(10));
+        chipRow(g, R.string.opt_hints, getString(R.string.aj_hint_mode_sub), hintGroup(), extra);
+        refreshHintRow();
+        optionRow(g, R.string.immersive_title, R.string.immersive_sub, Prefs.STRIP, Prefs.strip(this));
+        alphabetCard(group(body, R.string.alphabet_title));
+    }
+
+    /** Bajo los chips de la letra normal: la frase de la opcion elegida y, en Aprendiendo, el contador y el boton de volver a verlas. */
+    private void refreshHintRow() {
+        if (hintSub == null) return;
+        String mode = Prefs.hintMode(this);
+        hintSub.setText(nameOf(HINT_MODES, HINT_SUBS, mode));
+        boolean learning = "learning".equals(mode);
+        hintResetRow.setVisibility(learning ? View.VISIBLE : View.GONE);
+        int done = learnedHintLetters().size();
+        hintLearned.setText(getString(R.string.hint_learned_count, done));
+        hintLearned.setVisibility(done > 0 ? View.VISIBLE : View.GONE);
+    }
+
+    /**
+     * Tabla del alfabeto: las letras en orden alfabetico (con la del idioma del teclado), las letras dobles del
+     * Aurebesh, las creadas para el teclado espanol y los numeros; cada grupo con su rotulo.
+     */
+    private void alphabetCard(LinearLayout parent) {
+        LinearLayout col = column();
+        col.setPadding(px(12), px(14), px(12), px(14));
+        TextView sub = text(getString(R.string.alphabet_sub), 14, secondary, false);
+        sub.setPadding(px(6), 0, px(6), 0);
+        col.addView(sub, block(0));
+        String lang = AppLocale.current(this);
+        java.util.Set<String> known = "learning".equals(Prefs.hintMode(this)) ? learnedHintLetters() : null;
+        String letters = "abcdefghijklmnopqrstuvwxyz";
+        alphabetGroup(col, R.string.alphabet_letters, letters.split(""), known);
+        alphabetGroup(col, R.string.alphabet_doubles, Glyphs.DIGRAPHS, null);
+        if ("es".equals(lang)) {
+            java.util.List<String> extra = new java.util.ArrayList<>();
+            extra.add("\u00f1");
+            extra.addAll(java.util.Arrays.asList(Glyphs.DIGRAPHS_ES));
+            alphabetGroup(col, R.string.alphabet_extra, extra.toArray(new String[0]), known);
+        } else if ("de".equals(lang)) {
+            alphabetGroup(col, R.string.alphabet_extra, new String[]{"\u00e4", "\u00f6", "\u00fc", "\u00df"}, known);
+        }
+        alphabetGroup(col, R.string.alphabet_numbers, "1234567890".split(""), null);
+        parent.addView(col, block(0));
+        register(col, getString(R.string.alphabet_title), getString(R.string.alphabet_title) + " " + getString(R.string.alphabet_sub)
+                + " aurek besh cresh");
+    }
+
+    private void alphabetGroup(LinearLayout col, int label, String[] items, java.util.Set<String> known) {
+        java.util.List<String> shown = new java.util.ArrayList<>();
+        for (String it : items) if (it != null && !it.isEmpty() && Glyphs.glyphKey(it) != null) shown.add(it);
+        if (shown.isEmpty()) return;
+        TextView t = text(getString(label), 13, secondary, true);
+        t.setPadding(px(6), 0, px(6), px(4));
+        col.addView(t, block(14));
+        AlphabetView v = new AlphabetView(this, shown.toArray(new String[0]), known, ink, secondary, pal.surface2, pal.accentTile);
+        col.addView(v, block(0));
+    }
+
+    /** Idiomas y teclas: idioma del teclado, fila de arriba, letras dobles y simbolos en las teclas. */
     private void buildKeys(LinearLayout body) {
         LinearLayout g = group(body, 0);
         chipRow(g, R.string.top_lang_title, getString(R.string.top_lang_hint), langGroup());
         chipRow(g, R.string.top_row_title, getString(R.string.top_row_sub), topRowGroup());
+        optionRow(g, R.string.alt_chars_title, R.string.alt_chars_sub, R.string.alt_chars_hint, Prefs.ALT_CHARS, Prefs.altChars(this));
+        g = group(body, R.string.alphabet_doubles);
         optionRow(g, R.string.opt_digraphs, R.string.opt_digraphs_sub, Prefs.DIGRAPHS, Prefs.digraphs(this));
         optionRow(g, R.string.es_digraphs_title, R.string.es_digraphs_sub, Prefs.DIGRAPHS_ES, Prefs.digraphsEs(this));
-        optionRow(g, R.string.alt_chars_title, R.string.alt_chars_sub, R.string.alt_chars_hint, Prefs.ALT_CHARS, Prefs.altChars(this));
-        g = group(body, R.string.ux_group_alphabet);
-        // Cuantas letras han perdido ya su pista en Aprendiendo: asi se ve que las que faltan no son un fallo
-        final TextView learned = text("", 13, secondary, false);
-        int done = learnedHintLetters();
-        if (done > 0 && "learning".equals(Prefs.hintMode(this))) learned.setText(getString(R.string.hint_learned_count, done));
-        else learned.setVisibility(View.GONE);
-        TextView reset = chipButton(R.string.aj_hint_reset, new View.OnClickListener() {
-            @Override public void onClick(View v) {
-                // Vuelven a verse todas las pistas: contadores fuera de las preferencias y de la copia del teclado
-                Prefs.get(MainActivity.this).edit().remove(Prefs.HINT_COUNTS).apply();
-                if (preview != null) preview.resetHintCounts();
-                learned.setVisibility(View.GONE);
-                Toast.makeText(MainActivity.this, R.string.aj_hint_reset_done, Toast.LENGTH_SHORT).show();
-            }
-        });
-        LinearLayout resetRow = new LinearLayout(this);
-        resetRow.setOrientation(LinearLayout.HORIZONTAL);
-        resetRow.setGravity(Gravity.CENTER_VERTICAL);
-        resetRow.addView(reset, new LinearLayout.LayoutParams(WRAP, WRAP));
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(WRAP, WRAP);
-        lp.leftMargin = px(12);
-        resetRow.addView(learned, lp);
-        chipRow(g, R.string.opt_hints, getString(R.string.aj_hint_mode_sub), hintGroup(), resetRow);
-        optionRow(g, R.string.immersive_title, R.string.immersive_sub, Prefs.STRIP, Prefs.strip(this));
     }
 
-    /** Letras cuya pista latina ya desaparecio en Aprendiendo (40 pulsaciones), segun Prefs.HINT_COUNTS ("letra n" por linea). */
-    private int learnedHintLetters() {
+    /** Letras que ya se leen sin ayuda en Aprendiendo (40 pulsaciones), segun Prefs.HINT_COUNTS ("letra n" por linea). */
+    private java.util.Set<String> learnedHintLetters() {
+        java.util.Set<String> out = new java.util.HashSet<>();
         String raw = Prefs.get(this).getString(Prefs.HINT_COUNTS, null);
-        if (raw == null) return 0;
-        int n = 0;
+        if (raw == null) return out;
         for (String line : raw.split("\n")) {
             int cut = line.indexOf(' ');
             if (cut <= 0) continue;
             try {
-                if (Integer.parseInt(line.substring(cut + 1).trim()) >= AurebeshKeyboardView.HINT_FADE_TAPS) n++;
+                if (Integer.parseInt(line.substring(cut + 1).trim()) >= AurebeshKeyboardView.HINT_FADE_TAPS) out.add(line.substring(0, cut));
             } catch (NumberFormatException ignored) {
                 // linea corrupta: no cuenta
             }
         }
-        return n;
+        return out;
     }
 
     /** Estilo: temas (automaticos y fijos), sable de luz y barra de herramientas (sus iconos se eligen desde el teclado). */
@@ -1201,8 +1389,14 @@ public final class MainActivity extends Activity {
         register(shots, getString(R.string.shots_title), getString(R.string.shots_title) + " " + getString(R.string.shots_sub));
     }
 
-    /** Inteligencia: modelo local o servidor propio. */
+    /** Asistente de IA: que hace (y que es opcional) y, debajo, modelo local o servidor propio. */
     private void buildAi(LinearLayout body) {
+        LinearLayout intro = column();
+        intro.setPadding(px(18), px(16), px(18), px(16));
+        intro.addView(text(getString(R.string.ai_intro_title), 16, ink, true), block(0));
+        intro.addView(text(getString(R.string.ai_intro_body), 14, secondary, false), block(4));
+        group(body, 0).addView(intro, block(0));
+        register(intro, getString(R.string.ai_intro_title), getString(R.string.ai_intro_title) + " " + getString(R.string.ai_intro_body));
         aiCard = AiSettingsCard.build(this, pal);
         group(body, 0).addView(aiCard, block(0));
         accessibleRadios(aiCard);
@@ -1210,13 +1404,49 @@ public final class MainActivity extends Activity {
                 + " " + getString(R.string.sum_ai_remote, ""));
     }
 
-    /** Ayuda y gestos: pares gesto / resultado, de la escritura a los paneles y el modo de ajuste. */
+    /**
+     * Ayuda: primero las preguntas de quien llega (que hace, como volver al teclado de antes, como quitarlo, si es
+     * seguro, el aviso de aplicacion danina y la pantalla externa del Flip), el enlace al alfabeto, despues los gestos
+     * y, al final, "Acerca de" con la version, la compatibilidad y las licencias que antes ocupaban el pie.
+     */
     private void buildHelp(LinearLayout body) {
-        LinearLayout g = group(body, 0);
+        LinearLayout g = group(body, R.string.faq_group);
+        gestureRow(g, R.string.faq_what_q, R.string.faq_what_a);
+        gestureRow(g, R.string.faq_back_q, R.string.faq_back_a);
+        TextView switchNow = chipButton(R.string.faq_back_button, showPicker);
+        LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(WRAP, WRAP);
+        sp.leftMargin = px(18);
+        sp.bottomMargin = px(14);
+        g.addView(switchNow, sp);
+        gestureRow(g, R.string.faq_remove_q, R.string.faq_remove_a);
+        gestureRow(g, R.string.safe_title, R.string.safe_body);
+        gestureRow(g, R.string.faq_warn_q, R.string.faq_warn_a);
+        gestureRow(g, R.string.faq_flip_q, R.string.top_status_cover);
+        g = group(body, 0);
+        actionRow(g, R.string.alphabet_title, R.string.alphabet_sub, new View.OnClickListener() {
+            @Override public void onClick(View v) { openPage(pages.get(PAGE_LEARN), true); }
+        });
+        g = group(body, R.string.help_tricks_group);
         for (int i = 0; i < GESTURES.length; i += 2) gestureRow(g, GESTURES[i], GESTURES[i + 1]);
+        g = group(body, R.string.about_group);
+        aboutRow(g, getString(R.string.about_version, getString(R.string.version)),
+                getString(DeviceInfo.optimized() ? R.string.footer_compat_ok : R.string.footer_compat_other, DeviceInfo.label()));
+        aboutRow(g, getString(R.string.cat_privacy), getString(R.string.about_privacy));
+        aboutRow(g, null, getString(R.string.credits));
     }
 
-    /** Parejas gesto / resultado de "Ayuda y gestos" (su numero sale en el resumen antes de construir la pagina). */
+    /** Bloque de "Acerca de": titulo opcional y texto pequeno. */
+    private void aboutRow(LinearLayout parent, String title, String body) {
+        separator(parent);
+        LinearLayout col = column();
+        col.setPadding(px(18), px(12), px(18), px(14));
+        if (title != null) col.addView(text(title, 15, ink, false), block(0));
+        col.addView(text(body, 13, secondary, false), block(title != null ? 2 : 0));
+        parent.addView(col, block(0));
+        register(col, title != null ? title : getString(R.string.about_group), (title != null ? title + " " : "") + body);
+    }
+
+    /** Parejas gesto / resultado de "Trucos del teclado", en Ayuda. */
     private static final int[] GESTURES = {
             R.string.gesture_accent, R.string.gesture_accent_result,
             R.string.gesture_enye, R.string.gesture_enye_result,
@@ -1364,16 +1594,24 @@ public final class MainActivity extends Activity {
         return false;
     }
 
-    /** Privacidad y datos: restablecer, borrar datos personales, que hay guardado en el telefono y exportar/importar. */
+    /** Privacidad y datos: que nada sale del telefono, que hay guardado, borrar datos personales, restablecer y exportar/importar. */
     private void buildPrivacy(LinearLayout body) {
+        // Lo primero, lo que tranquiliza: nada sale del telefono; despues que hay guardado, como borrarlo y, al final, restablecer
         LinearLayout g = group(body, 0);
-        actionRow(g, R.string.aj_reset, R.string.aj_reset_sub, new View.OnClickListener() {
-            @Override public void onClick(View v) { confirmReset(); }
-        });
+        LinearLayout safe = column();
+        safe.setPadding(px(18), px(16), px(18), px(16));
+        safe.addView(text(getString(R.string.privacy_safe_title), 16, ink, true), block(0));
+        safe.addView(text(getString(R.string.privacy_safe_body), 14, secondary, false), block(4));
+        g.addView(safe, block(0));
+        register(safe, getString(R.string.privacy_safe_title), getString(R.string.privacy_safe_title) + " " + getString(R.string.privacy_safe_body));
+        dataCard(group(body, 0));
+        g = group(body, 0);
         actionRow(g, R.string.aj_wipe, R.string.aj_wipe_sub, new View.OnClickListener() {
             @Override public void onClick(View v) { confirmWipe(); }
         });
-        dataCard(group(body, 0));
+        actionRow(g, R.string.aj_reset, R.string.aj_reset_sub, new View.OnClickListener() {
+            @Override public void onClick(View v) { confirmReset(); }
+        });
         g = group(body, R.string.ux_group_backup);
         actionRow(g, R.string.aj_export_settings, R.string.aj_export_settings_sub, new View.OnClickListener() {
             @Override public void onClick(View v) { askExportSettings(); }
@@ -1760,8 +1998,13 @@ public final class MainActivity extends Activity {
 
     // ------------------------------------------------------------------ estado
 
+    /**
+     * Pone la tarjeta de arriba en su estado: el paso en curso con su boton (encender el teclado en los ajustes o
+     * elegirlo), los ya hechos con su marca, o "Teclado activado" cuando Aurebesh es el teclado actual; y coloca la
+     * principal segun ese estado.
+     */
     private void updateSetup() {
-        if (keyboardButton == null) return;
+        if (setupSteps == null) return;
         boolean enabled = false;
         InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
         for (InputMethodInfo info : imm.getEnabledInputMethodList()) {
@@ -1770,27 +2013,24 @@ public final class MainActivity extends Activity {
         String current = Settings.Secure.getString(getContentResolver(), Settings.Secure.DEFAULT_INPUT_METHOD);
         boolean selected = current != null && current.startsWith(getPackageName() + "/");
 
-        if (selected) {
-            // En la pantalla externa del Z Flip, One UI usa siempre el teclado Samsung: decirlo evita que parezca un fallo
-            topStatus.setText(onCoverScreen() ? R.string.top_status_cover : R.string.top_status_done);
-            styleButton(keyboardButton, false);
-            keyboardButton.setText(R.string.top_keyboard_choose);
-            keyboardButton.setOnClickListener(showPicker);
-        } else if (enabled) {
-            topStatus.setText(R.string.top_status_choose);
-            styleButton(keyboardButton, true);
-            keyboardButton.setText(R.string.top_keyboard_choose);
-            keyboardButton.setOnClickListener(showPicker);
-        } else {
-            topStatus.setText(R.string.top_status_enable);
-            styleButton(keyboardButton, true);
-            keyboardButton.setText(R.string.top_keyboard_enable);
-            keyboardButton.setOnClickListener(new View.OnClickListener() {
-                @Override public void onClick(View v) {
-                    startActivity(new Intent(Settings.ACTION_INPUT_METHOD_SETTINGS));
-                }
-            });
+        setupSteps.setVisibility(selected ? View.GONE : View.VISIBLE);
+        setupDone.setVisibility(selected ? View.VISIBLE : View.GONE);
+        // En la pantalla externa del Z Flip, One UI usa siempre el teclado Samsung: decirlo evita que parezca un fallo
+        topStatus.setText(onCoverScreen() ? R.string.top_status_cover : R.string.setup_done_body);
+        int now = enabled ? 1 : 0;                       // paso en curso: encenderlo (0) o elegirlo (1)
+        for (int i = 0; i < stepMark.length; i++) {
+            boolean past = i < now, here = i == now;
+            stepMark[i].setText(past ? "\u2713" : String.valueOf(i + 1));
+            GradientDrawable bg = new GradientDrawable();
+            bg.setShape(GradientDrawable.OVAL);
+            bg.setColor(here ? pal.accent : past ? pal.accentTile : pal.surface2);
+            stepMark[i].setBackground(bg);
+            stepMark[i].setTextColor(here ? pal.onAccent : past ? pal.accentInk : secondary);
+            stepTitle[i].setTextColor(i <= now ? ink : secondary);
+            stepTitle[i].setContentDescription((i + 1) + ". " + stepTitle[i].getText() + (past ? " \u2713" : ""));
+            stepDetail[i].setVisibility(here || i == 2 ? View.VISIBLE : View.GONE);   // el tercero solo es una frase
         }
+        arrangeHome(selected);
     }
 
     private final View.OnClickListener showPicker = new View.OnClickListener() {
@@ -1939,8 +2179,13 @@ public final class MainActivity extends Activity {
     private static final int[] VIBRATION_NAMES = {R.string.aj_vib_system, R.string.aj_vib_soft, R.string.aj_vib_medium, R.string.aj_vib_strong};
     private static final String[] TOP_LANGS = {"es", "en", "de"};
     private static final int[] TOP_LANG_NAMES = {R.string.app_lang_es, R.string.app_lang_en, R.string.app_lang_de};
-    private static final String[] HINT_MODES = {"off", "on", "learning"};
-    private static final int[] HINT_MODE_NAMES = {R.string.aj_hint_off, R.string.aj_hint_on, R.string.aj_hint_learning};
+    private static final String[] HINT_MODES = {"on", "learning", "off"};
+    private static final int[] HINT_MODE_NAMES = {R.string.aj_hint_on, R.string.aj_hint_learning, R.string.aj_hint_off};
+    /** Las mismas tres opciones como respuesta a "¿Sabes leer Aurebesh?" en la principal, y la frase de cada una. */
+    private static final int[] LEVEL_NAMES = {R.string.level_no, R.string.level_learning, R.string.level_yes};
+    private static final int[] HINT_SUBS = {R.string.level_no_sub, R.string.level_learning_sub, R.string.level_yes_sub};
+    private static final int[] BOTTOM_NAMES = {R.string.margin_0, R.string.margin_12, R.string.margin_24, R.string.margin_36};
+    private static final int[] BOTTOM_SUMS = {R.string.sum_margin_0, R.string.sum_margin_12, R.string.sum_margin_24, R.string.sum_margin_36};
     static final String[] TOP_ROWS = {"numbers", "digraphs", "none"};
     private static final int[] TOP_ROW_NAMES = {R.string.top_row_numbers, R.string.top_row_digraphs, R.string.top_row_none};
     /** Paralelo a Prefs.SABERS: nombre del color (solo el color, sin personajes). */
@@ -2006,9 +2251,7 @@ public final class MainActivity extends Activity {
 
     /** Margen inferior: entero por pantalla; con un valor fuera de los chips (tiradores) no hay ninguno marcado. */
     private ChipGroup bottomGroup() {
-        String[] labels = new String[BOTTOMS.length];
-        for (int i = 0; i < BOTTOMS.length; i++) labels[i] = BOTTOMS[i] + " dp";
-        return new ChipGroup(Prefs.perScreen(this, Prefs.BOTTOM_DP), "0", BOTTOMS, labels) {
+        return new ChipGroup(Prefs.perScreen(this, Prefs.BOTTOM_DP), "0", BOTTOMS, BOTTOM_NAMES) {
             @Override String current() { return String.valueOf(Prefs.bottomDp(MainActivity.this)); }
             @Override void pick(String id) { Prefs.setBottomDp(MainActivity.this, Integer.parseInt(id)); }
         };
@@ -2019,10 +2262,12 @@ public final class MainActivity extends Activity {
      * mantiene en paralelo para el codigo que aun lo lee).
      */
     private ChipGroup hintGroup() {
-        return new ChipGroup(Prefs.HINT_MODE, "off", HINT_MODES, HINT_MODE_NAMES) {
+        return new ChipGroup(Prefs.HINT_MODE, "on", HINT_MODES, HINT_MODE_NAMES) {
             @Override String current() { return Prefs.hintMode(MainActivity.this); }
-            @Override void pick(String id) {
-                Prefs.get(MainActivity.this).edit().putString(Prefs.HINT_MODE, id).putBoolean(Prefs.HINTS, !"off".equals(id)).apply();
+            @Override void pick(String id) { saveHintMode(id); }
+            @Override void refresh() {
+                super.refresh();
+                refreshHintRow();
             }
         };
     }
@@ -2984,6 +3229,7 @@ public final class MainActivity extends Activity {
         searchClear = clear;
         box.addView(clear, new LinearLayout.LayoutParams(px(40), px(40)));
         root.addView(box, block(12));
+        searchBox = box;
         searchResults = cardColumn();
         searchResults.setVisibility(View.GONE);
         root.addView(searchResults, block(12));
@@ -3052,7 +3298,9 @@ public final class MainActivity extends Activity {
         if (searchClear != null) searchClear.setVisibility(on ? View.VISIBLE : View.GONE);
         if (on) ensureAllBuilt();
         int shown = on ? View.GONE : View.VISIBLE;
-        for (View v : new View[]{topCard, tryCard, listCard, footCard, compatCard, bigHeader}) if (v != null) v.setVisibility(shown);
+        for (View v : new View[]{topCard, tryCard, levelCard, safeCard, listCard, langCard, footCard, compatCard, bigHeader}) {
+            if (v != null) v.setVisibility(shown);
+        }
         searchResults.removeAllViews();
         int n = 0;
         if (on) {
@@ -3160,74 +3408,54 @@ public final class MainActivity extends Activity {
 
     // ------------------------------------------------------------------ resumenes
 
-    /** Resumen de una linea bajo el titulo de cada categoria, con los valores actuales (y la descripcion accesible). */
+    /**
+     * Resumen bajo el titulo de cada categoria (y la descripcion accesible): una frase corta que dice que hay dentro;
+     * lleva un valor solo cuando es el dato que importa (idioma, tema, altura, estado del asistente).
+     */
     private void updateSummaries() {
         Page p;
+        if ((p = pages.get(PAGE_LEARN)) != null) {
+            int known = "learning".equals(Prefs.hintMode(this)) ? learnedHintLetters().size() : 0;
+            if (known > 0) p.summary.setText(getString(R.string.hint_learned_count, known));
+            else p.summary.setText(R.string.sum_learn_page);
+        }
         if ((p = pages.get(PAGE_KEYS)) != null) {
             java.util.List<String> parts = new java.util.ArrayList<>();
             parts.add(getString(nameOf(TOP_LANGS, TOP_LANG_NAMES, AppLocale.current(this))));
             String top = Prefs.topRow(this);
             parts.add("none".equals(top) ? getString(R.string.sum_top_row_none)
                     : getString(R.string.sum_top_row, lower(nameOf(TOP_ROWS, TOP_ROW_NAMES, top))));
-            if (Prefs.digraphs(this)) parts.add(getString(R.string.sum_digraphs));
-            if (Prefs.altChars(this)) parts.add(getString(R.string.sum_alt_chars));
-            String hints = Prefs.hintMode(this);
-            if ("on".equals(hints)) parts.add(getString(R.string.sum_hints));
-            else if ("learning".equals(hints)) parts.add(getString(R.string.aj_sum_hints_learning));
-            if (Prefs.strip(this)) parts.add(getString(R.string.immersive_short));
             p.summary.setText(join(parts));
         }
         if ((p = pages.get(PAGE_STYLE)) != null) {
             java.util.List<String> parts = new java.util.ArrayList<>();
             parts.add(themeLabel());
             parts.add(getString(R.string.aj_sum_saber, lower(SABER_NAMES[saberIndex()])));
-            if (Prefs.toolbar(this)) parts.add(getString(R.string.sum_toolbar));
             p.summary.setText(join(parts));
         }
         if ((p = pages.get(PAGE_SIZE)) != null) {
             java.util.List<String> parts = new java.util.ArrayList<>();
-            parts.add(Prefs.heightPct(this) + PCT);
-            parts.add(getString(R.string.aj_sum_margin, Prefs.bottomDp(this)));
+            parts.add(getString(R.string.sum_size_height, Prefs.heightPct(this)));
+            int margin = BOTTOMS.length;                 // fuera de los cuatro botones (tiradores): "a medida"
+            for (int i = 0; i < BOTTOMS.length; i++) if (BOTTOMS[i].equals(String.valueOf(Prefs.bottomDp(this)))) margin = i;
+            parts.add(getString(margin < BOTTOM_SUMS.length ? BOTTOM_SUMS[margin] : R.string.sum_margin_custom));
             String hand = Prefs.hand(this);
             if (!"none".equals(hand)) parts.add(getString(R.string.sum_hand, getString(nameOf(HANDS, HAND_NAMES, hand))));
             String split = Prefs.splitPref(this);
             if (wide || !"auto".equals(split)) parts.add(getString(R.string.aj_sum_split, getString(nameOf(SPLITS, SPLIT_NAMES, split))));
             p.summary.setText(join(parts));
         }
-        if ((p = pages.get(PAGE_SMART)) != null) {
-            java.util.List<String> parts = new java.util.ArrayList<>();
-            if (Prefs.autocorrect(this)) parts.add(getString(R.string.sum_autocorrect));
-            if (Prefs.autoReplace(this)) parts.add(getString(R.string.aj_sum_replace));
-            if (Prefs.learn(this)) parts.add(getString(R.string.sum_learn));
-            if (Prefs.starWars(this)) parts.add(getString(R.string.aj_sum_starwars));
-            int n = Prefs.shortcuts(this).size();
-            parts.add(getResources().getQuantityString(R.plurals.aj_sum_shortcuts, n, n));
-            p.summary.setText(join(parts));
-        }
-        if ((p = pages.get(PAGE_TOUCH)) != null) {
-            java.util.List<String> parts = new java.util.ArrayList<>();
-            if (Prefs.glide(this)) parts.add(getString(R.string.sum_glide));
-            if (Prefs.preview(this)) parts.add(getString(R.string.aj_sum_bubble));
-            parts.add(getString(R.string.sum_longpress, lower(nameOf(LONGPRESSES, LONGPRESS_NAMES, Prefs.longPress(this)))));
-            if (Prefs.sound(this)) parts.add(getString(R.string.sum_sound));
-            if (Prefs.vibrate(this)) {
-                String level = Prefs.vibration(this);
-                parts.add("system".equals(level) ? getString(R.string.sum_vibrate)
-                        : getString(R.string.aj_sum_vibration, lower(nameOf(VIBRATIONS, VIBRATION_NAMES, level))));
-            }
-            p.summary.setText(join(parts));
-        }
-        if ((p = pages.get(PAGE_CLIPBOARD)) != null) {
-            p.summary.setText(Prefs.screenshots(this) ? R.string.aj_sum_shots_on : R.string.aj_sum_shots_off);
-        }
+        if ((p = pages.get(PAGE_SMART)) != null) p.summary.setText(R.string.sum_smart_desc);
+        if ((p = pages.get(PAGE_TOUCH)) != null) p.summary.setText(R.string.sum_touch_desc);
+        if ((p = pages.get(PAGE_CLIPBOARD)) != null) p.summary.setText(R.string.sum_clipboard_desc);
         if ((p = pages.get(PAGE_AI)) != null) {
             String name = AiModels.engineShortName(this);
             if (AiModels.remote(this)) p.summary.setText(getString(R.string.sum_ai_remote, name == null ? "—" : name));
             else if (name != null) p.summary.setText(getString(R.string.sum_ai_ready, name));
             else p.summary.setText(R.string.sum_ai_none);
         }
-        if ((p = pages.get(PAGE_PRIVACY)) != null) p.summary.setText(R.string.aj_sum_more);
-        if ((p = pages.get(PAGE_HELP)) != null) p.summary.setText(getString(R.string.sum_gestures, GESTURES.length / 2));
+        if ((p = pages.get(PAGE_PRIVACY)) != null) p.summary.setText(R.string.sum_privacy_desc);
+        if ((p = pages.get(PAGE_HELP)) != null) p.summary.setText(R.string.sum_help_desc);
         for (Page page : pages.values()) describeRow(page);
     }
 

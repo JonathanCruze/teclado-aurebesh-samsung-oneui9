@@ -23,7 +23,7 @@
     <string name="tools_label_resize">Tamaño y posición</string>
     <string name="tools_label_hide">Ocultar teclado</string>
     <string name="tools_label_settings">Ajustes</string>
-    <string name="tools_label_ai">Inteligencia</string>
+    <string name="tools_label_ai">Asistente IA</string>
 
     <!-- Panel de edicion de texto -->
     <string name="edit_title">Edición de texto</string>

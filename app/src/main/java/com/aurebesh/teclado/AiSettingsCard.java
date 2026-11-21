@@ -154,12 +154,28 @@ final class AiSettingsCard {
             }
             LinearLayout.LayoutParams gp = new LinearLayout.LayoutParams(MATCH, WRAP);
             gp.topMargin = px(10);
-            head.addView(text(a.getString(R.string.ai_guide_title), 13, ink, true), gp);
+            // La guia por modelos de Galaxy va plegada: la recomendacion para este telefono ya esta arriba
+            final String guideTitle = a.getString(R.string.ai_guide_title);
+            final TextView guideToggle = text(guideTitle + "  \u25be", 13, ink, true);
+            guideToggle.setPadding(0, px(6), 0, px(6));
+            final LinearLayout guide = new LinearLayout(a);
+            guide.setOrientation(VERTICAL);
+            guide.setVisibility(GONE);
             for (int res : new int[]{R.string.ai_guide_high, R.string.ai_guide_mid, R.string.ai_guide_low}) {
                 LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(MATCH, WRAP);
                 lp.topMargin = px(2);
-                head.addView(text("\u2022 " + a.getString(res), 12, secondary, false), lp);
+                guide.addView(text("\u2022 " + a.getString(res), 12, secondary, false), lp);
             }
+            guideToggle.setOnClickListener(new OnClickListener() {
+                @Override public void onClick(View v) {
+                    boolean open = guide.getVisibility() != VISIBLE;
+                    guide.setVisibility(open ? VISIBLE : GONE);
+                    guideToggle.setText(guideTitle + (open ? "  \u25b4" : "  \u25be"));
+                }
+            });
+            MainActivity.a11y(guideToggle, Button.class, false, null);
+            head.addView(guideToggle, gp);
+            head.addView(guide, new LinearLayout.LayoutParams(MATCH, WRAP));
             addView(head, new LinearLayout.LayoutParams(MATCH, WRAP));
             models = new LinearLayout(a);
             models.setOrientation(VERTICAL);

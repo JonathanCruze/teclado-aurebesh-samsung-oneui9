@@ -4,7 +4,7 @@
 
     <!-- Diseno: sable de luz -->
     <string name="aj_saber">Sable de luz</string>
-    <string name="aj_saber_sub">Color de la estela al deslizar para escribir; el núcleo siempre es blanco</string>
+    <string name="aj_saber_sub">Color del rastro que deja tu dedo al escribir deslizando.</string>
     <string name="saber_blue">Azul</string>
     <string name="saber_blue_who">Anakin y Obi-Wan</string>
     <string name="saber_green">Verde</string>
@@ -20,12 +20,12 @@
     <string name="aj_sum_saber">sable %1$s</string>
 
     <!-- Diseno: letras latinas en tres modos -->
-    <string name="aj_hint_mode_sub">Letra latina pequeña abajo a la derecha de cada tecla. En Aprendiendo, la pista de una letra desaparece cuando la has pulsado 40 veces; las poco frecuentes (q, w, k, x, z, ñ) la conservan más tiempo. Puedes reiniciar el progreso para verlas todas</string>
+    <string name="aj_hint_mode_sub">La letra de siempre, en pequeño, en una esquina de cada tecla.</string>
     <string name="aj_hint_off">Nunca</string>
     <string name="aj_hint_on">Siempre</string>
     <string name="aj_hint_learning">Aprendiendo</string>
-    <string name="aj_hint_reset">Reiniciar progreso</string>
-    <string name="aj_hint_reset_done">Todas las letras latinas vuelven a verse</string>
+    <string name="aj_hint_reset">Volver a mostrar todas las letras</string>
+    <string name="aj_hint_reset_done">Todas las teclas vuelven a mostrar su letra normal.</string>
     <string name="aj_sum_hints_learning">letras latinas: aprendiendo</string>
 
     <!-- Escritura inteligente: Star Wars y diccionario personal -->
@@ -54,7 +54,7 @@
     <string name="aj_data_title">Datos en este teléfono</string>
     <string name="aj_data_clip">Portapapeles · %1$d · %2$s</string>
     <string name="aj_data_dict">Diccionario personal · %1$d palabras · %2$d pares</string>
-    <string name="aj_data_models">Modelos de inteligencia · %1$d · %2$s</string>
+    <string name="aj_data_models">Modelos de IA · %1$d · %2$s</string>
     <string name="aj_data_sound">Sonido personalizado · %1$s</string>
     <string name="aj_data_sound_none">ninguno</string>
     <string name="aj_data_local">Nada de esto sale del teléfono</string>
@@ -63,7 +63,7 @@
     <string name="aj_remove_sound">Quitar</string>
     <string name="aj_clip_confirm">¿Vaciar el historial del portapapeles, incluidos los fijados?</string>
     <string name="aj_export_settings">Exportar ajustes…</string>
-    <string name="aj_export_settings_sub">Un archivo JSON con tus ajustes, atajos, diccionario personal y pares. Nunca la clave de tu servidor, salvo que marques la casilla</string>
+    <string name="aj_export_settings_sub">Crea un archivo con tus ajustes, atajos y diccionario personal para llevarlos a otro teléfono. Nunca incluye la clave de tu servidor, salvo que marques la casilla.</string>
     <string name="aj_export_include_key">Incluir mi servidor propio (URL, modelo y clave)</string>
     <string name="aj_import_settings">Importar ajustes…</string>
     <string name="aj_import_settings_sub">Lee un archivo exportado desde este teclado; solo se aplican los ajustes conocidos y con el tipo correcto</string>

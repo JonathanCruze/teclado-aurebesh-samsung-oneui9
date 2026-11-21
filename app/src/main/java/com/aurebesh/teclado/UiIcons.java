@@ -20,7 +20,7 @@ final class UiIcons {
     private UiIcons() {}
 
     static final int KEYS = 1, STYLE = 2, SIZE = 3, SMART = 4, TOUCH = 5, CLIPBOARD = 6, AI = 7, PRIVACY = 8, HELP = 9,
-            BACK = 10, SEARCH = 11, CLEAR = 12, CHEVRON_RIGHT = 13, CHEVRON_UP = 14, CHEVRON_DOWN = 15;
+            BACK = 10, SEARCH = 11, CLEAR = 12, CHEVRON_RIGHT = 13, CHEVRON_UP = 14, CHEVRON_DOWN = 15, LEARN = 16, CHECK = 17;
 
     private static final Path PATH = new Path();
     private static final RectF RECT = new RectF();
@@ -50,6 +50,8 @@ final class UiIcons {
             case AI: ToolIcons.draw(c, AurebeshKeyboardView.TOOL_AI, cx, cy, s * 0.95f, p); break;
             case PRIVACY: shield(c, cx, cy, s, p); break;
             case HELP: question(c, cx, cy, s, p); break;
+            case LEARN: book(c, cx, cy, s, p); break;
+            case CHECK: check(c, cx, cy, s, p); break;
             case BACK: back(c, cx, cy, s, p); break;
             case SEARCH: lens(c, cx, cy, s, p); break;
             case CLEAR: cross(c, cx, cy, s, p); break;
@@ -62,6 +64,30 @@ final class UiIcons {
         p.setStrokeWidth(width);
         p.setStrokeCap(cap);
         p.setStrokeJoin(join);
+    }
+
+    /** Libro abierto: dos hojas que se juntan en el lomo. */
+    private static void book(Canvas c, float cx, float cy, float s, Paint p) {
+        PATH.rewind();
+        PATH.moveTo(cx, cy - s * 0.2f);
+        PATH.quadTo(cx - s * 0.2f, cy - s * 0.36f, cx - s * 0.42f, cy - s * 0.28f);
+        PATH.lineTo(cx - s * 0.42f, cy + s * 0.24f);
+        PATH.quadTo(cx - s * 0.2f, cy + s * 0.16f, cx, cy + s * 0.32f);
+        PATH.quadTo(cx + s * 0.2f, cy + s * 0.16f, cx + s * 0.42f, cy + s * 0.24f);
+        PATH.lineTo(cx + s * 0.42f, cy - s * 0.28f);
+        PATH.quadTo(cx + s * 0.2f, cy - s * 0.36f, cx, cy - s * 0.2f);
+        PATH.close();
+        c.drawPath(PATH, p);
+        c.drawLine(cx, cy - s * 0.2f, cx, cy + s * 0.32f, p);
+    }
+
+    /** Marca de hecho. */
+    private static void check(Canvas c, float cx, float cy, float s, Paint p) {
+        PATH.rewind();
+        PATH.moveTo(cx - s * 0.3f, cy + s * 0.02f);
+        PATH.lineTo(cx - s * 0.08f, cy + s * 0.24f);
+        PATH.lineTo(cx + s * 0.32f, cy - s * 0.22f);
+        c.drawPath(PATH, p);
     }
 
     /** Teclado: caja redondeada con dos filas de puntos y la barra espaciadora. */

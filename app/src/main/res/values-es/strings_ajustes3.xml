@@ -9,8 +9,8 @@
     <string name="aj_back">Atrás</string>
     <string name="aj_open_page">Abre la página %1$s</string>
 
-    <string name="sum_top_row">fila superior: %1$s</string>
-    <string name="sum_top_row_none">sin fila superior</string>
+    <string name="sum_top_row">%1$s arriba</string>
+    <string name="sum_top_row_none">sin fila de arriba</string>
     <string name="sum_digraphs">dígrafos</string>
     <string name="sum_alt_chars">caracteres alternativos</string>
     <string name="sum_longpress">pulsación larga %1$s</string>

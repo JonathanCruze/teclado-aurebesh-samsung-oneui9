@@ -175,7 +175,7 @@ public class A11yTest {
         check(desc(p, kb.a11yIdOf(kb.keyFor(AurebeshKeyboardView.CODE_MODE))), "Símbolos", "?123 se llama Simbolos");
         check(desc(p, kb.a11yIdOf(kb.keyFor("ñ"))), "ñ", "la eñe");
         check(desc(p, EMOJI), "Emojis", "icono de emojis en espanol");
-        check(desc(p, AurebeshKeyboardView.A11Y_AI), "Inteligencia", "boton de inteligencia");
+        check(desc(p, AurebeshKeyboardView.A11Y_AI), "Asistente IA", "boton del asistente");
         check(desc(p, AurebeshKeyboardView.A11Y_TOOL + AurebeshKeyboardView.TOOL_MORE), "Más herramientas", "el ... de la cinta");
         check(stripX(kb, EMOJI, dp) > 0, "el icono de emojis esta en la cinta");
         check(p.createAccessibilityNodeInfo(AurebeshKeyboardView.A11Y_PASTE) == null, "sin chip Pegar no hay nodo Pegar");

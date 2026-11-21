@@ -9,7 +9,7 @@
     <string name="aj_back">Zurück</string>
     <string name="aj_open_page">Öffnet die Seite %1$s</string>
 
-    <string name="sum_top_row">obere Reihe: %1$s</string>
+    <string name="sum_top_row">%1$s oben</string>
     <string name="sum_top_row_none">ohne obere Reihe</string>
     <string name="sum_digraphs">Digraphen</string>
     <string name="sum_alt_chars">alternative Zeichen</string>

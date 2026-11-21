@@ -62,7 +62,7 @@ final class Prefs {
         return c.getSharedPreferences(NAME, Context.MODE_PRIVATE);
     }
 
-    static boolean hints(Context c) { return get(c).getBoolean(HINTS, false); }
+    static boolean hints(Context c) { return !"off".equals(hintMode(c)); }
     static boolean vibrate(Context c) { return get(c).getBoolean(VIBRATE, true); }
     static boolean digraphs(Context c) { return get(c).getBoolean(DIGRAPHS, true); }
     static boolean digraphsEs(Context c) { return get(c).getBoolean(DIGRAPHS_ES, true); }
@@ -188,7 +188,8 @@ final class Prefs {
     static String hintMode(Context c) {
         String m = get(c).getString(HINT_MODE, null);
         if (m != null) return m;
-        return get(c).getBoolean(HINTS, false) ? "on" : "off";
+        if (get(c).contains(HINTS)) return get(c).getBoolean(HINTS, false) ? "on" : "off";
+        return "on";   // de fabrica, cada tecla lleva su letra normal: quien no lee Aurebesh puede escribir desde el primer momento
     }
     /** 0 nunca, 1 siempre, 2 aprendiendo (se desvanecen con el uso). */
     static int hintModeInt(Context c) {
@@ -414,21 +415,32 @@ final class Prefs {
     /**
      * Migraciones de datos de una sola vez, al arrancar el teclado o la app. 1 (version 2.6): salen de las palabras
      * aprendidas las que la tabla nueva separa ("alomejor" -> "a lo mejor"); la version anterior las aprendia sola por
-     * repeticion y, aprendidas, la tabla no actuaria justo para quien las escribe por costumbre.
+     * repeticion y, aprendidas, la tabla no actuaria justo para quien las escribe por costumbre. 2 (version 2.8): se
+     * conserva "sin letra normal en las teclas" para quien ya usaba el teclado con el valor de fabrica anterior.
      */
     static void migrate(Context c) {
         SharedPreferences ui = ui(c);
-        if (ui.getInt(MIGRATED, 0) >= 1) return;
-        StringBuilder b = new StringBuilder();
-        boolean changed = false;
-        for (String w : get(c).getString(LEARNED, "").split("\n")) {
-            if (w.isEmpty()) continue;
-            if (Dictionary.fixedKey(w)) { changed = true; continue; }
-            if (b.length() > 0) b.append('\n');
-            b.append(w);
+        int done = ui.getInt(MIGRATED, 0);
+        if (done >= 2) return;
+        if (done < 1) {
+            StringBuilder b = new StringBuilder();
+            boolean changed = false;
+            for (String w : get(c).getString(LEARNED, "").split("\n")) {
+                if (w.isEmpty()) continue;
+                if (Dictionary.fixedKey(w)) { changed = true; continue; }
+                if (b.length() > 0) b.append('\n');
+                b.append(w);
+            }
+            if (changed) get(c).edit().putString(LEARNED, b.toString()).apply();
         }
-        if (changed) get(c).edit().putString(LEARNED, b.toString()).apply();
-        ui.edit().putInt(MIGRATED, 1).apply();
+        // 2 (version 2.8): la letra normal en las teclas pasa a venir encendida de fabrica. Quien ya usaba el teclado
+        // sin haber tocado ese ajuste lo tenia apagado y asi se queda: se anota su valor antes de cambiar el de fabrica
+        SharedPreferences p = get(c);
+        boolean used = done >= 1 || !p.getAll().isEmpty() || !ui.getAll().isEmpty();
+        if (used && !p.contains(HINT_MODE) && !p.contains(HINTS)) {
+            p.edit().putString(HINT_MODE, "off").putBoolean(HINTS, false).apply();
+        }
+        ui.edit().putInt(MIGRATED, 2).apply();
     }
 
     /** Guarda una palabra aprendida (la mas reciente primero; como mucho 500). */
