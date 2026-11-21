@@ -472,6 +472,61 @@ public class GestureTest {
         check(menus > 2000, "menus comprobados: " + menus);
     }
 
+    /**
+     * Las comillas angulares tienen glifo propio (la cuna del menor que, dos veces bajo un techo) y el que la fuente
+     * base traia en ellas, que parece un menor o igual, pasa a serlo; la raya corta y la larga son el guion alargado, y
+     * el punto de lista y la ae ligada tambien se dibujan en Aurebesh. Todo lo que el teclado espanol puede escribir
+     * tiene glifo salvo el grado, que se deja en latino a proposito.
+     */
+    @Test
+    public void guillemetsLessEqualAndDashesHaveGlyphs() throws Exception {
+        Application app = (Application) RuntimeEnvironment.getApplication();
+        for (String g : new String[]{"\u00ab", "\u00bb", "\u2264", "\u2265", "\u2013", "\u2014", "\u2022", "\u00e6"}) {
+            check(Glyphs.has(g) && Glyphs.width(g) > 1.5f, "glifo de " + g);
+        }
+        check(Glyphs.width("\u00ab") > Glyphs.width("\u2264") + 2f, "las comillas (dos cunas) son mas anchas que el menor o igual");
+        near("comillas de apertura y de cierre, igual de anchas", Glyphs.width("\u00ab"), Glyphs.width("\u00bb"));
+        near("menor o igual, del ancho del menor que", Glyphs.width("\u2264"), Glyphs.width("<"));
+        check(Glyphs.width("-") < Glyphs.width("\u2013") && Glyphs.width("\u2013") < Glyphs.width("\u2014"), "guion < raya corta < raya larga");
+        near("la ae ligada es el digrafo ae", Glyphs.width("\u00e6"), Glyphs.width("ae"));
+        AurebeshKeyboardView kb = view(app, W);
+        Recorder rec = new Recorder();
+        kb.setListener(rec);
+        tap(kb, kb.keyFor(AurebeshKeyboardView.CODE_MODE));
+        layout(kb, W);
+        AurebeshKeyboardView.Key dash = kb.keyFor("-");
+        check(Arrays.toString(dash.alts), "[\u2013, \u2014]", "el guion ofrece la raya corta y la larga");
+        down(kb, dash.rect.centerX(), dash.rect.centerY());
+        idle(450);
+        java.util.List<String> o = Arrays.asList(kb.popupOptions());
+        RectF em = kb.popupCellRect(o.indexOf("\u2014"));
+        move(kb, em.centerX(), em.centerY());
+        up(kb, em.centerX(), em.centerY());
+        check(rec.typed.toString(), "\u2014", "deslizar hasta la raya larga la escribe");
+        rec.reset();
+        check(Arrays.asList(kb.keyFor("<").alts).contains("\u2264") && Arrays.asList(kb.keyFor(">").alts).contains("\u2265"), "menor y mayor ofrecen sus o igual");
+        save(render(kb, W), "simbolos_1_glifos.png");
+        tap(kb, kb.keyFor(AurebeshKeyboardView.CODE_PAGE));
+        layout(kb, W);
+        check(kb.keyFor("\u00ab") != null && kb.keyFor("\u00bb") != null, "comillas angulares en la pagina 2/2");
+        save(render(kb, W), "simbolos_2_glifos.png");
+        // Todo lo que el teclado espanol puede escribir tiene glifo (menos el grado)
+        StringBuilder sin = new StringBuilder();
+        kb.resetToLetters();
+        for (int page = 0; page < 3; page++) {
+            layout(kb, W);
+            for (java.util.List<AurebeshKeyboardView.Key> row : kb.currentRows()) {
+                for (AurebeshKeyboardView.Key k : row) {
+                    if (k.code != AurebeshKeyboardView.CODE_TEXT || k.output == null) continue;
+                    if (k.output.length() == 1 && Glyphs.glyphKey(k.output) == null && !"\u00b0".equals(k.output)) sin.append(k.output);
+                    if (k.alts != null) for (String a : k.alts) if (a.length() == 1 && Glyphs.glyphKey(a) == null && !"\u00b0".equals(a)) sin.append(a);
+                }
+            }
+            tap(kb, kb.keyFor(page == 0 ? AurebeshKeyboardView.CODE_MODE : AurebeshKeyboardView.CODE_PAGE));
+        }
+        check(sin.toString(), "", "caracteres del teclado espanol sin glifo");
+    }
+
     @Test
     public void punctuationOnHold() throws Exception {
         Application app = (Application) RuntimeEnvironment.getApplication();

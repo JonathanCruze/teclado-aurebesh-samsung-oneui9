@@ -12,7 +12,7 @@ from fontTools.ttLib import TTFont
 from fontTools.pens.recordingPen import RecordingPen
 sys.path.insert(0,os.path.dirname(os.path.abspath(__file__)))
 from glyph_compose import mirror_x, accents, symbols, times_divide, times, plus_minus, divide_candidates, currency, badges, spanish_digraphs, ES_DIGRAPHS
-from glyph_compose import small_digits, fractions, interrobang, cedilla
+from glyph_compose import small_digits, fractions, interrobang, cedilla, less_equal, guillemets, dashes
 ROOT=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC=os.path.join(ROOT,'font','base-silvinor-Aurebesh.ttf')
 INCLUDE_TIMES=True           # por (x): el boceto del usuario (dos + en espejo con hueco de un trazo, girados 45 grados)
@@ -24,6 +24,7 @@ MUTE_U_CHOICE='cuadro_dentro'    # qu y gu: la u muda es un cuadrado dentro de l
 FRACTION_BAR='recta'         # fracciones: diagonal fina entre numerador y denominador ('zigzag': la / Aurebesh)
 INTERROBANG='alitas_derecha' # exclarrogativo: el ? con las alitas del ! detras ('alitas_izquierda', 'encima')
 CEDILLA='cuadro'             # c con cedilla: un cuadrado bajo las barras cortas de la c ('rabito': pata bajo la barra larga)
+GUILLEMETS='dos_cunas'       # comillas angulares: la cuna del < dos veces bajo un techo ('cuna_corta', 'apiladas')
 
 # ---------------- base: extraer contornos y metricas a unidades (altura de mayusculas = 10, y hacia abajo)
 f=TTFont(SRC); upm=f['head'].unitsPerEm; cap=f['OS/2'].sCapHeight; U=10.0/cap
@@ -84,6 +85,9 @@ G.update(small_digits(G))                  # superindices y subindices: los nume
 G.update(fractions(G, FRACTION_BAR))       # fracciones: numerador, barra y denominador
 G.update(interrobang(G, INTERROBANG))      # exclarrogativo: el ? con las alitas del !
 G.update(cedilla(G, CEDILLA))              # c con cedilla
+G.update(less_equal(G))                    # menor o igual y mayor o igual: lo que la base traia en las comillas angulares
+G.update(guillemets(G, GUILLEMETS))        # comillas angulares nuevas: la cuna del < dos veces
+G.update(dashes(G))                        # raya corta, raya larga, punto de lista y ae ligada
 
 # ---------------- salidas: json, GlyphData.java
 for p in ('tools/glyphs.json','promo/glyphs.json'): json.dump(G,open(os.path.join(ROOT,p),'w'))

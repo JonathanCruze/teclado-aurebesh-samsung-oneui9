@@ -984,7 +984,7 @@ public final class AurebeshKeyboardView extends View {
                 sym("_", 1f), sym("<", 1f, "\u2264"), sym(">", 1f, "\u2265"), sym("[", 1f, "{"), sym("]", 1f, "}"));
         row(symbols, sym("!", 1f, "\u00a1"), sym("@", 1f), sym("#", 1f), sym("$", 1f, "\u20ac"), sym("%", 1f, "\u2030"),
                 sym("^", 1f), sym("&", 1f), sym("*", 1f, "\u2022"), sym("(", 1f), sym(")", 1f));
-        row(symbols, special("1/2", CODE_PAGE, 1.5f), sym("-", 1f, "\u2013"), sym("'", 1f, "\u2018"), sym("\"", 1f, "\u201c"),
+        row(symbols, special("1/2", CODE_PAGE, 1.5f), sym("-", 1f, "\u2013", "\u2014"), sym("'", 1f, "\u2018"), sym("\"", 1f, "\u201c"),
                 sym(":", 1f), sym(";", 1f), sym(",", 1f), sym("?", 1f, "\u00bf", "\u203d"), special("", CODE_DELETE, 1.5f));
         bottomRow(symbols, "abc");
 
@@ -2026,6 +2026,9 @@ public final class AurebeshKeyboardView extends View {
         float bottom = popupRect.bottom - row * popupCellH;
         return new RectF(left, bottom - popupCellH, left + popupCell, bottom);
     }
+
+    /** Filas de la pagina actual (para pruebas). */
+    List<List<Key>> currentRows() { return current; }
 
     /** Teclas de la pagina actual que abren menu al mantenerlas (para pruebas). */
     List<Key> keysWithAlts() {

@@ -434,3 +434,41 @@ def cedilla(G, how='cuadro'):
         mark=rect(1.155,10-T,1.155+T,10)
     return {'\u00e7':derived(c,copy_polys(c['p'])+[mark])}
 
+# ---------------- comillas angulares, menor o igual, rayas y punto de lista
+def less_equal(G):
+    """Menor o igual y mayor o igual: los glifos que la fuente base trae en las comillas angulares (el < y el > con una
+    linea fina debajo de la cuna), que es lo que parecen. Hay que llamarla antes de sustituir las comillas."""
+    return {'\u2264':dict(G['\u00ab']),'\u2265':dict(G['\u00bb'])}
+def guillemets(G, how='dos_cunas'):
+    """Comillas angulares: el < Aurebesh es un techo con una cuna diagonal debajo; las comillas llevan la cuna dos veces
+    bajo el mismo techo, como la rr lleva dos diagonales. 'dos_cunas': la segunda cuna entera, a un trazo de la primera
+    (ancha); 'cuna_corta': la segunda cuna recortada, mas estrecha; 'apiladas': la segunda cuna debajo de la primera,
+    del mismo grosor (se parece al menor o igual). La de cierre es el espejo."""
+    lt=G['<']; w=lt['w']; top=LETTER_TOP; y1=top+T
+    band=[[0.0,y1],[w/2,y1],[w,y1+T],[w,y1+2*T]]           # la cuna del <: banda diagonal que baja hacia la derecha
+    if how=='apiladas':
+        dy=T+0.9                                               # segunda cuna, entera y paralela, 0.9 por debajo de la primera
+        polys=_U(copy_polys(lt['p'])+[[[0.0,y1+dy-T],[w,y1+dy+T],[w,y1+dy+2*T],[0.0,y1+dy]]])
+    else:
+        dx=5.0 if how=='dos_cunas' else 4.4
+        W=w+dx if how=='dos_cunas' else w+3.1
+        b2=translate([band],dx,0)[0]
+        if how!='dos_cunas':                                   # recorte de la segunda cuna en el borde derecho
+            def yat(p,q,x): return p[1]+(q[1]-p[1])*(x-p[0])/(q[0]-p[0])
+            b2=[b2[0],b2[1],[W,yat(b2[1],b2[2],W)],[W,yat(b2[0],b2[3],W)]]
+        polys=_U([rect(0,top,W,y1),band,b2])
+    lq=_metrics(polys,lt)
+    rq=_metrics(mirror_x(copy_polys(lq['p']),lq['w']/2),G['>'])
+    return {'\u00ab':lq,'\u00bb':rq}
+def dashes(G):
+    """Raya corta y raya larga: el guion Aurebesh alargado vez y media y dos veces. Y el punto de lista, un cuadrado
+    a media altura de las letras, y la ae ligada, que es el digrafo ae."""
+    h=G['-']; x0,y0,x1,y1=bbox(h['p']); L=x1-x0
+    out={}
+    for ch,k in (('\u2013',1.5),('\u2014',2.0)):
+        out[ch]=_metrics([rect(0,y0,L*k,y1)],h)
+    s_=TILDE_S; cy=(LETTER_TOP+10)/2
+    out['\u2022']=_metrics([rect(0,cy-s_/2,s_,cy+s_/2)],h)
+    out['\u00e6']=dict(G['ae'])
+    return out
+
