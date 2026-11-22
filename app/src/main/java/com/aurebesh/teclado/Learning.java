@@ -138,6 +138,20 @@ final class Learning {
         if (!eligible(dict, typed)) return false;
         String lw = typed.toLowerCase(Locale.ROOT);
         if (!force && looksLikeTypo(dict, lw)) return false;
+        return count(lw, uses);
+    }
+
+    /**
+     * Anota un rechazo de la correccion de una palabra que el diccionario si conoce ("papa" cambiada por "papá",
+     * "seria" por "sería") y dice si con este alcanza los {@code uses} necesarios: entonces el que llama la guarda
+     * para que no se le vuelva a cambiar. Como mucho uno por mensaje; comparte la cuenta con las candidatas.
+     */
+    boolean noteKept(String typed, int uses) {
+        if (!wellFormed(typed)) return false;
+        return count(typed.toLowerCase(Locale.ROOT), uses);
+    }
+
+    private boolean count(String lw, int uses) {
         if (!counted.add(lw)) return false;               // ya contada en este mensaje
         load();
         long[] e = pending.remove(lw);

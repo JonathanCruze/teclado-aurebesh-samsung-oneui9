@@ -336,4 +336,56 @@ public class CalidadVidaVistaTest {
         android.graphics.Bitmap b = android.graphics.Bitmap.createBitmap(W, v.getMeasuredHeight(), android.graphics.Bitmap.Config.ARGB_8888);
         v.draw(new android.graphics.Canvas(b));
     }
+
+    /** El dedo que rueda unos pocos dp al levantarse sigue en su tecla; pasado el margen, la vecina. */
+    @Test
+    public void histeresisEntreTeclasVecinas() {
+        AurebeshKeyboardView kb = view();
+        GestureTest.Recorder rec = new GestureTest.Recorder();
+        kb.setListener(rec);
+        float dp = RuntimeEnvironment.getApplication().getResources().getDisplayMetrics().density;
+        AurebeshKeyboardView.Key a = kb.keyFor("a"), s = kb.keyFor("s");
+        float y = a.rect.centerY();
+        event(kb, MotionEvent.ACTION_DOWN, a.rect.right - 2 * dp, y);
+        event(kb, MotionEvent.ACTION_MOVE, a.rect.right + 3 * dp, y);
+        event(kb, MotionEvent.ACTION_UP, a.rect.right + 3 * dp, y);
+        assertEquals("a", rec.typed.toString());
+        rec.reset();
+        event(kb, MotionEvent.ACTION_DOWN, a.rect.right - 2 * dp, y);
+        event(kb, MotionEvent.ACTION_MOVE, s.rect.centerX(), y);
+        event(kb, MotionEvent.ACTION_UP, s.rect.centerX(), y);
+        assertEquals("deslizar de verdad a la vecina la escribe", "s", rec.typed.toString());
+        rec.reset();
+
+        // Mantener la o con el dedo temblando sobre la frontera: el menu se abre igual
+        kb.setGlideEnabled(false);
+        AurebeshKeyboardView.Key o = kb.keyFor("o");
+        float ox = o.rect.right - 1 * dp, oy = o.rect.centerY();
+        event(kb, MotionEvent.ACTION_DOWN, ox, oy);
+        for (int i = 0; i < 6; i++) {
+            idle(60);
+            event(kb, MotionEvent.ACTION_MOVE, ox + (i % 2 == 0 ? 3 : -3) * dp, oy);
+        }
+        idle(100);
+        assertNotNull("el temporizador no se reinicia en cada cruce", kb.popupOptions());
+        event(kb, MotionEvent.ACTION_UP, ox, oy);
+    }
+
+    /** Intro solo se ejecuta si el dedo bajo en ella: llegar desde el punto no envia nada ni abre los emojis. */
+    @Test
+    public void introNoSeActivaLlegandoDesdeOtraTecla() {
+        AurebeshKeyboardView kb = view();
+        GestureTest.Recorder rec = new GestureTest.Recorder();
+        kb.setListener(rec);
+        kb.setEnterEmoji(true);
+        AurebeshKeyboardView.Key dot = kb.keyFor("."), enter = kb.keyFor(AurebeshKeyboardView.CODE_ENTER);
+        down(kb, dot);
+        event(kb, MotionEvent.ACTION_MOVE, enter.rect.centerX(), enter.rect.centerY());
+        idle(1000);
+        up(kb, enter);
+        assertEquals("", rec.typed.toString());
+        assertTrue("ni intro ni nada: " + rec.events, rec.events.isEmpty());
+        tap(kb, enter);
+        assertEquals("el toque en intro sigue igual", "[enter]", rec.events.toString());
+    }
 }

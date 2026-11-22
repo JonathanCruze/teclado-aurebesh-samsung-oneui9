@@ -179,6 +179,8 @@ public final class AurebeshKeyboardView extends View {
     private int[] popupOrder;               // celda i del menu -> indice en popupAlts (el orden cambia cerca de los bordes)
     /** Lo que el dedo tiene que moverse desde donde estaba al abrirse el menu para que la celda resaltada cambie. */
     static final float POPUP_SLOP_DP = 6f;
+    /** Margen alrededor de la tecla pulsada: hasta que el dedo no lo pasa, la tecla sigue siendo esa (y su menu al mantener). */
+    static final float KEY_HYSTERESIS_DP = 6f;
     private float holdX, holdY;             // donde esta el dedo que mantiene la tecla (antes de abrirse el menu)
     private float popupAnchorX, popupAnchorY;   // donde estaba al abrirse
     private boolean popupMoved;             // ya se movio de verdad: desde entonces manda la celda bajo el dedo
@@ -2640,6 +2642,13 @@ public final class AurebeshKeyboardView extends View {
         return bestDist < tol * tol ? best : null;
     }
 
+    /** El punto sigue sobre la tecla, con {@link #KEY_HYSTERESIS_DP} de margen por cada lado. */
+    private boolean stillOn(Key k, float x, float y) {
+        if (k == null || k.rect.isEmpty()) return false;
+        float m = KEY_HYSTERESIS_DP * dp;
+        return x >= k.rect.left - m && x <= k.rect.right + m && y >= k.rect.top - m && y <= k.rect.bottom + m;
+    }
+
     /** El punto esta sobre la cinta o a mas de 24 dp de la zona de teclas: el toque se cancela al pasar por ahi. */
     private boolean farFromKeys(float x, float y) {
         if (y < stripHeight()) return true;
@@ -2833,6 +2842,10 @@ public final class AurebeshKeyboardView extends View {
                         continue;
                     }
                     if (k != old && !longPressFired) {
+                        // El dedo rueda al levantarse: mientras no pase 6 dp de la frontera sigue en la tecla donde estaba
+                        if (stillOn(old, x, y)) continue;
+                        // Intro solo se ejecuta si el dedo bajo en ella: llegar desde el punto no envia el mensaje a medias
+                        if (k.code == CODE_ENTER) { cancelPointer(pid); continue; }
                         pressed.put(pid, k);
                         if (k.code == CODE_SPACE) {
                             beginSpace(x);                               // el gesto del espacio empieza donde entra el dedo
@@ -2994,7 +3007,8 @@ public final class AurebeshKeyboardView extends View {
             len += (float) Math.sqrt(dx * dx + dy * dy);
         }
         Key under = findKey(strokeX[n - 1], strokeY[n - 1]);
-        Key tapKey = glideKey(under) ? under : downKey;         // la tecla bajo el dedo al soltar, si es de letra
+        // la tecla bajo el dedo al soltar, si es de letra y el dedo paso de verdad a ella (el mismo margen que al tocar)
+        Key tapKey = glideKey(under) && !stillOn(downKey, strokeX[n - 1], strokeY[n - 1]) ? under : downKey;
         if (len < GLIDE_MIN_LEN_KEYS * downKey.rect.width()) {   // un tiron corto: toque en la tecla bajo el dedo
             strokeN = 0;
             release(tapKey);
@@ -3149,6 +3163,8 @@ public final class AurebeshKeyboardView extends View {
      * vez por gesto. En ambos casos se cancela la pulsacion larga y al soltar no se escribe el espacio.
      */
     /** Estado del gesto sobre el espacio (al bajar el dedo en el o al entrar deslizando desde una vecina). */
+    private static final float SPACE_SLOP_DP = 24f;   // recorrido antes de que el toque en el espacio pase a mover el cursor
+
     private void beginSpace(float x) {
         spaceDownX = x;
         spaceSteps = 0;
@@ -3161,14 +3177,19 @@ public final class AurebeshKeyboardView extends View {
         if (space == null || spaceSlide == SPACE_NONE) return;
         float dx = x - spaceDownX;
         if (spaceSlide == SPACE_CURSOR) {
-            int steps = (int) (dx / (12 * dp));
-            if (steps == spaceSteps) return;
             if (!spaceDragged) {
+                // Hasta 24 dp sigue siendo un toque (el pulgar resbala al teclear deprisa): al soltar, un espacio. Al
+                // cruzarlos empieza el gesto y el origen se adelanta 12 dp, asi el primer paso sale justo ahi.
+                if (Math.abs(dx) < SPACE_SLOP_DP * dp) return;
                 spaceDragged = true;
                 handler.removeCallbacks(longPressRunnable);
                 longPressKey = null;
                 longPressFired = false;
+                spaceDownX += (dx > 0 ? 12 : -12) * dp;
+                dx = x - spaceDownX;
             }
+            int steps = (int) (dx / (12 * dp));
+            if (steps == spaceSteps) return;
             int dir = steps > spaceSteps ? 1 : -1;
             boolean select = capsLock || shiftPointer >= 0 || (shift && !autoShifted);   // la mayuscula automatica no selecciona
             while (spaceSteps != steps) {

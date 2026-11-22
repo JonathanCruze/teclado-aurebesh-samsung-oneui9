@@ -385,6 +385,234 @@ public class CalidadVidaTest {
         assertEquals("qeu,", more(","));
     }
 
+    /** Y no vuelve tampoco al escribir la misma palabra mas adelante; la correccion sigue a un toque en la cinta. */
+    @Test
+    public void laPalabraRechazadaNoSeCambiaOtraVez() throws Exception {
+        assertEquals("con malo ", typed("con lalo "));
+        assertEquals("con lalo ", delete());
+        more("y ");
+        assertEquals("con lalo y lalo ", more("lalo "));
+        typed("lalo");
+        assertNull("sin pastilla resaltada", highlighted());
+        assertTrue("la correccion sigue en la cinta: " + chips(), chips().contains("malo"));
+        assertEquals("\"lalo\"", chips().get(0));
+
+        // Una palabra de la lista con gemela con tilde: rechazada una vez, se respeta; a la tercera (en mensajes
+        // distintos) queda guardada, y la gemela sigue a un toque
+        Dictionary es = Dictionary.get(app, "es");
+        assertEquals("pap\u00e1 ", typed("papa "));
+        assertEquals("papa ", delete());
+        assertEquals("papa ", typed("papa "));
+        assertFalse("un solo rechazo no la guarda", es.isPersonal("papa"));
+    }
+
+    /**
+     * Borrar tras una correccion tambien es el gesto de quien solo queria quitar el espacio para arreglar la palabra a
+     * mano: si despues le cambia letras no fue un rechazo, y la correccion sigue viva. Aceptar la sugerencia para una
+     * palabra rechazada le devuelve la correccion.
+     */
+    @Test
+    public void borrarParaArreglarAManoNoEsUnRechazo() throws Exception {
+        assertEquals("que ", typed("qeu "));
+        delete();
+        delete();
+        delete();
+        assertEquals("q", delete());
+        assertEquals("que ", more("ue "));
+        assertEquals("la errata se sigue corrigiendo", "que que ", more("qeu "));
+
+        assertEquals("con malo ", typed("con lalo "));
+        delete();
+        more("y ");
+        more("lalo");
+        assertEquals("con lalo y malo ", chip("malo"));
+        assertEquals("perdonada: se corrige otra vez", "con lalo y malo malo ", more("lalo "));
+    }
+
+    /** Enviar el mensaje (o cambiar de campo) con la palabra restaurada intacta tambien confirma el rechazo. */
+    @Test
+    public void enviarConLaPalabraRestauradaConfirmaElRechazo() throws Exception {
+        newField(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES, EditorInfo.IME_ACTION_SEND, "");
+        assertEquals("con malo ", more("con lalo "));
+        assertEquals("con lalo ", delete());
+        ime.onEnter();
+        settle();
+        assertEquals("con lalo ", typed("con lalo "));
+    }
+
+    @Test
+    public void elRechazoRepetidoGuardaLaPalabraDeLaLista() throws Exception {
+        Dictionary es = Dictionary.get(app, "es");
+        Learning l = (Learning) field(ime, AurebeshIME.class, "learning");
+        assertFalse(l.noteKept("papa", 3));
+        l.newMessage();
+        assertFalse(l.noteKept("papa", 3));
+        assertFalse("una vez por mensaje", l.noteKept("papa", 3));
+        l.newMessage();
+        assertTrue("al tercer mensaje", l.noteKept("papa", 3));
+        assertFalse("lo mal formado no cuenta", l.noteKept("x2", 1));
+
+        Prefs.addLearnedWord(app, "papa");
+        settle();
+        assertEquals("guardada: ya no se le cambia", "la papa ", typed("la papa "));
+        typed("papa");
+        assertTrue("y su gemela sigue en la cinta: " + chips(), chips().contains("pap\u00e1"));
+        assertNull(highlighted());
+        assertNull(es.suggest("papa").correction);
+        Prefs.removeLearnedWord(app, "papa");
+        settle();
+    }
+
+    /** El chip entre comillas tambien sale en las palabras conocidas a las que se les va a cambiar algo. */
+    @Test
+    public void elChipDeConservarSaleTambienEnPalabrasConocidas() throws Exception {
+        typed("papa");
+        assertEquals("\"papa\"", chips().get(0));
+        assertEquals("pap\u00e1", chips().get(1));
+        assertEquals("pap\u00e1", highlighted());
+        ime.onSuggestion("\"papa\"");
+        settle();
+        assertEquals("papa ", text.toString());
+        assertEquals("y ya no se cambia en lo que queda", "papa papa ", more("papa "));
+        typed("hola");
+        for (String c : chips()) assertFalse("una palabra sin correccion no lleva comillas: " + c, c.startsWith("\""));
+    }
+
+    /** Un nombre escrito con mayuscula a proposito a mitad de frase no se cambia por otra palabra. */
+    @Test
+    public void losNombresConMayusculaAMitadDeFraseSeRespetan() throws Exception {
+        assertEquals("ya voy con Lalo ", typed("ya voy con Lalo "));
+        assertEquals("estoy en Tepito ", typed("estoy en Tepito "));
+        typed("con Lalo");
+        assertNull(highlighted());
+        assertEquals("\"Lalo\"", chips().get(0));
+        assertTrue("la correccion, a un toque: " + chips(), chips().contains("Malo"));
+
+        assertEquals("las tildes si se ponen", "vivo en M\u00e9xico ", typed("vivo en Mexico "));
+        assertEquals("a inicio de frase la mayuscula es del teclado: se corrige", "Malo ", typed("Lalo "));
+        assertEquals("tambien dentro de comillas a inicio de frase", "Hola. \"Que ", typed("Hola. \"Qeu "));
+        assertEquals("y tras la apertura, ya con su tilde", "\u00bfQu\u00e9 ", typed("\u00bfQeu "));
+        assertEquals("tras una coma la mayuscula es a proposito", "Hola, Lalo ", typed("Hola, Lalo "));
+        assertEquals("y en minusculas tambien", "con malo ", typed("con lalo "));
+        Prefs.addLearnedWord(app, "platicamos");
+        settle();
+        assertEquals("hacia una palabra del usuario si se aplica", "ayer Platicamos ", typed("ayer Platicmos "));
+    }
+
+    /** Trozos de correos, direcciones, etiquetas y codigos: se ofrecen sugerencias pero nada se cambia solo. */
+    @Test
+    public void correosWebsYEtiquetasASalvoDelCorrector() throws Exception {
+        assertEquals("juan@gmail.com ", typed("juan@gmail.com "));
+        assertEquals("tienda.com.mx ", typed("tienda.com.mx "));
+        assertEquals("#parati ", typed("#parati "));
+        assertEquals("16mb ", typed("16mb "));
+        assertEquals("@lalo ", typed("@lalo "));
+        assertEquals("los puntos suspensivos no cuentan", "pues...tambi\u00e9n ", typed("pues...tambien "));
+        assertEquals("ni el punto tras un espacio", "ya. tambi\u00e9n ", typed("ya. tambien "));
+        typed("juan@lalo");
+        assertNull(highlighted());
+
+        // Unidades: tras una cifra son abreviaturas; sueltas, la errata de siempre
+        assertEquals("tardo 2 hr ", typed("tardo 2 hr "));
+        assertEquals("pesa 16 mb ", typed("pesa 16 mb "));
+        assertFalse("suelta, la errata de siempre se corrige", "ya hr ".equals(typed("ya hr ")));
+    }
+
+    /** En campos de nombre, direccion postal o con autocompletado propio solo se ponen tildes; el resto queda a un toque. */
+    @Test
+    public void camposDeNombreSoloConTildes() throws Exception {
+        int[] types = {
+                InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PERSON_NAME | InputType.TYPE_TEXT_FLAG_CAP_WORDS,
+                InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_POSTAL_ADDRESS,
+                InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_AUTO_COMPLETE};
+        for (int type : types) {
+            newField(type, 0, "");
+            more("nesecito");
+            assertNull("sin pastilla resaltada (" + type + ")", highlighted());
+            assertTrue("la correccion sigue en la cinta: " + chips(), chips().contains("necesito"));
+            assertEquals("nesecito ", more(" "));
+            newField(type, 0, "");
+            assertEquals("canci\u00f3n ", more("cancion "));
+        }
+        newField(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_AUTO_COMPLETE | InputType.TYPE_TEXT_FLAG_MULTI_LINE, 0, "");
+        assertEquals("un campo de varias lineas corrige como siempre", "que ", more("qeu "));
+    }
+
+    /** Deslizar para escribir tambien en la barra de direcciones y en buscadores sin sugerencias; nunca en contrasenas ni correos. */
+    @Test
+    public void deslizarEnLaBarraDeDirecciones() throws Exception {
+        int uri = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI;
+        newField(uri, EditorInfo.IME_ACTION_GO, "");
+        assertTrue(view().isGlideEnabled());
+        ime.onGlide("tacos", java.util.Arrays.asList("tacos", "tocas"));
+        settle();
+        ime.onGlide("cerca", java.util.Arrays.asList("cerca"));
+        settle();
+        assertEquals("tacos cerca ", text.toString());
+
+        newField(uri, EditorInfo.IME_ACTION_GO, "");
+        more("www.");
+        ime.onGlide("google", java.util.Arrays.asList("google"));
+        settle();
+        assertEquals("pegada al punto y sin mayuscula", "www.google ", text.toString());
+        ime.onText(".com");
+        settle();
+        assertEquals("www.google.com", text.toString());
+
+        newField(uri, EditorInfo.IME_ACTION_GO, "");
+        ime.onGlide("tacos", java.util.Arrays.asList("tacos"));
+        settle();
+        assertEquals("tacos/", more("/"));
+        ime.onGlide("pastor", java.util.Arrays.asList("pastor"));
+        settle();
+        assertEquals("tacos/pastor ", text.toString());
+
+        newField(uri, 0, "");
+        assertEquals("ahi no se corrige nada", "nesecito ", more("nesecito "));
+        assertTrue(Prefs.learnedWords(app).isEmpty());
+
+        newField(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS, 0, "");
+        assertTrue(view().isGlideEnabled());
+        newField(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD, 0, "");
+        assertFalse(view().isGlideEnabled());
+        newField(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD, 0, "");
+        assertFalse(view().isGlideEnabled());
+        newField(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS, 0, "");
+        assertFalse(view().isGlideEnabled());
+        newField();
+        assertTrue(view().isGlideEnabled());
+    }
+
+    /** Abreviaturas corrientes de un chat que el corrector cambiaba por otra palabra. */
+    @Test
+    public void lasAbreviaturasDeChatSeRespetan() throws Exception {
+        assertEquals("av ", typed("av "));
+        assertEquals("en la esq ", typed("en la esq "));
+        assertEquals("yo tb ", typed("yo tb "));
+        assertEquals("todo bn ", typed("todo bn "));
+        assertEquals("mi gmail ", typed("mi gmail "));
+        assertEquals("en tiktok ", typed("en tiktok "));
+        assertEquals("la mtra ", typed("la mtra "));
+        Dictionary es = Dictionary.get(app, "es");
+        assertTrue(es.suggest("mx").known);
+        assertNull(es.suggest("mx").correction);
+        assertTrue(Dictionary.shortForm("tqm"));
+        assertFalse("las erratas de siempre siguen corrigiendose", Dictionary.shortForm("hr"));
+        assertEquals("he", es.suggest("hr").correction);
+        assertEquals("en ingles no aplica", false, Dictionary.get(app, "en").suggest("mtro").known);
+    }
+
+    /** Con el campo vacio la cinta queda libre para sus iconos; con texto delante vuelven las predicciones. */
+    @Test
+    public void campoVacioSinPredicciones() throws Exception {
+        newField();
+        assertTrue("campo vacio: sin chips: " + chips(), chips().isEmpty());
+        more("Hola. ");
+        assertFalse("tras una frase si hay prediccion", chips().isEmpty());
+        typed("hola ");
+        assertFalse(chips().isEmpty());
+    }
+
     // ------------------------------------------------------------------ intro con accion
 
     @Test

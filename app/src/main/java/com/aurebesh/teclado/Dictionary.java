@@ -175,6 +175,21 @@ final class Dictionary {
      * cambian al cerrarlas, como una correccion mas (el chip de lo escrito las recupera). Solo en espanol.
      */
     private static final Map<String, String> FIXED = new HashMap<>();
+
+    /**
+     * Abreviaturas y formas cortas corrientes en un chat en espanol que la lista no trae y que el corrector cambiaba por
+     * otra palabra ("av" por "a", "hr" por "he", "mx" por "me", "tb" por "te", "gmail" por "genial"): se respetan como
+     * si fueran palabras conocidas (no se sustituyen ni llevan chip entre comillas); las sugerencias siguen saliendo.
+     */
+    private static final HashSet<String> SHORT_FORMS = new HashSet<>(Arrays.asList(
+            "av", "esq", "mtro", "mtra", "profr", "profra", "lic", "ing", "mx", "cdmx",
+            "tb", "tmb", "bn", "xq", "pq", "tqm", "ntp", "xd", "grax", "fb", "ig", "dm", "gmail", "tiktok", "whats"));
+    // Fuera a proposito: "yt" (desliz corriente de "y", con la letra vecina), "pza" (letras bailadas de "paz") y las
+    // unidades ("hr" es tambien el desliz de "he"): esas solo se respetan tras una cifra, y eso lo decide el teclado
+
+    /** Forma corta de un chat en espanol que se respeta tal cual (en minusculas). */
+    static boolean shortForm(String w) { return w != null && SHORT_FORMS.contains(w); }
+
     static {
         String[] pairs = {
                 "aver", "a ver", "aveces", "a veces", "talvez", "tal vez", "osea", "o sea", "porfavor", "por favor",
@@ -707,6 +722,9 @@ final class Dictionary {
         }
     }
 
+    /** La palabra (en minusculas) esta en la lista del idioma. */
+    boolean inList(String w) { return w != null && rankOf(w) >= 0; }
+
     /** Palabra del idioma, aprendida o del lexico Star Wars activo (estas, aunque exijan su caja: no se aprenden). */
     boolean contains(String w) {
         return rankOf(w) >= 0 || personal.contains(w) || lexicon(w);
@@ -950,7 +968,8 @@ final class Dictionary {
         }
         boolean inLexicon = swKnown(typed, w);             // del lexico Star Wars, si esta activo
         int own = rankOf(w);
-        res.known = own >= 0 || learned || inLexicon;
+        boolean shortForm = spanish && SHORT_FORMS.contains(w);   // "av", "hr", "tb": se respeta tal cual
+        res.known = own >= 0 || learned || inLexicon || shortForm;
         if (spanish && !res.known) {                       // "porfavor", "talvez": dos palabras escritas como una
             String fixed = FIXED.get(w);
             if (fixed != null) {
@@ -961,7 +980,7 @@ final class Dictionary {
         }
 
         HashMap<String, Double> cand = new HashMap<>();
-        String acc = learned || inLexicon ? null : resolve(w);
+        String acc = learned || inLexicon || shortForm ? null : resolve(w);
         boolean accentFix = acc != null && !acc.equals(w);
         if (accentFix) put(cand, acc, score(acc, 0));
         String marked = null;                            // lo escrito con sus tildes, si asi es una palabra y tal cual no
@@ -996,6 +1015,11 @@ final class Dictionary {
                 edits(w, one);
                 hint = slipRival(w, w, one);
             }
+        } else if (spanish && learned && own >= 0) {
+            // Palabra de la lista que el usuario guardo para que no se le cambie ("papa", "deposito", "seria"): se
+            // respeta, y su gemela con tilde sigue a un toque en la cinta, sin aplicarse sola
+            String twin = accented(w);
+            if (twin != null && !twin.equals(w) && !vetoed(twin)) hint = twin;
         }
 
         String best = null;

@@ -76,6 +76,9 @@ public class AurebeshIME extends InputMethodService
     private boolean doubleSpace = true;
     private boolean suggestionsAllowed = false;   // el campo admite sugerencias
     private boolean proseField = true;            // texto corriente (ni contrasena, correo o direccion web): doble espacio = punto
+    private boolean glideAllowed = false;         // se puede deslizar: texto que no sea contrasena ni correo (tambien direcciones y buscadores)
+    private boolean uriField = false;             // direccion web: lo deslizado no lleva mayuscula ni espacio tras un punto o una barra
+    private boolean tildesOnly = false;           // nombres, direcciones postales y campos con autocompletado propio: solo se ponen tildes
     private boolean incognito = false;            // el campo pide no aprender nada (modo incognito)
     private String lang = "es";
     private boolean severalLangs = false;         // varios idiomas Aurebesh activos (globo y cambio de idioma con el espacio)
@@ -119,6 +122,14 @@ public class AurebeshIME extends InputMethodService
     private final StringBuilder typedRun = new StringBuilder();
     private static final int TYPED_RUN_MAX = 64;
     private long lastDeleteAt = -10000;           // ultimo borrado hecho con el teclado (reloj de uptimeMillis)
+    // Correcciones que el usuario deshizo (borrar justo despues o el chip entre comillas), en minusculas: mientras viva
+    // el servicio esa palabra no se vuelve a cambiar sola (la correccion sigue a un toque en la cinta)
+    private final java.util.LinkedHashSet<String> rejected = new java.util.LinkedHashSet<>();
+    private static final int REJECTED_MAX = 200;
+    // Rechazo por borrar justo despues, aun sin confirmar: borrar tambien es el gesto de quien solo queria quitar el
+    // espacio para arreglar la palabra a mano. Se confirma al seguir escribiendo con la palabra restaurada intacta.
+    private String undoneKey;                     // clave para rejected ("lalo", o con la apertura delante si es un interrogativo)
+    private String undoneWord;                    // la palabra tal como quedo restaurada
 
     // Portapapeles y chip "Pegar" de lo recien copiado
     private static final long PASTE_FRESH_MS = 2 * 60 * 1000L;
@@ -426,6 +437,15 @@ public class AurebeshIME extends InputMethodService
         proseField = cls == InputType.TYPE_CLASS_TEXT && !privateField && variation != InputType.TYPE_TEXT_VARIATION_URI
                 && variation != InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
                 && variation != InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS;
+        uriField = cls == InputType.TYPE_CLASS_TEXT && variation == InputType.TYPE_TEXT_VARIATION_URI;
+        glideAllowed = cls == InputType.TYPE_CLASS_TEXT && !privateField
+                && variation != InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
+                && variation != InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS;
+        tildesOnly = cls == InputType.TYPE_CLASS_TEXT && (variation == InputType.TYPE_TEXT_VARIATION_PERSON_NAME
+                || variation == InputType.TYPE_TEXT_VARIATION_POSTAL_ADDRESS
+                || variation == InputType.TYPE_TEXT_VARIATION_FILTER
+                || ((info.inputType & InputType.TYPE_TEXT_FLAG_AUTO_COMPLETE) != 0
+                        && (info.inputType & InputType.TYPE_TEXT_FLAG_MULTI_LINE) == 0));
         view.setPasswordField(privateField && cls == InputType.TYPE_CLASS_TEXT);   // contrasenas: siempre con fila de numeros
         view.setEnterEmoji(!privateField);                  // mantener intro abre los emojis (no en contrasenas ni PIN)
         // Diccionario personal: un campo nuevo abre una sesion (un uso por palabra como mucho); si la app solo reinicia
@@ -443,6 +463,11 @@ public class AurebeshIME extends InputMethodService
         }
         view.setFieldVariant(field);
         forgetChip();
+        if (undoneKey != null && (!restarting || fieldEmptied())) {   // otro campo, o mensaje enviado con el boton de la app:
+            reject(undoneKey);                                        // la palabra restaurada se quedo como estaba
+            undoneKey = null;
+            undoneWord = null;
+        }
         if (!restarting) {
             typedRun.setLength(0);
             if (cls == InputType.TYPE_CLASS_NUMBER || cls == InputType.TYPE_CLASS_PHONE) {     // teclado numerico Aurebesh
@@ -790,7 +815,9 @@ public class AurebeshIME extends InputMethodService
             clearSuggestions();
             if (word != null && bigrams != null && fresh == null) {          // siguiente palabra prevista
                 String prev = previousWord(ic, "");
-                if (prev != null) {
+                // Con el campo vacio no se predice nada: los tres chips de inicio de frase son siempre los mismos y
+                // taparian los iconos de la cinta (emojis, portapapeles), que es lo que se busca al abrir el teclado
+                if (prev != null && !TextUtils.isEmpty(ic.getTextBeforeCursor(1, 0))) {
                     boolean start = "<s>".equals(prev);
                     boolean caps = start && autoCaps && capsAtCursor(ic);  // al inicio de frase, los chips ya en mayuscula
                     List<String> chips = new ArrayList<>();
@@ -886,8 +913,8 @@ public class AurebeshIME extends InputMethodService
     private void showResult(String word, Dictionary.Result r) {
         rankResult(word, r);
         List<String> chips = new ArrayList<>();
-        boolean asked = r.known && pendingCorrection != null && pendingCorrection.equals(interrogative(word));
-        if ((!r.known && !r.suggestions.isEmpty()) || asked) chips.add("\"" + word + "\"");   // conservar lo escrito
+        // conservar lo escrito: si la palabra es desconocida, o conocida pero se le va a cambiar ("papa" -> "papá", "¿que" -> "¿qué")
+        if ((!r.known && !r.suggestions.isEmpty()) || (r.known && pendingCorrection != null)) chips.add("\"" + word + "\"");
         List<String> emo = EmojiSuggest.lookup(this, r.known ? word : (r.correction != null ? r.correction : word), 2);
         int maxWords = emo.isEmpty() ? 3 : 2;                 // con emojis, dejarles sitio en la barra
         // Orden: la correccion, las que suelen seguir a la palabra anterior y empiezan asi, y el resto por frecuencia
@@ -942,11 +969,21 @@ public class AurebeshIME extends InputMethodService
      * En espanol, la palabra pegada a un signo de interrogacion de apertura que casi siempre lleva tilde ahi ("¿que" ->
      * "qué", "¿como" -> "cómo"); null si no es el caso. Se aplica como cualquier correccion y se deshace con borrar.
      */
+    /** Forma con tilde del interrogativo escrito sin ella (en minusculas), o null. */
+    private static String interrogativeOf(String lower) {
+        for (int i = 0; i < INTERROGATIVES.length; i += 2) if (INTERROGATIVES[i].equals(lower)) return INTERROGATIVES[i + 1];
+        return null;
+    }
+
+    /** El texto previo al cursor es {@code tail} precedido justo por {@code c}. */
+    private static boolean endsWith(InputConnection ic, String tail, char c) {
+        CharSequence b = ic.getTextBeforeCursor(tail.length() + 1, 0);
+        return b != null && b.length() == tail.length() + 1 && b.charAt(0) == c;
+    }
+
     private String interrogative(String word) {
         if (!"es".equals(lang) || word == null || word.length() < 3) return null;
-        String w = word.toLowerCase(Locale.ROOT);
-        String fix = null;
-        for (int i = 0; i < INTERROGATIVES.length; i += 2) if (INTERROGATIVES[i].equals(w)) fix = INTERROGATIVES[i + 1];
+        String fix = interrogativeOf(word.toLowerCase(Locale.ROOT));
         if (fix == null) return null;
         InputConnection ic = getCurrentInputConnection();
         if (ic == null) return null;
@@ -960,6 +997,11 @@ public class AurebeshIME extends InputMethodService
         pendingCorrection = r.correction;
         if (r.known && r.correction == null) {           // "¿que" -> "¿qué": la palabra existe, pero ahi lleva tilde
             pendingCorrection = interrogative(word);
+            if (pendingCorrection != null && rejected.contains("\u00bf" + word.toLowerCase(Locale.ROOT))) pendingCorrection = null;
+            return;
+        }
+        if (pendingCorrection != null && holdsBack(word, pendingCorrection)) {
+            pendingCorrection = null;                    // sigue en la cinta, la primera, pero no se aplica sola
             return;
         }
         // contexto: candidato que mejor sigue a la anterior. No cuando la correccion es lo mismo que se escribio salvo
@@ -982,6 +1024,121 @@ public class AurebeshIME extends InputMethodService
                 }
             }
         }
+        // "¿qeu" -> "que" -> "qué": la errata de un interrogativo pegado a la apertura sale ya con su tilde
+        if ("es".equals(lang) && pendingCorrection != null) {
+            String q = interrogativeOf(pendingCorrection.toLowerCase(Locale.ROOT));
+            InputConnection ic = getCurrentInputConnection();
+            if (q != null && ic != null && endsWith(ic, word, '\u00bf')) {
+                int at = r.suggestions.indexOf(pendingCorrection);
+                if (at >= 0) r.suggestions.set(at, q);
+                pendingCorrection = q;
+            }
+        }
+    }
+
+    /**
+     * La correccion de esta palabra no se aplica sola (se queda como chip a un toque): el usuario ya la deshizo una vez,
+     * el campo es de nombre, direccion postal o con autocompletado propio (ahi solo se ponen tildes), la palabra va pegada a una cifra o a un simbolo de direccion o etiqueta ("juan@gmail", "#parati", "com.mx",
+     * "16mb"), o es un nombre escrito con mayuscula a proposito a mitad de frase ("con Lalo", "en Tepito").
+     */
+    private boolean holdsBack(String word, String correction) {
+        if (rejected.contains(word.toLowerCase(Locale.ROOT))) return true;
+        if (tildesOnly && !sameLetters(word, correction)) return true;     // un nombre o una calle: no se cambia por otra palabra
+        InputConnection ic = getCurrentInputConnection();
+        if (ic == null) return false;
+        if (gluedToAddress(ic, word) || unitAfterNumber(ic, word)) return true;
+        // un nombre con mayuscula a proposito: solo se le ponen tildes ("Mexico"), se separa ("Porfavor"), se contrae en
+        // ingles ("Im" -> "I'm") o se lleva a una palabra del usuario o del lexico
+        return namedOnPurpose(ic, word) && !sameLetters(word, correction) && correction.indexOf('\'') < 0
+                && !ownWord(correction);
+    }
+
+    private static final java.util.HashSet<String> UNITS = new java.util.HashSet<>(Arrays.asList(
+            "hr", "hrs", "min", "seg", "mb", "gb", "kb", "tb", "kg", "gr", "mg", "km", "cm", "mm", "ml", "lt", "lts", "pza", "pzas"));
+
+    /** Unidad escrita tras una cifra y un espacio ("2 hr", "16 mb"): es una abreviatura, no la errata de otra palabra. */
+    static boolean unitAfterNumber(InputConnection ic, String word) {
+        if (!UNITS.contains(word.toLowerCase(Locale.ROOT))) return false;
+        CharSequence b = ic.getTextBeforeCursor(word.length() + 2, 0);
+        return b != null && b.length() == word.length() + 2 && b.charAt(1) == ' ' && Character.isDigit(b.charAt(0));
+    }
+
+    /** La correccion lleva a una palabra del usuario o del lexico Star Wars: esa si se aplica aunque se escribiera con mayuscula. */
+    private boolean ownWord(String correction) {
+        String lw = correction.toLowerCase(Locale.ROOT);
+        return dict != null && (dict.isPersonal(lw) || dict.canonical(lw) != null);
+    }
+
+    /**
+     * Mayuscula inicial puesta a proposito: una sola, con el resto en minusculas, a mitad de frase (al inicio la pone el
+     * teclado). En aleman no cuenta: todos los sustantivos la llevan.
+     */
+    private boolean namedOnPurpose(InputConnection ic, String word) {
+        if ("de".equals(lang) || word.length() < 3 || !Character.isUpperCase(word.charAt(0))) return false;
+        for (int i = 1; i < word.length(); i++) if (!Character.isLowerCase(word.charAt(i))) return false;
+        // el mismo criterio que decide la mayuscula automatica, aplicado al texto anterior a la palabra
+        CharSequence b = ic.getTextBeforeCursor(word.length() + CAPS_WINDOW, 0);
+        if (b == null || b.length() <= word.length()) return false;      // principio del texto: la puso el teclado
+        CharSequence before = b.subSequence(0, b.length() - word.length());
+        boolean clipped = b.length() >= word.length() + CAPS_WINDOW;
+        return TextUtils.getCapsMode(before, before.length(), TextUtils.CAP_MODE_SENTENCES) == 0
+                && !afterInterrobang(before) && !opensSentence(before, clipped);
+    }
+
+    /**
+     * La palabra va pegada por delante a una cifra, a uno de @ # / _ \ = & % + o a un punto que a su vez sigue a una letra
+     * o una cifra ("tienda.com", "archivo.pdf"): es un trozo de correo, direccion, etiqueta o codigo. Un punto tras un
+     * espacio u otro punto no cuenta ("pues...tambien" sigue recibiendo su tilde).
+     */
+    static boolean gluedToAddress(InputConnection ic, String word) {
+        CharSequence b = ic.getTextBeforeCursor(word.length() + 2, 0);
+        if (b == null || b.length() <= word.length()) return false;
+        int at = b.length() - word.length() - 1;
+        char p = b.charAt(at);
+        if (Character.isDigit(p) || "@#/_\\=&%+".indexOf(p) >= 0) return true;
+        return p == '.' && at > 0 && Character.isLetterOrDigit(b.charAt(at - 1));
+    }
+
+    /**
+     * Resuelve el rechazo pendiente tras deshacer una correccion con borrar. {@code keeps}: lo que se va a hacer deja la
+     * palabra restaurada como esta (otra palabra, un signo, enviar). Se confirma solo si el texto previo al cursor sigue
+     * terminando en ella (con o sin su separador); si se le borraron o anadieron letras, no era un rechazo.
+     */
+    private void settleUndone(InputConnection ic, boolean keeps) {
+        String key = undoneKey, word = undoneWord;
+        undoneKey = null;
+        undoneWord = null;
+        if (key == null || !keeps || ic == null) return;
+        CharSequence b = ic.getTextBeforeCursor(word.length() + 2, 0);
+        if (b == null) return;
+        String t = b.toString();
+        int end = t.length();
+        while (end > 0 && end > t.length() - 1 && !Character.isLetter(t.charAt(end - 1))) end--;   // como mucho, su separador
+        if (end >= word.length() && t.substring(end - word.length(), end).equals(word)
+                && (end == word.length() || !Character.isLetter(t.charAt(end - word.length() - 1)))) reject(key);
+    }
+
+    /** Recuerda que el usuario deshizo la correccion de esta palabra (con su marca si era un interrogativo tras la apertura). */
+    private void reject(String key) {
+        rejected.remove(key);
+        rejected.add(key);
+        if (rejected.size() > REJECTED_MAX) {
+            java.util.Iterator<String> it = rejected.iterator();
+            it.next();
+            it.remove();
+        }
+    }
+
+    /**
+     * Palabra de la lista cuya correccion rechazo el usuario ("papa" por "papá", "seria" por "sería"): se guarda en el
+     * diccionario personal para que no se le vuelva a cambiar; su gemela con tilde sigue a un toque en la cinta.
+     */
+    private void keepWord(String w) {
+        if (!mayLearn() || dict == null || !Learning.wellFormed(w)) return;
+        String lw = w.toLowerCase(Locale.ROOT);
+        if (!dict.inList(lw) || dict.isPersonal(lw)) return;
+        Prefs.addLearnedWord(this, lw);
+        dict.setPersonal(Prefs.learnedWords(this));
     }
 
     /** Las mismas letras, sin contar tildes, mayusculas ni espacios. */
@@ -1037,9 +1194,13 @@ public class AurebeshIME extends InputMethodService
 
     // ------------------------------------------------------------------ escritura deslizando
 
-    /** El deslizado solo con la opcion activa y en campos normales de texto (no contrasenas ni campos sin sugerencias). */
+    /**
+     * El deslizado solo con la opcion activa y en campos de texto que no sean contrasenas ni correos: tambien en la barra
+     * de direcciones y en los buscadores marcados sin sugerencias, donde escribe la palabra y ofrece sus alternativas sin
+     * corregir ni aprender nada.
+     */
     private void updateGlide() {
-        if (view != null) view.setGlideEnabled(Prefs.glide(this) && suggestionsAllowed && !privateField
+        if (view != null) view.setGlideEnabled(Prefs.glide(this) && glideAllowed && !privateField
                 && (Prefs.toolbar(this) || autocorrect || stripOn));
     }
 
@@ -1075,6 +1236,7 @@ public class AurebeshIME extends InputMethodService
             String canon = canonicalOf(best);
             if (canon != null) best = canon;
         }
+        settleUndone(ic, true);                         // otra palabra tras la restaurada: el rechazo queda confirmado
         ic.beginBatchEdit();
         String cur = currentWord(ic);
         if (cur != null && !cur.isEmpty()) {
@@ -1084,8 +1246,9 @@ public class AurebeshIME extends InputMethodService
             if (before != null && before.length() == 1) {
                 char c = before.charAt(0);
                 boolean opens = "([{\u00bf\u00a1\u00ab\u201c".indexOf(c) >= 0 || (c == '"' && quoteOpen(ic));   // comilla recta que abre
-                if (c != ' ' && c != '\n' && !opens) ic.commitText(" ", 1);
-                if (".!?\u203d".indexOf(c) >= 0 && Character.isLowerCase(best.charAt(0))) {
+                // En una direccion web la palabra va pegada a lo que no sea letra o cifra ("www." + google, "sitio.com/" + tacos)
+                if (uriField ? Character.isLetterOrDigit(c) : c != ' ' && c != '\n' && !opens) ic.commitText(" ", 1);
+                if (!uriField && ".!?\u203d".indexOf(c) >= 0 && Character.isLowerCase(best.charAt(0))) {
                     best = best.substring(0, 1).toUpperCase(Locale.ROOT) + best.substring(1);
                 }
             }
@@ -1229,8 +1392,14 @@ public class AurebeshIME extends InputMethodService
         ic.endBatchEdit();
         typedRun.setLength(0);                          // la correccion rechazada no vuelve al teclear otro separador
         String key = c[0].toLowerCase(Locale.ROOT);
-        if (!shortcuts.containsKey(key) && mayLearn()) {    // deshacer un atajo no dice nada sobre la palabra
-            if (learning.note(dict, c[0], Prefs.learnUses(this), true)) learnWord(c[0]);
+        if (!shortcuts.containsKey(key)) {              // deshacer un atajo no dice nada sobre la palabra
+            boolean asked = c[1].equalsIgnoreCase(interrogativeOf(key)) && endsWith(ic, c[0] + c[2], '\u00bf');
+            undoneKey = asked ? "\u00bf" + key : key;   // el rechazo se confirma si la palabra se queda como esta
+            undoneWord = c[0];
+            if (!asked && mayLearn()) {
+                if (learning.note(dict, c[0], Prefs.learnUses(this), true)) learnWord(c[0]);
+                else if (dict != null && dict.inList(key) && learning.noteKept(c[0], Prefs.learnUses(this))) keepWord(c[0]);
+            }
         }
         return true;
     }
@@ -1254,7 +1423,9 @@ public class AurebeshIME extends InputMethodService
         // Con el predictivo activo se exige el veredicto del diccionario para esta palabra: si el resultado no llego
         // (30 ms agotados, excepcion) o habia correccion y no se aplico (sustitucion desactivada), no se anota
         if (autocorrect && (!cur.equals(computedWord) || pendingCorrection != null)) return;
-        if (learning.note(dict, cur, Prefs.learnUses(this), false)) learnWord(cur);
+        // rechazada antes o nombre con mayuscula a proposito: cuenta aunque parezca una errata de otra palabra
+        boolean force = rejected.contains(cur.toLowerCase(Locale.ROOT)) || namedOnPurpose(ic, cur);
+        if (learning.note(dict, cur, Prefs.learnUses(this), force)) learnWord(cur);
     }
 
     /**
@@ -1318,6 +1489,14 @@ public class AurebeshIME extends InputMethodService
 
     private void typeText(InputConnection ic, String text, boolean separator, boolean closer) {
         long now = SystemClock.uptimeMillis();
+        if (undoneKey != null) {
+            // Otra palabra tras el separador, o un signo pegado a la palabra restaurada: se queda como esta (rechazo).
+            // Una letra pegada a ella la esta cambiando: no lo era.
+            CharSequence last = ic.getTextBeforeCursor(1, 0);
+            boolean glued = last != null && last.length() == 1 && Character.isLetter(last.charAt(0));
+            boolean letter = text.length() > 0 && Character.isLetter(text.charAt(0));
+            settleUndone(ic, !(glued && letter));
+        }
         // Espacio automatico de la palabra puesta con un chip: solo cuenta para esta tecla
         boolean chipSpace = false;
         if (chipWord != null) {
@@ -1368,7 +1547,8 @@ public class AurebeshIME extends InputMethodService
             if (expandShortcut(ic, text)) return;                         // atajo de texto: manda sobre la autocorreccion
             rememberPair(ic);
         }
-        boolean sticks = text.length() == 1 && (GLIDE_PUNCTUATION.indexOf(text.charAt(0)) >= 0 || closer);
+        boolean sticks = (text.length() == 1 && (GLIDE_PUNCTUATION.indexOf(text.charAt(0)) >= 0 || closer))
+                || (uriField && (text.startsWith(".") || text.startsWith("/")));   // ".com" y "/" tras la palabra deslizada
         if (glideWord != null) {                                          // la puntuacion absorbe el espacio del deslizado
             if (glideAutoSpace && sticks) {
                 CharSequence before = ic.getTextBeforeCursor(glideWord.length() + 1, 0);
@@ -1406,6 +1586,10 @@ public class AurebeshIME extends InputMethodService
         lastSpaceAt = 0;
         lastDeleteAt = SystemClock.uptimeMillis();
         forgetChip();
+        if (undoneKey != null && lastCorrection == null) {           // borrar otra vez: el separador se puede quitar; una letra, no
+            CharSequence last = ic.getTextBeforeCursor(1, 0);
+            if (last == null || last.length() == 0 || Character.isLetter(last.charAt(0))) settleUndone(ic, false);
+        }
         CharSequence sel = ic.getSelectedText(0);
         if (!TextUtils.isEmpty(sel)) {
             ic.commitText("", 1);
@@ -1473,6 +1657,7 @@ public class AurebeshIME extends InputMethodService
      * quita tildes: la accion se ejecuta en el acto y cualquier otro cambio no se podria ver ni deshacer.
      */
     private void sendWord(InputConnection ic) {
+        settleUndone(ic, true);                         // enviar con la palabra restaurada intacta confirma el rechazo
         if (!expandShortcut(ic, "") && !applyCorrection(ic, "", true)) noteCandidate(ic);
         typedRun.setLength(0);
         learning.newMessage();
@@ -1499,6 +1684,7 @@ public class AurebeshIME extends InputMethodService
         int n = Math.abs(steps);
         for (int i = 0; i < n; i++) sendKey(code, select, false);
         lastCorrection = null;
+        undoneKey = null;
         forgetChip();
         typedRun.setLength(0);
         clearSuggestions();
@@ -1598,15 +1784,35 @@ public class AurebeshIME extends InputMethodService
         String placed = null;                           // palabra que queda escrita con su espacio automatico
         forgetChip();
         typedRun.setLength(0);
+        boolean quoted = word.length() >= 2 && word.startsWith("\"") && word.endsWith("\"");
+        settleUndone(ic, cur == null || cur.isEmpty());   // un chip sobre otra palabra confirma; sobre la restaurada, no
+        if (!quoted && !AurebeshKeyboardView.isEmoji(word) && cur != null && !cur.isEmpty()) {
+            rejected.remove(cur.toLowerCase(Locale.ROOT));    // aceptar una sugerencia para ella le devuelve la correccion
+            rejected.remove("\u00bf" + cur.toLowerCase(Locale.ROOT));
+        }
         ic.beginBatchEdit();
         if (word.length() >= 2 && word.startsWith("\"") && word.endsWith("\"")) {
             String original = word.substring(1, word.length() - 1);
             if (lastCorrection != null && original.equals(lastCorrection[0]) && revertCorrection(ic)) {
                 learnWord(original);                    // el usuario deshizo la correccion a proposito: la palabra es suya
+                String key = undoneKey;                 // con el chip el rechazo no espera confirmacion
+                undoneKey = null;
+                undoneWord = null;
+                if (key != null) reject(key);
             } else {
+                boolean asked = cur != null && pendingCorrection != null && cur.equals(lastWord)
+                        && pendingCorrection.equals(interrogative(cur));
                 ic.commitText(" ", 1);                  // conservar lo escrito, y aprenderlo
-                learnWord(cur);
-                if (cur != null && !cur.isEmpty()) placed = cur;
+                if (cur != null && !cur.isEmpty()) {
+                    placed = cur;
+                    reject(asked ? "\u00bf" + cur.toLowerCase(Locale.ROOT) : cur.toLowerCase(Locale.ROOT));
+                    if (!asked) {
+                        learnWord(cur);                 // desconocida: al diccionario personal, en el acto
+                        // de la lista ("papa" por "papá"): se guarda cuando el rechazo se repite en mensajes distintos
+                        if (dict != null && mayLearn() && dict.inList(cur.toLowerCase(Locale.ROOT))
+                                && learning.noteKept(cur, Prefs.learnUses(this))) keepWord(cur);
+                    }
+                }
             }
         } else if (AurebeshKeyboardView.isEmoji(word)) {   // emoji sugerido: sustituye la palabra
             if (cur != null && !cur.isEmpty()) ic.deleteSurroundingText(cur.length(), 0);

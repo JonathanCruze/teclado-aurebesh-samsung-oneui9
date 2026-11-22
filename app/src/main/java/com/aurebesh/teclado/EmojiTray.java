@@ -67,7 +67,16 @@ final class EmojiTray extends LinearLayout {
         void onEmojiClose();
     }
 
-    private static final int COLUMNS = 8;
+    /**
+     * Emojis por fila segun el ancho de la pantalla: una celda de unos 46 dp, entre 8 (telefonos en vertical y la tapa
+     * del Flip, como siempre) y 18 (apaisado). En el Fold desplegado salen 16: el doble a la vista. La bandeja se
+     * rehace en cada giro o plegado, asi que se calcula una vez.
+     */
+    static int columnsFor(int screenWidthDp) { return Math.max(8, Math.min(18, screenWidthDp / 46)); }
+    private final int columns = columnsFor(getResources().getConfiguration().screenWidthDp);
+
+    /** Emojis por fila de esta bandeja (para pruebas). */
+    int columns() { return columns; }
     private static final int MAX_RESULTS = 48;
     private static final String RECENT = "recent";
     private static final String[] GROUPS = {RECENT, "smileys", "people", "nature", "food", "travel",
@@ -83,7 +92,7 @@ final class EmojiTray extends LinearLayout {
         }
     }
 
-    /** Fila de la lista: cabecera de subgrupo, mensaje o hasta COLUMNS emojis. */
+    /** Fila de la lista: cabecera de subgrupo, mensaje o hasta {@link #columns} emojis. */
     private static final class Row {
         final String group, header, message;
         final List<String> emoji;
@@ -572,9 +581,9 @@ final class EmojiTray extends LinearLayout {
 
     // ------------------------------------------------------------------ datos y filas
 
-    private static void addChunks(List<Row> into, String group, List<String> emoji) {
-        for (int i = 0; i < emoji.size(); i += COLUMNS) {
-            into.add(new Row(group, null, null, new ArrayList<>(emoji.subList(i, Math.min(emoji.size(), i + COLUMNS)))));
+    private void addChunks(List<Row> into, String group, List<String> emoji) {
+        for (int i = 0; i < emoji.size(); i += columns) {
+            into.add(new Row(group, null, null, new ArrayList<>(emoji.subList(i, Math.min(emoji.size(), i + columns)))));
         }
     }
 
@@ -703,14 +712,14 @@ final class EmojiTray extends LinearLayout {
         return t;
     }
 
-    /** Fila de hasta COLUMNS celdas; cada celda escribe su emoji al tocarla. */
+    /** Fila de hasta {@link #columns} celdas; cada celda escribe su emoji al tocarla. */
     private final class EmojiRow extends LinearLayout {
-        private final TextView[] cells = new TextView[COLUMNS];
+        private final TextView[] cells = new TextView[columns];
 
         EmojiRow(Context c) {
             super(c);
             setOrientation(HORIZONTAL);
-            for (int j = 0; j < COLUMNS; j++) {
+            for (int j = 0; j < columns; j++) {
                 TextView t = new TextView(c);
                 t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 24);
                 t.setGravity(Gravity.CENTER);
@@ -736,7 +745,7 @@ final class EmojiTray extends LinearLayout {
         }
 
         void bind(List<String> emoji) {
-            for (int j = 0; j < COLUMNS; j++) {
+            for (int j = 0; j < columns; j++) {
                 boolean has = j < emoji.size();
                 cells[j].setText(has ? emoji.get(j) : "");
                 cells[j].setVisibility(has ? VISIBLE : INVISIBLE);

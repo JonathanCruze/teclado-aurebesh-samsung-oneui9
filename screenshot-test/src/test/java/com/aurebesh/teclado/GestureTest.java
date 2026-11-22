@@ -671,22 +671,34 @@ public class GestureTest {
         // Modo cursor: 5 pasos a la derecha, 2 de vuelta; al soltar no hay espacio
         kb.setSpaceSlide(AurebeshKeyboardView.SPACE_CURSOR);
         save(render(kb, W), "gestos_espacio_chevrones.png");
+        // (el gesto arranca al pasar 24 dp: el primer paso sale ahi y cada 12 dp mas es otro)
         down(kb, cx, cy);
-        move(kb, cx + 5 * 12 * dp + 3, cy);
+        move(kb, cx + 20 * dp, cy);
+        check(rec.cursorMoves == 0, "menos de 24 dp aun no es un gesto: " + rec.events);
+        move(kb, cx + 6 * 12 * dp + 3, cy);
         check(rec.cursorMoves == 5, "cinco pasos de cursor: " + rec.events);
-        move(kb, cx + 3 * 12 * dp + 3, cy);
+        move(kb, cx + 4 * 12 * dp + 3, cy);
         check(rec.cursorMoves == 3, "dos pasos de vuelta: " + rec.events);
         idle(1000);                                      // la pulsacion larga del espacio quedo cancelada
-        up(kb, cx + 3 * 12 * dp + 3, cy);
+        up(kb, cx + 4 * 12 * dp + 3, cy);
         check(rec.typed.toString(), "", "deslizar el espacio no escribe espacio");
         check(!rec.events.contains("switchkb"), "sin selector de teclados tras deslizar");
+        rec.reset();
+
+        // El pulgar que resbala un poco al teclear (menos de 24 dp) sigue escribiendo su espacio, sin mover el cursor
+        down(kb, cx, cy);
+        move(kb, cx + 14 * dp, cy);
+        move(kb, cx + 21 * dp, cy);
+        up(kb, cx + 21 * dp, cy);
+        check(rec.typed.toString(), " ", "espacio resbalado");
+        check(rec.cursorMoves == 0, "sin pasos de cursor: " + rec.events);
         rec.reset();
 
         // Con mayusculas activa los pasos van con seleccion
         tap(kb, kb.keyFor(AurebeshKeyboardView.CODE_SHIFT));
         down(kb, cx, cy);
-        move(kb, cx - 2 * 12 * dp - 3, cy);
-        up(kb, cx - 2 * 12 * dp - 3, cy);
+        move(kb, cx - 3 * 12 * dp - 3, cy);
+        up(kb, cx - 3 * 12 * dp - 3, cy);
         check(rec.events.toString(), "[cur-1s, cur-1s]", "pasos con seleccion");
         tap(kb, kb.keyFor(AurebeshKeyboardView.CODE_SHIFT));
         rec.reset();

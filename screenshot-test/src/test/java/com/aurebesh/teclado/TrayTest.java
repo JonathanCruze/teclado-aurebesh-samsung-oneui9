@@ -343,4 +343,41 @@ public class TrayTest {
         assertEquals("intro cierra la bandeja", "<abc>", out.toString());
         assertEquals("y la busqueda", View.GONE, mini.getVisibility());
     }
+
+    /** Emojis por fila segun el ancho: 8 en un telefono en vertical y en la tapa del Flip, 16 en el Fold desplegado. */
+    @Test
+    public void emojiColumnsFollowTheWidth() {
+        assertEquals(8, new EmojiTray(app).columns());
+        assertEquals(8, EmojiTray.columnsFor(411));
+        assertEquals(8, EmojiTray.columnsFor(300));
+        assertEquals(16, EmojiTray.columnsFor(750));
+        assertEquals(18, EmojiTray.columnsFor(914));
+    }
+
+    @Test
+    @Config(sdk = 35, qualifiers = "es-rES-w750dp-h800dp-xxhdpi")
+    public void emojiGridOnTheUnfoldedFold() {
+        final StringBuilder out = new StringBuilder();
+        EmojiTray emojis = new EmojiTray(app);
+        emojis.setHost(new EmojiTray.Host() {
+            public void onEmoji(String e) { out.append(e); }
+            public void onEmojiDelete() { }
+            public void onEmojiSpace() { }
+            public void onEmojiClose() { }
+        });
+        assertEquals(16, emojis.columns());
+        List<String> recent = new ArrayList<>();
+        for (int i = 0; i < 32; i++) recent.add(new String(Character.toChars(0x1F600 + i)));
+        emojis.show(recent);                              // los 32 recientes caben en dos filas
+        int w = Math.round(750 * app.getResources().getDisplayMetrics().density);
+        emojis.measure(View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(900, View.MeasureSpec.EXACTLY));
+        emojis.layout(0, 0, w, 900);
+        ViewGroup row = (ViewGroup) byClassName(emojis, "EmojiRow");
+        assertNotNull(row);
+        assertEquals(16, row.getChildCount());
+        View last = row.getChildAt(15);
+        assertEquals("la celda 16 lleva emoji", View.VISIBLE, last.getVisibility());
+        last.performClick();
+        assertEquals(((android.widget.TextView) last).getText().toString(), out.toString());
+    }
 }
