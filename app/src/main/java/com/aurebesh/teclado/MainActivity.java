@@ -270,6 +270,16 @@ public final class MainActivity extends Activity {
         // vista previa anclado abajo
         setContentView(scroll);
         rootFrame = (FrameLayout) findViewById(android.R.id.content);
+        // Con el tema de la app la ventana no se dibuja de borde a borde y esto vale 0; si algun sistema la dibujara
+        // asi, el contenido baja el alto de la barra de estado (el panel de abajo ya respeta la de navegacion)
+        rootFrame.setOnApplyWindowInsetsListener(new View.OnApplyWindowInsetsListener() {
+            @Override public WindowInsets onApplyWindowInsets(View v, WindowInsets insets) {
+                int top = Build.VERSION.SDK_INT >= 30
+                        ? insets.getInsets(WindowInsets.Type.statusBars()).top : insets.getSystemWindowInsetTop();
+                if (v.getPaddingTop() != top) v.setPadding(0, Math.max(0, top), 0, 0);
+                return insets;
+            }
+        });
         pageView.setVisibility(View.GONE);
         rootFrame.addView(pageView, new FrameLayout.LayoutParams(MATCH, MATCH));
         buildHomeBar();

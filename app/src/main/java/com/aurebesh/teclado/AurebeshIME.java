@@ -163,6 +163,7 @@ public class AurebeshIME extends InputMethodService
 
     @Override
     public void onCreate() {
+        setTheme(R.style.TemaTeclado);       // antes de super: la ventana del teclado se crea ahi con este tema
         super.onCreate();
         Prefs.migrate(this);                 // datos de versiones anteriores (una sola vez)
         learning = new Learning(this);
@@ -252,8 +253,25 @@ public class AurebeshIME extends InputMethodService
         root.addView(ai, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         root.addView(tools, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         root.addView(edit, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        root.setOnApplyWindowInsetsListener(new View.OnApplyWindowInsetsListener() {
+            @Override public android.view.WindowInsets onApplyWindowInsets(View v, android.view.WindowInsets insets) {
+                v.setPadding(0, 0, 0, navInset(insets));
+                return insets;
+            }
+        });
         applyPrefs();
         return root;
+    }
+
+    /**
+     * Alto de la barra de navegacion que el sistema NO ha descontado ya de la ventana del teclado. Con el tema del
+     * servicio (TemaTeclado) la ventana no se dibuja de borde a borde y esto vale 0; si algun sistema la dibujara asi,
+     * el teclado sube ese alto para no quedar bajo la barra, con el fondo del tema debajo.
+     */
+    static int navInset(android.view.WindowInsets insets) {
+        if (insets == null) return 0;
+        if (android.os.Build.VERSION.SDK_INT >= 30) return Math.max(0, insets.getInsets(android.view.WindowInsets.Type.navigationBars()).bottom);
+        return Math.max(0, insets.getSystemWindowInsetBottom());
     }
 
     private void applyPrefs() {
@@ -289,6 +307,7 @@ public class AurebeshIME extends InputMethodService
             updateGlide();
         }
         KeySound.get(this).setVolume(Prefs.soundVolume(this));
+        if (root != null) root.setBackgroundColor(theme.bg);   // lo que quede bajo las teclas (relleno de navInset), del color del teclado
         if (tray != null) tray.applyTheme(theme);
         if (emojis != null) {
             emojis.setFeedback(Prefs.vibrate(this), Prefs.sound(this));

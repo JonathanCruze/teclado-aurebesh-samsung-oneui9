@@ -6,6 +6,14 @@
         <item name="android:statusBarColor">@color/surface</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:navigationBarColor">@color/navigation_bar</item>
+        <!-- Android 15 dibuja de borde a borde las ventanas de las apps que apuntan a la API 35: la app conserva sus
+             barras de estado y de navegacion del color del tema -->
+        <item name="android:windowOptOutEdgeToEdgeEnforcement">true</item>
+    </style>
+    <!-- Ventana del teclado: el tema de teclado del sistema (el que el servicio tomaria solo) con la misma exclusion,
+         para que las teclas no queden bajo la barra de navegacion. -->
+    <style name="TemaTeclado" parent="@android:style/Theme.DeviceDefault.InputMethod">
+        <item name="android:windowOptOutEdgeToEdgeEnforcement">true</item>
     </style>
     <!-- Superposiciones que elige MainActivity antes de crear la ventana segun la paleta del tema del teclado: tinta del
          cursor, de las asas de seleccion y del resaltado (colorAccent / colorControlActivated) oscura sobre tarjetas

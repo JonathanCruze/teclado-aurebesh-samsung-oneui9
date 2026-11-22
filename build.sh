@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Compila el APK sin Android Studio usando las herramientas de Ubuntu:
-#   sudo apt install aapt apksigner zipalign dalvik-exchange android-sdk-platform-23 openjdk-17-jdk
+#   sudo apt install aapt aapt2 apksigner zipalign dalvik-exchange android-sdk-platform-23 openjdk-17-jdk
 set -euo pipefail
 cd "$(dirname "$0")"
 RES_JAR=${RES_JAR:-/usr/lib/android-sdk/platforms/android-23/android.jar}   # recursos (aapt)
@@ -17,8 +17,14 @@ rm -rf "$OUT"; mkdir -p "$OUT/gen" "$OUT/classes" "$OUT/dex"
 sed "s|<manifest |<manifest package=\"$PKG\" android:versionCode=\"$VERSION_CODE\" android:versionName=\"$VERSION_NAME\" |" \
   "$M/AndroidManifest.xml" > "$OUT/AndroidManifest.xml"
 
-aapt package -f -m -J "$OUT/gen" -M "$OUT/AndroidManifest.xml" -S "$M/res" -I "$RES_JAR" \
-  --min-sdk-version 26 --target-sdk-version 34 -F "$OUT/base.apk"
+# aapt solo conoce los atributos de RES_JAR (API 23): los posteriores que usan los temas van en un complemento
+aapt2 compile --dir tools/plataforma35/res -o "$OUT/plataforma35.zip"
+aapt2 link -o "$OUT/plataforma35.apk" --manifest tools/plataforma35/AndroidManifest.xml "$OUT/plataforma35.zip"
+
+# targetSdk 35: Play Protect avisa al instalar una app que apunta a mas de dos versiones por debajo de la del telefono
+aapt package -f -m -J "$OUT/gen" -M "$OUT/AndroidManifest.xml" -S "$M/res" -I "$RES_JAR" -I "$OUT/plataforma35.apk" \
+  --min-sdk-version 26 --target-sdk-version 35 -F "$OUT/base.apk" 2> "$OUT/aapt.log" || { cat "$OUT/aapt.log"; exit 1; }
+grep -v 'ResourceType\|Package not found for resource #0101069a' "$OUT/aapt.log" || true   # avisos del complemento, que solo declara un atributo
 
 javac -encoding UTF-8 -source 8 -target 8 -nowarn -Xlint:-options -classpath "$SDK_JAR" \
   -d "$OUT/classes" $(find "$M/java" "$OUT/gen" -name '*.java')

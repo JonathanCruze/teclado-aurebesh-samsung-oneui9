@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Complemento de plataforma para aapt: declara, con su identificador real, los atributos de Android posteriores a la
+     API 23 que usan los temas de la app. build.sh lo compila con aapt2 y se lo pasa a aapt junto al android.jar; no
+     entra en el APK. -->
+<manifest package="android">
+    <application/>
+</manifest>

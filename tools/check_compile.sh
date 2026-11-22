@@ -11,8 +11,10 @@ M=app/src/main
 rm -rf "$OUT"; mkdir -p "$OUT/gen" "$OUT/classes"
 sed "s|<manifest |<manifest package=\"com.aurebesh.teclado\" android:versionCode=\"1\" android:versionName=\"dev\" |" \
   "$M/AndroidManifest.xml" > "$OUT/AndroidManifest.xml"
-aapt package -f -m -J "$OUT/gen" -M "$OUT/AndroidManifest.xml" -S "$M/res" -I "$RES_JAR" \
-  --min-sdk-version 26 --target-sdk-version 34 -F "$OUT/base.apk" || { echo "## aapt: error en recursos"; exit 2; }
+aapt2 compile --dir tools/plataforma35/res -o "$OUT/plataforma35.zip" && \
+aapt2 link -o "$OUT/plataforma35.apk" --manifest tools/plataforma35/AndroidManifest.xml "$OUT/plataforma35.zip" || { echo "## aapt2: error en el complemento de plataforma"; exit 2; }
+aapt package -f -m -J "$OUT/gen" -M "$OUT/AndroidManifest.xml" -S "$M/res" -I "$RES_JAR" -I "$OUT/plataforma35.apk" \
+  --min-sdk-version 26 --target-sdk-version 35 -F "$OUT/base.apk" 2> "$OUT/aapt.log" || { cat "$OUT/aapt.log"; echo "## aapt: error en recursos"; exit 2; }
 javac -encoding UTF-8 -source 8 -target 8 -nowarn -Xlint:-options -Xmaxerrs 200 -classpath "$SDK_JAR" \
   -d "$OUT/classes" $(find "$M/java" "$OUT/gen" -name '*.java') 2> "$OUT/javac.log"
 RC=$?

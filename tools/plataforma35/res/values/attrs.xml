@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- android.R.attr.windowOptOutEdgeToEdgeEnforcement (API 35): la ventana no se dibuja de borde a borde aunque la app
+         apunte a Android 15. Identificador tomado de android.R$attr de la plataforma 35. -->
+    <attr name="windowOptOutEdgeToEdgeEnforcement" format="boolean"/>
+    <public type="attr" name="windowOptOutEdgeToEdgeEnforcement" id="0x0101069a"/>
+</resources>

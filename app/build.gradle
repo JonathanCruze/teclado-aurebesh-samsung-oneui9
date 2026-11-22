@@ -2,11 +2,11 @@ plugins { id 'com.android.application' }
 
 android {
     namespace 'com.aurebesh.teclado'
-    compileSdk 34
+    compileSdk 35
     defaultConfig {
         applicationId 'com.aurebesh.teclado'
         minSdk 26
-        targetSdk 34
+        targetSdk 35
         versionCode 45
         versionName '2.7.1'
     }
