@@ -304,4 +304,43 @@ public class TrayTest {
             assertTrue("falta b" + i, texts.contains("b" + i));
         }
     }
+
+    /** Busqueda de emojis: intro es "listo" (cierra la busqueda y vuelve a las letras) y el espacio siempre escribe. */
+    @Test
+    public void emojiSearchEnterIsDoneAndSpaceTypes() throws Exception {
+        final StringBuilder out = new StringBuilder();
+        EmojiTray emojis = new EmojiTray(app);
+        emojis.setHost(new EmojiTray.Host() {
+            public void onEmoji(String e) { out.append(e); }
+            public void onEmojiDelete() { out.append("<del>"); }
+            public void onEmojiSpace() { out.append(" "); }
+            public void onEmojiClose() { out.append("<abc>"); }
+        });
+        emojis.show(new ArrayList<String>());
+        layout(emojis, 900);
+        emojis.openSearch("pastel");
+        layout(emojis, 900);
+        AurebeshKeyboardView mini = (AurebeshKeyboardView) byClassName(emojis, "AurebeshKeyboardView");
+        assertNotNull("teclado reducido de la busqueda", mini);
+        assertEquals(View.VISIBLE, mini.getVisibility());
+        java.lang.reflect.Field q = EmojiTray.class.getDeclaredField("query");
+        q.setAccessible(true);
+        StringBuilder query = (StringBuilder) q.get(emojis);
+        assertEquals("pastel", query.toString());
+
+        // Arrastrar un poco el dedo sobre el espacio no lo convierte en gesto de cursor: escribe un espacio
+        AurebeshKeyboardView.Key space = mini.keyFor(AurebeshKeyboardView.CODE_SPACE);
+        float d = app.getResources().getDisplayMetrics().density;
+        long t = SystemClock.uptimeMillis();
+        float sx = space.rect.centerX(), sy = space.rect.centerY();
+        mini.onTouchEvent(MotionEvent.obtain(t, t, MotionEvent.ACTION_DOWN, sx, sy, 0));
+        mini.onTouchEvent(MotionEvent.obtain(t, t + 30, MotionEvent.ACTION_MOVE, sx + 15 * d, sy, 0));
+        mini.onTouchEvent(MotionEvent.obtain(t, t + 60, MotionEvent.ACTION_UP, sx + 15 * d, sy, 0));
+        assertEquals("pastel ", query.toString());
+
+        AurebeshKeyboardView.Key enter = mini.keyFor(AurebeshKeyboardView.CODE_ENTER);
+        tap(mini, enter.rect.centerX(), enter.rect.centerY());
+        assertEquals("intro cierra la bandeja", "<abc>", out.toString());
+        assertEquals("y la busqueda", View.GONE, mini.getVisibility());
+    }
 }

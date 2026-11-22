@@ -25,4 +25,5 @@
     <string name="a11y_paste_image">Paste the copied image</string>
     <string name="a11y_side_left">Move the keyboard to the left</string>
     <string name="a11y_side_right">Move the keyboard to the right</string>
+    <string name="a11y_full_keyboard">Full-size keyboard</string>
 </resources>

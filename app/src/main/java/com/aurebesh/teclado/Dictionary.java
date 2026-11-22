@@ -937,6 +937,11 @@ final class Dictionary {
                 return res;
             }
         }
+        if (n == 1 && Character.isLetter(w.charAt(0))) {   // una sola letra: nada que corregir, pero ya se puede completar
+            res.known = true;
+            res.suggestions.addAll(complete(w, MAX_SUGGESTIONS));
+            return res;
+        }
         if (n < 2 || n > MAX_LEN) return res;
         boolean learned = personal.contains(w);
         if (!learned && !w.equals(fold(w))) {              // escrita con tildes y aprendida sin ellas: se respeta tal cual
@@ -1311,8 +1316,14 @@ final class Dictionary {
      * compartan el prefijo, y la mayoria de las consultas (prefijos que nadie lleva) acaban en la primera busqueda.
      */
     List<String> completions(String prefix, int max) {
+        if (prefix.length() < 2) return new ArrayList<>();
+        return complete(prefix, max);
+    }
+
+    /** Como {@link #completions} pero tambien con una sola letra (lo que se ofrece al empezar una palabra). */
+    List<String> complete(String prefix, int max) {
         List<String> out = new ArrayList<>();
-        if (prefix.length() < 2) return out;
+        if (prefix.isEmpty()) return out;
         int lo = 0, hi = alpha.length;
         while (lo < hi) {
             int mid = (lo + hi) >>> 1;

@@ -25,4 +25,5 @@
     <string name="a11y_paste_image">Pegar la imagen copiada</string>
     <string name="a11y_side_left">Mover el teclado a la izquierda</string>
     <string name="a11y_side_right">Mover el teclado a la derecha</string>
+    <string name="a11y_full_keyboard">Teclado completo</string>
 </resources>

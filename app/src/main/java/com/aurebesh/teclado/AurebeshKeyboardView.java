@@ -208,6 +208,7 @@ public final class AurebeshKeyboardView extends View {
     private final RectF toolDownRect = new RectF();
     private final RectF hideRect = new RectF();     // boton ∨ de la banda inferior (margen >= 24 dp)
     private final RectF sideRect = new RectF();     // flecha para cambiar de lado en modo a una mano
+    private final RectF fullRect = new RectF();     // y, debajo, el boton que vuelve al teclado completo
     private final RectF moreRect = new RectF();     // "..." que muestra los iconos sobre las sugerencias
     private final RectF aiRect = new RectF();       // boton de inteligencia a la izquierda de la barra
     private float stripLeft;                        // donde empiezan los chips (tras el boton de inteligencia)
@@ -409,6 +410,24 @@ public final class AurebeshKeyboardView extends View {
     String topRow() { return topRow; }
 
     /**
+     * Campo de contrasena: la fila de numeros va siempre (casi todas llevan cifras), aunque la fila superior elegida
+     * sea la de letras dobles o ninguna; al salir del campo vuelve la del usuario.
+     */
+    void setPasswordField(boolean on) {
+        if (passwordField == on) return;
+        passwordField = on;
+        if (!"numbers".equals(topRow)) rebuildLayouts();
+    }
+    private boolean passwordField = false;
+
+    /**
+     * Mantener intro abre los emojis (lo enciende el servicio en los campos normales; apagado en los teclados
+     * reducidos de las bandejas). Lo recuerda una carita pequena en la esquina de la tecla.
+     */
+    void setEnterEmoji(boolean on) { if (enterEmoji != on) { enterEmoji = on; invalidate(); } }
+    private boolean enterEmoji = false;
+
+    /**
      * Teclado numerico con glifos Aurebesh grandes en el centro y simbolos a los lados, como la calculadora o el
      * telefono de Samsung (el IME lo abre en onStartInputView en vez de showSymbols). {@code phone}: ( ) + - / * #
      * y pausa; numero: ( ) - + * / y los dos separadores (el decimal del idioma y el de miles); {@code pin}: solo
@@ -423,6 +442,7 @@ public final class AurebeshKeyboardView extends View {
         numpad.clear();
         buildNumpad();
         current = numpad;
+        typedOnSymbols = false;
         capsLock = false;
         shift = false;
         clearTouchState();
@@ -496,6 +516,10 @@ public final class AurebeshKeyboardView extends View {
 
     /** Boton ∨ de la banda inferior (para pruebas); vacio si el margen no llega a 24 dp o aun no se dibujo. */
     RectF hideButtonRect() { return new RectF(hideRect); }
+
+    /** Botones del margen libre en modo a una mano tal y como se dibujaron: cambiar de lado y teclado completo (para pruebas). */
+    RectF sideButtonRect() { return new RectF(sideRect); }
+    RectF fullButtonRect() { return new RectF(fullRect); }
 
     private void clearResizeRects() {
         resizeTopRect.setEmpty();
@@ -675,6 +699,7 @@ public final class AurebeshKeyboardView extends View {
     /** Abre la pantalla ?123 (campos numericos y de telefono). */
     void showSymbols() {
         current = symbols;
+        typedOnSymbols = false;
         requestLayout();
         invalidate();
         a11yChanged();
@@ -846,11 +871,41 @@ public final class AurebeshKeyboardView extends View {
 
     void resetToLetters() {
         current = letters;
+        typedOnSymbols = false;
         capsLock = false;
         shift = false;
         requestLayout();
         invalidate();
         a11yChanged();
+    }
+
+    /**
+     * De la pagina de signos a las letras sin tocar las mayusculas ni su bloqueo (el teclado numerico se queda):
+     * lo usa el servicio cuando la app vacia el campo al enviar el mensaje con su propio boton.
+     */
+    void showLetters() {
+        if (current != symbols && current != symbols2) return;
+        current = letters;
+        typedOnSymbols = false;
+        requestLayout();
+        invalidate();
+        a11yChanged();
+    }
+
+    /** Se esta en una de las dos paginas de signos (para pruebas). */
+    boolean onSymbols() { return current == symbols || current == symbols2; }
+
+    /**
+     * Un espacio o un intro despues de escribir algun signo devuelve a las letras, como en los teclados de Google y
+     * Samsung: "$ " y a seguir escribiendo. Un espacio nada mas abrir la pagina no cuenta, ni el teclado numerico.
+     */
+    private boolean typedOnSymbols = false;
+
+    private void backFromSymbols() {
+        if (!typedOnSymbols || (current != symbols && current != symbols2)) return;
+        current = letters;
+        typedOnSymbols = false;
+        requestLayout();
     }
 
     void setAutoShift(boolean on) {
@@ -1161,10 +1216,10 @@ public final class AurebeshKeyboardView extends View {
     }
 
     /** Fila de numeros efectiva: la preferencia, salvo en pantallas muy bajas, donde se oculta aunque este activada. */
-    private boolean numbersShown() { return "numbers".equals(topRow) && !compact; }
+    private boolean numbersShown() { return ("numbers".equals(topRow) || passwordField) && !compact; }
 
     /** Fila superior de digrafos efectiva (preferencia "digraphs"), oculta igualmente en pantallas muy bajas. */
-    private boolean digraphsShown() { return "digraphs".equals(topRow) && !compact; }
+    private boolean digraphsShown() { return "digraphs".equals(topRow) && !passwordField && !compact; }
 
     /** Hay fila superior en la pagina de letras (digitos o digrafos): ocupa el paso de la fila de numeros. */
     private boolean topRowShown() { return numbersShown() || digraphsShown(); }
@@ -1573,7 +1628,14 @@ public final class AurebeshKeyboardView extends View {
             case CODE_SHIFT: drawShift(c, cx, cy); break;
             case CODE_DELETE: drawDelete(c, cx, cy); break;
             case CODE_GLOBE: drawGlobe(c, cx, cy); break;
-            case CODE_ENTER: drawEnter(c, cx, cy); break;
+            case CODE_ENTER:
+                drawEnter(c, cx, cy);
+                if (enterEmoji && current != numpad) {               // pista de "mantener: emojis", como las alternativas de las letras
+                    iconPaint.setColor(fade(theme.onAccent, 0.7f));
+                    ToolIcons.draw(c, TOOL_EMOJI, r.right - 9 * dp, r.top + 9 * dp, 10 * dp, iconPaint);
+                    iconPaint.setColor(theme.icon);
+                }
+                break;
             case CODE_SPACE:
                 if (spaceLabel != null) {
                     hintPaint.setTextSize(11 * sp);
@@ -2009,6 +2071,8 @@ public final class AurebeshKeyboardView extends View {
         if (current == letters && singleLetter(popupKey)) countHint(popupKey.output);   // aprendiendo: la tecla se uso
         if (shiftPointer >= 0) shiftHeldTyped = true;
         else if (shift && !capsLock) { shift = false; autoShifted = false; }
+        lastShiftTap = 0;
+        if (current == symbols || current == symbols2) typedOnSymbols = true;
         closePopup();
     }
 
@@ -2213,6 +2277,7 @@ public final class AurebeshKeyboardView extends View {
     /** En modo a una mano, boton en el margen libre para pasar el teclado al otro lado. */
     private void drawSideSwitch(Canvas c) {
         sideRect.setEmpty();
+        fullRect.setEmpty();
         if (handMode == 0 || current.isEmpty()) return;
         float full = getWidth(), w = handWidth(), pad = keyMargin();
         float marginLeft = handMode == 2 ? 0 : w - pad, marginRight = handMode == 2 ? full - w + pad : full;
@@ -2228,6 +2293,21 @@ public final class AurebeshKeyboardView extends View {
         c.drawLine(cx - d * s, cy, cx + d * s, cy, iconPaint);
         c.drawLine(cx + d * s, cy, cx + d * s * 0.35f, cy - s * 0.65f, iconPaint);
         c.drawLine(cx + d * s, cy, cx + d * s * 0.35f, cy + s * 0.65f, iconPaint);
+        // Debajo, volver al teclado completo (como Samsung Keyboard): si no cabe entero dentro de las teclas, solo la flecha
+        fullRect.setEmpty();
+        float fy = cy + 2 * r + 12 * dp;
+        if (fy + r > stripHeight() + keysHeight() - 4 * dp) return;
+        fullRect.set(cx - r, fy - r, cx + r, fy + r);
+        fill.setColor(theme.specialBg);
+        c.drawCircle(cx, fy, r, fill);
+        if (theme.keyStroke != 0) c.drawCircle(cx, fy, r, strokePaint);
+        iconPaint.setStrokeWidth(2.4f * dp);
+        float a = 7 * dp, t = 4.5f * dp;              // dos esquinas que se abren: ampliar
+        c.drawLine(cx - a, fy + a, cx - a, fy + a - t, iconPaint);
+        c.drawLine(cx - a, fy + a, cx - a + t, fy + a, iconPaint);
+        c.drawLine(cx + a, fy - a, cx + a, fy - a + t, iconPaint);
+        c.drawLine(cx + a, fy - a, cx + a - t, fy - a, iconPaint);
+        c.drawLine(cx - a, fy + a, cx + a, fy - a, iconPaint);
     }
 
     /**
@@ -2677,6 +2757,11 @@ public final class AurebeshKeyboardView extends View {
                     if (listener != null) listener.onHandSide(handMode == 2 ? 1 : 2);
                     return true;
                 }
+                if (!fullRect.isEmpty() && fullRect.contains(e.getX(idx), e.getY(idx))) {   // volver al teclado completo
+                    feedback(special("", CODE_SPACE, 1f));
+                    if (listener != null) listener.onToolbar(TOOL_HAND);
+                    return true;
+                }
                 Key k = findKey(e.getX(idx), e.getY(idx));
                 if (k == null) return true;
                 if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(true);
@@ -2794,7 +2879,9 @@ public final class AurebeshKeyboardView extends View {
                 boolean consumed = k != null && ((k == longPressKey && longPressFired) || k.code == CODE_CANCELLED
                         || (k.code == CODE_SPACE && spaceDragged));
                 boolean shiftLift = fromShift && k != null && k.code == CODE_SHIFT;
-                if (!shiftLift || pressed.size() == 0) cancelTimers();   // los temporizadores son del otro dedo, que sigue pulsado
+                // Los temporizadores (menu al mantener, repetir borrar) son de un solo dedo: al levantar otro que ya no
+                // tenia tecla (se escribio al bajar el segundo) o la mayuscula sostenida, siguen para el que queda pulsado
+                if (pressed.size() == 0 || (k != null && !shiftLift)) cancelTimers();
                 if (shiftLift) {
                     // Soltar mayusculas: si se escribio algo mientras se mantenia, se apaga sin conmutar (ni bloquear);
                     // la letra que aun este pulsada sale en mayuscula y apaga shift al escribirse
@@ -3239,10 +3326,12 @@ public final class AurebeshKeyboardView extends View {
                 if (current == letters && singleLetter(k)) countHint(k.output);   // aprendiendo: una pulsacion mas de la letra
                 if (shiftPointer >= 0) shiftHeldTyped = true;           // sostenida: sigue en mayusculas hasta soltarla
                 else if (shift && !capsLock) { shift = false; autoShifted = false; }
+                lastShiftTap = 0;                                       // el bloqueo pide dos toques seguidos, sin letra en medio
+                if (current == symbols || current == symbols2) typedOnSymbols = true;
                 break;
             }
-            case CODE_SPACE: listener.onText(" "); break;
-            case CODE_ENTER: listener.onEnter(); break;
+            case CODE_SPACE: listener.onText(" "); backFromSymbols(); break;
+            case CODE_ENTER: listener.onEnter(); backFromSymbols(); break;
             case CODE_GLOBE: listener.onSwitchLanguage(); break;
             case CODE_SHIFT: {
                 long now = System.currentTimeMillis();
@@ -3255,6 +3344,7 @@ public final class AurebeshKeyboardView extends View {
             }
             case CODE_MODE:
                 current = current == letters ? symbols : letters;
+                typedOnSymbols = false;
                 requestLayout();
                 break;
             case CODE_PAGE:
@@ -3280,6 +3370,13 @@ public final class AurebeshKeyboardView extends View {
                 haptic(H_LONG);
                 openPopup(k);
                 if (glideState == GLIDE_PENDING) resetGlide(true);   // con el menu abierto ya no hay trazo
+            } else if (k.code == CODE_ENTER && enterEmoji && current != numpad) {
+                longPressFired = true;                                // al soltar ya no se envia intro
+                haptic(H_LONG);
+                for (int i = 0; i < pressed.size(); i++) {            // la bandeja tapa la vista: ese dedo queda cancelado
+                    if (pressed.valueAt(i) == k) pressed.setValueAt(i, CANCELLED);
+                }
+                listener.onToolbar(TOOL_EMOJI);
             }
             invalidate();
         }
@@ -3308,7 +3405,8 @@ public final class AurebeshKeyboardView extends View {
         handler.removeCallbacks(longPressRunnable);
         longPressKey = k;
         longPressFired = false;
-        handler.postDelayed(longPressRunnable, k.code == CODE_SPACE ? longPressMs + 220 : longPressMs);
+        // el espacio y el intro piden un poco mas: lo que abren (selector de teclados, emojis) no debe saltar al dudar
+        handler.postDelayed(longPressRunnable, k.code == CODE_SPACE || k.code == CODE_ENTER ? longPressMs + 220 : longPressMs);
     }
 
     private void startRepeat(Key k) {
@@ -3380,7 +3478,8 @@ public final class AurebeshKeyboardView extends View {
      * cambiar de lado, ocultar) o por bloques: A11Y_TOOL + id TOOL_* del icono y A11Y_SUGGESTION + indice del chip.
      */
     static final int A11Y_NONE = Integer.MIN_VALUE;
-    static final int A11Y_AI = 10000, A11Y_PASTE = 10001, A11Y_MORE = 10002, A11Y_SIDE = 10003, A11Y_HIDE = 10004;
+    static final int A11Y_AI = 10000, A11Y_PASTE = 10001, A11Y_MORE = 10002, A11Y_SIDE = 10003, A11Y_HIDE = 10004,
+            A11Y_FULL = 10005;
     static final int A11Y_TOOL = 20000;
     static final int A11Y_SUGGESTION = 30000;
     private static final int A11Y_KEY_ROW = 100;
@@ -3464,6 +3563,7 @@ public final class AurebeshKeyboardView extends View {
         }
         if (!hideRect.isEmpty() && hideRect.contains(x, y)) return A11Y_HIDE;
         if (!sideRect.isEmpty() && sideRect.contains(x, y)) return A11Y_SIDE;
+        if (!fullRect.isEmpty() && fullRect.contains(x, y)) return A11Y_FULL;
         return a11yIdOf(findKey(x, y));
     }
 
@@ -3498,7 +3598,7 @@ public final class AurebeshKeyboardView extends View {
             return null;
         }
         RectF r = id == A11Y_AI ? aiRect : id == A11Y_PASTE ? pasteRect : id == A11Y_MORE ? moreRect
-                : id == A11Y_SIDE ? sideRect : id == A11Y_HIDE ? hideRect : null;
+                : id == A11Y_SIDE ? sideRect : id == A11Y_HIDE ? hideRect : id == A11Y_FULL ? fullRect : null;
         if (r != null) return r.isEmpty() ? null : r;
         Key k = a11yKey(id);
         return k == null ? null : k.rect;
@@ -3522,6 +3622,7 @@ public final class AurebeshKeyboardView extends View {
             case A11Y_MORE: return ctx.getString(R.string.a11y_tool_more);
             case A11Y_SIDE: return ctx.getString(handMode == 2 ? R.string.a11y_side_left : R.string.a11y_side_right);
             case A11Y_HIDE: return ctx.getString(R.string.tools_label_hide);
+            case A11Y_FULL: return ctx.getString(R.string.a11y_full_keyboard);
         }
         Key k = a11yKey(id);
         return k == null ? null : keyDescription(k);
@@ -3587,6 +3688,7 @@ public final class AurebeshKeyboardView extends View {
             }
         }
         if (!sideRect.isEmpty()) node.addChild(this, A11Y_SIDE);
+        if (!fullRect.isEmpty()) node.addChild(this, A11Y_FULL);
         if (!hideRect.isEmpty()) node.addChild(this, A11Y_HIDE);
         return node;
     }
@@ -3694,6 +3796,11 @@ public final class AurebeshKeyboardView extends View {
                 if (listener == null) return false;
                 feedback(button);
                 listener.onHide();
+                return true;
+            case A11Y_FULL:
+                if (listener == null) return false;
+                feedback(button);
+                listener.onToolbar(TOOL_HAND);
                 return true;
         }
         Key k = a11yKey(id);

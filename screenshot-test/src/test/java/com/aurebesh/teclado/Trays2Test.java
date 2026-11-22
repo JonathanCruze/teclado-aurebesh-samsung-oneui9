@@ -330,6 +330,7 @@ public class Trays2Test {
             public void onEditMove(int keyCode, boolean select) { out.add("move" + keyCode + (select ? "s" : "")); }
             public void onEditAction(int actionId) { out.add("act" + actionId); }
             public void onEditHome(boolean end, boolean select) { out.add((end ? "end" : "home") + (select ? "s" : "")); }
+            public void onEditDelete() { out.add("del"); }
             public void onEditClose() { out.add("close"); }
         });
         edit.show();
@@ -358,6 +359,25 @@ public class Trays2Test {
         idle(500);
         assertEquals("se para al soltar", n, out.size());
         for (String s : out) assertEquals("move" + KeyEvent.KEYCODE_DPAD_LEFT + "s", s);
+
+        // Tecla de borrar de la cruceta: una al bajar, repite al mantener y apaga Seleccionar (la seleccion ya se uso)
+        out.clear();
+        View del = edit.deleteKey();
+        assertNotNull(del);
+        assertEquals(app.getString(R.string.a11y_delete), del.getContentDescription().toString());
+        assertTrue(edit.isSelecting());
+        down(del, 5, 5);
+        assertEquals("[del]", out.toString());
+        assertFalse(edit.isSelecting());
+        idle(420 + 3 * 60 + 10);
+        assertTrue("borrar repite al mantener: " + out.size(), out.size() >= 4);
+        up(del, 5, 5);
+        int dels = out.size();
+        idle(500);
+        assertEquals(dels, out.size());
+        for (String s : out) assertEquals("del", s);
+        edit.selectButton().performClick();
+        assertTrue(edit.isSelecting());
 
         // Inicio con seleccion; copiar apaga Seleccionar
         out.clear();

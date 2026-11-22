@@ -42,6 +42,8 @@ final class EditTray extends LinearLayout {
         void onEditAction(int actionId);
         /** Inicio (end=false) o fin (end=true) del texto. */
         void onEditHome(boolean end, boolean select);
+        /** Tecla de borrar: la seleccion si la hay, o el caracter anterior al cursor. */
+        void onEditDelete();
         void onEditClose();
     }
 
@@ -60,7 +62,7 @@ final class EditTray extends LinearLayout {
 
     private final TextView title;
     private final KeyboardTray.CloseButton close;
-    private final ArrowKey left, right, up, down;
+    private final ArrowKey left, right, up, down, del;
     private final TextView select;
     private final List<TextView> actions = new ArrayList<>();
     private final TextView cut, copy;
@@ -120,7 +122,8 @@ final class EditTray extends LinearLayout {
         });
         pad.addView(padRow(c, null, up, null), rowParams());
         pad.addView(padRow(c, left, select, right), rowParams());
-        pad.addView(padRow(c, null, down, null), rowParams());
+        del = new ArrowKey(c, KeyEvent.KEYCODE_DEL, c.getString(R.string.a11y_delete));   // borrar, con la misma repeticion
+        pad.addView(padRow(c, null, down, del), rowParams());
         body.addView(pad, new LinearLayout.LayoutParams(0, MATCH, 1f));
 
         LinearLayout acts = new LinearLayout(c);
@@ -177,7 +180,13 @@ final class EditTray extends LinearLayout {
 
     /** Flecha (una pulsacion o una repeticion): mueve el cursor, extendiendo la seleccion si "Seleccionar" esta activo. */
     private void arrow(int keyCode) {
-        if (host != null) host.onEditMove(keyCode, selecting);
+        if (host == null) return;
+        if (keyCode == KeyEvent.KEYCODE_DEL) {              // borrar: la seleccion ya se uso, como al cortar
+            host.onEditDelete();
+            if (selecting) { selecting = false; restyle(); }
+            return;
+        }
+        host.onEditMove(keyCode, selecting);
     }
 
     private void actionTapped(View v, int id) {
@@ -222,6 +231,7 @@ final class EditTray extends LinearLayout {
         right.invalidate();
         up.invalidate();
         down.invalidate();
+        del.invalidate();
     }
 
     private TextView button(Context c, int label) {
@@ -300,6 +310,9 @@ final class EditTray extends LinearLayout {
 
     View selectButton() { return select; }
 
+    /** Tecla de borrar de la cruceta. */
+    View deleteKey() { return del; }
+
     /** Flecha de la cruceta por KEYCODE_DPAD_*, o null. */
     View arrowKey(int keyCode) {
         switch (keyCode) {
@@ -361,11 +374,20 @@ final class EditTray extends LinearLayout {
                 c.drawRoundRect(rect, r, r, stroke);
             }
             // Punta de flecha (chevron) hacia su lado; con "Seleccionar" activo, del color de acento
-            stroke.setColor(selecting ? theme.accent : theme.icon);
+            stroke.setColor(selecting && keyCode != KeyEvent.KEYCODE_DEL ? theme.accent : theme.icon);
             stroke.setStrokeWidth(2.4f * dp);
             float cx = getWidth() / 2f, cy = getHeight() / 2f, k = 5 * dp;
             path.reset();
             switch (keyCode) {
+                case KeyEvent.KEYCODE_DEL: {                 // tecla de borrar: flecha hacia la izquierda con una x dentro
+                    stroke.setStrokeWidth(2f * dp);
+                    float w = 10 * dp, h = 6.5f * dp, x0 = cx + w * 0.25f, s = 2.6f * dp;
+                    path.moveTo(cx - w, cy); path.lineTo(cx - w * 0.4f, cy - h); path.lineTo(cx + w, cy - h);
+                    path.lineTo(cx + w, cy + h); path.lineTo(cx - w * 0.4f, cy + h); path.close();
+                    path.moveTo(x0 - s, cy - s); path.lineTo(x0 + s, cy + s);
+                    path.moveTo(x0 + s, cy - s); path.lineTo(x0 - s, cy + s);
+                    break;
+                }
                 case KeyEvent.KEYCODE_DPAD_LEFT:
                     path.moveTo(cx + k * 0.6f, cy - k); path.lineTo(cx - k * 0.6f, cy); path.lineTo(cx + k * 0.6f, cy + k);
                     break;

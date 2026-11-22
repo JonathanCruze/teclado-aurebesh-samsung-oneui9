@@ -25,4 +25,5 @@
     <string name="a11y_paste_image">Kopiertes Bild einfügen</string>
     <string name="a11y_side_left">Tastatur nach links verschieben</string>
     <string name="a11y_side_right">Tastatur nach rechts verschieben</string>
+    <string name="a11y_full_keyboard">Tastatur in voller Größe</string>
 </resources>

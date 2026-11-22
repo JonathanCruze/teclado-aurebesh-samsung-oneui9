@@ -282,7 +282,8 @@ final class EmojiTray extends LinearLayout {
         // Busqueda: teclado reducido (la barra de consulta va arriba, con las pestanas; los resultados, en el marco)
         miniKb = new AurebeshKeyboardView(c);
         miniKb.setToolbar(false);
-        miniKb.setEnterAction(1);
+        miniKb.setEnterAction(4);                                     // ✓ listo: cierra la busqueda y vuelve a las letras
+        miniKb.setSpaceSlide(AurebeshKeyboardView.SPACE_NONE);        // el espacio de la busqueda siempre escribe
         miniKb.setListener(new AurebeshKeyboardView.Listener() {
             @Override public void onText(String text) {
                 if ("\n".equals(text)) return;
@@ -296,7 +297,10 @@ final class EmojiTray extends LinearLayout {
                 query.setLength(n - cut);
                 refreshSearch();
             }
-            @Override public void onEnter() {}
+            @Override public void onEnter() {                         // listo: del resultado a las letras en un toque
+                closeSearch();
+                if (host != null) host.onEmojiClose();
+            }
             @Override public void onHandSide(int mode) {}
             @Override public void onCursorMove(int steps, boolean select) {}
             @Override public void onDeleteWord() {}
