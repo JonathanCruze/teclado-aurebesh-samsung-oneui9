@@ -845,6 +845,41 @@ public class CalidadVidaTest {
         assertEquals("tacos en Guadalajara", text.toString());
     }
 
+    /**
+     * El principio de una direccion, un correo o un archivo escrito en un campo normal: la letra pegada al punto deshace
+     * lo que se le hubiera cambiado a la palabra anterior (mayuscula de marca, tilde o correccion), sin apuntarlo como
+     * rechazo.
+     */
+    @Test
+    public void laLetraPegadaAlPuntoDeshaceLaCorreccion() throws Exception {
+        assertEquals("entra a facebook.com ", typed("entra a facebook.com "));
+        assertEquals("mi correo es juan.perez@gmail.com, va ", typed("mi correo es juan.perez@gmail.com, va "));
+        assertEquals("tiktok.com/@usuario ", typed("tiktok.com/@usuario "));
+        assertEquals("mexico.com.mx ", typed("mexico.com.mx "));
+        assertEquals("nesecito.pdf ", typed("nesecito.pdf "));
+        // Con su espacio tras el punto, la frase sigue como siempre; y la palabra no queda rechazada
+        assertEquals("vi a Juan. Luego ", typed("vi a juan. Luego "));
+        assertEquals("entra a facebook.com y a Facebook ", typed("entra a facebook.com y a facebook "));
+        assertEquals("los puntos suspensivos no deshacen nada", "tambi\u00e9n... ", typed("tambien... "));
+        // Un atajo de texto se queda expandido
+        Prefs.addShortcut(app, "tqm", "te quiero mucho");
+        settle();
+        assertEquals("te quiero mucho.ya ", typed("tqm.ya "));
+    }
+
+    /** Nombres que tambien son palabra comun en Mexico: fuera de la lista. */
+    @Test
+    public void lasPalabrasComunesNoSeVuelvenNombres() throws Exception {
+        assertEquals("estamos armando la fiesta ", typed("estamos armando la fiesta "));
+        assertEquals("el vestido luc\u00eda bien ", typed("el vestido luc\u00eda bien "));
+        assertEquals("no hagas pancho ", typed("no hagas pancho "));
+        assertEquals("pues sim\u00f3n ", typed("pues sim\u00f3n "));
+        assertEquals("un perro chihuahua ", typed("un perro chihuahua "));
+        assertEquals("pide una cuba ", typed("pide una cuba "));
+        assertEquals("la gente corea su nombre ", typed("la gente corea su nombre "));
+        assertEquals("ps nada ", typed("ps nada "));
+    }
+
     /** Borrar justo despues devuelve la minuscula y esa palabra ya no cambia; sin la correccion automatica, solo el chip. */
     @Test
     public void laCajaDeLosNombresSeDeshaceYSeApaga() throws Exception {
@@ -881,7 +916,8 @@ public class CalidadVidaTest {
             assertEquals("en aleman no hay lista", 0, de.properCount());
             String[] ambiguas = ("rosa luz angel julio marco china chile tabasco torres flores reyes cruz guerrero hidalgo puebla lima"
                     + " victoria gloria leon salvador domingo franco norma dolores esperanza pilar alma blanca clara dulce estrella"
-                    + " perla consuelo margarita linda paz rosario ecuador roma sonora argentina tomas cesar memo").split(" ");
+                    + " perla consuelo margarita linda paz rosario ecuador roma sonora argentina tomas cesar memo"
+                    + " lucia luc\u00eda armando pancho simon sim\u00f3n chihuahua cuba corea pacheco").split(" ");
             for (String w : ambiguas) assertNull(w + " es tambien palabra comun", es.canonical(w));
             for (String w : "may march polish turkey apple york".split(" ")) assertNull(w, en.canonical(w));
             for (String w : "anakin leia luke coruscant".split(" ")) assertNull("del lexico, apagado: " + w, es.canonical(w));

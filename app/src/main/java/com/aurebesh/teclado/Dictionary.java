@@ -183,7 +183,7 @@ final class Dictionary {
      */
     private static final HashSet<String> SHORT_FORMS = new HashSet<>(Arrays.asList(
             "av", "esq", "mtro", "mtra", "profr", "profra", "lic", "ing", "mx", "cdmx",
-            "tb", "tmb", "bn", "xq", "pq", "tqm", "ntp", "xd", "grax", "fb", "ig", "dm", "whats"));
+            "tb", "tmb", "bn", "xq", "pq", "tqm", "ntp", "xd", "grax", "fb", "ig", "dm", "whats", "ps"));
     // Fuera a proposito: "yt" (desliz corriente de "y", con la letra vecina), "pza" (letras bailadas de "paz") y las
     // unidades ("hr" es tambien el desliz de "he"): esas solo se respetan tras una cifra, y eso lo decide el teclado
 

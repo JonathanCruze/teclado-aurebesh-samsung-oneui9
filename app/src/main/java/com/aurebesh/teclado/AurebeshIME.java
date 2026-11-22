@@ -1562,6 +1562,25 @@ public class AurebeshIME extends InputMethodService
         return (n & 1) == 1;
     }
 
+    /**
+     * Una letra o una cifra pegada al punto que acaba de cerrar una palabra corregida: no era el final de una frase sino
+     * una direccion, un correo o un archivo ("facebook.com", "juan.perez@", "hotmail.com"), y ahi la palabra va como se
+     * tecleo. Se devuelve lo escrito sin apuntarlo como rechazo: en un texto normal se seguira corrigiendo.
+     */
+    private void undoBeforeDomain(InputConnection ic, String text) {
+        String[] c = lastCorrection;
+        if (c == null || !".".equals(c[2]) || text.isEmpty() || !Character.isLetterOrDigit(text.charAt(0))) return;
+        if (shortcuts.containsKey(c[0].toLowerCase(Locale.ROOT))) return;       // un atajo de texto se queda expandido
+        String corrected = c[1] + ".";
+        CharSequence b = ic.getTextBeforeCursor(corrected.length(), 0);
+        if (b == null || !b.toString().equals(corrected)) return;
+        ic.beginBatchEdit();
+        ic.deleteSurroundingText(corrected.length(), 0);
+        ic.commitText(c[0] + ".", 1);
+        ic.endBatchEdit();
+        lastCorrection = null;
+    }
+
     private void typeText(InputConnection ic, String text, boolean separator, boolean closer) {
         long now = SystemClock.uptimeMillis();
         if (undoneKey != null) {
@@ -1612,6 +1631,7 @@ public class AurebeshIME extends InputMethodService
             lastSpaceAt = 0;
         }
         if (!separator && fresh != null) clearPasteChip();
+        undoBeforeDomain(ic, text);
         // Un cierre con palabra delante la cierra como un separador ("(tambien)" -> "(también)"); suelto, es un signo mas
         boolean ends = separator;
         if (closer) {

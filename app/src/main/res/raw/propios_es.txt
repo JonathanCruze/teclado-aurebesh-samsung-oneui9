@@ -36,7 +36,6 @@ Rubén
 Martín
 Ramón
 Gerardo
-Armando
 Alfredo
 Gustavo
 Guillermo
@@ -91,7 +90,6 @@ Octavio
 Patricio
 Rodolfo
 Saúl
-Simón
 Ulises
 Uriel
 Valentín
@@ -112,7 +110,6 @@ Lalo
 Toño
 Paco
 Pepe
-Pancho
 Beto
 Chuy
 Lupita
@@ -167,7 +164,6 @@ Fabiola
 Julia
 Liliana
 Lorena
-Lucía
 Luisa
 Marisol
 Miriam
@@ -264,7 +260,6 @@ Miranda
 Molina
 Ochoa
 Orozco
-Pacheco
 Padilla
 Quintero
 Rangel
@@ -284,7 +279,6 @@ Venezuela
 Bolivia
 Uruguay
 Paraguay
-Cuba
 Guatemala
 Honduras
 Nicaragua
@@ -298,7 +292,6 @@ Japón
 Rusia
 Portugal
 Holanda
-Corea
 Irlanda
 Escocia
 Grecia
@@ -322,7 +315,6 @@ Chiapas
 Veracruz
 Yucatán
 Sinaloa
-Chihuahua
 Coahuila
 Tamaulipas
 Zacatecas
