@@ -42,11 +42,50 @@
    es un archivo de ~1,5 MB firmado por este proyecto.
 2. **Abre el archivo** desde la barra de notificaciones o desde *Mis archivos › Descargas*. Si Android dice que no permite instalar
    apps desconocidas, toca **Ajustes** en ese aviso y activa *Permitir de esta fuente* para el navegador; vuelve atrás y toca **Instalar**.
-3. **Abre Teclado Aurebesh**: arriba del todo están los tres idiomas (cambian la app y el teclado a la vez) y el botón
-   **Activar el teclado** / **Elegir teclado**; debajo dice en qué paso vas. Para volver al teclado de Samsung en cualquier
-   momento, mantén pulsada la barra espaciadora.
+3. **Abre Teclado Aurebesh** y sigue la tarjeta **Ponlo en 3 pasos**: activar el teclado en los ajustes del teléfono, elegirlo
+   y probarlo. Android avisará de que un teclado puede ver lo que escribes: ese aviso sale con cualquier teclado nuevo.
+   Para volver al teclado de Samsung en cualquier momento, mantén pulsada la barra espaciadora.
 
 Para actualizar, descarga el nuevo APK e instálalo encima: conserva tus ajustes.
+
+> **Si el teléfono dice que la app puede ser dañina o no segura.** Hay dos avisos de Google Play Protect posibles con una
+> app instalada desde fuera de la tienda. Uno sale cuando la app está hecha para un Android más de dos versiones anterior
+> al del teléfono: hasta la 2.7.1 la app apuntaba a Android 14 y en un teléfono con Android 17 lo recibía; desde la 2.8
+> apunta a Android 15 y ya no debería salir. El otro sale con las apps que Play Protect todavía no conoce (cada versión
+> nueva es un archivo que no ha visto antes) y ofrece analizarla. En los dos casos: este teclado no recopila ni envía
+> nada, el código está en este repositorio, el APK va firmado siempre con la misma clave y su huella SHA-256 está en
+> [releases/README.md](releases/README.md) para comprobar que el archivo es el publicado aquí. Instálala solo si la
+> descargaste de esta página.
+
+### Novedades de la 2.8 (en preparación: el APK publicado sigue siendo la 2.7.1)
+Tres personas distintas (alguien que la instala por primera vez sin saber de tecnología, un aficionado que quiere
+aprender el alfabeto y una redactora de interfaces) revisaron todas las pantallas de la app; esto sale de ahí.
+- **Ponlo en 3 pasos.** La pantalla principal empieza con una guía: activar el teclado, elegirlo y probarlo, con el paso
+  en curso marcado, el aviso de Android explicado antes de que salga y cómo volver al teclado de antes. Con el teclado ya
+  elegido, la tarjeta se queda en «Teclado activado» y la lista de ajustes sube justo debajo del buscador.
+- **¿Sabes leer Aurebesh?** *No*, *Aprendiendo* o *Sí*: es el ajuste de la letra normal en cada tecla, preguntado al
+  llegar. En instalaciones nuevas viene en *No*: cada tecla muestra también su letra, para poder escribir desde el primer
+  momento. Quien ya usaba el teclado conserva lo que tenía.
+- **Página nueva «Aprender Aurebesh»**, la primera de la lista: la letra normal en las teclas, ver en Aurebesh lo que
+  escribes y la **tabla del alfabeto**, con cada símbolo, su letra y su nombre (aurek, besh, cresh…), las letras dobles,
+  las creadas para este teclado y los números. En *Aprendiendo*, las letras que ya lees sin ayuda salen marcadas.
+- **¿Es seguro?** a la vista en la pantalla principal y como primera tarjeta de *Privacidad y datos*, no en el pie.
+- **Ayuda con preguntas rápidas**: qué hace el teclado, cómo volver al de antes (con botón), cómo quitarlo, si es seguro,
+  el aviso de «aplicación dañina» y la pantalla externa del Flip. Debajo, los trucos del teclado y un apartado
+  *Acerca de* con la versión, la compatibilidad y las licencias, que salen del pie de la principal.
+- **Sin jerga.** «Glifo» pasa a *símbolo*, «dígrafos» a *letras dobles*, «letra latina» a *letra normal*, «retroceso» a
+  *borrar*; el margen inferior se elige como *Ninguno, Pequeño, Mediano o Grande* en vez de en dp; *Inteligencia* se llama
+  *Asistente de IA* y dice qué hace y que es opcional; «Sustitución automática» es *Corrección automática*. Los resúmenes
+  de la lista dicen qué hay dentro y ya no se cortan. Todo, también en inglés y alemán.
+- **Apunta a Android 15 (API 35).** Play Protect avisa al instalar una app que apunta a más de dos versiones por debajo
+  de la del teléfono, y con Android 17 eso alcanzaba a la 2.7.1 (apuntaba a Android 14). Las ventanas de la app y del
+  teclado se siguen dibujando como hasta ahora (no de borde a borde) y, por si algún sistema las dibujara así, el teclado
+  sube el alto de la barra de navegación y la app baja de la barra de estado.
+- **Comillas angulares « » con símbolo propio.** Los que la fuente traía en « » son en realidad ≤ y ≥ y pasan a esos
+  signos (salen al mantener < y >). Las comillas llevan un diseño nuevo: la cuña del < repetida bajo un mismo techo, como
+  la rr repite su diagonal. La raya corta – y la larga — son el guion alargado y salen al mantener el guion; también se
+  dibujan • y æ. Con esto, todo lo que el teclado español puede escribir tiene símbolo Aurebesh salvo el grado °, que se
+  deja a propósito. Hoja de diseño con las alternativas en `promo/out/previa_comillas.png`.
 
 ### Novedades de la 2.7.1
 Una revisión independiente de los menús de la 2.7 (más de un millón de menús abiertos en 17 100 combinaciones de ancho,
@@ -514,7 +553,7 @@ releases/                    APK publicado
 
 **Sin Android Studio (Ubuntu/Debian)**:
 ```bash
-sudo apt install aapt apksigner zipalign dalvik-exchange android-sdk-platform-23 openjdk-17-jdk
+sudo apt install aapt aapt2 apksigner zipalign dalvik-exchange android-sdk-platform-23 openjdk-17-jdk
 SDK_JAR=/ruta/a/android-28-o-superior.jar ./build.sh
 ```
 `RES_JAR` (recursos, por defecto el `android.jar` 23 de Ubuntu) y `SDK_JAR` (compilación Java, necesita API 28 o superior) se
