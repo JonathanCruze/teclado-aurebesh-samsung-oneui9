@@ -130,6 +130,9 @@ public class AurebeshIME extends InputMethodService
     // espacio para arreglar la palabra a mano. Se confirma al seguir escribiendo con la palabra restaurada intacta.
     private String undoneKey;                     // clave para rejected ("lalo", o con la apertura delante si es un interrogativo)
     private String undoneWord;                    // la palabra tal como quedo restaurada
+    // Cursor dentro de una palabra ya escrita: sus sugerencias (la gemela con tilde, la correccion) la sustituyen entera
+    private String midWord;                       // la palabra bajo el cursor, o null
+    private int midLeft, midRight;                // letras a cada lado del cursor
 
     // Portapapeles y chip "Pegar" de lo recien copiado
     private static final long PASTE_FRESH_MS = 2 * 60 * 1000L;
@@ -811,6 +814,7 @@ public class AurebeshIME extends InputMethodService
         }
         String word = currentWord(ic);
         if (typedRun.length() > 0 && !justTyped(word)) typedRun.setLength(0);   // el cursor ya no sigue a lo tecleado
+        if (word == null && midWordChips(ic)) return;   // cursor dentro de una palabra: sugerencias para toda ella
         if (word == null || word.isEmpty()) {
             clearSuggestions();
             if (word != null && bigrams != null && fresh == null) {          // siguiente palabra prevista
@@ -925,8 +929,16 @@ public class AurebeshIME extends InputMethodService
             words.add(0, pendingCorrection);
             at = 1;
         }
+        if (r.known && pendingCorrection == null && dict != null) {   // "si" -> "sí", "esta" -> "está": a un toque, nunca sola
+            String tw = dict.twin(word.toLowerCase(Locale.ROOT));
+            if (tw != null) {
+                words.remove(tw);
+                words.add(0, tw);
+                at = 1;
+            }
+        }
         for (String f : followers(word, word.length() == 1 ? 3 : 2)) {
-            if (f.equals(pendingCorrection)) continue;
+            if (f.equals(pendingCorrection) || (at > 0 && f.equals(words.get(0)))) continue;
             words.remove(f);
             words.add(Math.min(at++, words.size()), f);
         }
@@ -1183,8 +1195,63 @@ public class AurebeshIME extends InputMethodService
         pendingCorrection = null;
         suggestSeq++;
         correctionAnchor = null;
+        midWord = null;
         clearGlide();
         if (view != null) view.setSuggestions(null, null);
+    }
+
+    private static boolean wordChar(char c) { return Character.isLetter(c) || c == '\''; }
+
+    /**
+     * Con el cursor dentro de una palabra ya escrita (al menos una letra a cada lado) pide sugerencias para la palabra
+     * entera: su gemela con tilde y lo que el diccionario proponga. Nada se aplica solo ni queda correccion pendiente
+     * (un separador tecleado ahi parte la palabra sin tocar ninguna mitad); tocar un chip la sustituye entera. Devuelve
+     * false si no es el caso (seleccion, chip Pegar a la vista, sigla, atajo...) y los chips se quitan como siempre.
+     */
+    private boolean midWordChips(InputConnection ic) {
+        if (dict == null || fresh != null || hasSelection(ic)) return false;
+        CharSequence b = ic.getTextBeforeCursor(40, 0), a = ic.getTextAfterCursor(40, 0);
+        if (b == null || a == null) return false;
+        int l = 0, r = 0;
+        while (l < b.length() && wordChar(b.charAt(b.length() - 1 - l))) l++;
+        while (r < a.length() && wordChar(a.charAt(r))) r++;
+        if (l == 0 || r == 0 || l + r > 24) return false;
+        final String whole = b.subSequence(b.length() - l, b.length()).toString() + a.subSequence(0, r);
+        if (looksLikeAcronym(whole) || shortcutFor(whole) != null) return false;
+        if (whole.equals(midWord) && l == midLeft && r == midRight) return true;      // ya pedidas para este sitio
+        clearSuggestions();
+        midWord = whole;
+        midLeft = l;
+        midRight = r;
+        final Dictionary d = dict;
+        final int seq = ++suggestSeq;
+        try {
+            suggester.submit(new Runnable() {
+                @Override public void run() {
+                    final Dictionary.Result res = d.suggest(whole);
+                    main.post(new Runnable() {
+                        @Override public void run() {
+                            if (seq != suggestSeq || !whole.equals(midWord) || view == null) return;
+                            List<String> chips = new ArrayList<>();
+                            String tw = d.twin(whole.toLowerCase(Locale.ROOT));
+                            if (tw != null) chips.add(cased(whole, tw));
+                            for (String s : res.suggestions) {
+                                if (chips.size() >= 3) break;
+                                String c = cased(whole, s);
+                                if (!c.equals(whole) && !chips.contains(c)) chips.add(c);
+                            }
+                            String own = cased(whole, whole);                         // "juan" tocado por dentro: "Juan"
+                            if (!own.equals(whole) && !chips.contains(own)) chips.add(0, own);
+                            view.setSuggestions(chips.isEmpty() ? null : chips, null);
+                        }
+                    });
+                }
+            });
+        } catch (RejectedExecutionException e) {
+            midWord = null;                              // el servicio se esta destruyendo
+            return false;
+        }
+        return true;
     }
 
     /** Tras autocorregir: un unico chip con la palabra original entrecomillada, que la recupera; se va cuando cambia el texto. */
@@ -1787,6 +1854,23 @@ public class AurebeshIME extends InputMethodService
                 glideAlts = alts;
                 return;
             }
+        }
+        if (midWord != null) {                          // cursor dentro de una palabra: el chip la sustituye entera
+            CharSequence b = ic.getTextBeforeCursor(midLeft, 0), a = ic.getTextAfterCursor(midRight, 0);
+            boolean same = b != null && a != null && (b.toString() + a).equals(midWord);
+            if (same && !AurebeshKeyboardView.isEmoji(word) && !word.startsWith("\"")) {
+                ic.beginBatchEdit();
+                ic.deleteSurroundingText(midLeft, midRight);
+                ic.commitText(word, 1);                 // sin espacio: lo de alrededor ya estaba escrito
+                ic.endBatchEdit();
+            }
+            lastCorrection = null;
+            lastSpaceAt = 0;
+            undoneKey = null;
+            forgetChip();
+            typedRun.setLength(0);
+            clearSuggestions();
+            return;
         }
         String cur = currentWord(ic);
         String placed = null;                           // palabra que queda escrita con su espacio automatico

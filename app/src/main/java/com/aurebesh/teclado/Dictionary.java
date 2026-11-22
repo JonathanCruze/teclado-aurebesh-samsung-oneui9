@@ -548,6 +548,33 @@ final class Dictionary {
         }
     }
 
+    private static final int TWIN_CHIP_RATIO = 12;
+    /** Tildes diacriticas: monosilabos e interrogativos que la llevan sin que lo pida la regla general. */
+    private static final HashSet<String> DIACRITICS = new HashSet<>(Arrays.asList(
+            "s\u00ed", "\u00e9l", "t\u00fa", "m\u00ed", "s\u00e9", "m\u00e1s", "t\u00e9", "d\u00e9", "qu\u00e9", "c\u00f3mo",
+            "cu\u00e1ndo", "d\u00f3nde", "ad\u00f3nde", "qui\u00e9n", "qui\u00e9nes", "cu\u00e1l", "cu\u00e1les", "cu\u00e1nto",
+            "cu\u00e1nta", "cu\u00e1ntos", "cu\u00e1ntas"));
+
+    /**
+     * La otra lectura de una palabra de la lista que solo cambia en la tilde ("si" y "sí", "que" y "qué", "esta" y
+     * "está", "hablo" y "habló"), para ofrecerla a un toque sin aplicarla nunca sola; null si no la hay. Solo en
+     * espanol, solo palabras del nucleo, nunca una mas de {@link #TWIN_CHIP_RATIO} veces mas rara que lo escrito ("de"
+     * no ofrece "dé") ni una forma cuya tilde no sea legitima ("ésto", "sólo", "dí").
+     */
+    String twin(String w) {
+        if (!spanish || w == null || w.length() < 2) return null;
+        int own = rankOf(w);
+        if (own < 0) return null;
+        String plain = fold(w), other, marked;
+        if (plain.equals(w)) { other = accented(w); marked = other; }                  // sin tilde: su forma con ella
+        else { other = rankOf(plain) >= 0 ? plain : null; marked = w; }                 // con tilde: la forma sin ella
+        if (other == null || other.equals(w) || vetoed(other)) return null;
+        int r = rankOf(other);
+        if (r < 0 || r >= core || r + 1L > (long) TWIN_CHIP_RATIO * (own + 1L)) return null;
+        if (!tildePosible(marked) && !DIACRITICS.contains(marked)) return null;
+        return other;
+    }
+
     /** Palabras del nucleo: las de la lista de siempre, sin las formas nuevas del espanol. En ingles y aleman, todas. */
     int coreSize() { return core; }
 

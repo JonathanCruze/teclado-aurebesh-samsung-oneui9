@@ -698,6 +698,108 @@ public class CalidadVidaTest {
         }
     }
 
+    // ------------------------------------------------------------------ tildes dudosas a un toque
+
+    /** La otra lectura de una palabra que solo cambia en la tilde sale la primera en la cinta, y nunca se aplica sola. */
+    @Test
+    public void laGemelaConTildeAUnToque() throws Exception {
+        Dictionary es = Dictionary.get(app, "es");
+        assertEquals("s\u00ed", es.twin("si"));
+        assertEquals("qu\u00e9", es.twin("que"));
+        assertEquals("est\u00e1", es.twin("esta"));
+        assertEquals("habl\u00f3", es.twin("hablo"));
+        assertEquals("si", es.twin("s\u00ed"));
+        assertEquals("esta", es.twin("est\u00e1"));
+        for (String w : "de te para esto ese solo di hola".split(" ")) assertNull(w, es.twin(w));
+        assertNull(Dictionary.get(app, "en").twin("the"));
+        assertNull(es.twin("zzqxy"));
+
+        typed("si");
+        assertEquals("s\u00ed", chips().get(0));
+        assertNull("nunca resaltada", highlighted());
+        assertEquals("un separador la deja como esta", "si ", more(" "));
+        typed("Si");
+        assertEquals("S\u00ed", chips().get(0));
+        typed("si");
+        assertEquals("s\u00ed ", chip("s\u00ed"));
+        typed("de");
+        assertFalse("de no ofrece su forma rara: " + chips(), chips().contains("d\u00e9"));
+        typed("buenos di");
+        assertEquals("d\u00edas", chips().get(0));
+        typed("papa");
+        assertEquals("[\"papa\", pap\u00e1]", chips().subList(0, 2).toString());
+        assertEquals(1, java.util.Collections.frequency(chips(), "pap\u00e1"));
+    }
+
+    private void place(String content, int at) throws Exception {
+        newField();
+        text.append(content);
+        cursor = at;
+        settle();
+        settle();
+    }
+
+    /** Al tocar dentro de una palabra ya escrita, sus sugerencias la sustituyen entera, sin espacios de mas. */
+    @Test
+    public void sugerenciasConElCursorDentroDeUnaPalabra() throws Exception {
+        place("esta bien", 2);
+        assertEquals("est\u00e1", chips().get(0));
+        for (String c : chips()) {
+            assertFalse("sin comillas: " + c, c.startsWith("\""));
+            assertFalse("sin emojis: " + c, AurebeshKeyboardView.isEmoji(c));
+        }
+        assertNull(highlighted());
+        assertEquals("est\u00e1 bien", chip("est\u00e1"));
+        assertEquals("el cursor queda al final de la palabra", 4, cursor);
+
+        place("si quieres", 1);
+        assertEquals("s\u00ed", chips().get(0));
+        assertEquals("s\u00ed quieres", chip("s\u00ed"));
+
+        place("esta, pero", 2);
+        assertEquals("est\u00e1, pero", chip("est\u00e1"));
+
+        place("hola nesecito ya", 8);
+        assertTrue("chips: " + chips(), chips().contains("necesito"));
+        assertEquals("un separador ahi parte la palabra sin corregir nada", "hola nes ecito ya", more(" "));
+
+        place("hola nesecito ya", 8);
+        assertEquals("hola necesito ya", chip("necesito"));
+
+        place("vi a juan ayer", 7);
+        assertEquals("Juan", chips().get(0));
+        assertEquals("vi a Juan ayer", chip("Juan"));
+
+        place("hola mundo", 5);
+        assertTrue("justo delante de una palabra no hay nada: " + chips(), chips().isEmpty());
+
+        newField(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS, 0, "");
+        text.append("esta bien");
+        cursor = 2;
+        settle();
+        settle();
+        assertTrue("en campos sin sugerencias, nada", chips().isEmpty());
+
+        Prefs.get(app).edit().putBoolean(Prefs.AUTOCORRECT, false).apply();
+        settle();
+        place("esta bien", 2);
+        assertTrue("con el texto predictivo apagado, nada", chips().isEmpty());
+        Prefs.get(app).edit().remove(Prefs.AUTOCORRECT).apply();
+        settle();
+    }
+
+    /** Si el texto cambio entre que salieron los chips y el toque, no se borra nada. */
+    @Test
+    public void elChipDeDentroNoBorraSiElTextoCambio() throws Exception {
+        place("esta bien", 2);
+        assertEquals("est\u00e1", chips().get(0));
+        text.setLength(0);
+        text.append("otra cosa");
+        cursor = 2;
+        ime.onSuggestion("est\u00e1");
+        assertEquals("otra cosa", text.toString());
+    }
+
     // ------------------------------------------------------------------ nombres propios y marcas
 
     /** Los nombres propios y las marcas salen con su mayuscula y sus tildes sin tocar la tecla de mayusculas. */

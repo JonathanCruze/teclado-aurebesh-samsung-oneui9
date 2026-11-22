@@ -96,6 +96,10 @@ entrar. Nada de esto lleva interruptor nuevo: es como se espera que se comporte 
   cierra también se pegan, y cierran la palabra con su corrección: *(tambien)* queda *(también)*.
 - **Mayúscula tras ¿ y ¡** al empezar frase (tras una coma, minúscula, como manda la ortografía). Tras `¿` la cinta
   ofrece *Qué, Cómo, Cuándo*, y los interrogativos pegados al signo salen con su tilde: *¿como estas* → *¿Cómo estás*.
+- **Las tildes dudosas, a un toque.** La otra lectura de una palabra que solo cambia en la tilde (*si* y *sí*, *que*
+  y *qué*, *esta* y *está*, *hablo* y *habló*) sale la primera en la cinta, sin aplicarse nunca sola. Y al **tocar
+  dentro de una palabra ya escrita** la cinta ofrece su gemela y sus correcciones, que la sustituyen entera sin
+  espacios de más.
 - **Nombres propios y marcas con su mayúscula y sus tildes**: *juan* → *Juan*, *mexico* → *México*, *tiktok* →
   *TikTok*, *cdmx* → *CDMX*. Unos 440 nombres de pila, apellidos, países, estados y ciudades de México, marcas y apps
   (y unos 140 en inglés: días, meses, gentilicios, *I'm*), sin los que también son palabra común (*rosa, julio, chile,
