@@ -549,6 +549,12 @@ final class Dictionary {
     }
 
     private static final int TWIN_CHIP_RATIO = 12;
+    /** Una gemela mas rara que esto ("plató", "condé", "selló") no merece el primer sitio de la cinta. */
+    private static final int TWIN_MAX_RANK = 10000;
+    /** Formas que en Mexico se escriben sin tilde aunque la lista (de uso general) traiga tambien la otra. */
+    private static final HashSet<String> TWIN_SKIP = new HashSet<>(Arrays.asList(
+            "video", "futbol", "beisbol", "chofer", "coctel", "icono", "periodo", "cardiaco", "policiaco", "zodiaco",
+            "olimpiada", "elite", "pudin", "ala"));
     /** Tildes diacriticas: monosilabos e interrogativos que la llevan sin que lo pida la regla general. */
     private static final HashSet<String> DIACRITICS = new HashSet<>(Arrays.asList(
             "s\u00ed", "\u00e9l", "t\u00fa", "m\u00ed", "s\u00e9", "m\u00e1s", "t\u00e9", "d\u00e9", "qu\u00e9", "c\u00f3mo",
@@ -566,11 +572,18 @@ final class Dictionary {
         int own = rankOf(w);
         if (own < 0) return null;
         String plain = fold(w), other, marked;
-        if (plain.equals(w)) { other = accented(w); marked = other; }                  // sin tilde: su forma con ella
-        else { other = rankOf(plain) >= 0 ? plain : null; marked = w; }                 // con tilde: la forma sin ella
+        if (plain.equals(w)) {                                                         // sin tilde: su forma con ella
+            if (TWIN_SKIP.contains(w)) return null;                                    // "video": en Mexico va sin tilde
+            other = accented(w);
+            marked = other;
+        } else {                                                                       // con tilde: la forma sin ella,
+            other = rankOf(plain) >= 0 ? plain : null;                                 // salvo que sea la falta que el propio
+            if (other != null && !other.equals(resolve(other))) return null;           // corrector deshace ("linea", "mio")
+            marked = w;
+        }
         if (other == null || other.equals(w) || vetoed(other)) return null;
         int r = rankOf(other);
-        if (r < 0 || r >= core || r + 1L > (long) TWIN_CHIP_RATIO * (own + 1L)) return null;
+        if (r < 0 || r >= core || r >= TWIN_MAX_RANK || r + 1L > (long) TWIN_CHIP_RATIO * (own + 1L)) return null;
         if (!tildePosible(marked) && !DIACRITICS.contains(marked)) return null;
         return other;
     }

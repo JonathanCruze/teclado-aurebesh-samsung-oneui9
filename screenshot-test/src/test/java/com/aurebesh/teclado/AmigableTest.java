@@ -265,6 +265,10 @@ public class AmigableTest {
         int y = at[1] + Math.round(8 * a.getResources().getDisplayMetrics().density);
         assertTrue("la celda de la a (aprendida) no es como la de la b",
                 b.getPixel(at[0] + Math.round(cell * 0.5f), y) != b.getPixel(at[0] + Math.round(cell * 1.5f), y));
+        // "Volver a mostrar todas las letras": la tabla deja de marcarlas en el acto, sin rehacer la pantalla
+        assertEquals(2, t.known().size());
+        ((View) visibleText(a, a.getString(R.string.aj_hint_reset))).performClick();
+        assertTrue("tras el reinicio no queda ninguna marcada", t.known() == null || t.known().isEmpty());
         // En otro idioma no hay enye ni letras dobles del espanol
         Prefs.setLanguage(app, "en");
         MainActivity en = create();
@@ -309,6 +313,16 @@ public class AmigableTest {
         a.search("dañina");
         ShadowLooper.shadowMainLooper().idleFor(Duration.ofMillis(50));
         assertNotNull(visibleText(a, a.getString(R.string.faq_warn_q)));
+        // Y las demas por sus palabras naturales, aunque no esten tal cual en la pregunta
+        a.search("quitar");
+        ShadowLooper.shadowMainLooper().idleFor(Duration.ofMillis(50));
+        assertNotNull(visibleText(a, a.getString(R.string.faq_remove_q)));
+        a.search("volver");
+        ShadowLooper.shadowMainLooper().idleFor(Duration.ofMillis(50));
+        assertNotNull(visibleText(a, a.getString(R.string.faq_back_q)));
+        a.search("pasos");
+        ShadowLooper.shadowMainLooper().idleFor(Duration.ofMillis(50));
+        assertNotNull(visibleText(a, a.getString(R.string.faq_what_q)));
     }
 
     // ------------------------------------------------------------------ textos: resumenes cortos y sin jerga

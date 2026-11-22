@@ -467,6 +467,7 @@ final class AiTray extends LinearLayout {
         this.vibrate = vibrate;
         this.sound = sound;
         miniKb.applyPrefs(false, vibrate, false, true, theme.id, false, sound, 0.8f);
+        miniKb.setHintMode(Prefs.hintModeInt(getContext()) == 0 ? 0 : 1);   // la letra normal, como en el teclado (sin contar pulsaciones)
     }
 
     /** El campo actual admite el asistente (false en direcciones, correos, contrasenas). */
@@ -603,6 +604,7 @@ final class AiTray extends LinearLayout {
         abc.invalidate();
         for (TextView k : keys) styleKey(k, k == replaceKey || k == fixKey);
         miniKb.applyPrefs(false, vibrate, false, true, theme.id, false, sound, 0.8f);
+        miniKb.setHintMode(Prefs.hintModeInt(getContext()) == 0 ? 0 : 1);   // la letra normal, como en el teclado (sin contar pulsaciones)
     }
 
     // ------------------------------------------------------------------ estados

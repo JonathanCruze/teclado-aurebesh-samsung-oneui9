@@ -591,6 +591,14 @@ public final class AurebeshKeyboardView extends View {
     }
 
     /** Vuelve a mostrar todas las pistas: borra los contadores en memoria y en preferencias. */
+    /** Olvida los contadores en memoria sin tocar las preferencias (la app ya los borro de ahi). */
+    void dropHintCounts() {
+        hintCounts.clear();
+        hintSinceSave = 0;
+        hintDirty = false;
+        invalidate();
+    }
+
     public void resetHintCounts() {
         hintCounts.clear();
         hintSinceSave = 0;
@@ -1657,7 +1665,9 @@ public final class AurebeshKeyboardView extends View {
             case CODE_GLOBE: drawGlobe(c, cx, cy); break;
             case CODE_ENTER:
                 drawEnter(c, cx, cy);
-                if (enterEmoji && current != numpad) {               // pista de "mantener: emojis", como las alternativas de las letras
+                // pista de "mantener: emojis", como las alternativas de las letras; en teclas bajas o estrechas (tapa del
+                // Flip, apaisado, a una mano) pisaria el icono y no se dibuja: el gesto sigue funcionando
+                if (enterEmoji && current != numpad && r.height() >= 40 * dp && r.width() >= 48 * dp) {
                     iconPaint.setColor(fade(theme.onAccent, 0.7f));
                     ToolIcons.draw(c, TOOL_EMOJI, r.right - 9 * dp, r.top + 9 * dp, 10 * dp, iconPaint);
                     iconPaint.setColor(theme.icon);
@@ -1908,7 +1918,10 @@ public final class AurebeshKeyboardView extends View {
                 }
             } else {
                 textPaint.setColor(sel ? selInk : theme.previewText);
-                textPaint.setTextSize(a.length() > 2 ? 15 * dp : 22 * dp);
+                float size = a.length() > 2 ? 15 * dp : 22 * dp;
+                textPaint.setTextSize(size);
+                float room = cell.width() - 8 * dp, wide = textPaint.measureText(shown);
+                if (wide > room && wide > 0) textPaint.setTextSize(Math.max(9 * dp, size * room / wide));   // ".com.mx" en su celda
                 c.drawText(shown, cx, cy + 8 * dp, textPaint);
             }
             textPaint.setColor(theme.glyph);
@@ -2719,8 +2732,36 @@ public final class AurebeshKeyboardView extends View {
         invalidate();
     }
 
+    /** Alto que pide la pagina actual (lo que mide onMeasure): cinta, filas y banda inferior. */
+    private float pageHeight() { return stripHeight() + keysHeight() + bottomBand(); }
+
+    // Un dedo baja mientras otro sigue en "abc", en el espacio o en intro de la pagina de signos: al soltarse esa tecla
+    // la pagina cambia, y si la nueva mide otro alto la vista aun no se ha recolocado. Como el teclado va pegado abajo,
+    // el punto tocado queda desplazado esa diferencia respecto de las teclas nuevas hasta que la vista cambia de alto.
+    private float gestureShift = 0f;            // desfase pendiente de los dedos de este gesto
+    private int gestureShiftHeight = 0;         // alto de la vista cuando se anoto: si cambia, ya se recoloco
+    private float touchShifted = 0f;            // lo ya restado a las coordenadas del evento en curso
+
     @Override
     public boolean onTouchEvent(MotionEvent e) {
+        touchShifted = 0f;
+        if (gestureShift != 0f) {
+            if (e.getActionMasked() == MotionEvent.ACTION_DOWN || getHeight() != gestureShiftHeight) gestureShift = 0f;
+            else shiftTouch(e, gestureShift);
+        }
+        try {
+            return handleTouch(e);
+        } finally {
+            if (touchShifted != 0f) e.offsetLocation(0, touchShifted);    // el evento se devuelve como llego
+        }
+    }
+
+    private void shiftTouch(MotionEvent e, float dy) {
+        e.offsetLocation(0, -dy);
+        touchShifted += dy;
+    }
+
+    private boolean handleTouch(MotionEvent e) {
         if (resizeMode) return resizeTouch(e);                           // en el modo de ajuste nada escribe
         int action = e.getActionMasked();
         int idx = e.getActionIndex();
@@ -2728,10 +2769,10 @@ public final class AurebeshKeyboardView extends View {
         switch (action) {
             case MotionEvent.ACTION_DOWN:
             case MotionEvent.ACTION_POINTER_DOWN: {
-                holdX = e.getX(idx);
-                holdY = e.getY(idx);
                 if (glideState == GLIDE_GLIDING) finishGlide();          // un segundo dedo cierra el trazo en curso
                 else if (glideState == GLIDE_PENDING) resetGlide(true);  // y el toque pendiente se suelta como toque normal
+                List<List<Key>> pageBefore = current;
+                float heightBefore = pageHeight();
                 for (int i = pressed.size() - 1; i >= 0; i--) {
                     Key prev = pressed.valueAt(i);
                     if (prev != null && prev.code == CODE_SHIFT && pressed.keyAt(i) == shiftPointer) continue;   // mayusculas sostenida
@@ -2741,6 +2782,16 @@ public final class AurebeshKeyboardView extends View {
                             && !(prev == longPressKey && longPressFired)) release(prev);
                     pressed.removeAt(i);
                 }
+                if (current != pageBefore) {                             // la tecla soltada cambio de pagina
+                    float dy = heightBefore - pageHeight();
+                    if (Math.abs(dy) >= 1f) {
+                        shiftTouch(e, dy);
+                        gestureShift += dy;
+                        gestureShiftHeight = getHeight();
+                    }
+                }
+                holdX = e.getX(idx);
+                holdY = e.getY(idx);
                 cancelTimers();
                 if (e.getY(idx) < stripHeight()) {                       // barra: sugerencias, pegar o iconos
                     float tx = e.getX(idx), ty = e.getY(idx);

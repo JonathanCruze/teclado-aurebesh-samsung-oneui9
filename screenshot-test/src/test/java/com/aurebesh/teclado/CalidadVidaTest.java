@@ -385,24 +385,27 @@ public class CalidadVidaTest {
         assertEquals("qeu,", more(","));
     }
 
-    /** Y no vuelve tampoco al escribir la misma palabra mas adelante; la correccion sigue a un toque en la cinta. */
+    /**
+     * Y no vuelve tampoco al escribir la misma palabra mas adelante en ese mensaje; la correccion sigue a un toque en la
+     * cinta. En el mensaje siguiente se corrige otra vez: borrar tambien se pulsa por accidente.
+     */
     @Test
-    public void laPalabraRechazadaNoSeCambiaOtraVez() throws Exception {
+    public void laPalabraRechazadaNoSeCambiaOtraVezEnEseMensaje() throws Exception {
         assertEquals("con sola ", typed("con xola "));
         assertEquals("con xola ", delete());
         more("y ");
         assertEquals("con xola y xola ", more("xola "));
-        typed("xola");
+        more("xola");
         assertNull("sin pastilla resaltada", highlighted());
         assertTrue("la correccion sigue en la cinta: " + chips(), chips().contains("sola"));
         assertEquals("\"xola\"", chips().get(0));
+        assertEquals("campo nuevo: se corrige como siempre", "con sola ", typed("con xola "));
 
-        // Una palabra de la lista con gemela con tilde: rechazada una vez, se respeta; a la tercera (en mensajes
-        // distintos) queda guardada, y la gemela sigue a un toque
+        // Una palabra de la lista con gemela con tilde: rechazada, se respeta en ese mensaje y no se guarda a la primera
         Dictionary es = Dictionary.get(app, "es");
         assertEquals("pap\u00e1 ", typed("papa "));
         assertEquals("papa ", delete());
-        assertEquals("papa ", typed("papa "));
+        assertEquals("papa frita y papa ", more("frita y papa "));
         assertFalse("un solo rechazo no la guarda", es.isPersonal("papa"));
     }
 
@@ -429,15 +432,24 @@ public class CalidadVidaTest {
         assertEquals("perdonada: se corrige otra vez", "con xola y sola sola ", more("xola "));
     }
 
-    /** Enviar el mensaje (o cambiar de campo) con la palabra restaurada intacta tambien confirma el rechazo. */
+    /** El rechazo hecho con borrar caduca al enviar el mensaje; el del chip entre comillas dura toda la sesion. */
     @Test
-    public void enviarConLaPalabraRestauradaConfirmaElRechazo() throws Exception {
+    public void elRechazoConBorrarDuraSoloEseMensaje() throws Exception {
         newField(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES, EditorInfo.IME_ACTION_SEND, "");
         assertEquals("con sola ", more("con xola "));
         assertEquals("con xola ", delete());
         ime.onEnter();
         settle();
-        assertEquals("con xola ", typed("con xola "));
+        text.setLength(0);
+        cursor = 0;
+        lastReported = 0;
+        assertEquals("mensaje siguiente en el mismo campo", "con sola ", more("con xola "));
+
+        typed("papa");
+        ime.onSuggestion("\"papa\"");
+        settle();
+        assertEquals("papa ", text.toString());
+        assertEquals("con el chip, tambien en los mensajes siguientes", "la papa ", typed("la papa "));
     }
 
     @Test

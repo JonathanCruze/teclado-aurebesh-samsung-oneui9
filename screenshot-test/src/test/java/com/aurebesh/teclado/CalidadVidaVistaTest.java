@@ -421,4 +421,84 @@ public class CalidadVidaVistaTest {
         up(kb, com);
         assertEquals(".mx", rec.typed.toString());
     }
+
+    private static void pointers(View v, int action, int actionIndex, int[] ids, float[] xs, float[] ys) {
+        int n = ids.length;
+        MotionEvent.PointerProperties[] props = new MotionEvent.PointerProperties[n];
+        MotionEvent.PointerCoords[] coords = new MotionEvent.PointerCoords[n];
+        for (int i = 0; i < n; i++) {
+            props[i] = new MotionEvent.PointerProperties();
+            props[i].id = ids[i];
+            props[i].toolType = MotionEvent.TOOL_TYPE_FINGER;
+            coords[i] = new MotionEvent.PointerCoords();
+            coords[i].x = xs[i];
+            coords[i].y = ys[i];
+            coords[i].pressure = 1f;
+            coords[i].size = 1f;
+        }
+        long t = SystemClock.uptimeMillis();
+        int act = n == 1 ? action : action | (actionIndex << MotionEvent.ACTION_POINTER_INDEX_SHIFT);
+        MotionEvent e = MotionEvent.obtain(t, t, act, n, props, coords, 0, 0, 1f, 1f, 0, 0, InputDevice.SOURCE_TOUCHSCREEN, 0);
+        v.onTouchEvent(e);
+        e.recycle();
+    }
+
+    /**
+     * Tras un signo, el pulgar cae en la letra siguiente con el espacio aun pulsado: la pagina vuelve a letras al soltarse
+     * el espacio y la letra es la que hay en ese punto de la pantalla, aunque letras y signos no midan lo mismo (sin
+     * fila superior, o en la tapa del Flip) y la vista aun no se haya recolocado.
+     */
+    @Test
+    public void laLetraTrasSignoYEspacioEsLaDelPuntoTocado() {
+        for (String target : new String[]{"e", "h", "n"}) {
+            AurebeshKeyboardView kb = view();
+            GestureTest.Recorder rec = new GestureTest.Recorder();
+            kb.setListener(rec);
+            kb.setTopRow("none");
+            layout(kb, W);
+            int lettersH = kb.getMeasuredHeight();
+            AurebeshKeyboardView.Key letter = kb.keyFor(target);
+            float lx = letter.rect.centerX(), ly = letter.rect.centerY();
+            tap(kb, kb.keyFor(AurebeshKeyboardView.CODE_MODE));
+            layout(kb, W);
+            int symbolsH = kb.getMeasuredHeight();
+            assertTrue("la pagina de signos es mas alta sin fila superior", symbolsH > lettersH);
+            tap(kb, kb.keyFor("?"));
+            AurebeshKeyboardView.Key space = kb.keyFor(AurebeshKeyboardView.CODE_SPACE);
+            float sx = space.rect.centerX(), sy = space.rect.centerY();
+            float y = ly + (symbolsH - lettersH);              // el mismo punto de la pantalla, en la vista aun alta
+            pointers(kb, MotionEvent.ACTION_DOWN, 0, new int[]{0}, new float[]{sx}, new float[]{sy});
+            pointers(kb, MotionEvent.ACTION_POINTER_DOWN, 1, new int[]{0, 1}, new float[]{sx, lx}, new float[]{sy, y});
+            pointers(kb, MotionEvent.ACTION_POINTER_UP, 0, new int[]{0, 1}, new float[]{sx, lx}, new float[]{sy, y});
+            pointers(kb, MotionEvent.ACTION_UP, 0, new int[]{1}, new float[]{lx}, new float[]{y});
+            assertEquals("? " + target, rec.typed.toString());
+            // Ya recolocada, un toque normal en las letras cae donde debe
+            layout(kb, W);
+            tap(kb, kb.keyFor("a"));
+            assertEquals("? " + target + "a", rec.typed.toString());
+        }
+    }
+
+    /** Lo mismo con el roll de "abc" a una letra, que ya fallaba antes. */
+    @Test
+    public void laLetraTrasAbcEsLaDelPuntoTocado() {
+        AurebeshKeyboardView kb = view();
+        GestureTest.Recorder rec = new GestureTest.Recorder();
+        kb.setListener(rec);
+        kb.setTopRow("none");
+        layout(kb, W);
+        int lettersH = kb.getMeasuredHeight();
+        AurebeshKeyboardView.Key e = kb.keyFor("e");
+        float lx = e.rect.centerX(), ly = e.rect.centerY();
+        tap(kb, kb.keyFor(AurebeshKeyboardView.CODE_MODE));
+        layout(kb, W);
+        float y = ly + (kb.getMeasuredHeight() - lettersH);
+        AurebeshKeyboardView.Key mode = kb.keyFor(AurebeshKeyboardView.CODE_MODE);
+        float mx = mode.rect.centerX(), my = mode.rect.centerY();
+        pointers(kb, MotionEvent.ACTION_DOWN, 0, new int[]{0}, new float[]{mx}, new float[]{my});
+        pointers(kb, MotionEvent.ACTION_POINTER_DOWN, 1, new int[]{0, 1}, new float[]{mx, lx}, new float[]{my, y});
+        pointers(kb, MotionEvent.ACTION_POINTER_UP, 0, new int[]{0, 1}, new float[]{mx, lx}, new float[]{my, y});
+        pointers(kb, MotionEvent.ACTION_UP, 0, new int[]{1}, new float[]{lx}, new float[]{y});
+        assertEquals("e", rec.typed.toString());
+    }
 }

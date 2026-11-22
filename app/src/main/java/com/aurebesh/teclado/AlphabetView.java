@@ -26,7 +26,7 @@ final class AlphabetView extends View {
             {"sh", "shen"}, {"th", "thesh"}};
 
     private final String[] items;
-    private final Set<String> known;
+    private Set<String> known;
     private final Paint glyph = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint letter = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint name = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -36,6 +36,15 @@ final class AlphabetView extends View {
     private final RectF box = new RectF();
     private int cols = 6;
     private float cellW, cellH;
+
+    /** Letras que ya se leen sin ayuda (se tiñen); null o vacio = ninguna. */
+    void setKnown(Set<String> known) {
+        this.known = known;
+        invalidate();
+    }
+
+    /** Letras marcadas ahora mismo (para pruebas). */
+    Set<String> known() { return known; }
 
     AlphabetView(Context c, String[] items, Set<String> known, int ink, int secondary, int tileColor, int knownColor) {
         super(c);

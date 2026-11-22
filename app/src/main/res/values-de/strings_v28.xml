@@ -68,4 +68,9 @@
     <string name="about_version">Version %1$s</string>
     <string name="ai_intro_title">Was der Assistent macht</string>
     <string name="ai_intro_body">Er korrigiert, fasst zusammen, übersetzt oder formuliert für dich über die Taste ✦ der Tastatur. Er ist optional: Die Tastatur funktioniert auch ohne ihn.</string>
+    <string name="faq_what_keys">einrichten installieren aktivieren schritte wozu</string>
+    <string name="faq_back_keys">zurück wechseln ändern vorherige tastatur samsung</string>
+    <string name="faq_remove_keys">entfernen deinstallieren löschen deaktivieren</string>
+    <string name="faq_safe_keys">sicher sicherheit datenschutz vertrauen daten passwort</string>
+    <string name="faq_warn_keys">warnung schädlich gefährlich unsicher play protect virus</string>
 </resources>

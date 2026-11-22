@@ -68,4 +68,9 @@
     <string name="about_version">Versión %1$s</string>
     <string name="ai_intro_title">Qué hace el asistente</string>
     <string name="ai_intro_body">Corrige, resume, traduce o redacta por ti desde el botón ✦ del teclado. Es opcional: el teclado funciona igual sin él.</string>
+    <string name="faq_what_keys">cómo ponerlo instalar activar pasos para qué sirve</string>
+    <string name="faq_back_keys">volver regresar cambiar teclado de antes anterior samsung</string>
+    <string name="faq_remove_keys">quitar desinstalar borrar eliminar desactivar</string>
+    <string name="faq_safe_keys">seguro seguridad privacidad confianza datos contraseña</string>
+    <string name="faq_warn_keys">aviso dañina peligrosa no segura play protect virus</string>
 </resources>

@@ -252,7 +252,7 @@ final class Prefs {
             case SPACE_SLIDE: case AUTO_REPLACE: case AUTO_CAPS: case PREVIEW: case LONGPRESS: case VIBRATION:
             case SOUND_VOLUME: case HEIGHT_PCT: case BOTTOM_DP: case SPLIT_WIDTH: case SHORTCUTS:
             case SABER: case STARWARS: case HINT_MODE: case TOOLBAR_ITEMS: case ALT_CHARS: case TOP_ROW: case LEARN_USES:
-            case DIGRAPHS_ES:
+            case DIGRAPHS_ES: case HINT_COUNTS:
             case AiModels.MODEL: case AiModels.MODE: case AiModels.REMOTE_URL: case AiModels.REMOTE_MODEL:
                 return true;
             default:
@@ -421,7 +421,7 @@ final class Prefs {
     static void migrate(Context c) {
         SharedPreferences ui = ui(c);
         int done = ui.getInt(MIGRATED, 0);
-        if (done >= 2) return;
+        if (done >= 3) return;
         if (done < 1) {
             StringBuilder b = new StringBuilder();
             boolean changed = false;
@@ -436,11 +436,56 @@ final class Prefs {
         // 2 (version 2.8): la letra normal en las teclas pasa a venir encendida de fabrica. Quien ya usaba el teclado
         // sin haber tocado ese ajuste lo tenia apagado y asi se queda: se anota su valor antes de cambiar el de fabrica
         SharedPreferences p = get(c);
-        boolean used = done >= 1 || !p.getAll().isEmpty() || !ui.getAll().isEmpty();
-        if (used && !p.contains(HINT_MODE) && !p.contains(HINTS)) {
-            p.edit().putString(HINT_MODE, "off").putBoolean(HINTS, false).apply();
+        if (done < 2) {
+            boolean used = done >= 1 || !p.getAll().isEmpty() || !ui.getAll().isEmpty();
+            if (used && !p.contains(HINT_MODE) && !p.contains(HINTS)) {
+                p.edit().putString(HINT_MODE, "off").putBoolean(HINTS, false).apply();
+            }
         }
-        ui.edit().putInt(MIGRATED, 2).apply();
+        // 3 (version 2.8): los nombres propios y las marcas llevan su mayuscula. Los que el teclado habia aprendido por
+        // repeticion en versiones anteriores ("guadalajara", "tiktok", "lalo": entonces eran palabras desconocidas) salen
+        // del diccionario personal, donde desde ahora significarian "la quiero en minusculas"; siguen siendo conocidas.
+        String learned = p.getString(LEARNED, "");
+        if (!learned.isEmpty()) {
+            java.util.Set<String> proper = properKeys(c);
+            StringBuilder b = new StringBuilder();
+            boolean changed = false;
+            for (String w : learned.split("\n")) {
+                if (w.isEmpty()) continue;
+                if (proper.contains(w) || proper.contains(Dictionary.deaccent(w))) { changed = true; continue; }
+                if (b.length() > 0) b.append('\n');
+                b.append(w);
+            }
+            if (changed) p.edit().putString(LEARNED, b.toString()).apply();
+        }
+        ui.edit().putInt(MIGRATED, 3).apply();
+    }
+
+    /** Claves (minusculas, y sin tildes) de las listas de nombres propios de todos los idiomas; vacio si no se pueden leer. */
+    private static java.util.Set<String> properKeys(Context c) {
+        java.util.Set<String> out = new java.util.HashSet<>();
+        for (int res : new int[]{R.raw.propios_es, R.raw.propios_en}) {
+            try {
+                java.io.BufferedReader r = new java.io.BufferedReader(
+                        new java.io.InputStreamReader(c.getResources().openRawResource(res), "UTF-8"));
+                try {
+                    String line;
+                    while ((line = r.readLine()) != null) {
+                        String w = line.trim();
+                        if (w.isEmpty() || w.startsWith("#")) continue;
+                        if (w.startsWith("=")) w = w.substring(1);
+                        String lower = w.toLowerCase(java.util.Locale.ROOT);
+                        out.add(lower);
+                        out.add(Dictionary.deaccent(lower));
+                    }
+                } finally {
+                    r.close();
+                }
+            } catch (java.io.IOException | RuntimeException e) {
+                // sin la lista no se limpia nada: el teclado sigue funcionando
+            }
+        }
+        return out;
     }
 
     /** Guarda una palabra aprendida (la mas reciente primero; como mucho 500). */

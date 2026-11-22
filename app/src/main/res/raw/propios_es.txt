@@ -73,7 +73,7 @@ Alonso
 Benjamín
 =César
 Cristian
-Édgar
+Edgar
 Erick
 Emmanuel
 Ezequiel
@@ -430,3 +430,14 @@ NBA
 NFL
 Navidad
 Halloween
+Obregón
+Zárate
+Tepeji
+Bacalar
+Mante
+Perisur
+Zavala
+Brayan
+Myriam
+Marlen
+Chepe

@@ -68,4 +68,9 @@
     <string name="about_version">Version %1$s</string>
     <string name="ai_intro_title">What the assistant does</string>
     <string name="ai_intro_body">It corrects, summarizes, translates or writes for you from the keyboard\'s ✦ button. It is optional: the keyboard works just the same without it.</string>
+    <string name="faq_what_keys">how to set up install enable steps what is it for</string>
+    <string name="faq_back_keys">go back switch change previous keyboard samsung return</string>
+    <string name="faq_remove_keys">remove uninstall delete get rid of disable</string>
+    <string name="faq_safe_keys">safe secure privacy trust data password</string>
+    <string name="faq_warn_keys">warning harmful dangerous unsafe play protect virus</string>
 </resources>

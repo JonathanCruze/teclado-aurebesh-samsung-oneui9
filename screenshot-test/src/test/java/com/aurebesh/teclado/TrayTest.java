@@ -380,4 +380,18 @@ public class TrayTest {
         last.performClick();
         assertEquals(((android.widget.TextView) last).getText().toString(), out.toString());
     }
+
+    /** El teclado reducido de la busqueda de emojis lleva la letra normal en las teclas cuando el principal la lleva. */
+    @Test
+    public void emojiSearchKeyboardShowsLatinHints() {
+        for (String[] c : new String[][]{{"on", "1"}, {"learning", "1"}, {"off", "0"}}) {
+            Prefs.get(app).edit().putString(Prefs.HINT_MODE, c[0]).commit();
+            EmojiTray emojis = new EmojiTray(app);
+            emojis.setFeedback(false, false);
+            emojis.applyTheme(Themes.DEFAULT);
+            AurebeshKeyboardView mini = (AurebeshKeyboardView) byClassName(emojis, "AurebeshKeyboardView");
+            assertEquals("modo " + c[0], Integer.parseInt(c[1]), mini.hintMode());
+        }
+        Prefs.get(app).edit().remove(Prefs.HINT_MODE).commit();
+    }
 }

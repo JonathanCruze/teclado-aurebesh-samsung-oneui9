@@ -1197,10 +1197,15 @@ public final class MainActivity extends Activity {
         hintSub.setText(nameOf(HINT_MODES, HINT_SUBS, mode));
         boolean learning = "learning".equals(mode);
         hintResetRow.setVisibility(learning ? View.VISIBLE : View.GONE);
-        int done = learnedHintLetters().size();
+        java.util.Set<String> letters = learnedHintLetters();
+        int done = letters.size();
         hintLearned.setText(getString(R.string.hint_learned_count, done));
         hintLearned.setVisibility(done > 0 ? View.VISIBLE : View.GONE);
+        for (AlphabetView v : alphabetMarked) v.setKnown(learning ? letters : null);   // la tabla, al dia con el modo y el reinicio
     }
+
+    /** Tablas del alfabeto que marcan las letras ya aprendidas (las letras y las propias del idioma). */
+    private final java.util.List<AlphabetView> alphabetMarked = new java.util.ArrayList<>();
 
     /**
      * Tabla del alfabeto: las letras en orden alfabetico (con la del idioma del teclado), las letras dobles del
@@ -1239,6 +1244,7 @@ public final class MainActivity extends Activity {
         t.setPadding(px(6), 0, px(6), px(4));
         col.addView(t, block(14));
         AlphabetView v = new AlphabetView(this, shown.toArray(new String[0]), known, ink, secondary, pal.surface2, pal.accentTile);
+        if (label == R.string.alphabet_letters || label == R.string.alphabet_extra) alphabetMarked.add(v);
         col.addView(v, block(0));
     }
 
@@ -1421,16 +1427,16 @@ public final class MainActivity extends Activity {
      */
     private void buildHelp(LinearLayout body) {
         LinearLayout g = group(body, R.string.faq_group);
-        gestureRow(g, R.string.faq_what_q, R.string.faq_what_a);
-        gestureRow(g, R.string.faq_back_q, R.string.faq_back_a);
+        faqRow(g, R.string.faq_what_q, R.string.faq_what_a, R.string.faq_what_keys);
+        faqRow(g, R.string.faq_back_q, R.string.faq_back_a, R.string.faq_back_keys);
         TextView switchNow = chipButton(R.string.faq_back_button, showPicker);
         LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(WRAP, WRAP);
         sp.leftMargin = px(18);
         sp.bottomMargin = px(14);
         g.addView(switchNow, sp);
-        gestureRow(g, R.string.faq_remove_q, R.string.faq_remove_a);
-        gestureRow(g, R.string.safe_title, R.string.safe_body);
-        gestureRow(g, R.string.faq_warn_q, R.string.faq_warn_a);
+        faqRow(g, R.string.faq_remove_q, R.string.faq_remove_a, R.string.faq_remove_keys);
+        faqRow(g, R.string.safe_title, R.string.safe_body, R.string.faq_safe_keys);
+        faqRow(g, R.string.faq_warn_q, R.string.faq_warn_a, R.string.faq_warn_keys);
         gestureRow(g, R.string.faq_flip_q, R.string.top_status_cover);
         g = group(body, 0);
         actionRow(g, R.string.alphabet_title, R.string.alphabet_sub, new View.OnClickListener() {
@@ -2664,6 +2670,19 @@ public final class MainActivity extends Activity {
     private void refreshCounts() {
         if (learnedTitle != null) learnedTitle.setText(getString(R.string.aj_learned_row, learnedList().size()));
         if (shortcutsTitle != null) shortcutsTitle.setText(getString(R.string.aj_shortcuts_row, Prefs.shortcuts(this).size()));
+    }
+
+    /** Pregunta rapida de la Ayuda: como una fila de truco, con palabras extra para que el buscador la encuentre. */
+    private void faqRow(LinearLayout parent, int question, int answer, int keys) {
+        separator(parent);
+        LinearLayout col = column();
+        col.setPadding(px(18), px(12), px(18), px(12));
+        col.setMinimumHeight(px(56));
+        col.setGravity(Gravity.CENTER_VERTICAL);
+        col.addView(text(getString(question), 16, ink, false), block(0));
+        col.addView(text(getString(answer), 14, secondary, false), block(2));
+        parent.addView(col, block(0));
+        register(col, getString(question), getString(question) + " " + getString(answer) + " " + getString(keys));
     }
 
     private void gestureRow(LinearLayout parent, int gesture, int result) {

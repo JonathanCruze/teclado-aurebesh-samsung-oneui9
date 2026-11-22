@@ -345,6 +345,7 @@ final class EmojiTray extends LinearLayout {
         this.vibrate = vibrate;
         this.sound = sound;
         miniKb.applyPrefs(false, vibrate, false, true, theme.id, false, sound, 0.8f);
+        miniKb.setHintMode(Prefs.hintModeInt(getContext()) == 0 ? 0 : 1);   // la letra normal, como en el teclado (sin contar pulsaciones)
         miniKb.setHaptics(Prefs.vibrationLevel(getContext()));
         miniKb.setLongPressMs(Prefs.longPressMs(getContext()));
     }
@@ -363,6 +364,7 @@ final class EmojiTray extends LinearLayout {
         space.invalidate();
         delete.invalidate();
         miniKb.applyPrefs(false, vibrate, false, true, theme.id, false, sound, 0.8f);
+        miniKb.setHintMode(Prefs.hintModeInt(getContext()) == 0 ? 0 : 1);   // la letra normal, como en el teclado (sin contar pulsaciones)
         styleToneMenu();
         adapter.notifyDataSetChanged();
         resultAdapter.notifyDataSetChanged();
