@@ -87,6 +87,48 @@ aprender el alfabeto y una redactora de interfaces) revisaron todas las pantalla
   dibujan • y æ. Con esto, todo lo que el teclado español puede escribir tiene símbolo Aurebesh salvo el grado °, que se
   deja a propósito. Hoja de diseño con las alternativas en `promo/out/previa_comillas.png`.
 
+**Calidad de vida al escribir.** Cinco repasos del teclado (flujo y puntuación, gestos, tipos de campo, cinta de
+sugerencias y bandejas) buscaron fricciones de todos los días; cada propuesta pasó por un revisor escéptico antes de
+entrar. Nada de esto lleva interruptor nuevo: es como se espera que se comporte un teclado.
+- **Elegir una sugerencia ya no estorba a la puntuación.** La palabra elegida en la cinta deja un espacio automático,
+  como al deslizar: el signo que sigue se pega a ella (*mañana,* y no *mañana ,*), un espacio no lo duplica y dos
+  seguidos ponen el punto. En medio de un texto no añade un segundo espacio. Los cierres `) ] } » ”` y la comilla que
+  cierra también se pegan, y cierran la palabra con su corrección: *(tambien)* queda *(también)*.
+- **Mayúscula tras ¿ y ¡** al empezar frase (tras una coma, minúscula, como manda la ortografía). Tras `¿` la cinta
+  ofrece *Qué, Cómo, Cuándo*, y los interrogativos pegados al signo salen con su tilde: *¿como estas* → *¿Cómo estás*.
+- **Nombres propios y marcas con su mayúscula y sus tildes**: *juan* → *Juan*, *mexico* → *México*, *tiktok* →
+  *TikTok*, *cdmx* → *CDMX*. Unos 440 nombres de pila, apellidos, países, estados y ciudades de México, marcas y apps
+  (y unos 140 en inglés: días, meses, gentilicios, *I'm*), sin los que también son palabra común (*rosa, julio, chile,
+  tomas*). Borrar justo después devuelve la minúscula, y esa palabra ya no cambia.
+- **El corrector respeta lo que no es una errata.** Solo cambia lo que se acaba de teclear: ni lo pegado, ni lo que ya
+  estaba en el campo. Una corrección deshecha con borrar **no vuelve** (ni al poner otro signo ni al escribir la palabra
+  más tarde); si lo que querías era arreglarla a mano, sigue corrigiéndose. Un nombre escrito con mayúscula a propósito
+  a mitad de frase (*con Xola*, *en Tepito*) no se cambia por otra palabra. Tampoco se tocan los trozos de correos,
+  webs, menciones y etiquetas (*juan@gmail.com*, *tienda.com.mx*, *#parati*), las unidades tras una cifra (*2 hr*,
+  *16 mb*) ni las abreviaturas de chat (*av, esq, mtra, tb, bn, tqm*). Las palabras con gemela con tilde (*papa* y
+  *papá*, *seria* y *sería*) llevan chip para conservar lo escrito y, rechazadas en varios mensajes, quedan guardadas.
+- **Buscar, Enviar, Ir, Siguiente y Listo** ya no cambian la última palabra por otra justo al ejecutar la acción: solo
+  le ponen la tilde o su mayúscula. En campos de nombre, de dirección postal y con autocompletado propio, igual.
+- **Sugerencias desde la primera letra**, primero las que suelen seguir a la palabra anterior (*muchas g* → *gracias*,
+  *buenos d* → *días*) y con la mayúscula de lo que llevas escrito. También hay palabra siguiente después de una coma.
+  Con el campo vacío la cinta enseña sus iconos (emojis, portapapeles…) en vez de tres palabras fijas.
+- **La página de signos vuelve sola a las letras** tras un signo y un espacio o Intro, y cuando la app vacía el campo
+  al enviar el mensaje con su botón.
+- **Toques más seguros.** El dedo que rueda unos milímetros al levantarse sigue en su tecla (6 dp de margen entre
+  vecinas); Intro solo se ejecuta si el dedo bajó en ella (llegar desde el punto no envía el mensaje a medias); el
+  pulgar que resbala sobre el espacio sigue escribiendo un espacio (el gesto de cursor arranca a los 24 dp). Con dos
+  pulgares, mantener una tecla o Borrar ya no se pierde cuando el otro dedo se levanta, y el bloqueo de mayúsculas pide
+  dos toques seguidos de verdad.
+- **Mantener Intro abre los emojis** (lo recuerda una carita en la esquina de la tecla; no en contraseñas).
+- **Deslizar para escribir también en la barra de direcciones** del navegador y en buscadores marcados «sin
+  sugerencias», sin espacios ni mayúsculas de más en las direcciones. Al mantener `.com` el primer dominio es el del
+  país del teléfono (en México, `.mx` y `.com.mx`).
+- **Contraseñas**: fila de números siempre, aunque la fila superior elegida sea otra, y sin punto por doble espacio
+  (tampoco en correos ni direcciones web).
+- **Bandejas.** En la búsqueda de emojis, Intro es *Listo* y vuelve a las letras; los emojis se reparten en columnas
+  según el ancho (16 por fila en el Fold desplegado en vez de 8); el panel de edición tiene tecla de borrar; a una mano
+  hay un botón para volver al teclado completo bajo la flecha de cambiar de lado.
+
 ### Novedades de la 2.7.1
 Una revisión independiente de los menús de la 2.7 (más de un millón de menús abiertos en 17 100 combinaciones de ancho,
 idioma, fila superior, modo a una mano, teclado dividido y altura) encontró varios defectos, corregidos aquí:

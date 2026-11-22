@@ -1072,6 +1072,31 @@ public final class AurebeshKeyboardView extends View {
         return new String[]{"!"};
     }
 
+    /** Pais del telefono (no el idioma de la app): decide que dominios acompanan a ".com". */
+    private static String systemCountry() {
+        try {
+            return android.content.res.Resources.getSystem().getConfiguration().getLocales().get(0).getCountry();
+        } catch (RuntimeException e) {
+            return "";
+        }
+    }
+
+    /**
+     * Dominios al mantener ".com": siempre cuatro, y el primero (el que sale al soltar sin mover) es el del pais del
+     * telefono: ".mx" y ".com.mx" en Mexico, ".es" en Espana, ".de", ".at" o ".ch" en los de habla alemana. En cualquier
+     * otro pais, segun el idioma del teclado.
+     */
+    static String[] domainAlts(String language, String country) {
+        if ("MX".equals(country)) return new String[]{".mx", ".com.mx", ".org", ".net"};
+        if ("ES".equals(country)) return new String[]{".es", ".mx", ".org", ".net"};
+        if ("DE".equals(country)) return new String[]{".de", ".at", ".org", ".net"};
+        if ("AT".equals(country)) return new String[]{".at", ".de", ".org", ".net"};
+        if ("CH".equals(country)) return new String[]{".ch", ".de", ".org", ".net"};
+        if ("de".equals(language)) return new String[]{".de", ".at", ".org", ".net"};
+        if ("en".equals(language)) return new String[]{".org", ".net", ".edu", ".gov"};
+        return new String[]{".es", ".mx", ".org", ".net"};
+    }
+
     /**
      * Fila inferior: ?123/abc, coma, [globo], espacio, punto e intro. En campos de correo la coma pasa a ser @
      * y aparece una tecla .com (1,5 unidades) a costa del espacio; en direcciones web, / y .com.
@@ -1084,7 +1109,7 @@ public final class AurebeshKeyboardView extends View {
         else if (fieldVariant == FIELD_URL) r.add(sym("/", 1f, ",", "-", "_"));
         else r.add(sym(",", 1f, commaAlts()));
         Key dotCom = fieldVariant == FIELD_NONE ? null
-                : new Key(".com", null, ".com", new String[]{".es", ".mx", ".org", ".net"}, CODE_TEXT, 1.5f);
+                : new Key(".com", null, ".com", domainAlts(language, systemCountry()), CODE_TEXT, 1.5f);
         float space = 5f;
         if (languageSwitch) { r.add(special("", CODE_GLOBE, 1f)); space -= 1f; }
         if (split) {                                       // dos mitades de 5,5 unidades, como Samsung Keyboard en el Fold

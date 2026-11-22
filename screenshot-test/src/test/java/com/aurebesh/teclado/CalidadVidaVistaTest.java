@@ -388,4 +388,37 @@ public class CalidadVidaVistaTest {
         tap(kb, enter);
         assertEquals("el toque en intro sigue igual", "[enter]", rec.events.toString());
     }
+
+    /** Los dominios de ".com" siguen al pais del telefono: en Mexico, ".mx" bajo el dedo y ".com.mx" al lado. */
+    @Test
+    public void dominiosSegunElPais() {
+        assertEquals("[.mx, .com.mx, .org, .net]", java.util.Arrays.toString(AurebeshKeyboardView.domainAlts("es", "MX")));
+        assertEquals("[.es, .mx, .org, .net]", java.util.Arrays.toString(AurebeshKeyboardView.domainAlts("es", "ES")));
+        assertEquals("[.de, .at, .org, .net]", java.util.Arrays.toString(AurebeshKeyboardView.domainAlts("de", "DE")));
+        assertEquals("[.at, .de, .org, .net]", java.util.Arrays.toString(AurebeshKeyboardView.domainAlts("de", "AT")));
+        assertEquals("el pais manda sobre el idioma del teclado", "[.mx, .com.mx, .org, .net]",
+                java.util.Arrays.toString(AurebeshKeyboardView.domainAlts("en", "MX")));
+        assertEquals("[.org, .net, .edu, .gov]", java.util.Arrays.toString(AurebeshKeyboardView.domainAlts("en", "US")));
+        assertEquals("[.es, .mx, .org, .net]", java.util.Arrays.toString(AurebeshKeyboardView.domainAlts("es", "AR")));
+        assertEquals("[.de, .at, .org, .net]", java.util.Arrays.toString(AurebeshKeyboardView.domainAlts("de", "")));
+    }
+
+    @Test
+    @Config(sdk = 35, qualifiers = "es-rMX-w411dp-h914dp-xxhdpi")
+    public void enMexicoElPrimerDominioEsMx() {
+        AurebeshKeyboardView kb = view();
+        GestureTest.Recorder rec = new GestureTest.Recorder();
+        kb.setListener(rec);
+        kb.setFieldVariant(AurebeshKeyboardView.FIELD_EMAIL);
+        layout(kb, W);
+        AurebeshKeyboardView.Key com = kb.keyFor(".com");
+        down(kb, com);
+        idle(450);
+        java.util.List<String> shown = java.util.Arrays.asList(kb.popupOptions());   // en el orden en que se dibujan (en espejo junto al borde)
+        assertEquals(4, shown.size());
+        assertTrue(shown.toString(), shown.containsAll(java.util.Arrays.asList(".mx", ".com.mx", ".org", ".net")));
+        assertEquals(".mx bajo el dedo", ".mx", shown.get(kb.popupSelectedCell()));
+        up(kb, com);
+        assertEquals(".mx", rec.typed.toString());
+    }
 }
