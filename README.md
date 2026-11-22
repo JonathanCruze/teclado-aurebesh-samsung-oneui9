@@ -12,12 +12,12 @@
 
 <p align="center">
   <a href="https://github.com/JonathanCruze/teclado-aurebesh-samsung-oneui9/raw/main/releases/TecladoAurebesh.apk">
-    <img src="https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20%20DESCARGAR%20APK%20%E2%80%94%20Teclado%20Aurebesh%202.7.1-1B2838?style=for-the-badge&logoColor=white&labelColor=1B2838&color=7FD3F0" alt="Descargar APK">
+    <img src="https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20%20DESCARGAR%20APK%20%E2%80%94%20Teclado%20Aurebesh%202.8-1B2838?style=for-the-badge&logoColor=white&labelColor=1B2838&color=7FD3F0" alt="Descargar APK">
   </a>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/versi%C3%B3n-2.7.1-7FD3F0?style=flat-square" alt="versión 2.7.1">
+  <img src="https://img.shields.io/badge/versi%C3%B3n-2.8-7FD3F0?style=flat-square" alt="versión 2.8">
   <img src="https://img.shields.io/badge/Android-8.0%2B-3DDC84?style=flat-square" alt="Android 8+">
   <img src="https://img.shields.io/badge/Samsung-One%20UI%209.0-1428A0?style=flat-square" alt="Samsung One UI 9.0">
   <img src="https://img.shields.io/badge/sin%20anuncios-%E2%9C%93-2E7D32?style=flat-square" alt="sin anuncios">
@@ -57,7 +57,7 @@ Para actualizar, descarga el nuevo APK e instálalo encima: conserva tus ajustes
 > [releases/README.md](releases/README.md) para comprobar que el archivo es el publicado aquí. Instálala solo si la
 > descargaste de esta página.
 
-### Novedades de la 2.8 (en preparación: el APK publicado sigue siendo la 2.7.1)
+### Novedades de la 2.8
 Tres personas distintas (alguien que la instala por primera vez sin saber de tecnología, un aficionado que quiere
 aprender el alfabeto y una redactora de interfaces) revisaron todas las pantallas de la app; esto sale de ahí.
 - **Ponlo en 3 pasos.** La pantalla principal empieza con una guía: activar el teclado, elegirlo y probarlo, con el paso
@@ -106,14 +106,17 @@ entrar. Nada de esto lleva interruptor nuevo: es como se espera que se comporte 
   chile, tomas, armando, lucía, cuba*). Borrar justo después devuelve la minúscula, y esa palabra ya no cambia. Dentro
   de una dirección o un correo no se toca nada: *facebook.com* y *juan.perez@gmail.com* quedan como se teclean.
 - **El corrector respeta lo que no es una errata.** Solo cambia lo que se acaba de teclear: ni lo pegado, ni lo que ya
-  estaba en el campo. Una corrección deshecha con borrar **no vuelve** (ni al poner otro signo ni al escribir la palabra
-  más tarde); si lo que querías era arreglarla a mano, sigue corrigiéndose. Un nombre escrito con mayúscula a propósito
+  estaba en el campo. Una corrección deshecha con borrar **no vuelve en ese mensaje** (ni al poner otro signo ni al
+  repetir la palabra); en el siguiente se corrige otra vez, porque borrar también se pulsa por accidente, y si lo que
+  querías era arreglarla a mano sigue corrigiéndose. Con el chip entre comillas, que es a propósito, se respeta toda la
+  sesión (y una palabra desconocida queda aprendida). Un nombre escrito con mayúscula a propósito
   a mitad de frase (*con Xola*, *en Tepito*) no se cambia por otra palabra. Tampoco se tocan los trozos de correos,
   webs, menciones y etiquetas (*juan@gmail.com*, *tienda.com.mx*, *#parati*), las unidades tras una cifra (*2 hr*,
   *16 mb*) ni las abreviaturas de chat (*av, esq, mtra, tb, bn, ps, tqm*). Las palabras con gemela con tilde (*papa* y
   *papá*, *seria* y *sería*) llevan chip para conservar lo escrito y, rechazadas en varios mensajes, quedan guardadas.
 - **Buscar, Enviar, Ir, Siguiente y Listo** ya no cambian la última palabra por otra justo al ejecutar la acción: solo
-  le ponen la tilde o su mayúscula. En campos de nombre, de dirección postal y con autocompletado propio, igual.
+  le ponen la tilde (y la mayúscula de un nombre si el campo es de frases; en un campo de usuario o de código, ni eso).
+  En campos de nombre, de dirección postal y con autocompletado propio, igual: solo tildes.
 - **Sugerencias desde la primera letra**, primero las que suelen seguir a la palabra anterior (*muchas g* → *gracias*,
   *buenos d* → *días*) y con la mayúscula de lo que llevas escrito. También hay palabra siguiente después de una coma.
   Con el campo vacío la cinta enseña sus iconos (emojis, portapapeles…) en vez de tres palabras fijas.
@@ -130,9 +133,20 @@ entrar. Nada de esto lleva interruptor nuevo: es como se espera que se comporte 
   país del teléfono (en México, `.mx` y `.com.mx`).
 - **Contraseñas**: fila de números siempre, aunque la fila superior elegida sea otra, y sin punto por doble espacio
   (tampoco en correos ni direcciones web).
-- **Bandejas.** En la búsqueda de emojis, Intro es *Listo* y vuelve a las letras; los emojis se reparten en columnas
-  según el ancho (16 por fila en el Fold desplegado en vez de 8); el panel de edición tiene tecla de borrar; a una mano
-  hay un botón para volver al teclado completo bajo la flecha de cambiar de lado.
+- **Bandejas.** En la búsqueda de emojis, Intro es *Listo* y vuelve a las letras, y su teclado lleva la letra normal en
+  las teclas si el principal la lleva (también el del asistente); los emojis se reparten en columnas según el ancho (16
+  por fila en el Fold desplegado en vez de 8); el panel de edición tiene tecla de borrar; a una mano hay un botón para
+  volver al teclado completo bajo la flecha de cambiar de lado.
+- **Al actualizar desde la 2.7.** Los nombres que el teclado había aprendido solo, en minúsculas (*guadalajara, tiktok,
+  lalo*), salen del diccionario personal para que reciban su mayúscula; todo lo demás aprendido se conserva.
+
+**Revisada antes de publicar.** Cuatro revisores independientes, cada uno en una copia aislada del proyecto, buscaron
+fallos reproduciéndolos con una prueba: frases correctas tecleadas tal cual para ver cuáles cambiaba el teclado, un
+comparador automático del toque contra la 2.7 (más de 12 000 secuencias al azar con uno y dos dedos, en teléfono, tapa
+del Flip y Fold), 29 000 operaciones de texto al azar, la lista de nombres leída entrada por entrada y la app pantalla
+por pantalla. Salieron 23 hallazgos (dos graves: chips que dejaban de responder tras tocar dentro de una palabra, y una
+errata que se quedaba sin corregir y se aprendía sola tras un borrado accidental); todos están corregidos y cada uno
+tiene su prueba. La batería completa son 302 pruebas.
 
 ### Novedades de la 2.7.1
 Una revisión independiente de los menús de la 2.7 (más de un millón de menús abiertos en 17 100 combinaciones de ancho,

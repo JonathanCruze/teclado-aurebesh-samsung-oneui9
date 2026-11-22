@@ -140,6 +140,7 @@ public class AurebeshIME extends InputMethodService
     // Cursor dentro de una palabra ya escrita: sus sugerencias (la gemela con tilde, la correccion) la sustituyen entera
     private String midWord;                       // la palabra bajo el cursor, o null
     private int midLeft, midRight;                // letras a cada lado del cursor
+    private List<String> midOffered;              // los chips que se ofrecieron para ella: solo esos la sustituyen
 
     // Portapapeles y chip "Pegar" de lo recien copiado
     private static final long PASTE_FRESH_MS = 2 * 60 * 1000L;
@@ -1245,6 +1246,7 @@ public class AurebeshIME extends InputMethodService
         suggestSeq++;
         correctionAnchor = null;
         midWord = null;
+        midOffered = null;
         clearGlide();
         if (view != null) view.setSuggestions(null, null);
     }
@@ -1291,6 +1293,7 @@ public class AurebeshIME extends InputMethodService
                             }
                             String own = cased(whole, whole);                         // "juan" tocado por dentro: "Juan"
                             if (!own.equals(whole) && !chips.contains(own)) chips.add(0, own);
+                            midOffered = chips;
                             view.setSuggestions(chips.isEmpty() ? null : chips, null);
                         }
                     });
@@ -1955,7 +1958,7 @@ public class AurebeshIME extends InputMethodService
         if (midWord != null) {                          // cursor dentro de una palabra: el chip la sustituye entera
             CharSequence b = ic.getTextBeforeCursor(midLeft, 0), a = ic.getTextAfterCursor(midRight, 0);
             boolean same = b != null && a != null && (b.toString() + a).equals(midWord);
-            if (same && !AurebeshKeyboardView.isEmoji(word) && !word.startsWith("\"")) {
+            if (same && midOffered != null && midOffered.contains(word)) {   // solo un chip ofrecido para esta palabra
                 ic.beginBatchEdit();
                 ic.deleteSurroundingText(midLeft, midRight);
                 ic.commitText(word, 1);                 // sin espacio: lo de alrededor ya estaba escrito

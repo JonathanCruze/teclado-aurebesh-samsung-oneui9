@@ -52,6 +52,8 @@ public class RevisionServicioTest extends ArnesServicio {
         moveTo(7);
         assertEquals("est\u00e1", chips().get(0));
         assertFalse("nada de la otra palabra: " + chips(), chips().toString().contains("neces"));
+        assertEquals("un chip que no es de esta palabra no la toca", "hola esta noche y nesecit", chip("necesito"));
+        moveTo(8);
         assertEquals("hola est\u00e1 noche y nesecit", chip("est\u00e1"));
     }
 

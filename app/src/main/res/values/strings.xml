@@ -8,7 +8,7 @@
     <string name="lang_es" translatable="false">Español</string>
     <string name="lang_en" translatable="false">English</string>
     <string name="lang_de" translatable="false">Deutsch</string>
-    <string name="version" translatable="false">2.7.1</string>
+    <string name="version" translatable="false">2.8</string>
 
     <string name="tagline">The keys show Aurebesh, the Star Wars alphabet. Your messages go out in normal letters: whoever gets them won\'t notice a thing.</string>
 
