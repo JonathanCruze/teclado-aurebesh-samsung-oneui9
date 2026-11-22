@@ -101,15 +101,16 @@ entrar. Nada de esto lleva interruptor nuevo: es como se espera que se comporte 
   dentro de una palabra ya escrita** la cinta ofrece su gemela y sus correcciones, que la sustituyen entera sin
   espacios de más.
 - **Nombres propios y marcas con su mayúscula y sus tildes**: *juan* → *Juan*, *mexico* → *México*, *tiktok* →
-  *TikTok*, *cdmx* → *CDMX*. Unos 440 nombres de pila, apellidos, países, estados y ciudades de México, marcas y apps
-  (y unos 140 en inglés: días, meses, gentilicios, *I'm*), sin los que también son palabra común (*rosa, julio, chile,
-  tomas*). Borrar justo después devuelve la minúscula, y esa palabra ya no cambia.
+  *TikTok*, *cdmx* → *CDMX*. Más de 400 nombres de pila, apellidos, países, estados y ciudades de México, marcas y
+  apps (y unos 140 en inglés: días, meses, gentilicios, *I'm*), sin los que también son palabra común (*rosa, julio,
+  chile, tomas, armando, lucía, cuba*). Borrar justo después devuelve la minúscula, y esa palabra ya no cambia. Dentro
+  de una dirección o un correo no se toca nada: *facebook.com* y *juan.perez@gmail.com* quedan como se teclean.
 - **El corrector respeta lo que no es una errata.** Solo cambia lo que se acaba de teclear: ni lo pegado, ni lo que ya
   estaba en el campo. Una corrección deshecha con borrar **no vuelve** (ni al poner otro signo ni al escribir la palabra
   más tarde); si lo que querías era arreglarla a mano, sigue corrigiéndose. Un nombre escrito con mayúscula a propósito
   a mitad de frase (*con Xola*, *en Tepito*) no se cambia por otra palabra. Tampoco se tocan los trozos de correos,
   webs, menciones y etiquetas (*juan@gmail.com*, *tienda.com.mx*, *#parati*), las unidades tras una cifra (*2 hr*,
-  *16 mb*) ni las abreviaturas de chat (*av, esq, mtra, tb, bn, tqm*). Las palabras con gemela con tilde (*papa* y
+  *16 mb*) ni las abreviaturas de chat (*av, esq, mtra, tb, bn, ps, tqm*). Las palabras con gemela con tilde (*papa* y
   *papá*, *seria* y *sería*) llevan chip para conservar lo escrito y, rechazadas en varios mensajes, quedan guardadas.
 - **Buscar, Enviar, Ir, Siguiente y Listo** ya no cambian la última palabra por otra justo al ejecutar la acción: solo
   le ponen la tilde o su mayúscula. En campos de nombre, de dirección postal y con autocompletado propio, igual.
