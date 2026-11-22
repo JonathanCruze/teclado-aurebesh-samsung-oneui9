@@ -388,14 +388,14 @@ public class CalidadVidaTest {
     /** Y no vuelve tampoco al escribir la misma palabra mas adelante; la correccion sigue a un toque en la cinta. */
     @Test
     public void laPalabraRechazadaNoSeCambiaOtraVez() throws Exception {
-        assertEquals("con malo ", typed("con lalo "));
-        assertEquals("con lalo ", delete());
+        assertEquals("con sola ", typed("con xola "));
+        assertEquals("con xola ", delete());
         more("y ");
-        assertEquals("con lalo y lalo ", more("lalo "));
-        typed("lalo");
+        assertEquals("con xola y xola ", more("xola "));
+        typed("xola");
         assertNull("sin pastilla resaltada", highlighted());
-        assertTrue("la correccion sigue en la cinta: " + chips(), chips().contains("malo"));
-        assertEquals("\"lalo\"", chips().get(0));
+        assertTrue("la correccion sigue en la cinta: " + chips(), chips().contains("sola"));
+        assertEquals("\"xola\"", chips().get(0));
 
         // Una palabra de la lista con gemela con tilde: rechazada una vez, se respeta; a la tercera (en mensajes
         // distintos) queda guardada, y la gemela sigue a un toque
@@ -421,23 +421,23 @@ public class CalidadVidaTest {
         assertEquals("que ", more("ue "));
         assertEquals("la errata se sigue corrigiendo", "que que ", more("qeu "));
 
-        assertEquals("con malo ", typed("con lalo "));
+        assertEquals("con sola ", typed("con xola "));
         delete();
         more("y ");
-        more("lalo");
-        assertEquals("con lalo y malo ", chip("malo"));
-        assertEquals("perdonada: se corrige otra vez", "con lalo y malo malo ", more("lalo "));
+        more("xola");
+        assertEquals("con xola y sola ", chip("sola"));
+        assertEquals("perdonada: se corrige otra vez", "con xola y sola sola ", more("xola "));
     }
 
     /** Enviar el mensaje (o cambiar de campo) con la palabra restaurada intacta tambien confirma el rechazo. */
     @Test
     public void enviarConLaPalabraRestauradaConfirmaElRechazo() throws Exception {
         newField(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES, EditorInfo.IME_ACTION_SEND, "");
-        assertEquals("con malo ", more("con lalo "));
-        assertEquals("con lalo ", delete());
+        assertEquals("con sola ", more("con xola "));
+        assertEquals("con xola ", delete());
         ime.onEnter();
         settle();
-        assertEquals("con lalo ", typed("con lalo "));
+        assertEquals("con xola ", typed("con xola "));
     }
 
     @Test
@@ -481,19 +481,19 @@ public class CalidadVidaTest {
     /** Un nombre escrito con mayuscula a proposito a mitad de frase no se cambia por otra palabra. */
     @Test
     public void losNombresConMayusculaAMitadDeFraseSeRespetan() throws Exception {
-        assertEquals("ya voy con Lalo ", typed("ya voy con Lalo "));
+        assertEquals("ya voy con Xola ", typed("ya voy con Xola "));
         assertEquals("estoy en Tepito ", typed("estoy en Tepito "));
-        typed("con Lalo");
+        typed("con Xola");
         assertNull(highlighted());
-        assertEquals("\"Lalo\"", chips().get(0));
-        assertTrue("la correccion, a un toque: " + chips(), chips().contains("Malo"));
+        assertEquals("\"Xola\"", chips().get(0));
+        assertTrue("la correccion, a un toque: " + chips(), chips().contains("Sola"));
 
         assertEquals("las tildes si se ponen", "vivo en M\u00e9xico ", typed("vivo en Mexico "));
-        assertEquals("a inicio de frase la mayuscula es del teclado: se corrige", "Malo ", typed("Lalo "));
+        assertEquals("a inicio de frase la mayuscula es del teclado: se corrige", "Sola ", typed("Xola "));
         assertEquals("tambien dentro de comillas a inicio de frase", "Hola. \"Que ", typed("Hola. \"Qeu "));
         assertEquals("y tras la apertura, ya con su tilde", "\u00bfQu\u00e9 ", typed("\u00bfQeu "));
-        assertEquals("tras una coma la mayuscula es a proposito", "Hola, Lalo ", typed("Hola, Lalo "));
-        assertEquals("y en minusculas tambien", "con malo ", typed("con lalo "));
+        assertEquals("tras una coma la mayuscula es a proposito", "Hola, Xola ", typed("Hola, Xola "));
+        assertEquals("y en minusculas tambien", "con sola ", typed("con xola "));
         Prefs.addLearnedWord(app, "platicamos");
         settle();
         assertEquals("hacia una palabra del usuario si se aplica", "ayer Platicamos ", typed("ayer Platicmos "));
@@ -506,10 +506,10 @@ public class CalidadVidaTest {
         assertEquals("tienda.com.mx ", typed("tienda.com.mx "));
         assertEquals("#parati ", typed("#parati "));
         assertEquals("16mb ", typed("16mb "));
-        assertEquals("@lalo ", typed("@lalo "));
+        assertEquals("@xola ", typed("@xola "));
         assertEquals("los puntos suspensivos no cuentan", "pues...tambi\u00e9n ", typed("pues...tambien "));
         assertEquals("ni el punto tras un espacio", "ya. tambi\u00e9n ", typed("ya. tambien "));
-        typed("juan@lalo");
+        typed("juan@xola");
         assertNull(highlighted());
 
         // Unidades: tras una cifra son abreviaturas; sueltas, la errata de siempre
@@ -554,7 +554,7 @@ public class CalidadVidaTest {
         more("www.");
         ime.onGlide("google", java.util.Arrays.asList("google"));
         settle();
-        assertEquals("pegada al punto y sin mayuscula", "www.google ", text.toString());
+        assertEquals("pegada al punto y sin mayuscula", "www.google ", text.toString());   // ni la de la marca
         ime.onText(".com");
         settle();
         assertEquals("www.google.com", text.toString());
@@ -590,8 +590,7 @@ public class CalidadVidaTest {
         assertEquals("en la esq ", typed("en la esq "));
         assertEquals("yo tb ", typed("yo tb "));
         assertEquals("todo bn ", typed("todo bn "));
-        assertEquals("mi gmail ", typed("mi gmail "));
-        assertEquals("en tiktok ", typed("en tiktok "));
+        assertEquals("tu whats ", typed("tu whats "));
         assertEquals("la mtra ", typed("la mtra "));
         Dictionary es = Dictionary.get(app, "es");
         assertTrue(es.suggest("mx").known);
@@ -691,9 +690,117 @@ public class CalidadVidaTest {
         assertEquals("También ", more(" "));
 
         typed("hol");
+        Dictionary es = Dictionary.get(app, "es");
         for (String s : chips()) {
             if (s.startsWith("\"") || AurebeshKeyboardView.isEmoji(s)) continue;
+            if (es.canonical(s.toLowerCase(java.util.Locale.ROOT)) != null) continue;      // un nombre propio lleva la suya
             assertTrue("en minuscula: " + s, Character.isLowerCase(s.charAt(0)));
+        }
+    }
+
+    // ------------------------------------------------------------------ nombres propios y marcas
+
+    /** Los nombres propios y las marcas salen con su mayuscula y sus tildes sin tocar la tecla de mayusculas. */
+    @Test
+    public void nombresPropiosYMarcasConSuCaja() throws Exception {
+        assertEquals("vi a Juan en M\u00e9xico ", typed("vi a juan en mexico "));
+        assertEquals("lo vi en TikTok ", typed("lo vi en tiktok "));
+        assertEquals("con Ram\u00f3n y Sof\u00eda ", typed("con ramon y sofia "));
+        assertEquals("por WhatsApp, ", typed("por whatsapp, "));
+        assertEquals("vivo en la CDMX ", typed("vivo en la cdmx "));
+        assertEquals("Tiktok a medias tambien", "en TikTok ", typed("en Tiktok "));
+
+        // Las que tambien son palabra comun no se tocan
+        assertEquals("la rosa y el chile ", typed("la rosa y el chile "));
+        assertEquals("tomas agua en julio ", typed("tomas agua en julio "));
+        assertEquals("pero con su tilde si es el nombre", "con Tom\u00e1s ", typed("con tom\u00e1s "));
+
+        // En la cinta: lo escrito entre comillas y la forma con su caja, resaltada
+        typed("vi a juan");
+        assertEquals("\"juan\"", chips().get(0));
+        assertEquals("Juan", chips().get(1));
+        assertEquals("Juan", highlighted());
+
+        // Dentro de un correo, una etiqueta o una mencion no se cambia nada
+        assertEquals("juan@gmail.com ", typed("juan@gmail.com "));
+        assertEquals("#mexico ", typed("#mexico "));
+        assertEquals("www.facebook.com ", typed("www.facebook.com "));
+
+        // Al deslizar y al elegir en la cinta tambien
+        newField();
+        ime.onGlide("juan", java.util.Arrays.asList("juan", "cuan"));
+        settle();
+        assertEquals("Juan ", text.toString());
+        typed("guadala");
+        assertTrue("chips: " + chips(), chips().contains("Guadalajara"));
+        assertEquals("Guadalajara ", chip("Guadalajara"));
+
+        // Buscar o enviar tambien le pone su caja (son las mismas letras)
+        newField(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES, EditorInfo.IME_ACTION_SEARCH, "");
+        more("tacos en guadalajara");
+        ime.onEnter();
+        settle();
+        assertEquals("tacos en Guadalajara", text.toString());
+    }
+
+    /** Borrar justo despues devuelve la minuscula y esa palabra ya no cambia; sin la correccion automatica, solo el chip. */
+    @Test
+    public void laCajaDeLosNombresSeDeshaceYSeApaga() throws Exception {
+        assertEquals("vi a Juan ", typed("vi a juan "));
+        assertEquals("vi a juan ", delete());
+        assertEquals("vi a juan y juan ", more("y juan "));
+
+        Prefs.get(app).edit().putBoolean(Prefs.AUTO_REPLACE, false).apply();
+        settle();
+        typed("vi a pedro");
+        assertTrue("chips: " + chips(), chips().contains("Pedro"));
+        assertEquals("vi a pedro ", more(" "));
+        Prefs.get(app).edit().remove(Prefs.AUTO_REPLACE).apply();
+        settle();
+
+        // Guardada por el usuario en minusculas: se respeta
+        Prefs.addLearnedWord(app, "pedro");
+        settle();
+        assertEquals("vi a pedro ", typed("vi a pedro "));
+        Prefs.removeLearnedWord(app, "pedro");
+        settle();
+    }
+
+    /** La lista de nombres propios: sin repetidos, sin palabras comunes ambiguas y sin entradas del lexico Star Wars. */
+    @Test
+    public void laListaDeNombresPropiosEstaLimpia() throws Exception {
+        Dictionary es = Dictionary.get(app, "es"), en = Dictionary.get(app, "en"), de = Dictionary.get(app, "de");
+        boolean sw = es.starWars();
+        es.setStarWars(false);
+        en.setStarWars(false);
+        try {
+            assertTrue("es: " + es.properCount(), es.properCount() > 400);
+            assertTrue("en: " + en.properCount(), en.properCount() > 100);
+            assertEquals("en aleman no hay lista", 0, de.properCount());
+            String[] ambiguas = ("rosa luz angel julio marco china chile tabasco torres flores reyes cruz guerrero hidalgo puebla lima"
+                    + " victoria gloria leon salvador domingo franco norma dolores esperanza pilar alma blanca clara dulce estrella"
+                    + " perla consuelo margarita linda paz rosario ecuador roma sonora argentina tomas cesar memo").split(" ");
+            for (String w : ambiguas) assertNull(w + " es tambien palabra comun", es.canonical(w));
+            for (String w : "may march polish turkey apple york".split(" ")) assertNull(w, en.canonical(w));
+            for (String w : "anakin leia luke coruscant".split(" ")) assertNull("del lexico, apagado: " + w, es.canonical(w));
+            java.util.Set<String> seen = new java.util.HashSet<>();
+            java.io.BufferedReader r = new java.io.BufferedReader(new java.io.InputStreamReader(
+                    app.getResources().openRawResource(R.raw.propios_es), "UTF-8"));
+            String line;
+            while ((line = r.readLine()) != null) {
+                line = line.trim();
+                if (line.isEmpty() || line.startsWith("#")) continue;
+                String form = line.startsWith("=") ? line.substring(1) : line;
+                assertTrue("repetida: " + form, seen.add(form.toLowerCase(java.util.Locale.ROOT)));
+                assertEquals(form, es.canonical(form.toLowerCase(java.util.Locale.ROOT)));
+            }
+            r.close();
+            assertEquals("Monday", en.canonical("monday"));
+            assertEquals("I'm", en.canonical("i'm"));
+            assertEquals("iPhone", en.canonical("iphone"));
+        } finally {
+            es.setStarWars(sw);
+            en.setStarWars(sw);
         }
     }
 

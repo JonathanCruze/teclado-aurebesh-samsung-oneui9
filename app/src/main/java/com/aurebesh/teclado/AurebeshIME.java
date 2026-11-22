@@ -996,8 +996,15 @@ public class AurebeshIME extends InputMethodService
         computedWord = word;
         pendingCorrection = r.correction;
         if (r.known && r.correction == null) {           // "¿que" -> "¿qué": la palabra existe, pero ahi lleva tilde
+            String lower = word.toLowerCase(Locale.ROOT);
             pendingCorrection = interrogative(word);
-            if (pendingCorrection != null && rejected.contains("\u00bf" + word.toLowerCase(Locale.ROOT))) pendingCorrection = null;
+            if (pendingCorrection != null && rejected.contains("\u00bf" + lower)) pendingCorrection = null;
+            if (pendingCorrection == null && !looksLikeAcronym(word)) {
+                // Nombre propio, marca o entrada del lexico escrita sin su caja: "juan" -> "Juan", "tiktok" -> "TikTok"
+                String form = cased(word, word);
+                InputConnection ic = getCurrentInputConnection();
+                if (!form.equals(word) && !rejected.contains(lower) && ic != null && !gluedToAddress(ic, word)) pendingCorrection = form;
+            }
             return;
         }
         if (pendingCorrection != null && holdsBack(word, pendingCorrection)) {
@@ -1136,7 +1143,7 @@ public class AurebeshIME extends InputMethodService
     private void keepWord(String w) {
         if (!mayLearn() || dict == null || !Learning.wellFormed(w)) return;
         String lw = w.toLowerCase(Locale.ROOT);
-        if (!dict.inList(lw) || dict.isPersonal(lw)) return;
+        if (!(dict.inList(lw) || dict.properForm(lw) != null) || dict.isPersonal(lw)) return;
         Prefs.addLearnedWord(this, lw);
         dict.setPersonal(Prefs.learnedWords(this));
     }
@@ -1232,7 +1239,7 @@ public class AurebeshIME extends InputMethodService
     public void onGlide(String best, List<String> alternatives) {
         InputConnection ic = getCurrentInputConnection();
         if (ic == null || view == null || best == null || best.isEmpty()) return;
-        if (!looksLikeAcronym(best)) {                   // lexico Star Wars: con su forma canonica (salvo en mayusculas)
+        if (!looksLikeAcronym(best) && !uriField) {      // nombres propios y lexico Star Wars: con su caja (no en una direccion web)
             String canon = canonicalOf(best);
             if (canon != null) best = canon;
         }
@@ -1398,7 +1405,8 @@ public class AurebeshIME extends InputMethodService
             undoneWord = c[0];
             if (!asked && mayLearn()) {
                 if (learning.note(dict, c[0], Prefs.learnUses(this), true)) learnWord(c[0]);
-                else if (dict != null && dict.inList(key) && learning.noteKept(c[0], Prefs.learnUses(this))) keepWord(c[0]);
+                else if (dict != null && (dict.inList(key) || dict.properForm(key) != null)
+                        && learning.noteKept(c[0], Prefs.learnUses(this))) keepWord(c[0]);
             }
         }
         return true;
@@ -1809,7 +1817,8 @@ public class AurebeshIME extends InputMethodService
                     if (!asked) {
                         learnWord(cur);                 // desconocida: al diccionario personal, en el acto
                         // de la lista ("papa" por "papá"): se guarda cuando el rechazo se repite en mensajes distintos
-                        if (dict != null && mayLearn() && dict.inList(cur.toLowerCase(Locale.ROOT))
+                        String lw = cur.toLowerCase(Locale.ROOT);
+                        if (dict != null && mayLearn() && (dict.inList(lw) || dict.properForm(lw) != null)
                                 && learning.noteKept(cur, Prefs.learnUses(this))) keepWord(cur);
                     }
                 }

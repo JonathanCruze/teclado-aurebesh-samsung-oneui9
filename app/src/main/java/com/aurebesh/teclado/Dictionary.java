@@ -183,7 +183,7 @@ final class Dictionary {
      */
     private static final HashSet<String> SHORT_FORMS = new HashSet<>(Arrays.asList(
             "av", "esq", "mtro", "mtra", "profr", "profra", "lic", "ing", "mx", "cdmx",
-            "tb", "tmb", "bn", "xq", "pq", "tqm", "ntp", "xd", "grax", "fb", "ig", "dm", "gmail", "tiktok", "whats"));
+            "tb", "tmb", "bn", "xq", "pq", "tqm", "ntp", "xd", "grax", "fb", "ig", "dm", "whats"));
     // Fuera a proposito: "yt" (desliz corriente de "y", con la letra vecina), "pza" (letras bailadas de "paz") y las
     // unidades ("hr" es tambien el desliz de "he"): esas solo se respetan tras una cifra, y eso lo decide el teclado
 
@@ -289,6 +289,9 @@ final class Dictionary {
     private final HashMap<String, String> swCanon = new HashMap<>();     // minusculas -> forma canonica ("coruscant" -> "Coruscant")
     private final HashMap<String, String> swPlain = new HashMap<>();     // sin tildes -> entrada en minusculas ("padme" -> "padmé")
     private final String[] swWords;                                      // entradas en minusculas, en el orden del archivo
+    // Nombres propios y marcas del idioma (res/raw/propios_*.txt): minusculas, y sin tildes si no chocan con otra palabra,
+    // -> forma con su caja ("juan" -> "Juan", "mexico" -> "México", "tiktok" -> "TikTok"). No dependen del lexico Star Wars.
+    private final HashMap<String, String> proper = new HashMap<>();
     private final String[] swFolded;                                     // las mismas en la forma de comparacion ({@link #fold})
     /**
      * Entradas que en minusculas serian un error evidente de una palabra frecuente de este idioma ({@link #SW_CASE_LIMIT}):
@@ -401,6 +404,26 @@ final class Dictionary {
             }
         } finally {
             r.close();
+        }
+        int properRes = "en".equals(lang) ? R.raw.propios_en : de ? 0 : R.raw.propios_es;   // en aleman todo sustantivo va en mayuscula
+        if (properRes != 0) {
+            r = new BufferedReader(new InputStreamReader(c.getResources().openRawResource(properRes), "UTF-8"));
+            try {
+                String line;
+                while ((line = r.readLine()) != null) {
+                    String w = line.trim();
+                    if (w.isEmpty() || w.startsWith("#")) continue;
+                    boolean exact = w.startsWith("=");          // solo con sus tildes: sin ellas es otra palabra ("tomas")
+                    if (exact) w = w.substring(1);
+                    String lower = w.toLowerCase(Locale.ROOT);
+                    if (swCanon.containsKey(lower)) continue;   // el lexico manda sobre sus entradas (y se puede apagar)
+                    proper.put(lower, w);
+                    String plain = fold(lower);
+                    if (!exact && !plain.equals(lower) && !proper.containsKey(plain) && !swCanon.containsKey(plain)) proper.put(plain, w);
+                }
+            } finally {
+                r.close();
+            }
         }
         swWords = saga.toArray(new String[0]);
         swFolded = new String[swWords.length];
@@ -609,11 +632,25 @@ final class Dictionary {
      * espanol tambien "leia", que es "leía" sin tilde): esas no cambian de forma.
      */
     String canonical(String lower) {
-        if (!starWars || lower == null) return null;
-        String c = swCanon.get(lower);
-        if (c == null || c.equals(lower) || ordinary(lower)) return null;
-        return c;
+        if (lower == null) return null;
+        if (starWars) {
+            String c = swCanon.get(lower);
+            if (c != null && !c.equals(lower) && !ordinary(lower)) return c;
+        }
+        return properForm(lower);
     }
+
+    /**
+     * Nombre propio o marca con su caja y sus tildes ("juan" -> "Juan", "mexico" -> "México", "tiktok" -> "TikTok"), o
+     * null. Una que el usuario guardo en su diccionario personal (rechazo la mayuscula varias veces) ya no cuenta.
+     */
+    String properForm(String lower) {
+        if (lower == null || personal.contains(lower)) return null;
+        return proper.get(lower);
+    }
+
+    /** Numero de formas propias cargadas para este idioma (para pruebas). */
+    int properCount() { return proper.size(); }
 
     /**
      * Palabra normal del idioma: esta en su diccionario (y no es uno de los nombres de {@link #SW_NAMES}) o es la
@@ -727,7 +764,7 @@ final class Dictionary {
 
     /** Palabra del idioma, aprendida o del lexico Star Wars activo (estas, aunque exijan su caja: no se aprenden). */
     boolean contains(String w) {
-        return rankOf(w) >= 0 || personal.contains(w) || lexicon(w);
+        return rankOf(w) >= 0 || personal.contains(w) || lexicon(w) || proper.containsKey(w);
     }
 
     /** Entrada del lexico Star Wars (en minusculas), este o no activo: esas no se aprenden como palabras del usuario. */
@@ -951,7 +988,7 @@ final class Dictionary {
                 return res;
             }
             if (w.indexOf('\'') >= 0) {              // "don't" se respeta tal cual
-                res.known = rankOf(w.replace("'", "")) >= 0;
+                res.known = rankOf(w.replace("'", "")) >= 0 || proper.containsKey(w);   // "i'm": conocida, y el teclado le pone la I
                 return res;
             }
         }
@@ -968,7 +1005,8 @@ final class Dictionary {
         }
         boolean inLexicon = swKnown(typed, w);             // del lexico Star Wars, si esta activo
         int own = rankOf(w);
-        boolean shortForm = spanish && SHORT_FORMS.contains(w);   // "av", "hr", "tb": se respeta tal cual
+        // "av", "tb" o un nombre propio que la lista no trae ("tiktok", "rappi"): se respeta tal cual; la caja la pone el teclado
+        boolean shortForm = (spanish && SHORT_FORMS.contains(w)) || (!learned && proper.containsKey(w));
         res.known = own >= 0 || learned || inLexicon || shortForm;
         if (spanish && !res.known) {                       // "porfavor", "talvez": dos palabras escritas como una
             String fixed = FIXED.get(w);
@@ -1062,6 +1100,19 @@ final class Dictionary {
                 else if (b == null || s.length() < b.length()) b = s;
             }
             if (a != null) put(cand, a, PERSONAL_SCORE + pen + 0.1 * (a.length() - n));   // cuantas menos letras falten, mejor
+            if (b != null) put(cand, b, PERSONAL_SCORE + pen + 0.1 * (b.length() - n));
+        }
+        if (n >= 3 && !proper.isEmpty()) {               // nombres propios que empiezan asi, se teclee o no su tilde ("mexi" -> México):
+            double pen = n >= 5 ? 0.5 : n == 4 ? 1.2 : 2.0;   // como mucho dos, los mas cortos, y con prefijos cortos por detras
+            String fw = fold(w), a = null, b = null;
+            for (Map.Entry<String, String> e : proper.entrySet()) {
+                String key = e.getKey(), s = e.getValue().toLowerCase(Locale.ROOT);
+                if (!key.startsWith(fw) || key.length() == n || s.equals(w) || personal.contains(s)) continue;
+                if (s.equals(a) || s.equals(b)) continue;
+                if (a == null || s.length() < a.length()) { b = a; a = s; }
+                else if (b == null || s.length() < b.length()) b = s;
+            }
+            if (a != null) put(cand, a, PERSONAL_SCORE + pen + 0.1 * (a.length() - n));
             if (b != null) put(cand, b, PERSONAL_SCORE + pen + 0.1 * (b.length() - n));
         }
         fuzzyCompletions(w, cand);
